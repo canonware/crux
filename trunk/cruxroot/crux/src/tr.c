@@ -2828,11 +2828,19 @@ tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 		ring_b_other = tr_p_ring_other_get(a_tr, ring_b);
 		ps_b_other = a_tr->trrs[ring_b_other].ps;
 
-		/* Calculate views and recurse. */
+		/* Calculate views and edges, and recurse. */
 		tr_p_mp_pscore(a_tr, ps_a, a_ps, ps_b_other);
+		tr_p_mp_pscore(a_tr,
+			       a_tr->tres[tr_p_ring_edge_get(a_tr, ring_a)].ps,
+			       ps_a,
+			       a_tr->trrs[ring_a_other].ps);
 		tr_p_mp_views_recurse(a_tr, ring_a_other, ps_a, a_bisect);
 
 		tr_p_mp_pscore(a_tr, ps_b, a_ps, ps_a_other);
+		tr_p_mp_pscore(a_tr,
+			       a_tr->tres[tr_p_ring_edge_get(a_tr, ring_b)].ps,
+			       ps_b,
+			       a_tr->trrs[ring_b_other].ps);
 		tr_p_mp_views_recurse(a_tr, ring_b_other, ps_b, a_bisect);
 
 		break;
@@ -2861,7 +2869,6 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
     {
 	cw_tr_ring_t ring_a, ring_b;
 	cw_tr_ps_t *ps, *ps_a, *ps_b;
-	uint32_t i;
 
 	ring_a = tr_p_edge_ring_get(a_tr, a_edges[0], 0);
 	ring_b = tr_p_edge_ring_get(a_tr, a_edges[0], 1);
@@ -2890,43 +2897,43 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 	}
 
 	/* Perform the pre-order traversal, calculating the remaining views that
-	 * were not calculated by the above post-order traversal.  Take care to
+	 * were not calculated by the above post-order traversal, as well as
+	 * calculating the state sets for the edges along the way.  Take care to
 	 * pass the appropriate ps's. */
 	tr_p_mp_views_recurse(a_tr, ring_a, ps_b, a_bisect);
 	tr_p_mp_views_recurse(a_tr, ring_b, ps_a, a_bisect);
 
-	/* Calculate per-edge partial scores. */
-	for (i = 1; i < a_nedges; i++)
-	{
-	    tr_p_mp_pscore(a_tr,
-			   a_tr->tres[a_edges[i]].ps,
-			   a_tr->trrs[tr_p_edge_ring_get(a_tr, a_edges[i],
-							 0)].ps,
-			   a_tr->trrs[tr_p_edge_ring_get(a_tr, a_edges[i],
-							 1)].ps);
 #ifdef CW_DBG
-	    /* All edge partial scores should have the same value, since the
-	     * location of the root is irrelevant to the score. */
-	    if (a_tr->tres[a_edges[i]].ps->subtrees_score
-		+ a_tr->tres[a_edges[i]].ps->node_score
-		!= a_tr->tres[a_edges[0]].ps->subtrees_score
-		+ a_tr->tres[a_edges[0]].ps->node_score)
+	/* Validate per-edge partial scores. */
+	{
+	    uint32_t i;
+
+	    for (i = 1; i < a_nedges; i++)
 	    {
-		fprintf(stderr,
-			"%s:%d:%s(): Expected %u (%u + %u), got %u (%u + %u)\n",
-			__FILE__, __LINE__, __func__,
-			a_tr->tres[a_edges[0]].ps->subtrees_score
-			+ a_tr->tres[a_edges[0]].ps->node_score,
-			a_tr->tres[a_edges[0]].ps->subtrees_score,
-			+ a_tr->tres[a_edges[0]].ps->node_score,
-			a_tr->tres[a_edges[i]].ps->subtrees_score
-			+ a_tr->tres[a_edges[i]].ps->node_score,
-			a_tr->tres[a_edges[i]].ps->subtrees_score,
-			a_tr->tres[a_edges[i]].ps->node_score);
-		abort();
+		/* All edge partial scores should have the same value, since the
+		 * location of the root is irrelevant to the score. */
+		if (a_tr->tres[a_edges[i]].ps->subtrees_score
+		    + a_tr->tres[a_edges[i]].ps->node_score
+		    != a_tr->tres[a_edges[0]].ps->subtrees_score
+		    + a_tr->tres[a_edges[0]].ps->node_score)
+		{
+		    fprintf(stderr,
+			    "%s:%d:%s(): Expected %u (%u + %u),"
+			    " got %u (%u + %u)\n",
+			    __FILE__, __LINE__, __func__,
+			    a_tr->tres[a_edges[0]].ps->subtrees_score
+			    + a_tr->tres[a_edges[0]].ps->node_score,
+			    a_tr->tres[a_edges[0]].ps->subtrees_score,
+			    + a_tr->tres[a_edges[0]].ps->node_score,
+			    a_tr->tres[a_edges[i]].ps->subtrees_score
+			    + a_tr->tres[a_edges[i]].ps->node_score,
+			    a_tr->tres[a_edges[i]].ps->subtrees_score,
+			    a_tr->tres[a_edges[i]].ps->node_score);
+		    abort();
+		}
 	    }
-#endif
 	}
+#endif
     }
 
     retval = false;
