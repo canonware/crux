@@ -1,13 +1,5 @@
 === Conversion to Python =======================================================
 
-* Move TBR code out of CxTr.c, into CxTreeTbr.c.
-
-  Make sure that TBR still works, even if the caller chooses
-  bisection/reconnection edges manually (that is, not using TBR neighbor
-  enumeration).  The special case of reconnecting to the ignored edge next to
-  the bisection edge must also work.  Write a regression test for this
-  functionality.
-
 * Move MP code from CxTr.c to CxTreeMp.c.
 
 * Move tree holding code out of CxTr.c.  It belongs with the MP code (in
