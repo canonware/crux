@@ -136,16 +136,4 @@ if not opts.quiet:
           % time.strftime("%Y/%m/%d %H:%M:%S (%Z)",
                           time.localtime(time.time()))
     if not opts.batch:
-        print """Interactive mode.
-
-You are now presented with an interactive Python prompt.  All general Python
-features can be accessed via this prompt, as well as the features of Crux that
-have been exposed to the Python runtime.  For additional information about
-Python programming, see:
-
-        http://www.python.org/
-
-For additional information about Crux, see the included documentation:
-
-	file://@DATADIR@/crux-@crux_version@/doc/html/index.html (XXX)
-"""
+        print "Interactive mode."
