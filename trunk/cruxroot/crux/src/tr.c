@@ -193,7 +193,7 @@ trn_p_tree_ntaxa_get(cw_trn_t *a_trn, cw_trn_t *a_prev);
 static cw_trn_t *
 trn_p_tree_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev);
 static cw_uint32_t
-trn_p_tree_canonicalize(cw_trn_t *a_trn, cw_trn_t *a_prev);
+trn_p_tree_canonize(cw_trn_t *a_trn, cw_trn_t *a_prev);
 
 /* Get bit a_i in a_vec (cw_uint8_t *). */
 #define TR_BIT_GET(a_vec, a_i)						\
@@ -442,9 +442,9 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
     /* Set the last byte to 0 to assure that there is no trailing garbage. */
     retval[tr_sizeof - 1] = 0;
 
-    /* Canonicalize the tree. */
+    /* Canonize the tree. */
     root = trn_tree_root_get(a_trn);
-    trn_p_tree_canonicalize(root, NULL);
+    trn_p_tree_canonize(root, NULL);
 
     /* The tree can now be converted to parenthetical form and taxa permutation
      * using an in-order traversal. */
@@ -1023,7 +1023,7 @@ trn_tree_root_get(cw_trn_t *a_trn)
 /* Convert a tree to canonical form by re-ordering the neighbors array such that
  * subtrees are in increasing order of minimum taxon number contained. */
 static cw_uint32_t
-trn_p_tree_canonicalize(cw_trn_t *a_trn, cw_trn_t *a_prev)
+trn_p_tree_canonize(cw_trn_t *a_trn, cw_trn_t *a_prev)
 {
     cw_uint32_t retval;
     cw_uint32_t i, j, t;
@@ -1042,15 +1042,14 @@ trn_p_tree_canonicalize(cw_trn_t *a_trn, cw_trn_t *a_prev)
 	retval = CW_TRN_TAXON_NONE;
     }
 
-    /* Iteratively canonicalize subtrees, keeping track of the minimum taxon
+    /* Iteratively canonize subtrees, keeping track of the minimum taxon
      * number seen overall, as well as for each subtree. */
     for (i = j = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
     {
 	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
 	{
 	    cw_assert(j < (CW_TRN_MAX_NEIGHBORS - 1));
-	    subtree_mins[j] = trn_p_tree_canonicalize(a_trn->neighbors[i],
-						      a_trn);
+	    subtree_mins[j] = trn_p_tree_canonize(a_trn->neighbors[i], a_trn);
 	    if (subtree_mins[j] < retval)
 	    {
 		retval = subtree_mins[j];
