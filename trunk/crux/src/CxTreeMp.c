@@ -11,6 +11,148 @@
 
 #include "../include/_cruxmodule.h"
 
+typedef struct CxsTreeMpData CxtTreeMpData;
+typedef struct CxsTreeMpPs CxtTreeMpPs;
+
+struct CxsTreeMpData
+{
+    PyObject *cTMatrix;
+    uint64_t cTMatrixSeq;
+
+    bool eliminateUninformative;
+
+    unsigned edgeAuxInd;
+    unsigned ringAuxInd;
+
+    // XXX
+};
+
+// Character (in the systematics sense of the word).
+typedef char CxtTreeMpC;
+
+// Partial parsimony score information.
+struct CxsTreeMpPs
+{
+    // Parent which most recently used this node's partial score when caching
+    // its results.  Both children must still point to the parent in order for
+    // the cached results to be valid.
+    CxtTreeMpPs *parent;
+
+    // Sum of the subtree scores, and this node's score, given particular
+    // children.  In order for this to be useful, both childrens' parent
+    // pointers must still point to this node.
+    unsigned subtreesScore;
+    unsigned nodeScore;
+
+    // chars points to an array of Fitch parsimony state sets.  Each element in
+    // the array contains a bitmap representation of a subset of {ACGT} in the 4
+    // least significant bits.  T is the least significant bit.  1 means that a
+    // nucleotide is in the set.
+    //
+    // There are nchars character state sets.
+    //
+    // achars is the actual allocation, which is padded in order to
+    // be able to guarantee that chars is 16 byte-aligned.
+    CxtTreeMpC *chars;
+    unsigned nChars;
+    CxtTreeMpC *aChars;
+};
+
+static void
+CxpTreeMpCleanupFinal(CxtTreeObject *aTree, void *aData, unsigned aInd)
+{
+    CxtTreeMpData *data = (CxtTreeMpData *) aData;
+
+    // XXX
+
+    free(data);
+}
+
+static bool
+CxpTreeMpInitEdge(CxtEdgeObject *aEdge, unsigned aInd)
+{
+    bool rVal;
+
+    CxmError("XXX Not implemented");
+
+    return rVal;
+}
+
+static void
+CxpTreeMpCleanupEdge(CxtEdgeObject *aEdge, void *aData, unsigned aInd)
+{
+    CxmError("XXX Not implemented");
+}
+
+static bool
+CxpTreeMpInitRing(CxtRingObject *aRing, unsigned aInd)
+{
+    bool rVal;
+
+    CxmError("XXX Not implemented");
+
+    return rVal;
+}
+
+static void
+CxpTreeMpCleanupRing(CxtRingObject *aRing, void *aData, unsigned aInd)
+{
+    CxmError("XXX Not implemented");
+}
+
+static bool
+CxpTreeMpDataGet(CxtTreeObject *self, CxtTreeMpData **rData)
+{
+    bool rVal;
+    unsigned treeAuxInd;
+    CxtTreeMpData *data;
+
+    // Get aux indices for MP data.
+    if (CxTreeAuxSearch(self, "MP", &treeAuxInd))
+    {
+	// No aux registration.
+	data = (CxtTreeMpData *) malloc(sizeof(CxtTreeMpData));
+	if (data == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	// Initialize data.
+	data->cTMatrix = NULL;
+	data->cTMatrixSeq = 0;
+	data->eliminateUninformative = false;
+
+	// Create MP-specific aux mappings for edges and rings.
+	if (CxTreeEdgeAuxRegister(self, "MP", NULL,
+				  CxpTreeMpInitEdge, NULL,
+				  CxpTreeMpCleanupEdge,
+				  &data->edgeAuxInd)
+	    || CxTreeRingAuxRegister(self, "MP", NULL,
+				     CxpTreeMpInitRing, NULL,
+				     CxpTreeMpCleanupRing,
+				     &data->ringAuxInd)
+	    || CxTreeAuxRegister(self, "MP", (void *) data,
+				 CxpTreeMpCleanupFinal, NULL, &treeAuxInd))
+	{
+	    free(data);
+	    rVal = true;
+	    goto RETURN;
+	}
+    }
+    else
+    {
+	data = (CxtTreeMpData *) CxTreeAuxData(self, treeAuxInd);
+    }
+
+    *rData = data;
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+
+
 PyObject *
 CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 {
@@ -21,11 +163,6 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	;
     PyObject *taxa, *tobj;
     uint32_t elim, ntaxa, i, j;
-    uint32_t nchars
-#ifdef CxmCcSilence
-	= 0
-#endif
-	;
     char **tarr
 #ifdef CxmCcSilence
 	= NULL
@@ -40,22 +177,25 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 
     ntaxa = PyList_Size(taxa);
 
-    CxmXepBegin();
-    CxmXepTry
+    // Make sure that all taxa have the same number of characters.
+    if (ntaxa > 0)
     {
-	// Make sure that all taxa have the same number of characters.
-	if (ntaxa > 0)
-	{
-	    tobj = PyList_GetItem(taxa, 0);
-	    // Don't worry about raising ValueError error here, since the for
-	    // loop below will do so.
-	    if (PyString_Check(tobj))
-	    {
-		nchars = PyString_Size(tobj);
-	    }
+	uint32_t nchars;
 
-	    // Create an array of string pointers.
-	    tarr = (char **) CxmMalloc(sizeof(char *) * ntaxa);
+	tobj = PyList_GetItem(taxa, 0);
+	// Don't worry about raising ValueError error here, since the for
+	// loop below will do so.
+	if (PyString_Check(tobj))
+	{
+	    nchars = PyString_Size(tobj);
+	}
+
+	// Create an array of string pointers.
+	tarr = (char **) malloc(sizeof(char *) * ntaxa);
+	if (tarr == NULL)
+	{
+	    rVal = PyErr_NoMemory();
+	    goto RETURN;
 	}
 
 	for (i = 0; i < ntaxa; i++)
@@ -63,9 +203,11 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	    tobj = PyList_GetItem(taxa, i);
 	    if (PyString_Check(tobj) == 0 || PyString_Size(tobj) != nchars)
 	    {
+		free(tarr);
 		CxError(CxgTreeValueError,
 			"Character string expected");
-		goto ERROR;
+		rVal = NULL;
+		goto RETURN;
 	    }
 	    tarr[i] = PyString_AsString(tobj);
 
@@ -112,41 +254,28 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 		    }
 		    default:
 		    {
+			free(tarr);
 			CxError(CxgTreeValueError,
 				"Invalid character '%c'", tarr[i][j]);
-			goto ERROR;
+			rVal = NULL;
+			goto RETURN;
 		    }
 		}
 	    }
 	}
 
-	if (ntaxa > 0)
-	{
-	    // XXX Recurse through the tree and make sure that the taxa are
-	    // numbered correctly.
+	// XXX Recurse through the tree and make sure that the taxa are
+	// numbered correctly.
 
-	    // Do preparation.
-	    CxTrMpPrepare(self->tr, elim, tarr, ntaxa, nchars);
+	// Do preparation.
+	CxTrMpPrepare(self->tr, elim, tarr, ntaxa, nchars);
 
-	    // Clean up.
-	    CxmFree(tarr);
-	}
-
-	Py_INCREF(Py_None);
-	rVal = Py_None;
-	break;
-
-	ERROR:
-	CxmFree(tarr);
-	rVal = NULL;
+	// Clean up.
+	free(tarr);
     }
-    CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	rVal = PyErr_NoMemory();
-    }
-    CxmXepEnd();
 
+    Py_INCREF(Py_None);
+    rVal = Py_None;
     RETURN:
     return rVal;
 }

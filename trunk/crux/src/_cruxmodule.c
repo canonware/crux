@@ -49,6 +49,7 @@ init_crux(void)
     CxNexusParserInit();
     CxNexusParserBaseInit();
     CxDistMatrixInit();
+    CxCTMatrixInit();
 }
 
 void

@@ -137,6 +137,7 @@ extern PyObject *CxgException;
 #include "CxNexusParser.h"
 #include "CxDistMatrix.h"
 #include "CxDistMatrixNj.h"
+#include "CxCTMatrix.h"
 
 void
 init_crux(void);

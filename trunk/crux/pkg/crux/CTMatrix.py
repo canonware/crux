@@ -12,6 +12,7 @@
 import TaxonMap
 import FastaParser
 import CharacterType
+import CTMatrix
 
 import crux
 
@@ -72,7 +73,7 @@ class CTMatrix(object):
         # as a special value by users of CTMatrix.
         self._seq = 1
 
-    def setGet(self):
+    def seqGet(self):
         return self._seq
 
     def fastaParse(self, input, chartype='DNA'):
