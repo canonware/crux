@@ -654,8 +654,19 @@ trn_p_validate(cw_trn_t *a_trn)
      * an internal node to have less than 3 neighbors, since multiple calls are
      * necessary to set up all the neighbor pointers.  Likewise, a leaf node is
      * not required to have a neighbor. */
-    cw_assert(a_trn->taxon_num == CW_TRN_TAXON_NONE
-	      || (a_trn->neighbors[1] == NULL && a_trn->neighbors[2] == NULL));
+    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    {
+	cw_uint32_t i, nneighbors;
+
+	for (i = nneighbors = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	{
+	    if (a_trn->neighbors[i] != NULL)
+	    {
+		nneighbors++;
+	    }
+	}
+	cw_assert(nneighbors <= 1);
+    }
 
     return TRUE;
 }
@@ -789,6 +800,9 @@ trn_join(cw_trn_t *a_a, cw_trn_t *a_b)
     /* Join the two nodes. */
     a_a->neighbors[i] = a_b;
     a_b->neighbors[j] = a_a;
+
+    cw_dassert(trn_p_validate(a_a));
+    cw_dassert(trn_p_validate(a_b));
 }
 
 void
@@ -822,6 +836,9 @@ trn_detach(cw_trn_t *a_a, cw_trn_t *a_b)
     /* Detach the two nodes. */
     a_a->neighbors[i] = NULL;
     a_b->neighbors[j] = NULL;
+
+    cw_dassert(trn_p_validate(a_a));
+    cw_dassert(trn_p_validate(a_b));
 }
 
 void *
