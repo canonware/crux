@@ -791,8 +791,13 @@ tr_p_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node_a,
 }
 
 /* Pretend that the tree is bisected a the edge between a_node and a_other.
- * Count the number of edges that would be in the subtree that containse a_node.
- * Also return the edge index for the bisection. */
+ * Count the number of edges that are in the subtree that contains a_node.  Also
+ * return the edge index for the bisection.
+ *
+ * This function counts both non-bisection edges attached to the node adjacent
+ * to the bisection edge, so the final value of *r_edge_count must be
+ * decremented, if greater than 0, in order to get the edge count, were the tree
+ * actually bisected. */
 static void
 tr_p_bisection_edge_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
 				cw_tr_node_t a_other, cw_tr_node_t a_prev,
@@ -812,19 +817,7 @@ tr_p_bisection_edge_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
 
     for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
-	if (trn->neighbors[i] != CW_TR_NODE_NONE
-	    && trn->neighbors[i] != a_prev
-	    && trn->neighbors[i] != a_other)
-	{
-	    /* Increment edge count before recursing. */
-	    (*r_edge_count)++;
-
-	    /* Recurse into neighbor subtrees. */
-	    tr_p_bisection_edge_get_recurse(a_tr, trn->neighbors[i], a_other,
-					    a_node, r_edge_count,
-					    r_bisection_edge);
-	}
-	else if (trn->neighbors[i] == a_other)
+	if (trn->neighbors[i] == a_other)
 	{
 	    /* Store the index of the edge adjacent to the bisection. */
 	    if (prev_edge_count > 0)
@@ -835,6 +828,17 @@ tr_p_bisection_edge_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
 	    {
 		*r_bisection_edge = CW_TR_NODE_EDGE_NONE;
 	    }
+	}
+	else if (trn->neighbors[i] != CW_TR_NODE_NONE
+		 && trn->neighbors[i] != a_prev)
+	{
+	    /* Increment edge count before recursing. */
+	    (*r_edge_count)++;
+
+	    /* Recurse into neighbor subtrees. */
+	    tr_p_bisection_edge_get_recurse(a_tr, trn->neighbors[i], a_other,
+					    a_node, r_edge_count,
+					    r_bisection_edge);
 	}
     }
 }
@@ -876,6 +880,7 @@ tr_p_bisection_edges_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_edge,
 				    &r_trt->nedges_a, &r_trt->self_a);
     if (r_trt->nedges_a > 0)
     {
+	/* Don't count both edges adjacent to the bisection. */
 	r_trt->nedges_a--;
     }
 
@@ -886,6 +891,7 @@ tr_p_bisection_edges_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_edge,
 				    &r_trt->nedges_b, &r_trt->self_b);
     if (r_trt->nedges_b > 0)
     {
+	/* Don't count both edges adjacent to the bisection. */
 	r_trt->nedges_b--;
     }
 }
@@ -1396,6 +1402,15 @@ tr_p_connection_patch(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_edge,
 
 	/* Detach nodes. */
 	tr_p_edge_get(a_tr, a_edge, &a, &b);
+//	if (tr_p_node_attached(a_tr, a, b) == FALSE)
+	{
+	    /* This connection is happening in the same place as the bisection
+	     * was done.  Set a and b to be the correct nodes.
+	     *
+	     * There is no way to tell for sure which node is the one we want!!!
+	     * XXX */
+	}
+//XXX Correct?	cw_assert(a_node == a || a_node == b);
 	cw_assert(a_node == a || a_node == b || a_node == CW_TR_NODE_NONE);
 	tr_node_detach(a_tr, a, b);
 
@@ -2003,6 +2018,108 @@ tr_tbr_nneighbors_get(cw_tr_t *a_tr)
     return a_tr->trt[a_tr->trtused].offset;
 }
 
+// This can return an edge that gets damaged by bisection.  Therefore,
+// reconnection must take care to recognize this situation, and react
+// accordingly.
+// XXX Move up.
+/* Starting at a_root, recursively iterate over the edges in the subtree on this
+ * side of the bisection, and return the edge index of the a_edge'th edge
+ * iterated over.  The two non-bisection edges of the node adjacent to the
+ * bisection edge are counted as a single edge.
+ */
+static cw_uint32_t
+tr_p_bisection_reconnect_edge_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
+					  cw_tr_node_t a_other,
+					  cw_tr_node_t a_prev,
+					  cw_uint32_t a_edge,
+					  cw_uint32_t *r_edge_index)
+{
+    cw_uint32_t retval, i;
+    cw_trn_t *trn;
+    cw_tr_node_t next;
+    cw_bool_t adjacent;
+
+    cw_assert(a_node != CW_TR_NODE_NONE);
+
+    trn = &a_tr->trns[a_node];
+
+    /* Find neighboring subtrees to recurse into.  If this node is attached to
+     * the bisection edge, do not increment *r_edge_index. */
+    for (i = 0, adjacent = FALSE; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    {
+	if (trn->neighbors[i] == a_other)
+	{
+	    adjacent = TRUE;
+	}
+	else if (trn->neighbors[i] != CW_TR_NODE_NONE
+		 && trn->neighbors[i] != a_prev)
+	{
+	    next = trn->neighbors[i];
+	}
+    }
+
+    if (adjacent)
+    {
+	/* Do not increment. */
+	retval = tr_p_bisection_reconnect_edge_get_recurse(a_tr, next, a_other,
+							   a_node, a_edge,
+							   r_edge_index);
+	if (retval != CW_TR_NODE_NONE)
+	{
+	    goto RETURN;
+	}
+    }
+    else
+    {
+	for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+	{
+	    if (trn->neighbors[i] != CW_TR_NODE_NONE
+		&& trn->neighbors[i] != a_prev)
+	    {
+		cw_assert(trn->neighbors[i] != a_other);
+
+		/* Increment edge count. */
+		(*r_edge_index)++;
+
+		/* Is this the edge we're looking for? */
+		if (*r_edge_index == a_edge)
+		{
+		    retval = trn->edges[i];
+		    goto RETURN;
+		}
+
+		/* Recurse into neighbor subtree. */
+		retval
+		    = tr_p_bisection_reconnect_edge_get_recurse(a_tr,
+								trn->neighbors[i],
+								a_other, a_node,
+								a_edge,
+								r_edge_index);
+		if (retval != CW_TR_NODE_NONE)
+		{
+		    goto RETURN;
+		}
+	    }
+	}
+    }
+
+    retval = CW_TR_NODE_NONE;
+    RETURN:
+    return retval;
+}
+
+CW_P_INLINE cw_uint32_t
+tr_p_bisection_reconnect_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_root,
+				  cw_tr_node_t a_other, cw_uint32_t a_edge)
+{
+    cw_uint32_t edge_index;
+
+    edge_index = 0;
+    return tr_p_bisection_reconnect_edge_get_recurse(a_tr, a_root, a_other,
+						     CW_TR_NODE_NONE, a_edge,
+						     &edge_index);
+}
+
 // XXX Reconnection edge indices are completely bogus.
 void
 tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
@@ -2011,6 +2128,7 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 {
     cw_trt_t key, *trt;
     cw_uint32_t rem, nedges_a, nedges_b, a, b;
+    cw_tr_node_t adj_a, adj_b;
 
     cw_dassert(tr_p_validate(a_tr));
 
@@ -2103,10 +2221,12 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
     }
 
     /* Convert a and b to actual edge indices. */
-    // XXX
-
-    *r_reconnect_a = a;
-    *r_reconnect_b = b;
+    tr_p_edge_get(a_tr, trt->bisect_edge, &adj_a, &adj_b);
+    
+    *r_reconnect_a = tr_p_bisection_reconnect_edge_get(a_tr, trt->root_a,
+						       adj_b, a);
+    *r_reconnect_b = tr_p_bisection_reconnect_edge_get(a_tr, trt->root_b,
+						       adj_a, a);
 }
 
 void *
