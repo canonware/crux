@@ -42,7 +42,6 @@
  *
  * Consider the following example tree:
  *
- *
  *          E           B
  *           \         /
  *            \       /
@@ -72,9 +71,6 @@
  * node, and re-ordering subtrees such that for every internal node, the left
  * subtree contains a lower taxon than any of the taxa in the right subtree.
  * Following is the canonical form of the above tree:
- *
- *
- *
  *
  *             A
  *             |
