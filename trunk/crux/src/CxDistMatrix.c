@@ -1212,12 +1212,32 @@ CxpDistMatrixDup(CxtDistMatrixObject *self, PyObject *args)
     return retval;
 }
 
+static int
+CxpDistMatrixSampleCompare(const void *aA, const void *aB)
+{
+    long *a = (long *) aA;
+    long *b = (long *) aB;
+
+    if (*a < *b)
+    {
+	return -1;
+    }
+    else if (*a > *b)
+    {
+	return 1;
+    }
+    else
+    {
+	return 0;
+    }
+}
+
 static PyObject *
 CxpDistMatrixSample(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *retval, *map, *rows;
     CxtDistMatrixObject *orig;
-    long x, y, origX, origY;
+    long i, j, *rowTab;
     float dist;
 
     if (PyArg_ParseTuple(args, "OOO!", &orig, &map, &PyList_Type, &rows) == 0)
@@ -1231,36 +1251,55 @@ CxpDistMatrixSample(CxtDistMatrixObject *self, PyObject *args)
 
     self->ntaxa = PyList_Size(rows);
     self->symmetric = orig->symmetric;
+    // XXX OOM can result.  Catch here, and in _dup.  Look for other possible
+    // OOM situations.
     CxpDistMatrixNtaxaAccept(self);
+
+    /* Create a row table, then sort it so that orig matrix access will be
+     * linear. */
+    rowTab = (long *) CxmMalloc((sizeof(long) << 1) * self->ntaxa);
+    for (i = 0; i < self->ntaxa; i++)
+    {
+	rowTab[i << 1] = PyInt_AsLong(PyList_GetItem(rows, i));
+	rowTab[(i << 1) + 1] = i;
+    }
+    qsort(rowTab, self->ntaxa, sizeof(long) << 1, CxpDistMatrixSampleCompare);
 
     if (self->symmetric)
     {
-	for (x = 0; x < self->ntaxa - 1; x++)
+	for (i = 0; i < self->ntaxa - 1; i++)
 	{
-	    for (y = x + 1; y < self->ntaxa; y++)
+	    for (j = i + 1; j < self->ntaxa; j++)
 	    {
-		origX = PyInt_AsLong(PyList_GetItem(rows, x));
-		origY = PyInt_AsLong(PyList_GetItem(rows, y));
-		dist = CxDistMatrixDistanceGet(orig, origX, origY);
+		dist = CxDistMatrixDistanceGet(orig,
+					       rowTab[i << 1],
+					       rowTab[j << 1]);
 
-		CxDistMatrixDistanceSet(self, x, y, dist);
+		CxDistMatrixDistanceSet(self,
+					rowTab[(i << 1) + 1],
+					rowTab[(j << 1) + 1],
+					dist);
 	    }
 	}
     }
     else
     {
-	for (x = 0; x < self->ntaxa; x++)
+	for (i = 0; i < self->ntaxa; i++)
 	{
-	    for (y = 0; y < self->ntaxa; y++)
+	    for (j = 0; j < self->ntaxa; j++)
 	    {
-		origX = PyInt_AsLong(PyList_GetItem(rows, x));
-		origY = PyInt_AsLong(PyList_GetItem(rows, y));
-		dist = CxDistMatrixDistanceGet(orig, origX, origY);
+		dist = CxDistMatrixDistanceGet(orig,
+					       rowTab[i << 1],
+					       rowTab[j << 1]);
 
-		CxDistMatrixDistanceSet(self, x, y, dist);
+		CxDistMatrixDistanceSet(self,
+					rowTab[(i << 1) + 1],
+					rowTab[(j << 1) + 1],
+					dist);
 	    }
 	}
     }
+    CxmFree(rowTab);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -1471,6 +1510,116 @@ CxpDistMatrixShuffle(CxtDistMatrixObject *self, PyObject *args)
     return retval;
 }
 
+CxmpInline bool
+CxpDistMatrixFileLabelRender(CxtDistMatrixObject *self, FILE *aF, long aX)
+{
+    bool retval;
+    PyObject *result;
+
+    result = PyEval_CallMethod(self->map, "labelGet",
+			       "(i)", (int) aX);
+    if (result == NULL)
+    {
+	retval = true;
+	goto RETURN;
+    }
+    if (PyString_Check(result) == 0)
+    {
+	Py_DECREF(result);
+	CxError(CxgDistMatrixValueError,
+		"map.labelGet(): String expected");
+	retval = true;
+	goto RETURN;
+    }
+    fprintf(aF, "%-10s", PyString_AsString(result));
+    Py_DECREF(result);
+
+    retval = false;
+    RETURN:
+    return retval;
+}
+
+static PyObject *
+CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
+{
+    PyObject *retval, *outFile;
+    char *format, *distFormat;
+    FILE *f;
+    long x, y;
+
+    /* Parse arguments. */
+    if (PyArg_ParseTuple(args, "ssO!",
+			 &format,
+			 &distFormat,
+			 &PyFile_Type, &outFile) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+    f = PyFile_AsFile(outFile);
+
+    if (strcmp(format, "full") == 0)
+    {
+	for (x = 0; x < self->ntaxa; x++)
+	{
+	    if (CxpDistMatrixFileLabelRender(self, f, x))
+	    {
+		retval = NULL;
+		goto RETURN;
+	    }
+
+	    for (y = 0; y < self->ntaxa; y++)
+	    {
+		fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y));
+	    }
+	    fprintf(f, "\n");
+	}
+    }
+    else if (strcmp(format, "upper") == 0)
+    {
+	for (x = 0; x < self->ntaxa; x++)
+	{
+	    if (CxpDistMatrixFileLabelRender(self, f, x))
+	    {
+		retval = NULL;
+		goto RETURN;
+	    }
+
+	    for (y = 0; y < x + 1; y++)
+	    {
+		fprintf(f, "%8s", "");
+	    }
+	    for (; y < x; y++)
+	    {
+		fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y));
+	    }
+	    fprintf(f, "\n");
+	}
+    }
+    else if (strcmp(format, "lower") == 0)
+    {
+	for (x = 0; x < self->ntaxa; x++)
+	{
+	    if (CxpDistMatrixFileLabelRender(self, f, x))
+	    {
+		retval = NULL;
+		goto RETURN;
+	    }
+
+	    for (y = 0; y < x; y++)
+	    {
+		fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y));
+	    }
+	    fprintf(f, "\n");
+	}
+    }
+
+    Py_INCREF(Py_None);
+    retval = Py_None;
+    RETURN:
+    return retval;
+}
+
 /* Hand off an array of floats that represent an upper-triangle distance matrix,
  * and clean up such that this DistMatrix no longer refers to the data (though
  * the TaxonMap continues to be referred to by the DistMatrix).
@@ -1560,6 +1709,12 @@ static PyMethodDef CxpDistMatrixMethods[] =
 	(PyCFunction) CxpDistMatrixShuffle,
 	METH_VARARGS,
 	"_matrixShuffle"
+    },
+    {
+	"_fileRender",
+	(PyCFunction) CxpDistMatrixFileRender,
+	METH_VARARGS,
+	"_fileRender"
     },
     {NULL, NULL}
 };

@@ -129,8 +129,10 @@ class DistMatrix(C_DistMatrix):
         if outFile == None:
             retval = self._stringRender(format, distFormat)
         else:
-            self._fileRender(format, distFormat, outFile)
-            retval = None
+            # Make sure that distFormat isn't going to cause problems.
+            distFormat % self.distanceGet(0, 1)
+
+            retval = self._fileRender(format, distFormat, outFile)
 
         return retval
 
@@ -161,30 +163,4 @@ class DistMatrix(C_DistMatrix):
                   .ValueError("Format must be 'full', 'upper', or 'lower'")
 
         return retval
-
-    def _fileRender(self, format, distFormat, outFile):
-        outFile.write("%d\n" % self.taxonMapGet().ntaxaGet())
-        if format == 'full':
-            for x in forints(self.taxonMapGet().ntaxaGet()):
-                outFile.write("%-10s" % self.taxonMapGet().labelGet(x))
-                for y in forints(self.taxonMapGet().ntaxaGet()):
-                    outFile.write((" " + distFormat) % self.distanceGet(x, y))
-                outFile.write("\n")
-        elif format == 'upper':
-            for x in forints(self.taxonMapGet().ntaxaGet()):
-                outFile.write("%-10s" % self.taxonMapGet().labelGet(x))
-                for y in forints(x + 1):
-                    outFile.write("%8s" % "")
-                for y in forints(self.taxonMapGet().ntaxaGet(), start=x+1):
-                    outFile.write((" " + distFormat) % self.distanceGet(x, y))
-                outFile.write("\n")
-        elif format == 'lower':
-            for x in forints(self.taxonMapGet().ntaxaGet()):
-                outFile.write("%-10s" % self.taxonMapGet().labelGet(x))
-                for y in forints(x):
-                    outFile.write((" " + distFormat) % self.distanceGet(x, y))
-                outFile.write("\n")
-        else:
-            raise crux.DistMatrix\
-                  .ValueError("Format must be 'full', 'upper', or 'lower'")
 #EOF
