@@ -525,6 +525,35 @@ CxpTreeIterateRecurse(CxtRingObject *aRing,
 }
 
 bool
+CxTreeSubtreeIterate(CxtRingObject *aRing,
+		     CxtTreeIterateNodeCallback *aNodeCallback,
+		     CxtTreeIterateEdgeCallback *aEdgeCallback,
+		     CxtTreeIterateRingCallback *aRingCallback,
+		     void *aContext)
+{
+    bool rVal;
+    CxtTreeIterateNodeCallback *nodeCallback;
+    CxtTreeIterateEdgeCallback *edgeCallback;
+    CxtTreeIterateRingCallback *ringCallback;
+
+    // Set callback functions pointers.
+    nodeCallback = (aNodeCallback != NULL)
+	? aNodeCallback
+	: CxpTreeIterateNodeCallbackDefault;
+    edgeCallback = (aEdgeCallback != NULL)
+	? aEdgeCallback
+	: CxpTreeIterateEdgeCallbackDefault;
+    ringCallback = (aRingCallback != NULL)
+	? aRingCallback
+	: CxpTreeIterateRingCallbackDefault;
+
+    rVal = CxpTreeIterateRecurse(aRing, nodeCallback, edgeCallback,
+				 ringCallback, aContext);
+
+    return rVal;
+}
+
+bool
 CxTreeIterate(CxtTreeObject *aTree,
 	      CxtTreeIterateNodeCallback *aNodeCallback,
 	      CxtTreeIterateEdgeCallback *aEdgeCallback,

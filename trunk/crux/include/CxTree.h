@@ -237,6 +237,13 @@ typedef bool
 CxtTreeIterateRingCallback(CxtRingObject *, CxtTreeIteratorStage, void *);
 
 bool
+CxTreeSubtreeIterate(CxtRingObject *aRing,
+		     CxtTreeIterateNodeCallback *aNodeCallback,
+		     CxtTreeIterateEdgeCallback *aEdgeCallback,
+		     CxtTreeIterateRingCallback *aRingCallback,
+		     void *aContext);
+
+bool
 CxTreeIterate(CxtTreeObject *aTree,
 	      CxtTreeIterateNodeCallback *aNodeCallback,
 	      CxtTreeIterateEdgeCallback *aEdgeCallback,
