@@ -31,4 +31,14 @@ floating point math, so unless an approximate equality test is used, the
 standard NJ algorithm is especially limiting with regard to tree sampling.
 
 --------------------------------------------------------------------------------
+9 October 2004
+--------------------------------------------------------------------------------
+
+I implemented uniform sampling of tied transformed distances for random NJ, but
+it occurs to me that there is still one source of bias for random NJ: Random row
+selection is uniform, but it should be proportional to the number of minimum
+transformed distances on each row.  In practice, this is a small bias, but
+without somehow addressing this, I cannot claim completely unbiased random NJ.
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
