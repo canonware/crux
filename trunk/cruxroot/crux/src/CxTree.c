@@ -246,28 +246,28 @@ CxTreeBaseSet(CxtTreeObject *self, PyObject *args)
 static PyMethodDef CxpTreeMethods[] =
 {
     {
-	"ntaxa_get",
+	"ntaxaGet",
 	(PyCFunction) CxTreeNtaxaGet,
 	METH_NOARGS,
-	"ntaxa_get"
+	"ntaxaGet"
     },
     {
-	"nedges_get",
+	"nedgesGet",
 	(PyCFunction) CxTreeNedgesCget,
 	METH_NOARGS,
-	"nedges_get"
+	"nedgesGet"
     },
     {
-	"base_get",
+	"baseGet",
 	(PyCFunction) CxTreeBaseGet,
 	METH_NOARGS,
-	"base_get"
+	"baseGet"
     },
     {
-	"base_set",
+	"baseSet",
 	(PyCFunction) CxTreeBaseSet,
 	METH_VARARGS,
-	"base_set"
+	"baseSet"
     },
     {
 	"canonize",
@@ -288,28 +288,28 @@ static PyMethodDef CxpTreeMethods[] =
 	"tbr"
     },
     {
-	"tbr_nneighbors_get",
+	"tbrNneighborsGet",
 	(PyCFunction) CxTreeTbrNneighborsGet,
 	METH_NOARGS,
-	"tbr_nneighbors_get"
+	"tbrNneighborsGet"
     },
     {
-	"tbr_neighbor_get",
+	"tbrNeighborGet",
 	(PyCFunction) CxTreeTbrNeighborGet,
 	METH_VARARGS,
-	"tbr_neighbor_get"
+	"tbrNeighborGet"
     },
     {
-	"mp_prepare",
+	"mpPrepare",
 	(PyCFunction) CxTreeMpPrepare,
 	METH_VARARGS,
-	"mp_prepare"
+	"mpPrepare"
     },
     {
-	"mp_finish",
+	"mpFinish",
 	(PyCFunction) CxTreeMpFinish,
 	METH_NOARGS,
-	"mp_finish"
+	"mpFinish"
     },
     {
 	"mp",
@@ -318,34 +318,34 @@ static PyMethodDef CxpTreeMethods[] =
 	"mp"
     },
     {
-	"tbr_best_neighbors_mp",
+	"tbrBestNeighborsMp",
 	(PyCFunction) CxTreeTbrBestNeighborsMp,
 	METH_VARARGS,
-	"tbr_best_neighbors_mp"
+	"tbrBestNeighborsMp"
     },
     {
-	"tbr_better_neighbors_mp",
+	"tbrBetterNeighborsMp",
 	(PyCFunction) CxTreeTbrBetterNeighborsMp,
 	METH_VARARGS,
-	"tbr_better_neighbors_mp"
+	"tbrBetterNeighborsMp"
     },
     {
-	"tbr_all_neighbors_mp",
+	"tbrAllNeighborsMp",
 	(PyCFunction) CxTreeTbrAllNeighborsMp,
 	METH_NOARGS,
-	"tbr_all_neighbors_mp"
+	"tbrAllNeighborsMp"
     },
     {
-	"nheld_get",
+	"nheldGet",
 	(PyCFunction) CxTreeNheldGet,
 	METH_NOARGS,
-	"nheld_get"
+	"nheldGet"
     },
     {
-	"held_get",
+	"heldGet",
 	(PyCFunction) CxTreeheldGet,
 	METH_VARARGS,
-	"held_get"
+	"heldGet"
     },
     {NULL, NULL}
 };
@@ -652,16 +652,16 @@ static PyMethodDef CxpNodeMethods[] =
 	"tree"
     },
     {
-	"taxon_num_get",
+	"taxonNumGet",
 	(PyCFunction) CxNodeTaxonNumGet,
 	METH_NOARGS,
-	"taxon_num_get"
+	"taxonNumGet"
     },
     {
-	"taxon_num_set",
+	"taxonNumSet",
 	(PyCFunction) CxNodeTaxonNumSet,
 	METH_VARARGS,
-	"taxon_num_set"
+	"taxonNumSet"
     },
     {
 	"edge",
@@ -1142,16 +1142,16 @@ static PyMethodDef CxpEdgeMethods[] =
 	"prev"
     },
     {
-	"length_get",
+	"lengthGet",
 	(PyCFunction) CxEdgeLengthGet,
 	METH_NOARGS,
-	"length_get"
+	"lengthGet"
     },
     {
-	"length_set",
+	"lengthSet",
 	(PyCFunction) CxEdgeLengthSet,
 	METH_VARARGS,
-	"length_set"
+	"lengthSet"
     },
     {
 	"attach",

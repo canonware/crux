@@ -22,11 +22,11 @@ class node(_node.Node):
         did_something = False
         did_paren = False
 
-        if self.taxon_num_get() != None:
+        if self.taxonNumGet() != None:
             # Leaf node.
             if labels:
                 # Protect special characters, if necessary.
-                taxon_label = map.labelGet(self.taxon_num_get())
+                taxon_label = map.labelGet(self.taxonNumGet())
                 m = re.compile("[^ ()[\]':;,]*[ ()[\]':;,]").match(taxon_label)
                 if m:
                     taxon_label = re.compile("'").sub("''", taxon_label)
@@ -34,12 +34,12 @@ class node(_node.Node):
                 else:
                     retval = "%s%s" % (retval, taxon_label)
             else:
-                retval = "%s%d" % (retval, self.taxon_num_get())
+                retval = "%s%d" % (retval, self.taxonNumGet())
 
             if lengths:
                 (edge, end) = self.edge()
                 if edge != None:
-                    retval = "%s:%f" % (retval, edge.length_get())
+                    retval = "%s:%f" % (retval, edge.lengthGet())
             did_something = True
 
         # Iterate through neighbors.
@@ -62,8 +62,8 @@ class node(_node.Node):
                              (retval,
                               neighbor.rprints(self, map, labels, lengths))
                     if lengths:
-                        if neighbor.taxon_num_get() == None:
-                            retval = "%s:%f" % (retval, edge.length_get())
+                        if neighbor.taxonNumGet() == None:
+                            retval = "%s:%f" % (retval, edge.lengthGet())
 
                 (edge, end) = edge.next(end)
                 i += 1
