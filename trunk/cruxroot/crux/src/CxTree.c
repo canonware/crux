@@ -281,8 +281,7 @@ CxTreeBaseSetPargs(CxtTreeObject *self, PyObject *args)
     if (node != NULL && node->tree != self)
     {
 	PyErr_SetString(CxgTreeValueError, "Node does not belong to this tree");
-	Py_INCREF(CxgTreeValueError);
-	retval = CxgTreeValueError;
+	retval = NULL;
 	goto RETURN;
     }
 
@@ -697,10 +696,6 @@ CxNodeTaxonNumSetPargs(CxtNodeObject *self, PyObject *args)
     taxonNum = CxmTrNodeTaxonNone;
     if (PyArg_ParseTuple(args, "|i", &taxonNum) == 0)
     {
-	// XXX What error is thrown in cases such as this?  It should be a
-	// crux.Node.Exception.
-	//Py_INCREF(CxgNodeTypeError);
-	//retval = CxgNodeTypeError;
 	retval = NULL;
 	goto RETURN;
     }
@@ -1137,8 +1132,7 @@ CxEdgeLengthSetPargs(CxtEdgeObject *self, PyObject *args)
     if (length < 0.0)
     {
 	PyErr_SetString(CxgEdgeValueError, "Length must be non-negative");
-	Py_INCREF(CxgEdgeValueError);
-	retval = CxgEdgeValueError;
+	retval = NULL;
 	goto RETURN;
     }
 
@@ -1193,8 +1187,7 @@ CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args)
     if (nodeA->tree != self->tree || nodeB->tree != self->tree)
     {
 	PyErr_SetString(CxgEdgeValueError, "Node does not belong to this tree");
-	Py_INCREF(CxgEdgeValueError);
-	retval = CxgEdgeValueError;
+	retval = NULL;
 	goto RETURN;
     }
 
@@ -1406,8 +1399,7 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	type->tp_free((PyObject *) self);
 
 	PyErr_SetString(CxgRingValueError, "End must be 0 or 1");
-	Py_INCREF(CxgRingValueError);
-	retval = CxgRingValueError;
+	retval = NULL;
 	goto RETURN;
     }
     
@@ -1429,8 +1421,7 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 	PyErr_SetString(CxgRingValueError,
 			"Internal error (aux should be NULL)");
-	Py_INCREF(CxgRingValueError);
-	retval = CxgRingValueError;
+	retval = NULL;
 	goto RETURN;
     }
     CxTrRingAuxSet(self->tree->tr, self->ring, self);
