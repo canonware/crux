@@ -1055,7 +1055,7 @@ CxpTrBisectionEdgeListGen(CxtTr *aTr, CxtTrRing aRing,
 
 		    CxpTrBisectionEdgeListGenRecurse(aTr,
 						     CxTrRingOtherGet(aTr,
-								       ring),
+								      ring),
 						     arEdges, arNedges);
 		}
 
@@ -1117,7 +1117,7 @@ CxpTrtBisectEdgeUpdateRecurse(CxtTr *aTr, CxtTrRing aRing,
 static void
 CxpTrtUpdate(CxtTr *aTr, uint32_t aNedgesPrev)
 {
-    uint32_t i, j, n, offset;
+    uint32_t i, j, n, offset, degreeA, degreeB;
 
     CxmAssert(aTr->modified == false);
 
@@ -1170,9 +1170,22 @@ CxpTrtUpdate(CxtTr *aTr, uint32_t aNedgesPrev)
 
 	// Update offset.
 	CxpTrBedgesGen(aTr, aTr->trt[i].bisectEdge, NULL, NULL);
-	n = (aTr->nbedgesA * aTr->nbedgesB) - 1;
+	n = (aTr->nbedgesA * aTr->nbedgesB);
+	// TBR can only be reversed for an edge that is attached to two nodes of
+	// degree 3.
+	degreeA = CxpTrNodeDegree(aTr, CxTrEdgeRingGet(aTr,
+						       aTr->trt[i].bisectEdge,
+						       0));
+	degreeB = CxpTrNodeDegree(aTr, CxTrEdgeRingGet(aTr,
+						       aTr->trt[i].bisectEdge,
+						       1));
+	if ((degreeA == 1 || degreeA == 3) && (degreeB == 1 || degreeB == 3))
+	{
+	    n--;
+	}
 	if (n != 0)
 	{
+	    aTr->trt[j].bisectEdge = aTr->trt[i].bisectEdge;
 	    offset += n;
 	    j++;
 	}
@@ -1418,6 +1431,7 @@ CxpTrTbrNodeSplice(CxtTr *aTr, CxtTrEdge aEdge,
     }
     else
     {
+	CxmError("XXX Not implemented");
 	// XXX edge = tr_p_edge_wrapped_new(aTr);
     }
     ring = CxTrEdgeRingGet(aTr, edge, 0);
@@ -1430,6 +1444,7 @@ CxpTrTbrNodeSplice(CxtTr *aTr, CxtTrEdge aEdge,
     }
     else
     {
+	CxmError("XXX Not implemented");
 	// XXX rVal = tr_p_node_wrapped_new(aTr);
     }
 
@@ -2903,7 +2918,7 @@ CxTrTbrNeighborGet(CxtTr *aTr, uint32_t aNeighbor,
 		   CxtTrEdge *rReconnectB)
 {
     CxtTrt key, *trt;
-    uint32_t rem;
+    uint32_t rem, degreeA, degreeB;
 
     CxpTrUpdate(aTr);
     CxmDassert(CxpTrValidate(aTr));
@@ -2928,11 +2943,12 @@ CxTrTbrNeighborGet(CxtTr *aTr, uint32_t aNeighbor,
     //
     // 3) For each subtree, do a recursive in-order traversal and build a list
     //    of edges, not including one of the edges adjacent to the bisection (in
-    //    the case of an internal node adjacent to the bisection).
+    //    the case of an internal bifurcating node adjacent to the bisection).
     //
     // 4) Use a nested loop to iterate over neighbors, where each iteration is a
     //    combination of edges in the two subtrees.  The first combination is
-    //    skipped, since it would reverse the bisection.
+    //    skipped, if it would reverse the bisection (if the neighboring nodes
+    //    are both of degree 1 or 3).
 
     // Generate the edge lists.
     CxpTrBedgesGen(aTr, trt->bisectEdge, NULL, NULL);
@@ -2941,8 +2957,13 @@ CxTrTbrNeighborGet(CxtTr *aTr, uint32_t aNeighbor,
     // reconnection combination enumeration.
     rem = aNeighbor - trt->offset;
 
-    // Avoid the first combination, since it would reverse the bisection.
-    rem++;
+    // Avoid the first combination, if it would reverse the bisection.
+    degreeA = CxpTrNodeDegree(aTr, CxTrEdgeRingGet(aTr, trt->bisectEdge, 0));
+    degreeB = CxpTrNodeDegree(aTr, CxTrEdgeRingGet(aTr, trt->bisectEdge, 1));
+    if ((degreeA == 1 || degreeA == 3) && (degreeB == 1 || degreeB == 3))
+    {
+	rem++;
+    }
 
     *rReconnectA = aTr->bedges[rem / aTr->nbedgesB];
     *rReconnectB = aTr->bedges[aTr->nbedgesA + (rem % aTr->nbedgesB)];
