@@ -9,14 +9,6 @@
 #
 ################################################################################
 
-from _crux import *
-
-from Exception import *
-
-from tree import *
-from node import *
-from edge import *
-
-import dist_matrix
-from newick import *
-from taxon_map import *
+class Exception:
+    def __repr__(self):
+        return "Crux Exception"

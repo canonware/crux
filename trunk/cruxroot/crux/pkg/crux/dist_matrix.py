@@ -60,6 +60,23 @@ import taxon_map
 
 import re
 
+import crux.Exception
+
+class Exception(crux.Exception):
+    pass
+
+class SyntaxError(Exception, SyntaxError):
+    def __init__(self, row):
+        self._row = row
+
+    def __str__(self):
+        if self._row >= 0:
+            retval = "Row %d: Syntax error" % self._row
+        else:
+            retval = "Taxon count specification: Syntax error"
+
+        return retval
+
 class dist_matrix(object):
     def __init__(self):
         pass
@@ -93,7 +110,10 @@ class dist_matrix(object):
 
         # Get the number of taxa.
         token = self._get_token()
-        self._ntaxa = int(token)
+        try:
+            self._ntaxa = int(token)
+        except ValueError:
+            raise crux.dist_matrix.SyntaxError(-1)
 
         # Create an empty taxon_map.
         self._map = taxon_map.taxon_map()
@@ -105,7 +125,7 @@ class dist_matrix(object):
         token = self._get_token()
         distance = self._token_to_distance(token)
         if distance != None:
-            raise ValueError
+            raise crux.dist_matrix.SyntaxError(0)
         self._map.map(token, self._map.ntaxa_get())
         distances = []
 
@@ -173,16 +193,14 @@ class dist_matrix(object):
 
         if self._matrix_format == 'full':
             if len(distances) != self._ntaxa:
-                raise ValueError
+                raise crux.dist_matrix.SyntaxError(row)
             i = 0
             while i < len(distances):
                 self._matrix[row * self._ntaxa + i] = distances[i]
                 i += 1
         elif self._matrix_format == 'lower':
             if len(distances) != row:
-                # XXX Add informative error messages?
-                print "XXX row: %d, len: %d" % (row, len(distances))
-                raise ValueError
+                raise crux.dist_matrix.SyntaxError(row)
             self._matrix[row * self._ntaxa + row] = 0.0
             i = 0
             while i < len(distances):
@@ -191,7 +209,7 @@ class dist_matrix(object):
                 i += 1
         elif self._matrix_format == 'upper':
             if len(distances) != self._ntaxa - row - 1:
-                raise ValueError
+                raise crux.dist_matrix.SyntaxError(row)
             self._matrix[row * self._ntaxa + row] = 0.0
             i = 0
             while i < len(distances):
@@ -200,5 +218,5 @@ class dist_matrix(object):
                 i += 1
         else:
             # Invalid matrix format.
-            raise ValueError
+            raise crux.dist_matrix.SyntaxError(row)
 #EOF

@@ -51,14 +51,60 @@ Taxon_B 1.0
 Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2 3.1
-"""]
+""",
+
+#
+# Error cases.
+#
+
+"""
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000
+""",
+
+
+# XXX Error should be reported for row 0.
+"""5
+Alpha      0.000 1.000 2.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
+""",
+
+"""5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
+""",
+
+"""5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000
+""",
+
+            ]
 
 print "Test begin"
 
 for matrix in matrices:
-    (map, matrix) = crux.dist_matrix().parse(matrix)
+    try:
+        print matrix
+        (map, matrix) = crux.dist_matrix.dist_matrix().parse(matrix)
 
-    print map.taxa_get()
-    matrix_print(matrix, map.ntaxa_get())
+        print map.taxa_get()
+        matrix_print(matrix, map.ntaxa_get())
+    except crux.dist_matrix.Exception, x:
+        import sys
+        
+        print "Exception %s: %s" % (sys.exc_type, x.__str__())
 
 print "Test end"
