@@ -1,4 +1,5 @@
 #!@PYTHON@@python_opts@
+#-*-mode:python-*-
 
 # This generator is used throughout crux to make it possible to cleanly and
 # efficiently do indexed iteration in for loops.  Yes, this is gross, but worse
