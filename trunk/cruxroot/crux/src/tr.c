@@ -316,7 +316,7 @@ tr_p_validate(const cw_tr_t *a_tr)
      * permutation is stored in a format that makes it impossible to encode the
      * same taxon number twice.  However, there can still be invalid numbers in
      * the encoding (for example 7 cannot be used for a 5 choose 1 choice). */
-    for (i = ntaxa, bitind = 2 * (ntaxa - 3) + 1;
+    for (i = ntaxa - 2, bitind = 2 * (ntaxa - 3) + 1;
 	 i > 1;
 	 i--)
     {
@@ -350,36 +350,40 @@ tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
 
 	    /* Leaf node. */
 
-	    /* Get the offset of this taxon within the array of unchosen
-	     * taxa. */
-	    taxon = (cw_uint32_t *) bsearch(&a_trn->taxon_num,
-					    a_unchosen, *a_nunchosen,
-					    sizeof(cw_uint32_t),
-					    tr_p_taxon_num_compar);
-	    cw_check_ptr(taxon);
-	    offset = (cw_uint32_t) (taxon - a_unchosen);
-
-	    /* Determine how many bits to use in storing this choice. */
-	    nbits = tr_p_log2ceil(*a_nunchosen);
-
-	    /* Remove the taxon from the array of unchosen taxa. */
-	    if (offset < *a_nunchosen - 1)
+	    /* Avoid encoding taxon 1, since it is implicit. */
+	    if (a_trn->taxon_num != 1)
 	    {
-		memmove(&a_unchosen[offset], &a_unchosen[offset + 1],
-			(*a_nunchosen - offset - 1) * sizeof(cw_uint32_t));
-	    }
-	    (*a_nunchosen)--;
+		/* Get the offset of this taxon within the array of unchosen
+		 * taxa. */
+		taxon = (cw_uint32_t *) bsearch(&a_trn->taxon_num,
+						a_unchosen, *a_nunchosen,
+						sizeof(cw_uint32_t),
+						tr_p_taxon_num_compar);
+		cw_check_ptr(taxon);
+		offset = (cw_uint32_t) (taxon - a_unchosen);
 
-	    /* Store this choice. */
-	    for (i = 0; i < nbits; i++)
-	    {
-		TR_BIT_SET(a_tr, *a_bitind_perm,
-			   ((offset >> (nbits - i - 1) & 0x1)));
-//		fprintf(stderr, "%c",
-//			((offset >> (nbits - i - 1) & 0x1)) ? '1' : '0');
-		(*a_bitind_perm)++;
+		/* Determine how many bits to use in storing this choice. */
+		nbits = tr_p_log2ceil(*a_nunchosen);
+
+		/* Remove the taxon from the array of unchosen taxa. */
+		if (offset < *a_nunchosen - 1)
+		{
+		    memmove(&a_unchosen[offset], &a_unchosen[offset + 1],
+			    (*a_nunchosen - offset - 1) * sizeof(cw_uint32_t));
+		}
+		(*a_nunchosen)--;
+
+		/* Store this choice. */
+		for (i = 0; i < nbits; i++)
+		{
+		    TR_BIT_SET(a_tr, *a_bitind_perm,
+			       ((offset >> (nbits - i - 1) & 0x1)));
+//		    fprintf(stderr, "%c",
+//			    ((offset >> (nbits - i - 1) & 0x1)) ? '1' : '0');
+		    (*a_bitind_perm)++;
+		}
+//		fprintf(stderr, " ");
 	    }
-//	    fprintf(stderr, " ");
 	}
     }
     else
@@ -454,12 +458,12 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
      * maintained in compact form (already chosen taxa are removed, and trailing
      * space in the array is ignored). */
     unchosen = cw_opaque_alloc(mema_alloc_get(a_mema), mema_arg_get(a_mema),
-			     (a_ntaxa - 1) * sizeof(cw_uint32_t));
-    for (i = 0; i < (a_ntaxa - 1); i++)
+			     (a_ntaxa - 2) * sizeof(cw_uint32_t));
+    for (i = 0; i < (a_ntaxa - 2); i++)
     {
-	unchosen[i] = i + 1;
+	unchosen[i] = i + 2;
     }
-    nunchosen = a_ntaxa - 1;
+    nunchosen = a_ntaxa - 2;
 
     /* Recurse if the tree has an internal node.  Taxon 0 must be avoided
      * during the traversal, since it is implicit in the canonical tree
@@ -487,7 +491,7 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 
     /* Clean up. */
     cw_opaque_dealloc(mema_dealloc_get(a_mema), mema_arg_get(a_mema),
-		      unchosen, (a_ntaxa - 1) * sizeof(cw_uint32_t));
+		      unchosen, (a_ntaxa - 2) * sizeof(cw_uint32_t));
 
     return retval;
 }
