@@ -159,7 +159,7 @@ class Tree(C_Tree):
             self._newickNew(with)
         elif type(with) == DistMatrix.DistMatrix:
             self._map = with.taxonMapGet()
-            self._nj(with.matrixGet())
+            self._nj(with)
 
     def _randomNew(self, ntaxa):
         # Create a stack of leaf nodes.

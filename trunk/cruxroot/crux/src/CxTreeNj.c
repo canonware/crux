@@ -151,6 +151,17 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
     /* Iteratitively join two nodes in the matrix, until only two are left. */
     for (nleft = aNtaxa; nleft > 2; nleft--)
     {
+	// XXX Remove.
+	if (true)
+	{
+	    time_t t;
+	    struct tm *tm;
+	    time(&t);
+	    tm = localtime(&t);
+	    fprintf(stderr, "%d/%02d/%02d %02d:%02d:%02d\n",
+		    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday + 1,
+		    tm->tm_hour, tm->tm_min, tm->tm_sec);
+	}
 #ifdef CxmTreeNjVerbose
 	fprintf(stderr, "Size: %u\n", nleft);
 #endif
@@ -331,50 +342,57 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
 PyObject *
 CxTreeNj(CxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval, *distList, *tobj;
+    PyObject *retval, *result, *distMatrix;
     double *distances;
-    uint32_t ntaxa, nelms, i;
+    long ntaxa, x, y;
     bool okay;
 
-    if (PyArg_ParseTuple(args, "O!", &PyList_Type, &distList) == 0)
+    if (PyArg_ParseTuple(args, "O", &distMatrix) == 0)
     {
 	retval = NULL;
 	goto RETURN;
     }
 
-    nelms = PyList_Size(distList);
-    ntaxa = (uint32_t) sqrt(nelms);
-    if (ntaxa * ntaxa != nelms)
-    {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
-	goto RETURN;
-    }
+    result = PyEval_CallMethod(distMatrix, "ntaxaGet", "()");
+    // XXX Check typ of result.
+    ntaxa = PyInt_AsLong(result);
+    Py_DECREF(result);
 
     CxmXepBegin();
     CxmXepTry
     {
-	distances = (double *) CxmMalloc(sizeof(double) * nelms);
+	distances = (double *) CxmMalloc(sizeof(double) * ntaxa * ntaxa);
 
 	okay = true;
-	for (i = 0; i < nelms; i++)
+	for (x = 0; x < ntaxa; x++)
 	{
-	    tobj = PyList_GetItem(distList, i);
-	    if (PyFloat_Check(tobj))
+	    for (y = 0; y < ntaxa; y++)
 	    {
-		distances[i] = PyFloat_AsDouble(tobj);
-	    }
-	    else if (PyInt_Check(tobj))
-	    {
-		distances[i] = PyInt_AsLong(tobj);
-	    }
-	    else
-	    {
-		Py_INCREF(PyExc_ValueError);
-		retval = PyExc_ValueError;
-		okay = false;
+		result = PyEval_CallMethod(distMatrix, "distanceGet", "(ii)",
+					   x, y);
+		if (PyFloat_Check(result))
+		{
+		    distances[x * ntaxa + y] = PyFloat_AsDouble(result);
+		    Py_DECREF(result);
+		}
+		else if (PyInt_Check(result))
+		{
+		    distances[x * ntaxa + y] = PyInt_AsLong(result);
+		    Py_DECREF(result);
+		}
+		else
+		{
+		    Py_DECREF(result);
+		    // XXX Raise tree-specific ValueError, throughout the code
+		    // in this file.
+		    Py_INCREF(PyExc_ValueError);
+		    retval = PyExc_ValueError;
+		    okay = false;
+		    goto OUT;
+		}
 	    }
 	}
+	OUT:
 
 	if (okay)
 	{
