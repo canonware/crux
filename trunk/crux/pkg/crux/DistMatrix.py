@@ -132,7 +132,7 @@ class DistMatrix(C_DistMatrix):
             # Make sure that distFormat isn't going to cause problems.
             distFormat % self.distanceGet(0, 1)
 
-            retval = self._fileRender(format, distFormat, outFile)
+            retval = self._fileRender(format, " " + distFormat, outFile)
 
         return retval
 
