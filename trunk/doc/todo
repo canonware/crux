@@ -1,7 +1,3 @@
-* Migrate cvs-->svn.
-
-* Improve regression testing (capture stderr, filter python GC messages).
-
 * Write regression tests for DistMatrix.distance[GS]et().
 
 * Use CTMatrix for MP.
