@@ -196,19 +196,44 @@ class Tree(C_Tree):
         parser = _NewickParser(self, self._map, autoMap)
         return parser.parse(input)
 
-    def prints(self, labels=False, lengths=False):
+    def render(self, labels=False, lengths=False, outFile=None):
+        if outFile == None:
+            retval = self._stringRender(labels, lengths)
+        else:
+            self._fileRender(labels, lengths, outFile)
+            retval = None
+
+        return retval
+
+    def _stringRender(self, labels, lengths):
         n = self.baseGet()
         if n != None:
-            retval = n.rprints(None, self._map, labels, lengths)
-
-            if n.taxonNumGet() == None:
-                # Internal node.
-                retval = "%s;" % retval
-            else:
+            if n.taxonNumGet() != None:
                 # Leaf node.
-                retval = "(%s);" % retval
+                retval = "(%s);" % \
+                         n.rrender(None, self._map, labels, lengths)
+            else:
+                # Internal node.
+                retval = "%s;" % \
+                         n.rrender(None, self._map, labels, lengths)
         else:
             retval = ";"
 
         return retval
+
+    def _fileRender(self, labels, lengths, outFile):
+        n = self.baseGet()
+        if n != None:
+            if n.taxonNumGet() != None:
+                # Leaf node.
+                outFile.write("(")
+                n.rrender(None, self._map, labels, lengths, outFile)
+                outFile.write(");\n")
+            else:
+                # Internal node.
+                n.rrender(None, self._map, labels, lengths, outFile)
+                outFile.write(";\n")
+        else:
+            outFile.write(";\n")
+
 #EOF

@@ -83,7 +83,16 @@ class DistMatrix(C_DistMatrix):
                   .ValueError("input: file, string, or TaxonMap expected")
 
     # Print the matrix to a string in 'full', 'upper', or 'lower' format.
-    def prints(self, format='full'):
+    def render(self, format='full', outFile=None):
+        if outFile == None:
+            retval = self._stringRender(format)
+        else:
+            self._fileRender(format, outFile)
+            retval = None
+
+        return retval
+
+    def _stringRender(self, format):
         retval = "%d\n" % self.taxonMapGet().ntaxaGet()
         if format == 'full':
             for x in forints(self.taxonMapGet().ntaxaGet()):
@@ -110,4 +119,30 @@ class DistMatrix(C_DistMatrix):
                   .ValueError("Format must be 'full', 'upper', or 'lower'")
 
         return retval
+
+    def _fileRender(self, format, outFile):
+        outFile.write("%d\n" % self.taxonMapGet().ntaxaGet())
+        if format == 'full':
+            for x in forints(self.taxonMapGet().ntaxaGet()):
+                outFile.write("%-10s" % self.taxonMapGet().labelGet(x))
+                for y in forints(self.taxonMapGet().ntaxaGet()):
+                    outFile.write(" %1.5f" % self.distanceGet(x, y))
+                outFile.write("\n")
+        elif format == 'upper':
+            for x in forints(self.taxonMapGet().ntaxaGet()):
+                outFile.write("%-10s" % self.taxonMapGet().labelGet(x))
+                for y in forints(x + 1):
+                    outFile.write("%8s" % "")
+                for y in forints(self.taxonMapGet().ntaxaGet(), start=x+1):
+                    outFile.write(" %1.5f" % self.distanceGet(x, y))
+                outFile.write("\n")
+        elif format == 'lower':
+            for x in forints(self.taxonMapGet().ntaxaGet()):
+                outFile.write("%-10s" % self.taxonMapGet().labelGet(x))
+                for y in forints(x):
+                    outFile.write(" %1.5f" % self.distanceGet(x, y))
+                outFile.write("\n")
+        else:
+            raise crux.DistMatrix\
+                  .ValueError("Format must be 'full', 'upper', or 'lower'")
 #EOF

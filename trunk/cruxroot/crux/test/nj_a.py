@@ -9,6 +9,8 @@
 #
 ################################################################################
 
+import sys
+
 print "Test begin"
 
 matrix = crux.DistMatrix.DistMatrix(open(opts.scriptargs[1]
@@ -16,6 +18,7 @@ matrix = crux.DistMatrix.DistMatrix(open(opts.scriptargs[1]
 t = crux.Tree.Tree(matrix)
 
 t.canonize()
-print t.prints()
+print t.render()
+t.render(outFile=sys.stdout)
 
 print "Test end"
