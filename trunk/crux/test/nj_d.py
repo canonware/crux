@@ -42,7 +42,6 @@ for testMatrix in testMatrices:
     #matrix.render(distFormat="%2.0f", outFile=sys.stdout)
     t = crux.Tree.Tree(matrix)
     map = t.taxonMapGet()
-    labels = map.taxaGet()
     t.canonize()
     t.render(labels=True, lengths=True, lengthFormat="%.0f", outFile=sys.stdout)
 
