@@ -45,6 +45,7 @@ init_crux(void)
     CxEdgeInit();
     CxRingInit();
     CxFastaParserInit();
+    CxNewickParserInit();
     CxDistMatrixInit();
 }
 

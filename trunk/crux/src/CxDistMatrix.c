@@ -198,6 +198,8 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self, bool *arEof,
 			    // Stay in the start state.
 			    break;
 			}
+			// XXX It's possible to accept an int that only consists
+			// of a sign.
 			case '+': case '-':
 			case '0': case '1': case '2': case '3': case '4':
 			case '5': case '6': case '7': case '8': case '9':
@@ -296,6 +298,8 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self, bool *arEof,
 			    *rTokenType = CxtDistMatrixTokenDec;
 			    return;
 			}
+			// XXX It's possible to accept an exp that only consists
+			// of a sign.
 			case '+': case '-':
 			case '0': case '1': case '2': case '3': case '4':
 			case '5': case '6': case '7': case '8': case '9':

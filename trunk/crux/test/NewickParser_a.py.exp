@@ -702,7 +702,7 @@ Test begin
 --leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
-Exception crux.NewickParser.SyntaxError: At offset 5 (token ')', char ')'): ';' expected
+Exception C_NewickParser.SyntaxError: At offset 5 (token ')', char ')'): ';' expected
 
 === '((A,B);' ===
 --(--: '('
@@ -712,7 +712,7 @@ Exception crux.NewickParser.SyntaxError: At offset 5 (token ')', char ')'): ';' 
 --leafLabel--: 'B'
 --)--: ')'
 --internalLabel--: ''
-Exception crux.NewickParser.SyntaxError: At offset 6 (token ';', char ';'): ',' or ')' expected
+Exception C_NewickParser.SyntaxError: At offset 6 (token ';', char ';'): ',' or ')' expected
 
 === '(A,B)' ===
 --(--: '('
@@ -720,7 +720,7 @@ Exception crux.NewickParser.SyntaxError: At offset 6 (token ';', char ';'): ',' 
 --,--: ','
 --leafLabel--: 'B'
 --)--: ')'
-Exception crux.NewickParser.SyntaxError: At offset 5 (token '', char ')'): End of input reached
+Exception C_NewickParser.SyntaxError: At offset 5 (token ''): End of input reached
 
 === '(A,B:42.43.44);' ===
 --(--: '('
@@ -729,13 +729,13 @@ Exception crux.NewickParser.SyntaxError: At offset 5 (token '', char ')'): End o
 --leafLabel--: 'B'
 --:--: ':'
 --length--: '42.43'
-Exception crux.NewickParser.SyntaxError: At offset 10 (token '.', char '.'): ',' or ')' expected
+Exception C_NewickParser.SyntaxError: At offset 10 (token '.', char '.'): ',' or ')' expected
 
 === '(A:42.);' ===
 --(--: '('
 --leafLabel--: 'A'
 --:--: ':'
-Exception crux.NewickParser.SyntaxError: At offset 6 (token '42.', char ')'): Expected digit
+Exception C_NewickParser.SyntaxError: At offset 6 (token '42.)', char ')'): Expected digit
 
 === "( [hi]1_1[bye[hi again]bye for real]: 4.2,3,('4_4',5));" ===
 --(--: '('
