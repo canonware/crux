@@ -389,10 +389,10 @@ CxpTreeNjFinalJoin(float *aD, CxtNodeObject **aNodes, CxtTreeObject *aTree)
 }
 
 CxmpInline bool
-CxpTreeNjPairClusterOk(float *aD, long aNleft, long aA, long aB)
+CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
+		       long aA, long aB)
 {
     bool retval;
-    int relation;
     long x, iA, iB;
     float dist, distA, distB;
 
@@ -401,8 +401,8 @@ CxpTreeNjPairClusterOk(float *aD, long aNleft, long aA, long aB)
     /* Compare the distances from {aA, aB} to every other node, and make sure
      * that one of the two is always closer, always farther, or always
      * equidistant. */
-    dist = aD[CxpTreeNjXy2i(aNleft, aA, aB)];
-    for (x = relation = 0,
+    dist = aD[CxpTreeNjXy2i(aNleft, aA, aB)] - (aRScaled[aA] + aRScaled[aB]);
+    for (x = 0,
 	     iA = aA - 1,
 	     iB = aB - 1;
 	 x < aNleft;
@@ -444,23 +444,10 @@ CxpTreeNjPairClusterOk(float *aD, long aNleft, long aA, long aB)
 
 	/* Make sure aA and aB are closer together than any nodes are to either
 	 * aA or aB. */
+	distA -= (aRScaled[x] + aRScaled[aA]);
+	distB -= (aRScaled[x] + aRScaled[aB]);
+
 	if (distA <= dist || distB <= dist)
-	{
-	    retval = false;
-	    goto RETURN;
-	}
-
-	/* Check relationship of distances. */
-	if (distA < distB)
-	{
-	    relation |= 1;
-	}
-	else if (distA > distB)
-	{
-	    relation |= 2;
-	}
-
-	if (relation == 3)
 	{
 	    retval = false;
 	    goto RETURN;
@@ -475,8 +462,8 @@ CxpTreeNjPairClusterOk(float *aD, long aNleft, long aA, long aB)
 
 static void
 CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
-		     CxtNodeObject ***arNodes, long *arNleft,
-		     CxtTreeObject *aTree, long aPrevJoin)
+		 CxtNodeObject ***arNodes, long *arNleft,
+		 CxtTreeObject *aTree, long aPrevJoin)
 {
     float *d = *arD;
     float *r = *arR;
@@ -513,7 +500,7 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 		continue;
 	    }
 
-	    if (CxpTreeNjPairClusterOk(d, nleft, a, b))
+	    if (CxpTreeNjPairClusterOk(d, rScaled, nleft, a, b))
 	    {
 		CxpTreeNjRScaledUpdate(rScaled, r, nleft);
 #ifdef CxmTreeNjVerbose
@@ -577,7 +564,7 @@ CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
 	}
 	CxmAssert(minDist != HUGE_VAL);
 
-	if (CxpTreeNjPairClusterOk(d, nleft, x, min))
+	if (CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min))
 	{
 	    CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, x, min,
 			       &node, &distX, &distY);
