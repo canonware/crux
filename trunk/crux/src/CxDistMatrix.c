@@ -1000,10 +1000,13 @@ CxpDistMatrixTraverse(CxtDistMatrixObject *self, visitproc visit, void *arg)
 {
     int retval;
 
-    if (visit((PyObject *) self->map, arg) < 0)
+    if (self->map != NULL)
     {
-	retval = -1;
-	goto RETURN;
+	if (visit((PyObject *) self->map, arg) < 0)
+	{
+	    retval = -1;
+	    goto RETURN;
+	}
     }
 
     retval = 0;
@@ -1193,6 +1196,7 @@ CxpDistMatrixDup(CxtDistMatrixObject *self, PyObject *args)
 	goto RETURN;
     }
 
+    Py_DECREF(self->map);
     self->map = map;
     Py_INCREF(self->map);
 
@@ -1557,6 +1561,7 @@ CxpDistMatrixFileLabelRender(CxtDistMatrixObject *self, FILE *aF, long aX)
     }
     if (fprintf(aF, "%-10s", PyString_AsString(result)) < 0)
     {
+	Py_DECREF(result);
 	CxError(CxgDistMatrixIOError, "Error in fprintf()");
 	retval = true;
 	goto RETURN;
