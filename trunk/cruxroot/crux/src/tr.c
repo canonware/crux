@@ -10,6 +10,7 @@
  *
  ******************************************************************************/
 
+// XXX Remove spare node (trns[0]); it isn't needed at all.
 #include "../include/modcrux.h"
 
 typedef struct cw_tr_ps_s cw_tr_ps_t;
@@ -34,10 +35,9 @@ struct cw_tr_ps_s
     cw_tr_ps_t *parent;
 
     /* If this node is adjacent to the bisection edge, then this variable
-     * records the node on the other end of the bisection edge.  This is used
-     * when deciding whether to push the value of parent down to the child when
-     * recursively scoring. */
-    cw_trn_t *other;
+     * records the bisection edge.  This is used when deciding whether to push
+     * the value of parent down to the child when recursively scoring. */
+    cw_tr_edge_t bisect;
 
     /* Sum of the subtree scores, and this node's score, given particular
      * children.  In order for this to be useful, both childrens' parent
@@ -2269,139 +2269,132 @@ tr_p_mp_passpscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a)
 }
 
 static void
-tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_trn_t *a_node, cw_trn_t *a_prev,
-		      cw_trn_t *a_other)
+tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 {
-    uint32_t i;
-    cw_trn_t *trn, *a, *b, *o;
-    cw_tr_node_t node;
+    uint32_t degree;
+    bool adjacent;
+    cw_tr_ring_t ring;
 
-    a = NULL;
-    b = NULL;
-    o = NULL;
-
-    /* Set a, b, and o, according to which neighbors are subtrees or on the
-     * other side of the bisection. */
-    cw_assert(CW_TR_NODE_MAX_NEIGHBORS == 3);
-#define TR_P_MP_SCORE_RECURSE_NEIGHBOR_ITERATE()			\
-    node = a_node->neighbors[i];					\
-    if (node != CW_TR_NODE_NONE)					\
-    {									\
-	trn = &a_tr->trns[node];					\
-	if (trn == a_other)						\
-	{								\
-    	o = trn;							\
-	}								\
-	else if (trn != a_prev)						\
-	{								\
-	    if (a == NULL)						\
-	    {								\
-		a = trn;						\
-	    }								\
-	    else							\
-	    {								\
-		cw_assert(b == NULL);					\
-		b = trn;						\
-	    }								\
-	}								\
-    }
-
-    i = 0;
-    TR_P_MP_SCORE_RECURSE_NEIGHBOR_ITERATE();
-    i++;
-    TR_P_MP_SCORE_RECURSE_NEIGHBOR_ITERATE();
-    i++;
-    TR_P_MP_SCORE_RECURSE_NEIGHBOR_ITERATE();
-#undef TR_P_MP_SCORE_RECURSE_NEIGHBOR_ITERATE
-
-    /* Recursively calculate partial scores for the subtrees, then calculate the
-     * partial score for this node. */
-    if (b != NULL)
+    /* Get the degree of the node.  Don't count the bisection edge (only an
+     * issue if this node is adjacent to the bisection). */
+    degree = 1;
+    adjacent = false;
+    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
     {
-	/* Recurse into subtrees. */
-	tr_p_mp_score_recurse(a_tr, a, a_node, a_other);
-	tr_p_mp_score_recurse(a_tr, b, a_node, a_other);
-
-	/* Clear cached other value. */
-	a_node->ps->other = o;
-
-	/* Calculate this node's partial score. */
-
-	/* Calculate the partial score for this node. */
-	cw_check_ptr(a);
-	tr_p_mp_pscore(a_tr, a_node->ps, a->ps, b->ps);
-    }
-    else if (o != NULL)
-    {
-	cw_check_ptr(a);
-	cw_assert(b == NULL);
-
-	/* Recurse into subtree, and pass down cached parent value, if the last
-	 * time this node was recursed through, o was the same. */
-	if (a_node->ps->other == o)
+	if (tr_p_ring_edge_get(a_tr, ring) != a_bisect)
 	{
-	    /* Pass cached parent value to the child. */
-	    a->ps->parent = a_node->ps->parent;
+	    degree++;
 	}
 	else
 	{
-	    /* Clear cached other value. */
-	    a_node->ps->other = o;
+	    adjacent = true;
 	}
+    }
 
-	/* Recurse into subtree. */
-	tr_p_mp_score_recurse(a_tr, a, a_node, a_other);
-
-	/* Copy a's scores to this node, rather than calculating a partial
-	 * score.  This node is merely a filler node, as far as scoring is
-	 * concerned. */
-	if (a != NULL)
+    switch (degree)
+    {
+	case 1:
 	{
-	    tr_p_mp_passpscore(a_tr, a_node->ps, a->ps);
+	    /* Leaf node.  Do nothing. */
+	    break;
+	}
+	case 2:
+	{
+	    cw_tr_ps_t *ps, *ps_c;
+	    cw_tr_ring_t cring;
+
+	    /* This is a trifurcating node that is adjacent to the bisection. */
+
+	    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
+	    {
+		if (tr_p_ring_edge_get(a_tr, ring) != a_bisect)
+		{
+		    cring = ring;
+		    break;
+		}
+	    }
+
+	    ps_c = a_tr->trns[tr_p_ring_node_get(a_tr, cring)].ps;
+
+	    /* Pass down the cached parent value, if the last time this node was
+	     * recursed through, the bisection edge was the same. */
+	    // XXX Does TBR break this?
+	    ps = a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)].ps;
+	    if (ps->bisect == a_bisect)
+	    {
+		/* Pass cached parent value to the child. */
+		ps_c->parent = ps->parent;
+	    }
+	    else
+	    {
+		/* Clear cached bisection edge. */
+		ps->bisect = CW_TR_EDGE_NONE;
+	    }
+
+	    /* Recurse. */
+	    tr_p_mp_score_recurse(a_tr, tr_p_ring_other_get(a_tr, cring),
+				  a_bisect);
+
+	    /* Copy child's scores to this node, rather than calculating a
+	     * partial score.  This node is merely a filler node, as far as
+	     * scoring is concerned. */
+	    tr_p_mp_passpscore(a_tr, ps, ps_c);
+	    break;
+	}
+	case 3:
+	{
+	    if (adjacent == false)
+	    {
+		cw_tr_ps_t *ps, *ps_a, *ps_b;
+
+		/* This is a normal trifurcating node.  This is the common case,
+		 * and is handled separately from the code below for performance
+		 * reasons. */
+
+		/* Recursively calculate partial scores for the subtrees. */
+		ring = qri_next(a_tr->trrs, a_ring, link);
+		ps_a = a_tr->trns[tr_p_ring_node_get(a_tr, ring)].ps;
+		tr_p_mp_score_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
+				      a_bisect);
+
+		ring = qri_next(a_tr->trrs, ring, link);
+		ps_b = a_tr->trns[tr_p_ring_node_get(a_tr, ring)].ps;
+		tr_p_mp_score_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
+				      a_bisect);
+
+		/* Clear cached bisection edge. */
+		ps = a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)].ps;
+		ps->bisect = CW_TR_EDGE_NONE;
+
+		/* Calculate the partial score for this node. */
+		tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
+
+		break;
+	    }
+	    /* Fall through if this node is adjacent to the bisection. */
+	}
+	default:
+	{
+	    /* This is a multifurcating node. */
+	    cw_error("XXX Not implemented");
 	}
     }
 }
 
-static uint32_t
-tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
-	      cw_tr_node_t a_node_b, cw_tr_node_t a_other)
+static void
+tr_p_mp_score(cw_tr_t *a_tr, cw_tr_edge_t a_root, cw_tr_edge_t a_bisect)
 {
-    uint32_t retval;
-    bool maxed;
+    cw_tr_edge_t edge_a, edge_b;
 
-    maxed = false;
-    tr_p_mp_score_recurse(a_tr, &a_tr->trns[a_node_a], &a_tr->trns[a_node_b],
-			  &a_tr->trns[a_other]);
-    if (maxed)
-    {
-	retval = CW_TR_MAXSCORE_NONE;
-	goto RETURN;
-    }
+    edge_a = tr_p_edge_ring_get(a_tr, a_root, 0);
+    tr_p_mp_score_recurse(a_tr, edge_a, a_bisect);
 
-    tr_p_mp_score_recurse(a_tr, &a_tr->trns[a_node_b], &a_tr->trns[a_node_a],
-			  &a_tr->trns[a_other]);
-    if (maxed)
-    {
-	retval = CW_TR_MAXSCORE_NONE;
-	goto RETURN;
-    }
+    edge_b = tr_p_edge_ring_get(a_tr, a_root, 1);
+    tr_p_mp_score_recurse(a_tr, edge_b, a_bisect);
 
-    /* Clear the parent pointers of a_node_[ab], to make sure that the score is
-     * actually calculated.  This is necessary since the "root" node is always
-     * the temporary node.  One artifact of this is that repeating precisely the
-     * same score calculation will always result in the final score being
-     * recalculated. */
-    a_tr->trns[a_node_a].ps->parent = NULL;
-    a_tr->trns[a_node_b].ps->parent = NULL;
-
-    /* Calculate the final score, using a_ps. */
-    tr_p_mp_pscore(a_tr, a_ps, a_tr->trns[a_node_a].ps,
-		   a_tr->trns[a_node_b].ps);
-
-    /* Add up the final score. */
-    retval = a_ps->subtrees_score + a_ps->node_score;
-    RETURN:
-    return retval;
+    /* Calculate the final score. */
+    tr_p_mp_pscore(a_tr, a_tr->tres[a_root].ps,
+		   a_tr->tres[edge_a].ps, a_tr->tres[edge_b].ps);
 }
 
 CW_P_INLINE void
@@ -3042,11 +3035,31 @@ tr_mp_finish(cw_tr_t *a_tr)
 uint32_t
 tr_mp_score(cw_tr_t *a_tr)
 {
+    uint32_t retval;
+    cw_trn_t *trn;
+    cw_tr_ring_t ring;
+
     cw_dassert(tr_p_validate(a_tr));
 
-    return tr_p_mp_score(a_tr, a_tr->trns[0].ps,
-			 a_tr->trns[a_tr->base].neighbors[0], a_tr->base,
-			 CW_TR_NODE_NONE);
+    trn = &a_tr->trns[a_tr->base];
+
+    if ((ring = qli_first(&trn->rings)) != CW_TR_RING_NONE)
+    {
+	cw_tr_edge_t edge;
+	cw_tr_ps_t *ps;
+
+	edge = tr_p_ring_edge_get(a_tr, ring)
+	tr_p_mp_score(a_tr, edge, CW_TR_RING_NONE);
+
+	ps = &a_tr->tres[edge].ps;
+	retval = ps->subtrees_score + ps->node_score;
+    }
+    else
+    {
+	retval = 0;
+    }
+
+    return retval;
 }
 
 void
