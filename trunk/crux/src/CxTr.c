@@ -317,12 +317,18 @@ CxpTrEdgeAlloc(CxtTr *aTr)
 
 	/* Initialize last spare. */
 	aTr->sparetres = aTr->ntres - 1;
+#ifdef CxmDebug
+	aTr->tres[aTr->sparetres].magic = 0xa5a5a5a5;
+#endif
 	aTr->tres[aTr->sparetres].u.link = CxmTrEdgeNone;
 
 	/* Insert other spares into spares stack. */
 	for (i = 1; i < nspares; i++)
 	{
 	    aTr->sparetres--;
+#ifdef CxmDebug
+	    aTr->tres[aTr->sparetres].magic = 0xa5a5a5a5;
+#endif
 	    aTr->tres[aTr->sparetres].u.link = aTr->sparetres + 1;
 	}
     }
@@ -545,12 +551,18 @@ CxpTrNodeAlloc(CxtTr *aTr)
 
 	/* Initialize last spare. */
 	aTr->sparetrns = aTr->ntrns - 1;
+#ifdef CxmDebug
+	aTr->trns[aTr->sparetrns].magic = 0xa5a5a5a5;
+#endif
 	aTr->trns[aTr->sparetrns].u.link = CxmTrNodeNone;
 
 	/* Insert other spares into spares stack. */
 	for (i = 1; i < nspares; i++)
 	{
 	    aTr->sparetrns--;
+#ifdef CxmDebug
+	    aTr->trns[aTr->sparetrns].magic = 0xa5a5a5a5;
+#endif
 	    aTr->trns[aTr->sparetrns].u.link = aTr->sparetrns + 1;
 	}
     }
