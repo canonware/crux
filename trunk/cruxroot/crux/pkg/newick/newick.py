@@ -64,11 +64,11 @@
 # subtree ::= <descendant_list> [ <internal_label> ][ : <branch_length> ]
 #           | <leaf_label> [ : <branch_length> ]
 #
-# root_label ::= label
+# root_label ::= <label>
 #
-# internal_label ::= label
+# internal_label ::= <label>
 #
-# leaf_label ::= label
+# leaf_label ::= <label>
 #
 # label ::= <unquoted_label>
 #         | <quoted_label>
