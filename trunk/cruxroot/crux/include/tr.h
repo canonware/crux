@@ -48,10 +48,13 @@ tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node_a,
 cw_uint32_t
 tr_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b);
 
-/* Get the root of the tree, were this a canonical tree (may or may not be).
- * This is always the lowest numbered taxon node. */
+/* Get the base of the tree. */
 cw_tr_node_t
-tr_croot_get(cw_tr_t *a_tr);
+tr_base_get(cw_tr_t *a_tr);
+
+/* Set the base of the tree. */
+void
+tr_base_set(cw_tr_t *a_tr, cw_tr_node_t a_base);
 
 /* Canonize the tree. */
 void

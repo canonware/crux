@@ -113,12 +113,12 @@ struct cw_tr_s
      * for reference iteration. */
     void *aux;
 
-    /* TRUE if this tree has been modified since the internal state (croot,
-     * ntaxa, nedges, trt, tre) was updated, FALSE otherwise. */
+    /* TRUE if this tree has been modified since the internal state (ntaxa,
+     * nedges, trt, tre) was updated, FALSE otherwise. */
     cw_bool_t modified;
 
-    /* Lowest-numbered taxon (canonical tree root). */
-    cw_tr_node_t croot;
+    /* Base of the tree (may or may not be set). */
+    cw_tr_node_t base;
 
     /* Number of taxa in tree. */
     cw_uint32_t ntaxa;
@@ -373,7 +373,7 @@ tr_node_new(cw_tr_t *a_tr)
 	trn->neighbors[i] = CW_TR_NODE_NONE;
     }
 
-    trn->ps = tr_p_ps_new(a_tr);
+    trn->ps = NULL;
 
 #ifdef CW_DBG
     trn->magic = CW_TRN_MAGIC;
@@ -388,7 +388,10 @@ tr_node_delete(cw_tr_t *a_tr, cw_tr_node_t a_node)
     cw_dassert(tr_p_validate(a_tr, FALSE));
     cw_dassert(tr_p_node_validate(a_tr, a_node));
 
-    tr_p_ps_delete(a_tr, a_tr->trns[a_node].ps);
+    if (a_tr->trns[a_node].ps != NULL)
+    {
+	tr_p_ps_delete(a_tr, a_tr->trns[a_node].ps);
+    }
 
     tr_p_node_dealloc(a_tr, a_node);
 }
@@ -544,6 +547,8 @@ tr_p_root_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
     cw_trn_t *trn;
     cw_uint32_t i;
 
+    cw_assert(a_node != CW_TR_NODE_NONE);
+
     trn = &a_tr->trns[a_node];
 
     if (trn->taxon_num != CW_TR_NODE_TAXON_NONE
@@ -585,6 +590,8 @@ tr_p_update_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
     cw_tr_node_t retval, root, troot;
     cw_trn_t *trn;
     cw_uint32_t i;
+
+    cw_assert(a_node != CW_TR_NODE_NONE);
 
     trn = &a_tr->trns[a_node];
 
@@ -730,13 +737,12 @@ tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
 	cw_uint32_t ntaxa;
 
 	ntaxa = 0;
-	tr_p_update_recurse(a_tr, a_tr->croot, CW_TR_NODE_NONE, &ntaxa,
-			    CW_TR_NODE_NONE);
+	if (a_tr->base != CW_TR_NODE_NONE)
+	{
+	    tr_p_update_recurse(a_tr, a_tr->base, CW_TR_NODE_NONE, &ntaxa,
+				CW_TR_NODE_NONE);
+	}
 	cw_assert(a_tr->ntaxa == ntaxa);
-
-	cw_assert(tr_p_root_get(a_tr, a_tr->croot, CW_TR_NODE_NONE,
-				CW_TR_NODE_NONE)
-		  == a_tr->croot);
     }
 
     /* Traverse the tree, and make sure that the following invariants hold:
@@ -753,7 +759,7 @@ tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
      * Therefore, contiguous taxon numbering is only optionally validated. */
     for (i = j = 0; j < a_tr->ntaxa; i++, j += n)
     {
-	n = tr_p_validate_recurse(a_tr, a_tr->croot, CW_TR_NODE_NONE, i);
+	n = tr_p_validate_recurse(a_tr, a_tr->base, CW_TR_NODE_NONE, i);
 	cw_assert(n <= 1);
     }
 
@@ -907,16 +913,17 @@ tr_p_bisection_edges_get(cw_tr_t *a_tr, cw_tr_node_t a_node,
 }
 
 static void
-tr_p_croot_ntaxa_nedges_update(cw_tr_t *a_tr)
+tr_p_ntaxa_nedges_update(cw_tr_t *a_tr)
 {
     cw_uint32_t ntaxa;
-    cw_tr_node_t croot;
 
-    /* Update croot, ntaxa, and nedges. */
+    /* Update ntaxa and nedges. */
     ntaxa = 0;
-    croot = CW_TR_NODE_NONE;
-    a_tr->croot = tr_p_update_recurse(a_tr, a_tr->croot, CW_TR_NODE_NONE,
-				      &ntaxa, croot);
+    if (a_tr->base != CW_TR_NODE_NONE)
+    {
+	tr_p_update_recurse(a_tr, a_tr->base, CW_TR_NODE_NONE, &ntaxa,
+			    CW_TR_NODE_NONE);
+    }
     a_tr->ntaxa = ntaxa;
     if (ntaxa > 1)
     {
@@ -938,14 +945,11 @@ tr_p_trt_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
     /* Allocate/reallocate/deallocate trt. */
     if (a_tr->trt == NULL)
     {
-	if (a_tr->nedges > 0)
-	{
-	    /* Allocate trt. */
-	    a_tr->trt = (cw_trt_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-						     mema_arg_get(a_tr->mema),
-						     sizeof(cw_trt_t)
-						     * (a_tr->nedges + 1));
-	}
+	/* Allocate trt. */
+	a_tr->trt = (cw_trt_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+						 mema_arg_get(a_tr->mema),
+						 sizeof(cw_trt_t)
+						 * (a_tr->nedges + 1));
     }
     else if (a_tr->nedges != a_nedges_prev)
     {
@@ -986,7 +990,7 @@ tr_p_trt_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
 	a_tr->trt[j].nedges_b = 0;
 
 	/* Set trt[i].{nedges,self}_[ab]. */
-	tr_p_bisection_edges_get(a_tr, a_tr->croot, i, &a_tr->trt[j]);
+	tr_p_bisection_edges_get(a_tr, a_tr->base, i, &a_tr->trt[j]);
 
 	/* Update offset. */
 	if (a_tr->trt[j].nedges_a != 0)
@@ -1102,7 +1106,8 @@ tr_p_tre_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
 	    a_tr->tres
 		= (cw_tre_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
 					       mema_arg_get(a_tr->mema),
-					       sizeof(cw_tre_t) * a_tr->nedges);
+					       sizeof(cw_tre_t)
+					       * a_tr->nedges);
 	}
 	else
 	{
@@ -1161,9 +1166,13 @@ tr_p_tre_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
 
     /* Recursively traverse the tree, and initialize tres and edges in trns
      * along the way. */
-    edge_count = 0;
-    tr_p_tre_update_recurse(a_tr, a_tr->croot, CW_TR_NODE_NONE, &edge_count);
-    cw_assert(edge_count == a_tr->nedges);
+    if (a_tr->nedges > 0)
+    {
+	edge_count = 0;
+	tr_p_tre_update_recurse(a_tr, a_tr->base, CW_TR_NODE_NONE,
+				&edge_count);
+	cw_assert(edge_count == a_tr->nedges);
+    }
 }
 
 CW_P_INLINE void
@@ -1176,8 +1185,8 @@ tr_p_update(cw_tr_t *a_tr)
 	/* Store nedges before updating. */
 	nedges_prev = a_tr->nedges;
 
-	/* Update croot, ntaxa, and nedges. */
-	tr_p_croot_ntaxa_nedges_update(a_tr);
+	/* Update ntaxa and nedges. */
+	tr_p_ntaxa_nedges_update(a_tr);
 
 	/* Reset the modified flag. */
 	a_tr->modified = FALSE;
@@ -1201,7 +1210,6 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
     cw_trn_t *trn;
 
     cw_dassert(tr_p_node_validate(a_tr, a_node));
-    cw_assert(a_prev != CW_TR_NODE_NONE || a_prev == a_tr->croot);
 
     trn = &a_tr->trns[a_node];
 
@@ -1448,6 +1456,10 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 
     trn = &a_tr->trns[a_node];
 
+    if (trn->ps == NULL)
+    {
+	trn->ps = tr_p_ps_new(a_tr);
+    }
     tr_p_ps_prepare(a_tr, trn->ps, a_nchars);
 
     /* If this is a leaf node, initialize the character state sets. */
@@ -1597,7 +1609,7 @@ tr_new(cw_mema_t *a_mema)
     retval->mema = a_mema;
     retval->aux = NULL;
     retval->modified = FALSE;
-    retval->croot = CW_TR_NODE_NONE;
+    retval->base = CW_TR_NODE_NONE;
     retval->ntaxa = 0;
     retval->nedges = 0;
     retval->trt = NULL;
@@ -1714,13 +1726,25 @@ tr_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b)
 }
 
 cw_tr_node_t
-tr_croot_get(cw_tr_t *a_tr)
+tr_base_get(cw_tr_t *a_tr)
 {
     cw_dassert(tr_p_validate(a_tr, FALSE));
 
-    tr_p_update(a_tr);
+    return a_tr->base;
+}
 
-    return a_tr->croot;
+void
+tr_base_set(cw_tr_t *a_tr, cw_tr_node_t a_base)
+{
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+#ifdef CW_DBG
+    if (a_base != CW_TR_NODE_NONE)
+    {
+	cw_dassert(tr_p_node_validate(a_tr, a_base));
+    }
+#endif
+
+    a_tr->base = a_base;
 }
 
 void
@@ -1732,11 +1756,22 @@ tr_canonize(cw_tr_t *a_tr)
      * or tre yet, since we will invalidate them during canonization. */
     if (a_tr->modified)
     {
-	tr_p_croot_ntaxa_nedges_update(a_tr);
+	tr_p_ntaxa_nedges_update(a_tr);
 	a_tr->modified = FALSE;
     }
 
-    tr_p_canonize(a_tr, a_tr->croot, CW_TR_NODE_NONE);
+    if (a_tr->base != CW_TR_NODE_NONE)
+    {
+	cw_uint32_t ntaxa;
+
+	/* Set base to be the lowest-numbered taxon. */
+	ntaxa = 0;
+	a_tr->base = tr_p_update_recurse(a_tr, a_tr->base, CW_TR_NODE_NONE,
+					 &ntaxa, CW_TR_NODE_NONE);
+
+	/* Canonize the tree. */
+	tr_p_canonize(a_tr, a_tr->base, CW_TR_NODE_NONE);
+    }
 
     /* Reset the modified flag. */
     a_tr->modified = FALSE;
@@ -1768,7 +1803,7 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
     cw_assert(spare_b == CW_TR_NODE_NONE);
 
     /* All changes since the last tr_p_update() call were related to TBR, and we
-     * know that this does not impact croot, ntaxa, or nedges. */
+     * know that this does not impact ntaxa or nedges. */
     a_tr->modified = FALSE;
 
     /* Update trt and tre. */
@@ -1895,7 +1930,7 @@ tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
 
     tr_p_update(a_tr);
 
-    tr_p_mp_prepare_recurse(a_tr, a_tr->croot, CW_TR_NODE_NONE, a_taxa, a_ntaxa,
+    tr_p_mp_prepare_recurse(a_tr, a_tr->base, CW_TR_NODE_NONE, a_taxa, a_ntaxa,
 			    a_nchars);
 
     /* Initialize ps's for tre's. */
@@ -2084,7 +2119,7 @@ tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore)
     cw_assert(a_tr->modified == FALSE);
 
     return tr_p_mp_score(a_tr, a_tr->tres[0].ps,
-			 a_tr->trns[a_tr->croot].neighbors[0], a_tr->croot,
+			 a_tr->trns[a_tr->base].neighbors[0], a_tr->base,
 			 a_maxscore);
 }
 
