@@ -23,6 +23,7 @@ struct CxsTreeObject
 {
     PyObject_HEAD
     CxtTr *tr;
+    uint64_t seq;
     bool GcCleared;
 
 #define CxmTreeObjectAuxCount 1
@@ -132,12 +133,20 @@ CxTreeIterate(CxtTreeObject *aTree,
 	      void *aContext);
 
 #if (!defined(CxmUseInlines))
+uint64_t
+CxTreeSeq(CxtTreeObject *self);
 void *
 CxTreeAuxGet(CxtTreeObject *self, unsigned aInd);
 void
 CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux);
 #endif
 #if (defined(CxmUseInlines) || defined(CxmTree_c))
+CxmInline uint64_t
+CxTreeSeq(CxtTreeObject *self)
+{
+    return self->seq;
+}
+
 CxmInline void *
 CxTreeAuxGet(CxtTreeObject *self, unsigned aInd)
 {

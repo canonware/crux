@@ -62,6 +62,7 @@ CxpTreeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	self->tr = CxTrNew();
 	CxTrAuxSet(self->tr, self);
 	memset(self->aux, 0x0, sizeof(void *) * CxmTreeObjectAuxCount);
+	self->seq = 1; // 0 is skipped so that it can mean "uninitialized".
 	self->GcCleared = false;
 	rVal = (PyObject *) self;
     }
@@ -326,6 +327,7 @@ CxTreeBaseSet(CxtTreeObject *self, CxtNodeObject *aNode)
     {
 	Py_INCREF(aNode);
 	CxTrBaseSet(self->tr, aNode->node);
+	self->seq++;
     }
 
     if (oldNode != NULL)
@@ -992,6 +994,7 @@ void
 CxNodeTaxonNumSet(CxtNodeObject *self, uint32_t aTaxonNum)
 {
     CxTrNodeTaxonNumSet(self->tree->tr, self->node, aTaxonNum);
+    self->tree->seq++;
 }
 
 PyObject *
@@ -1466,6 +1469,7 @@ void
 CxEdgeLengthSet(CxtEdgeObject *self, double aLength)
 {
     CxTrEdgeLengthSet(self->tree->tr, self->edge, aLength);
+    self->tree->seq++;
 }
 
 PyObject *
@@ -1509,6 +1513,8 @@ CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
     // CxpTreeCanonize() assumes that attaching inserts the edge at the tail
     // of the ring; make sure to keep that code in sync with this function.
     CxTrEdgeAttach(self->tree->tr, self->edge, aNodeA->node, aNodeB->node);
+
+    self->tree->seq++;
 }
 
 PyObject *
@@ -1580,6 +1586,8 @@ CxEdgeDetach(CxtEdgeObject *self)
     // Nodes refer to rings.
     Py_DECREF(self->ringA);
     Py_DECREF(self->ringB);
+
+    self->tree->seq++;
 
     rVal = false;
     RETURN:
