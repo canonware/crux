@@ -1,8 +1,7 @@
-* Consider making exact mode for NJ optional.  This would potentially be useful
-  if wanting to avoid any bias for bootstrap replicates.
-
 * Add isSymmetric(), symmetricize(), and unsymmetricize() methods to DistMatrix
   class.
+
+* Render symmetric matrices in lower triangle format by default.
 
 * Write regression tests for DistMatrix.distance[GS]et().
 
