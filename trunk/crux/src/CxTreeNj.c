@@ -108,6 +108,59 @@
 //#define CxmTreeNjVerbose
 //#define CxmTreeNjDump
 
+#ifdef CxmTreeNjDump
+static void
+CxpTreeNjDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
+	      long aNleft)
+{
+    PyObject *result;
+    float *dElm;
+    long x, y;
+     
+    fprintf(stderr,
+	    "----------------------------------------"
+	    "----------------------------------------\n");
+    for (x = 0, dElm = aD; x < aNleft; x++)
+    {
+	fprintf(stderr, "%*s", (int) x * 9 + (!!x), " ");
+	for (y = x + 1; y < aNleft; y++)
+	{
+	    fprintf(stderr, " %8.4f", *dElm);
+	    dElm++;
+	}
+	fprintf(stderr, " || %8.4f\n", aR[x]);
+
+	fprintf(stderr, "%*s", (int) x * 9 + (!!x), " ");
+	for (y -= aNleft - (x + 1), dElm -= aNleft - (x + 1);
+	     y < aNleft;
+	     y++)
+	{
+	    fprintf(stderr, " %8.4f", *dElm - (aRScaled[x] + aRScaled[y]));
+	    dElm++;
+	}
+	fprintf(stderr, " || %8.4f\n", aRScaled[x]);
+
+	fprintf(stderr, "%*s", (int) x * 9 + (!!x), " ");
+	for (y -= aNleft - (x + 1);
+	     y < aNleft;
+	     y++)
+	{
+	    fprintf(stderr, " %8s", "");
+	}
+	result = CxNodeTaxonNumGet(aNodes[x]);
+	if (result != Py_None)
+	{
+	    fprintf(stderr, " || n %ld\n",
+		    PyInt_AsLong(result), aNodes[x]);
+	}
+	else
+	{
+	    fprintf(stderr, " || i %p\n", aNodes[x]);
+	}
+    }
+}
+#endif
+
 /* Convert from row/column matrix coordinates to array offsets. */
 CxmpInline unsigned long
 CxpTreeNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
@@ -616,7 +669,7 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 	if (CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min))
 	{
 #ifdef CxmTreeNjDump
-	    CxpTreeDump(d, r, rScaled, nodes, nleft);
+	    CxpTreeNjDump(d, r, rScaled, nodes, nleft);
 #endif
 	    CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, x, min,
 			       &node, &distX, &distY);
@@ -654,42 +707,6 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
     *arNodes = nodes;
     *arNleft = nleft;
 }
-
-#ifdef CxmTreeNjDump
-static void
-CxpTreeDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
-	    long aNleft)
-{
-    PyObject *result;
-    float *dElm;
-    long x, y;
-     
-    fprintf(stderr,
-	    "----------------------------------------"
-	    "----------------------------------------\n");
-    for (x = 0, dElm = aD; x < aNleft; x++)
-    {
-	fprintf(stderr, "%*s", (int) x * 9 + (!!x), " ");
-	for (y = x + 1; y < aNleft; y++)
-	{
-	    fprintf(stderr, " %8.4f", *dElm);
-	    dElm++;
-	}
-	result = CxNodeTaxonNumGet(aNodes[x]);
-	if (result != Py_None)
-	{
-	    fprintf(stderr, " || %8.4f %8.4f (node %ld %p)\n",
-		    aR[x], aRScaled[x],
-		    PyInt_AsLong(result), aNodes[x]);
-	}
-	else
-	{
-	    fprintf(stderr, " || %8.4f %8.4f (internal node %p)\n",
-		    aR[x], aRScaled[x], aNodes[x]);
-	}
-    }
-}
-#endif
 
 /* Create a tree from a pairwise distance matrix, using the neighbor-joining
  * algorithm.
