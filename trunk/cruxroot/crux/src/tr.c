@@ -94,9 +94,6 @@ struct cw_trn_s
 
     /* Ring of trr's, which are associated with tre's. */
     qli_head rings;
-
-    // XXX Remove once MP scoring uses multiple views.
-    cw_tr_ps_t *ps;
 };
 
 /* Tree node edge ring element. */
@@ -749,7 +746,6 @@ tr_p_node_init(cw_tr_t *a_tr, cw_tr_node_t a_node)
     trn->u.aux = NULL;
     trn->taxon_num = CW_TR_NODE_TAXON_NONE;
     qli_new(&trn->rings);
-    trn->ps = NULL;
 
 #ifdef CW_DBG
     trn->magic = CW_TRN_MAGIC;
@@ -817,11 +813,6 @@ tr_p_node_dealloc(cw_tr_t *a_tr, cw_tr_node_t a_node)
     cw_trn_t *trn;
 
     trn = &a_tr->trns[a_node];
-
-    if (trn->ps != NULL)
-    {
-	tr_p_ps_delete(a_tr, trn->ps);
-    }
     
 #ifdef CW_DBG
     memset(trn, 0x5a, sizeof(cw_trn_t));
@@ -1810,29 +1801,32 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
 }
 
 static void
-tr_p_mp_trn_prepare(cw_tr_t *a_tr, cw_trn_t *a_trn, char *a_taxa[],
-		    uint32_t a_ntaxa, uint32_t a_nchars)
+tr_p_mp_ring_prepare(cw_tr_t *a_tr, cw_tr_ring_t a_ring, char *a_taxa[],
+		     uint32_t a_ntaxa, uint32_t a_nchars)
 {
-    uint32_t i;
+    cw_trr_t *trr;
+    uint32_t taxon_num;
 
-    if (a_trn->ps == NULL)
+    trr = &a_tr->trrs[a_ring];
+
+    if (trr->ps == NULL)
     {
-	a_trn->ps = tr_p_ps_new(a_tr);
+	trr->ps = tr_p_ps_new(a_tr);
     }
-    tr_p_ps_prepare(a_tr, a_trn->ps, a_nchars);
+    tr_p_ps_prepare(a_tr, trr->ps, a_nchars);
 
     /* If this is a leaf node, initialize the character state sets and
      * scores. */
-    if (a_trn->taxon_num != CW_TR_NODE_TAXON_NONE)
+    taxon_num = a_tr->trns[trr->node].taxon_num;
+    if (taxon_num != CW_TR_NODE_TAXON_NONE)
     {
+	uint32_t i;
 	char *chars;
 
-	cw_assert(a_trn->taxon_num < a_ntaxa);
+	trr->ps->subtrees_score = 0;
+	trr->ps->node_score = 0;
 
-	a_trn->ps->subtrees_score = 0;
-	a_trn->ps->node_score = 0;
-
-	chars = a_taxa[a_trn->taxon_num];
+	chars = a_taxa[taxon_num];
 	for (i = 0; i < a_nchars; i++)
 	{
 	    switch (chars[i])
@@ -1845,91 +1839,91 @@ tr_p_mp_trn_prepare(cw_tr_t *a_tr, cw_trn_t *a_trn, char *a_taxa[],
 		 * things, and may need to be made configurable. */
 		case '-':
 		{
-		    a_trn->ps->chars[i] = 0xf;
+		    trr->ps->chars[i] = 0xf;
 		    break;
 		}
 		case 'V':
 		case 'v':
 		{
-		    a_trn->ps->chars[i] = 0xe;
+		    trr->ps->chars[i] = 0xe;
 		    break;
 		}
 		case 'H':
 		case 'h':
 		{
-		    a_trn->ps->chars[i] = 0xd;
+		    trr->ps->chars[i] = 0xd;
 		    break;
 		}
 		case 'M':
 		case 'm':
 		{
-		    a_trn->ps->chars[i] = 0xc;
+		    trr->ps->chars[i] = 0xc;
 		    break;
 		}
 		case 'D':
 		case 'd':
 		{
-		    a_trn->ps->chars[i] = 0xb;
+		    trr->ps->chars[i] = 0xb;
 		    break;
 		}
 		case 'R':
 		case 'r':
 		{
-		    a_trn->ps->chars[i] = 0xa;
+		    trr->ps->chars[i] = 0xa;
 		    break;
 		}
 		case 'W':
 		case 'w':
 		{
-		    a_trn->ps->chars[i] = 0x9;
+		    trr->ps->chars[i] = 0x9;
 		    break;
 		}
 		case 'A':
 		case 'a':
 		{
-		    a_trn->ps->chars[i] = 0x8;
+		    trr->ps->chars[i] = 0x8;
 		    break;
 		}
 		case 'B':
 		case 'b':
 		{
-		    a_trn->ps->chars[i] = 0x7;
+		    trr->ps->chars[i] = 0x7;
 		    break;
 		}
 		case 'S':
 		case 's':
 		{
-		    a_trn->ps->chars[i] = 0x6;
+		    trr->ps->chars[i] = 0x6;
 		    break;
 		}
 		case 'Y':
 		case 'y':
 		{
-		    a_trn->ps->chars[i] = 0x5;
+		    trr->ps->chars[i] = 0x5;
 		    break;
 		}
 		case 'C':
 		case 'c':
 		{
-		    a_trn->ps->chars[i] = 0x4;
+		    trr->ps->chars[i] = 0x4;
 		    break;
 		}
 		case 'K':
 		case 'k':
 		{
-		    a_trn->ps->chars[i] = 0x3;
+		    trr->ps->chars[i] = 0x3;
 		    break;
 		}
 		case 'G':
 		case 'g':
 		{
-		    a_trn->ps->chars[i] = 0x2;
+		    trr->ps->chars[i] = 0x2;
 		    break;
 		}
 		case 'T':
 		case 't':
 		{
-		    a_trn->ps->chars[i] = 0x1;
+		    trr->ps->chars[i] = 0x1;
 		    break;
 		}
 		default:
@@ -1945,13 +1939,11 @@ static void
 tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 			char *a_taxa[], uint32_t a_ntaxa, uint32_t a_nchars)
 {
-    cw_trn_t *trn;
     cw_tr_ring_t ring;
     cw_tre_t *tre;
 
-    /* Prepare the node associated with a_ring. */
-    trn = &a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)];
-    tr_p_mp_trn_prepare(a_tr, trn, a_taxa, a_ntaxa, a_nchars);
+    /* Prepare a_ring. */
+    tr_p_mp_ring_prepare(a_tr, a_ring, a_taxa, a_ntaxa, a_nchars);
 
     /* Recurse into subtrees. */
     qri_others_foreach(ring, a_tr->trrs, a_ring, link)
@@ -1964,6 +1956,9 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 	}
 	tr_p_ps_prepare(a_tr, tre->ps, a_nchars);
 
+	/* Prepare ring. */
+	tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars);
+
 	/* Recurse. */
 	tr_p_mp_prepare_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
 				a_taxa, a_ntaxa, a_nchars);
@@ -1971,25 +1966,27 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 }
 
 static void
-tr_p_mp_trn_finish(cw_tr_t *a_tr, cw_trn_t *a_trn)
+tr_p_mp_ring_finish(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 {
-    if (a_trn->ps != NULL)
+    cw_trr_t *trr;
+
+    trr = &a_tr->trrs[a_ring];
+
+    if (trr->ps != NULL)
     {
-	tr_p_ps_delete(a_tr, a_trn->ps);
-	a_trn->ps = NULL;
+	tr_p_ps_delete(a_tr, trr->ps);
+	trr->ps = NULL;
     }
 }
 
 static void
 tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 {
-    cw_trn_t *trn;
     cw_tr_ring_t ring;
     cw_tre_t *tre;
 
-    /* Clean up the node associated with a_ring. */
-    trn = &a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)];
-    tr_p_mp_trn_finish(a_tr, trn);
+    /* Clean up a_ring. */
+    tr_p_mp_ring_finish(a_tr, a_ring);
 
     /* Recurse into subtrees. */
     qri_others_foreach(ring, a_tr->trrs, a_ring, link)
@@ -2001,6 +1998,9 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 	    tr_p_ps_delete(a_tr, tre->ps);
 	    tre->ps = NULL;
 	}
+
+	/* Clean up ring. */
+	tr_p_mp_ring_finish(a_tr, ring);
 
 	/* Recurse. */
 	tr_p_mp_finish_recurse(a_tr, tr_p_ring_other_get(a_tr, ring));
@@ -2220,9 +2220,9 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 }
 
 /* The sole purpose of this function is to assure that the contents of
- * tr_p_mp_pscore() are not inlined in tr_p_mp_cache_pscore.  Most of the time,
- * the cache should be usable, so the actual scoring code doesn't usually get
- * called. */
+ * tr_p_mp_pscore() are not inlined in tr_p_mp_cache_pscore().  Most of the
+ * time, the cache should be usable, so the actual scoring code doesn't usually
+ * get called. */
 static void
 tr_p_no_inline_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 			cw_tr_ps_t *a_b)
@@ -2329,7 +2329,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	case 1:
 	{
 	    /* Leaf node.  Do nothing. */
-	    retval = a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)].ps;
+	    retval = a_tr->trrs[a_ring].ps;
 	    break;
 	}
 	case 2:
@@ -2376,7 +2376,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 					     a_bisect);
 
 		/* Calculate the partial score for this node. */
-		retval = a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)].ps;
+		retval = a_tr->trrs[a_ring].ps;
 		tr_p_mp_cache_pscore(a_tr, retval, ps_a, ps_b);
 
 		break;
@@ -2546,7 +2546,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 	    }
 	    else
 	    {
-		ps_a = a_tr->trns[node_a].ps;
+		ps_a = a_tr->trrs[qli_first(&a_tr->trns[node_a].rings)].ps;
 	    }
 
 	    for (k = 0; k < a_tr->nbedges_b; k++)
@@ -2565,7 +2565,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 		}
 		else
 		{
-		    ps_b = a_tr->trns[node_b].ps;
+		    ps_b = a_tr->trrs[qli_first(&a_tr->trns[node_b].rings)].ps;
 		}
 
 		/* Calculate the final parsimony score for this reconnection. */
@@ -2678,7 +2678,6 @@ tr_dup(cw_tr_t *a_tr)
 	for (i = 0; i < retval->ntrns; i++)
 	{
 	    a_tr->trns[i].u.aux = NULL;
-	    a_tr->trns[i].ps = NULL;
 	}
 
 	/* The spare trns list is the same as for a_tr. */
@@ -2713,8 +2712,13 @@ tr_dup(cw_tr_t *a_tr)
 	    = (cw_trr_t *) cw_opaque_alloc(alloc, arg,
 					   sizeof(cw_trr_t) * a_tr->ntres * 2);
 	memcpy(retval->trrs, a_tr->trrs, sizeof(cw_trr_t *) * a_tr->ntres * 2);
+
+	for (i = 0; i < retval->ntres * 2; i++)
+	{
+	    a_tr->trrs[i].ps = NULL;
+	}
     }
-    
+
     return retval;
 }
 
@@ -3036,38 +3040,33 @@ void
 tr_mp_prepare(cw_tr_t *a_tr, char *a_taxa[], uint32_t a_ntaxa,
 	      uint32_t a_nchars)
 {
-    cw_trn_t *trn;
-    cw_tr_ring_t ring;
-
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
 
     if (a_tr->base != CW_TR_NODE_NONE)
     {
-	trn = &a_tr->trns[a_tr->base];
-
-	/* Prepare the base node. */
-	tr_p_mp_trn_prepare(a_tr, trn, a_taxa, a_ntaxa, a_nchars);
+	cw_trn_t *trn;
+	cw_tr_ring_t ring;
+	cw_tre_t *tre;
 
 	/* Prepare the tree. */
-	if (qli_first(&trn->rings) != CW_TR_RING_NONE)
+	trn = &a_tr->trns[a_tr->base];
+	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
 	{
-	    cw_tre_t *tre;
-
-	    qli_foreach(ring, &trn->rings, a_tr->trrs, link)
+	    /* Prepare edge before recursing. */
+	    tre = &a_tr->tres[tr_p_ring_edge_get(a_tr, ring)];
+	    if (tre->ps == NULL)
 	    {
-		/* Prepare edge before recursing. */
-		tre = &a_tr->tres[tr_p_ring_edge_get(a_tr, ring)];
-		if (tre->ps == NULL)
-		{
-		    tre->ps = tr_p_ps_new(a_tr);
-		}
-		tr_p_ps_prepare(a_tr, tre->ps, a_nchars);
-
-		/* Recurse. */
-		tr_p_mp_prepare_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
-					a_taxa, a_ntaxa, a_nchars);
+		tre->ps = tr_p_ps_new(a_tr);
 	    }
+	    tr_p_ps_prepare(a_tr, tre->ps, a_nchars);
+
+	    /* Prepare ring. */
+	    tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars);
+
+	    /* Recurse. */
+	    tr_p_mp_prepare_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
+				    a_taxa, a_ntaxa, a_nchars);
 	}
     }
 }
@@ -3075,38 +3074,33 @@ tr_mp_prepare(cw_tr_t *a_tr, char *a_taxa[], uint32_t a_ntaxa,
 void
 tr_mp_finish(cw_tr_t *a_tr)
 {
-    cw_trn_t *trn;
-    cw_tr_ring_t ring;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
 
     if (a_tr->base != CW_TR_NODE_NONE)
     {
-	trn = &a_tr->trns[a_tr->base];
-
-	/* Clean up the base node. */
-	tr_p_mp_trn_finish(a_tr, trn);
+	cw_trn_t *trn;
+	cw_tr_ring_t ring;
+	cw_tre_t *tre;
 
 	/* Clean up the tree. */
-	tr_p_mp_trn_finish(a_tr, trn);
-	if (qli_first(&trn->rings) != CW_TR_RING_NONE)
+	trn = &a_tr->trns[a_tr->base];
+	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
 	{
-	    cw_tre_t *tre;
-
-	    qli_foreach(ring, &trn->rings, a_tr->trrs, link)
+	    /* Clean up edge before recursing. */
+	    tre = &a_tr->tres[tr_p_ring_edge_get(a_tr, ring)];
+	    if (tre->ps != NULL)
 	    {
-		/* Clean up edge before recursing. */
-		tre = &a_tr->tres[tr_p_ring_edge_get(a_tr, ring)];
-		if (tre->ps != NULL)
-		{
-		    tr_p_ps_delete(a_tr, tre->ps);
-		    tre->ps = NULL;
-		}
-
-		/* Recurse. */
-		tr_p_mp_finish_recurse(a_tr, tr_p_ring_other_get(a_tr, ring));
+		tr_p_ps_delete(a_tr, tre->ps);
+		tre->ps = NULL;
 	    }
+
+	    /* Clean up ring. */
+	    tr_p_mp_ring_finish(a_tr, ring);
+
+	    /* Recurse. */
+	    tr_p_mp_finish_recurse(a_tr, tr_p_ring_other_get(a_tr, ring));
 	}
     }
 }
