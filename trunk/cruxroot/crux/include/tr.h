@@ -105,5 +105,17 @@ trn_tree_delete(cw_trn_t *a_trn);
 cw_uint32_t
 trn_tree_ntaxa_get(cw_trn_t *a_trn);
 
+cw_uint32_t
+trn_tree_nedges_get(cw_trn_t *a_trn);
+
 cw_trn_t *
 trn_tree_root_get(cw_trn_t *a_trn);
+
+void
+trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
+		cw_trn_t **r_trn_b, cw_trn_t **r_spare_a, cw_trn_t **r_spare_b);
+
+void
+trn_tree_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
+		 cw_trn_t *a_trn_b, cw_uint32_t a_edge_b,
+		 cw_trn_t *a_spare_a, cw_trn_t *a_spare_b);
