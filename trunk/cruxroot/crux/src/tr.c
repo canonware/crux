@@ -1643,115 +1643,133 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
     return retval;
 }
 
-/* Extract the node adjacent to bisection and patch its neighbors together. */
-CW_P_INLINE void
-tr_p_bisection_patch(cw_tr_t *a_tr, cw_tr_node_t a_node)
+CW_P_INLINE cw_tr_node_t
+tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
+		      cw_tr_edge_t a_reconnect_a, cw_tr_edge_t a_reconnect_b,
+		      cw_tr_edge_t *ar_tedges, uint32_t *ar_ntedges,
+		      cw_tr_node_t *ar_tnodes, uint32_t *ar_ntnodes)
 {
+    cw_tr_node_t retval;
+    cw_tr_ring_t ring;
     cw_trn_t *trn;
-    uint32_t i;
-    cw_tr_node_t a, b;
+    uint32_t degree;
 
     trn = &a_tr->trns[a_node];
-
-    cw_assert(trn->taxon_num == CW_TR_NODE_TAXON_NONE);
-
-    /* Get trn's neighbors. */
-    for (i = 0, a = b = CW_TR_NODE_NONE; b == CW_TR_NODE_NONE; i++)
+    degree = 0;
+    qli_foreach(ring, &trn->rings, a_tr->trrs, link)
     {
-	cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
-
-	if (trn->neighbors[i] != CW_TR_NODE_NONE)
+	degree++;
+    }
+    switch (degree)
+    {
+	case 0:
 	{
-	    if (a == CW_TR_NODE_NONE)
+	    /* This node is the only node remaining in the subtree.  It must be
+	     * directly reconnected to, so return it. */
+	    retval = a_node;
+	    break;
+	}
+	case 1:
+	{
+	    cw_not_reached();
+	}
+	case 2:
+	{
+	    cw_tr_ring_t ring;
+	    cw_tr_edge_t edge_lose, edge_keep;
+	    cw_tr_node_t tnode_a, tnode_b;
+
+	    ring = qli_first(&trn->rings);
+	    edge_lose = tr_p_ring_edge_get(a_tr, ring);
+	    tnode_a = tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring));
+
+	    ring = qri_next(a_tr->trrs, ring, link);
+	    edge_keep = tr_p_ring_edge_get(a_tr, ring);
+	    tnode_b = tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring));
+
+	    if (tr_p_ring_edge_get(a_tr, ring) == a_reconnect_a
+		|| tr_p_ring_edge_get(a_tr, ring) == a_reconnect_b)
 	    {
-		a = trn->neighbors[i];
+		cw_tr_edge_t tedge;
+
+		/* This edge is a reconnection edge; lose the other edge. */
+		tedge = edge_keep;
+		edge_keep = edge_lose;
+		edge_lose = tedge;
 	    }
-	    else
-	    {
-		b = trn->neighbors[i];
-	    }
+
+	    /* Detach. */
+	    tr_edge_detach(a_tr, edge_keep);
+	    tr_edge_detach(a_tr, edge_lose);
+
+	    /* Reattach. */
+	    tr_edge_attach(a_tr, edge_keep, tnode_a, tnode_b);
+
+	    /* Store spares. */
+	    ar_tedges[*ar_ntedges] = edge_lose;
+	    (*ar_ntedges)++;
+	    ar_tnodes[*ar_ntnodes] = a_node;
+	    (*ar_ntnodes)++;
+
+	    retval = CW_TR_NODE_NONE;
+	    break;
+	}
+	default:
+	{
+	    /* Do nothing. */
+	    retval = CW_TR_NODE_NONE;
 	}
     }
 
-    /* Detach. */
-    tr_node_detach(a_tr, a_node, a);
-    tr_node_detach(a_tr, a_node, b);
-
-    /* Join. */
-    tr_node_join(a_tr, a, b);
-}
-
-/* Determine whether the subtree of a tree bisection is ready for
- * reconnection.  The return value has the following possible meanings:
- *
- *   0 : Not ready.
- *   1 : Ready (only one node in the subtree).
- *   2 : Ready (adjacent to a_reconnect_a).
- *   3 : Ready (adjacent to a_reconnect_b).
- */
-CW_P_INLINE uint32_t
-tr_p_reconnect_ready(cw_tr_t *a_tr, cw_tr_node_t a_node,
-		     uint32_t a_reconnect_a, uint32_t a_reconnect_b)
-{
-    uint32_t retval;
-    uint32_t i, nneighbors;
-    cw_trn_t *trn;
-
-    trn = &a_tr->trns[a_node];
-
-    /* Is there only one node in the subtree?
-     * Are there only two leaf nodes in the subtree? */
-    for (i = nneighbors = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
-    {
-	if (trn->neighbors[i] != CW_TR_NODE_NONE)
-	{
-	    nneighbors++;
-	}
-    }
-    if (nneighbors == 0)
-    {
-	retval = 1;
-	goto RETURN;
-    }
-
-    /* Is a reconnection edge adjacent to the bisection? */
-    if (a_reconnect_a != CW_TR_EDGE_NONE
-	&& (a_tr->tresXXX[a_reconnect_a].node_a == a_node
-	    || a_tr->tresXXX[a_reconnect_a].node_b == a_node))
-    {
-	retval = 2;
-	goto RETURN;
-    }
-
-    if (a_reconnect_b != CW_TR_EDGE_NONE
-	&& (a_tr->tresXXX[a_reconnect_b].node_a == a_node
-	    || a_tr->tresXXX[a_reconnect_b].node_b == a_node))
-    {
-	retval = 3;
-	goto RETURN;
-    }
-
-    retval = 0;
-    RETURN:
     return retval;
 }
 
-CW_P_INLINE void
-tr_p_reconnect_prepare(cw_tr_t *a_tr, cw_tr_node_t a_node,
-		       uint32_t a_reconnect, uint32_t a_ready)
+CW_P_INLINE cw_tr_node_t
+tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge, 
+		     cw_tr_edge_t *ar_tedges, uint32_t *ar_ntedges,
+		     cw_tr_node_t *ar_tnodes, uint32_t *ar_ntnodes,
+		     cw_tr_edge_t (*a_edge_alloc_callback)(cw_tr_t *, void *),
+		     cw_tr_node_t (*a_node_alloc_callback)(cw_tr_t *, void *),
+		     void *a_arg)
 {
-    if (a_ready == 0 && a_reconnect != CW_TR_EDGE_NONE)
+    cw_tr_node_t retval, node_a, node_b;
+    cw_tr_edge_t edge;
+
+    node_a = tr_edge_node_get(a_tr, a_edge, 0);
+    cw_assert(node_a != CW_TR_NODE_NONE);
+    node_b = tr_edge_node_get(a_tr, a_edge, 1);
+    cw_assert(node_b != CW_TR_NODE_NONE);
+
+    /* Get an edge. */
+    if (*ar_ntedges > 0)
     {
-	cw_tr_node_t a, b;
-
-	tr_p_bisection_patch(a_tr, a_node);
-	tr_p_trti_nodes_get(a_tr, a_reconnect, &a, &b);
-
-	tr_node_detach(a_tr, a, b);
-
-	tr_node_join(a_tr, a_node, a);
-	tr_node_join(a_tr, a_node, b);
+	edge = ar_tedges[*ar_ntedges];
+	(*ar_ntedges)--;
     }
+    else
+    {
+	edge = a_edge_alloc_callback(a_tr, a_arg);
+    }
+
+    /* Get a node. */
+    if (*ar_ntnodes > 0)
+    {
+	retval = ar_tnodes[*ar_ntnodes];
+	(*ar_ntnodes)--;
+    }
+    else
+    {
+	retval = a_node_alloc_callback(a_tr, a_arg);
+    }
+
+    /* Detach. */
+    tr_edge_detach(a_tr, a_edge);
+
+    /* Reattach. */
+    tr_edge_attach(a_tr, a_edge, retval, node_a);
+    tr_edge_attach(a_tr, edge, retval, node_b);
+    
+    return retval;
 }
 
 static void
@@ -2791,10 +2809,16 @@ tr_canonize(cw_tr_t *a_tr)
 //
 void
 tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
-       cw_tr_edge_t a_reconnect_b)
+       cw_tr_edge_t a_reconnect_b,
+       cw_tr_edge_t (*a_edge_alloc_callback)(cw_tr_t *, void *),
+       cw_tr_node_t (*a_node_alloc_callback)(cw_tr_t *, void *),
+       void *a_arg)
 {
     cw_tr_node_t node_a, node_b;
-    uint32_t ready_a, ready_b;
+    cw_tr_edge_t tedges[3];
+    uint32_t ntedges = 0
+    cw_tr_node_t tnodes[2];
+    uint32_t ntnodes = 0;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
@@ -2804,106 +2828,56 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
     node_a = tr_edge_node_get(a_tr, a_edge, 0);
     node_b = tr_edge_node_get(a_tr, a_edge, 1);
 
-    /* Bisect. */
+    /* Bisect and save edge as a spare. */
     tr_edge_detach(a_tr, a_edge);
-    
+    tedges[ntedges] = a_edge;
+    ntedges++;
 
     /* For node_[ab], extract the node if it has only two neighbors.  If one of
      * the adjacent edges happens to be a reconnection edge, preserve it and
-     * discard the other edge, so that reconnection to the edge works. */
-    tr_p_node_extract(a_tr, node_a, a_reconnect_a, a_reconnect_b)
+     * discard the other edge, so that reconnection to the edge works.
+     *
+     * The return value of these calls is CW_TR_NODE_NONE, unless there is only
+     * one node in the subtree, in which case that node is returned so that it
+     * can be used directly during reconnection. */
+    node_a = tr_p_tbr_node_extract(a_tr, node_a, a_reconnect_a, a_reconnect_b,
+				   tedges, &ntedges, tnodes &ntnodes);
+    node_b = tr_p_tbr_node_extract(a_tr, node_b, a_reconnect_a, a_reconnect_b,
+				   tedges, &ntedges, tnodes &ntnodes);
 
-    /* node_a. */
-    trn_a = &a_tr->trns[node_a];
-    degree = 0;
-    qli_foreach(ring, &trn_a->rings, a_tr->trrs, link)
+    /* For each reconnection edge, splice a node into the edge (if the subtree
+     * has more than one node). */
+    if (node_a == CW_TR_NODE_NONE)
     {
-	degree++;
+	node_a = tr_p_tbr_node_splice(a_tr, a_reconnect_a,
+				      tedges, &ntedges, tnodes &ntnodes,
+				      a_edge_alloc_callback,
+				      a_node_alloc_callback,
+				      a_arg);
     }
-    if (degree == 2)
+    if (node_b == CW_TR_NODE_NONE)
     {
-	ring = qli_first(&trn_a->rings);
-	if (tr_p_ring_edge_get(a_tr, ring) == a_reconnect_a
-	    || tr_p_ring_edge_get(a_tr, ring) == a_reconnect_b)
-	{
-	    /* This edge is a reconnection edge; remove the other edge
-	    ring = qri_next(a_tr->trrs, ring, link);
-	}
+	node_b = tr_p_tbr_node_splice(a_tr, a_reconnect_b,
+				      tedges, &ntedges, tnodes &ntnodes,
+				      a_edge_alloc_callback,
+				      a_node_alloc_callback,
+				      a_arg);
     }
-    
-    // XXX
-
-    /* For each reconnection edge, splice a node into the edge. */
-    // XXX
 
     /* Attach the two spliced-in nodes. */
-    // XXX
-
-#if (0)//XXX
-    /* For each subtree, move the node adjacent to the bisection to the
-     * reconnection edge.  However, there are three case for which no changes to
-     * a subtree are necessary:
-     *
-     *   1) There is only one node in the subtree.
-     *
-     *   2) There are only two leaf nodes in the subtree.
-     *
-     *   3) The reconnection edge is adjacent to the bisection.
-     *
-     * We don't know which subtree contains which reconnection edge, and
-     * figuring this out beforehand would require traversing one of the
-     * subtrees.  To avoid that potentially expensive traversal, instead check
-     * that none of the above 3 cases apply to a subtree, then use a subtree's
-     * node that is adjacent to the bisection as a spare.  It isn't important
-     * which subtree the spare comes from, as long as the node is truly a spare.
-     */
-    ready_a = tr_p_reconnect_ready(a_tr, node_a, a_reconnect_a, a_reconnect_b);
-    if (ready_a != 0)
+    if (ntedges > 0)
     {
-	/* One or the other of the two subtrees must be changed; otherwise the
-	 * TBR has no effect on the tree topology. */
-	cw_assert(tr_p_reconnect_ready(a_tr, node_b, a_reconnect_a,
-				       a_reconnect_b) == 0);
-
-	ready_b = 0;
+	edge = tedges[ntedges - 1];
+	ntedges--;
     }
     else
     {
-	ready_b = tr_p_reconnect_ready(a_tr, node_b, a_reconnect_a,
-				       a_reconnect_b);
+	edge = a_edge_alloc_callback(a_tr, a_arg);
     }
+    tr_edge_attach(a_tr, edge, node_a, node_b);
 
-    /* If one of the reconnection edges is adjacent to the bisection, make sure
-     * that node_[ab] corresponds to a_reconnect_[ab].  Correspondence doesn't
-     * matter otherwise. */
-    if (ready_a == 3 || ready_b == 2)
-    {
-	uint32_t treconnect;
-
-	treconnect = a_reconnect_a;
-	a_reconnect_a = a_reconnect_b;
-	a_reconnect_b = treconnect;
-
-	/* At this point, ready_[ab] are only useful for testing zero/non-zero
-	 * status. */
-    }
-
-    /* Prepare the reconnection edges. */
-    tr_p_reconnect_prepare(a_tr, node_a, a_reconnect_a, ready_a);
-    tr_p_reconnect_prepare(a_tr, node_b, a_reconnect_b, ready_b);
-
-    /* Reconnect. */
-    tr_node_join(a_tr, node_a, node_b);
-#endif//XXX
-
-    /* All changes since the last tr_p_update() call were related to TBR, and we
-     * know that this does not impact ntaxa or nedges. */
-    // XXX Not true re: nedges!
-    a_tr->modified = false;
-
-    /* Update trt. */
-    tr_p_trt_update(a_tr, a_tr->nedges);
-
+    /* Update. */
+    tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
 }
 
