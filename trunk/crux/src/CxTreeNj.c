@@ -342,8 +342,8 @@ CxpTreeNjRSubtract(float *aD, float *aR, long aNleft, long aXMin, long aYMin)
 }
 
 CxmpInline void
-CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
-		 long aNleft, long aXMin, long aYMin, CxtNodeObject *aNode,
+CxpTreeNjCompact(float *aD, float *aR, CxtNodeObject **aNodes, long aNleft,
+		 long aXMin, long aYMin, CxtNodeObject *aNode,
 		 float aDistX, float aDistY)
 {
     long x, iX, iY;
@@ -351,8 +351,6 @@ CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 
     /* Insert the new node into r. */
     aNodes[aXMin] = aNode;
-
-    // XXX Use dElm in this function and others that do not.
 
     /* Calculate distances to the new node, and add them to r.  This clobbers
      * old distances, just after the last time they are needed. */
@@ -431,9 +429,9 @@ CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 	iX++;
     }
 
-    /* Fill in the gap in r, aRScaled, and nodes. */
+    /* Fill in the gap in r, and nodes.  rScaled is re-calculated from scratch,
+     * so there is no need to touch it here. */
     aR[aYMin] = aR[0];
-    aRScaled[aYMin] = aRScaled[0];
     aNodes[aYMin] = aNodes[0];
 }
 
@@ -808,8 +806,8 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 		CxpTreeNjNodesJoin(d, aRScaled, nodes, aTree, aNleft, x, min,
 				   &node, &distX, &distY);
 		CxpTreeNjRSubtract(d, aR, aNleft, x, min);
-		CxpTreeNjCompact(d, aR, aRScaled, nodes, aNleft, x, min,
-				 node, distX, distY);
+		CxpTreeNjCompact(d, aR, nodes, aNleft, x, min, node,
+				 distX, distY);
 		CxpTreeNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
 		aNleft--;
 		CxpTreeNjRScaledUpdate(aRScaled, aR, aNleft);
@@ -825,11 +823,7 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 
 		/* The indexing of the matrix is shifted as a result of having
 		 * removed the first row.  Set x such that joining with this row
-		 * is immediately tried again.  This isn't ideal, in that this
-		 * only tries to join the new node with nodes that come after it
-		 * in the matrix.  However, it probably isn't worth the cache
-		 * miss penalty of finding the node that is closest to this one
-		 * (requires iterating over a column).
+		 * is immediately tried again.
 		 *
 		 * Note that if x is 0, then the row is now at (min - 1); in
 		 * that case, stay on row 0. */
