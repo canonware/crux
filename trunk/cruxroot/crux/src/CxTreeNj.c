@@ -18,7 +18,6 @@ typedef struct CxsTreeNjr CxtTreeNjr;
 struct CxsTreeNjd
 {
     float dist;  /* Distance. */
-    float trans; /* Transformed distance. */
 };
 
 /* Used by CxTreeNj(). */
@@ -65,19 +64,14 @@ CxpTreeNjXy2i(uint32_t aN, uint32_t aX, uint32_t aY)
  *   |   A   |   B   |   C   |   D   |   E   ||   r   |  m-2  ||
  *   +=======+=======+=======+=======+=======++=======+=======++===
  *           |   0   |   1   |   2   |   3   ||   6   |   2.0 || A
- *           | -10.5 | -12.0 | -12.5 | -13.0 ||       |       ||
  *           +-------+-------+-------+-------++-------+-------++---
  *                   |   4   |   5   |   6   ||  15   |   5.0 || B
- *                   | -13.5 | -14.0 | -14.5 ||       |       ||
  *                   +-------+-------+-------++-------+-------++---
  *                           |   7   |   8   ||  20   |   6.7 || C
- *                           | -14.5 | -15.0 ||       |       ||
  *                           +-------+-------++-------+-------++---
  *                                   |   9   ||  23   |   7.7 || D
- *                                   | -15.5 ||       |       ||
  *                                   +-------++-------+-------++---
  *                                           ||  26   |   8.7 || E
- *                                           ||       |       ||
  *                                           ++-------+-------++---
  *
  * is stored as:
@@ -85,34 +79,34 @@ CxpTreeNjXy2i(uint32_t aN, uint32_t aX, uint32_t aY)
  *   d:
  *   /-------+-------+-------+-------+-------+-------+-------+-------+-------...
  *   |   0   |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8
- *   | -10.5 | -12.0 | -12.5 | -13.0 | -13.5 | -14.0 | -14.5 | -14.5 | -15.0
  *   \-------+-------+-------+-------+-------+-------+-------+-------+-------...
  *
  *   +-------\
  *   |   9   |
- *   | -15.5 |
  *   +-------/
  *
  *   r:
  *   /-------+-------+-------+-------+-------\
  *   |   6   |  15   |  20   |  23   |  26   |
  *   |   2.0 |   5.0 |   6.7 |   7.7 |   8.7 |
+ *   |   A   |   B   |   C   |   D   |   E   |
  *   \-------+-------+-------+-------+-------/
  */
 //#define CxmTreeNjVerbose
 static bool
-CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
+CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 {
     bool retval;
-    CxtTreeNjd *d, *dPrev, *tD; /* Distance matrix. */
-    CxtTreeNjr *r; /* Distance sums. */
-    long nleft, i, x, y, iMin, xMin, yMin, xNew, yNew;
+    CxtTreeNjd *dOrig, *d; /* Distance matrix. */
+    CxtTreeNjr *rOrig, *r; /* Distance sums. */
+    long nleft, i, x, y, iMin, xMin, yMin;
+    float transMin, transCur;
     float distX, distY;
     CxtNodeObject *node;
     CxtEdgeObject *edgeX, *edgeY, *edge;
     PyObject *result;
 
-    CxmCheckPtr(aDistances);
+    CxmCheckPtr(aDistMatrix);
     CxmAssert(aNtaxa > 1);
 
     /* Allocate an array that is large enough to hold the distances. */
@@ -121,36 +115,24 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
 	    __FILE__, __LINE__, __func__,
 	    sizeof(CxtTreeNjd) * (CxpTreeNjXy2i(aNtaxa, aNtaxa - 2,
 						aNtaxa - 1) + 1));
-    d = (CxtTreeNjd *) CxmMalloc(sizeof(CxtTreeNjd)
-				    * (CxpTreeNjXy2i(aNtaxa,
-						    aNtaxa - 2,
-						    aNtaxa - 1)
-				       + 1));
-    /* dPrev can be smaller, since it won't be used until the matrix is shrunk
-     * once. */
-    // XXX
-    fprintf(stderr, "%s:%d:%s(): Allocate %u bytes\n",
-	    __FILE__, __LINE__, __func__,
-	    sizeof(CxtTreeNjd) * (CxpTreeNjXy2i(aNtaxa - 1, aNtaxa - 3,
-						aNtaxa - 2) + 1));
-    dPrev = (CxtTreeNjd *) CxmMalloc(sizeof(CxtTreeNjd)
-					 * (CxpTreeNjXy2i(aNtaxa - 1,
-							 aNtaxa - 3,
-							 aNtaxa - 2)
+    dOrig = d = (CxtTreeNjd *) CxmMalloc(sizeof(CxtTreeNjd)
+					 * (CxpTreeNjXy2i(aNtaxa,
+							  aNtaxa - 2,
+							  aNtaxa - 1)
 					    + 1));
 
     /* Allocate an array that is large enough to hold all the distance sums. */
     // XXX
     fprintf(stderr, "%s:%d:%s(): Allocate %lu bytes\n",
 	    __FILE__, __LINE__, __func__, sizeof(CxtTreeNjr) * aNtaxa);
-    r = (CxtTreeNjr *) CxmMalloc(sizeof(CxtTreeNjr) * aNtaxa);
+    rOrig = r = (CxtTreeNjr *) CxmMalloc(sizeof(CxtTreeNjr) * aNtaxa);
 
     /* Initialize untransformed distances. */
     for (x = i = 0; x < aNtaxa; x++)
     {
 	for (y = x + 1; y < aNtaxa; y++)
 	{
-	    result = PyEval_CallMethod(distMatrix, "distanceGet", "(ll)",
+	    result = PyEval_CallMethod(aDistMatrix, "distanceGet", "(ll)",
 				       x, y);
 	    if (PyFloat_Check(result))
 	    {
@@ -175,6 +157,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
 	    i++;
 	}
     }
+    CxmAssert(PyErr_Occurred() == NULL);//XXX
 
     /* Create a node for each taxon in the matrix. */
     for (i = 0; i < aNtaxa; i++)
@@ -186,18 +169,18 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
     /* Iteratitively join two nodes in the matrix, until only two are left. */
     for (nleft = aNtaxa; nleft > 2; nleft--)
     {
-#ifdef CxmTreeNjVerbose
 	{
 	    time_t t;
 	    struct tm *tm;
 
 	    time(&t);
 	    tm = localtime(&t);
-	    fprintf(stderr, "%d/%02d/%02d %02d:%02d:%02d\n",
+	    fprintf(stderr, "%d/%02d/%02d %02d:%02d:%02d [%ld]\n",
 		    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday + 1,
-		    tm->tm_hour, tm->tm_min, tm->tm_sec);
+		    tm->tm_hour, tm->tm_min, tm->tm_sec, nleft);
 	}
-	fprintf(stderr, "Size: %u\n", nleft);
+#ifdef CxmTreeNjVerbose
+	fprintf(stderr, "Size: %ld\n", nleft);
 #endif
 
 	/* Calculate r (sum of distances to other nodes) and r/(nleft-2)
@@ -223,18 +206,21 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
 	    r[i].rScaled = r[i].r / (nleft - 2);
 	}
 
-	/* Calculate trans (transformed distance) for each pairwise distance.
-	 * Keep track of the minimum trans, so that the corresponding nodes can
-	 * be joined.  Ties are broken arbitrarily (the first minimum found is
-	 * used). */
-	for (x = i = 0, iMin = xMin = 0, yMin = 1; x < nleft; x++)
+	/* Calculate the transformed distance for each pairwise distance.  Keep
+	 * track of the minimum transformed distance, so that the corresponding
+	 * nodes can be joined.  Ties are broken arbitrarily (the first minimum
+	 * found is used). */
+	for (x = i = 0, iMin = xMin = 0, transMin = HUGE_VAL, yMin = 1;
+	     x < nleft;
+	     x++)
 	{
 	    for (y = x + 1; y < nleft; y++)
 	    {
-		d[i].trans = d[i].dist - ((r[x].rScaled + r[y].rScaled));
+		transCur = d[i].dist - ((r[x].rScaled + r[y].rScaled));
 
-		if (d[i].trans < d[iMin].trans)
+		if (transCur < transMin)
 		{
+		    transMin = transCur;
 		    iMin = i;
 		    xMin = x;
 		    yMin = y;
@@ -245,49 +231,68 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
 	}
 
 #ifdef CxmTreeNjVerbose
-	fprintf(stderr,
-		"----------------------------------------"
-		"----------------------------------------\n");
-	for (x = i = 0; x < nleft; x++)
 	{
-	    fprintf(stderr, "%*s", x * 9 + (!!x), " ");
-	    for (y = x + 1; y < nleft; y++)
+	    PyObject *result;
+     
+	    CxmAssert(PyErr_Occurred() == NULL);//XXX
+	    fprintf(stderr, "Min: %8.4f at d[%ld] (%ld, %ld)\n",
+		    transMin, iMin, xMin, yMin);
+	    fprintf(stderr,
+		    "----------------------------------------"
+		    "----------------------------------------\n");
+	    for (x = i = 0; x < nleft; x++)
 	    {
-		fprintf(stderr, " %8.4f", d[i].dist);
+		fprintf(stderr, "%*s", (int) x * 9 + (!!x), " ");
+		for (y = x + 1; y < nleft; y++)
+		{
+		    fprintf(stderr, " %8.4f", d[i].dist);
 
-		i++;
+		    i++;
+		}
+		result = CxNodeTaxonNumGet(r[x].node);
+		if (result != Py_None)
+		{
+		    fprintf(stderr, " || %8.4f %8.4f (node %ld %p)\n",
+			    r[x].r, r[x].rScaled,
+			    PyInt_AsLong(result), r[x].node);
+		}
+		else
+		{
+		    fprintf(stderr, " || %8.4f %8.4f (internal node %p)\n",
+			    r[x].r, r[x].rScaled, r[x].node);
+		}
 	    }
-	    fprintf(stderr, " || %8.4f (node %ld %p)\n", r[x].r,
-		    PyInt_AsLong(CxNodeTaxonNumGet(r[x].node)), r[x].node);
-
-	    fprintf(stderr, "%*s", x * 9 + (!!x), " ");
-	    for (i -= (nleft - (x + 1)), y = x + 1; y < nleft; y++)
-	    {
-		fprintf(stderr, " %8.4f", d[i].trans);
-
-		i++;
-	    }
-	    fprintf(stderr, " || %8.4f\n", r[x].rScaled);
-
-	    fprintf(stderr, "\n");
+	    CxmAssert(PyErr_Occurred() == NULL);//XXX
 	}
 #endif
-	
 
 	/* Join the nodes with the minimum transformed distance. */
 	node = CxNodeNew(aTree);
+    CxmAssert(PyErr_Occurred() == NULL);//XXX
 #ifdef CxmTreeNjVerbose
-	fprintf(stderr, "New node %ld %p\n",
-		PyInt_AsLong(CxNodeTaxonNumGet(node)), node);
+	fprintf(stderr, "New node %p\n", node);
 #endif
+    CxmAssert(PyErr_Occurred() == NULL);//XXX
 	edgeX = CxEdgeNew(aTree);
 	CxEdgeAttach(edgeX, node, r[xMin].node);
 	distX = (d[iMin].dist + r[xMin].rScaled - r[yMin].rScaled) / 2;
 	CxEdgeLengthSet(edgeX, distX);
 #ifdef CxmTreeNjVerbose
-	fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
-		PyInt_AsLong(CxNodeTaxonNumGet(r[xMin].node)), r[xMin].node,
-		distX);
+	{
+	    PyObject *result = CxNodeTaxonNumGet(r[xMin].node);
+
+	    if (result != Py_None)
+	    {
+		fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
+			PyInt_AsLong(result), r[xMin].node,
+			distX);
+	    }
+	    else
+	    {
+		fprintf(stderr, "  Join internal node %p (len %.4f)\n",
+			r[xMin].node, distX);
+	    }
+	}
 #endif
 
 	edgeY = CxEdgeNew(aTree);
@@ -295,69 +300,87 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
 	distY = d[iMin].dist - distX;
 	CxEdgeLengthSet(edgeY, distY);
 #ifdef CxmTreeNjVerbose
-	fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
-		PyInt_AsLong(CxNodeTaxonNumGet(r[yMin].node)), r[yMin].node,
-		distY);
-#endif
-
-	/* Swap to new matrix. */
-	tD = d;
-	d = dPrev;
-	dPrev = tD;
-
-	/* Create compacted matrix. */
-	for (x = i = 0, xNew = 0; x < nleft; x++)
 	{
-	    if (x != xMin && x != yMin)
+	    PyObject *result = CxNodeTaxonNumGet(r[yMin].node);
+
+	    if (result != Py_None)
 	    {
-		for (y = x + 1, yNew = xNew + 1; y < nleft; y++)
-		{
-		    if (y != xMin && y != yMin)
-		    {
-			d[CxpTreeNjXy2i(nleft - 1, xNew, yNew)].dist
-			    = dPrev[i].dist;
-
-			yNew++;
-		    }
-
-		    i++;
-		}
-
-		xNew++;
+		fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
+			PyInt_AsLong(result), r[yMin].node,
+			distY);
 	    }
 	    else
 	    {
-		i += (nleft - (x + 1));
+		fprintf(stderr, "  Join internal node %p (len %.4f)\n",
+			r[yMin].node, distY);
 	    }
 	}
+#endif
 
-	/* Calculate distances to new node. */
-	for (x = 0, xNew = 0; x < nleft; x++)
+	/* Compact matrix. */
+
+	/* Insert the new node into r. */
+	r[xMin].node = node;
+
+	/* Calculate distances to the new node.  This clobbers old distances,
+	 * just after the last time they are needed. */
+	for (x = 0; x < nleft; x++)
 	{
 	    if (x != xMin && x != yMin)
 	    {
-		d[CxpTreeNjXy2i(nleft - 1, xNew, nleft - 2)].dist
-		    = ((dPrev[CxpTreeNjXy2i(nleft, x, xMin)].dist - distX)
-		       + (dPrev[CxpTreeNjXy2i(nleft, x, yMin)].dist - distY)
+		d[CxpTreeNjXy2i(nleft, x, xMin)].dist
+		    = ((d[CxpTreeNjXy2i(nleft, x, xMin)].dist - distX)
+		       + (d[CxpTreeNjXy2i(nleft, x, yMin)].dist - distY)
 		       ) / 2;
-
-		xNew++;
 	    }
 	}
 
-	/* Compact and update r. */
-	memmove(&r[xMin], &r[xMin + 1],
-		sizeof(CxtTreeNjr) * (yMin - xMin - 1));
-	memmove(&r[yMin - 1], &r[yMin + 1],
-		sizeof(CxtTreeNjr) * (nleft - yMin - 1));
-	r[nleft - 2].node = node;
+	/* Fill in the remaining gap (yMin row/column), by moving the first row
+	 * into the gap.  The first row can be removed from the matrix in
+	 * constant time, whereas collapsing the gap directly would require a
+	 * series of memmove() calls. */
+	for (x = 1; x < nleft; x++)
+	{
+	    if (x != yMin)
+	    {
+		d[CxpTreeNjXy2i(nleft, yMin, x)]
+		    = d[CxpTreeNjXy2i(nleft, 0, x)];
+	    }
+	}
+	r[yMin] = r[0]; /* Fill in the gap in r. */
+	
+	/* Move d and r pointers forward, which removes the first row. */
+	d = &d[nleft - 1];
+	r = &r[1];
     }
 
     /* Join the remaining two nodes. */
 #ifdef CxmTreeNjVerbose
-    fprintf(stderr, "Join last two nodes: %ld %p and %ld %p\n",
-	    PyInt_AsLong(CxNodeTaxonNumGet(r[0].node)), r[0].node,
-	    PyInt_AsLong(CxNodeTaxonNumGet(r[1].node)), r[1].node);
+    {
+	PyObject *result = CxNodeTaxonNumGet(r[xMin].node);
+
+	fprintf(stderr, "Join last two nodes:");
+
+	result = CxNodeTaxonNumGet(r[0].node);
+	if (result != Py_None)
+	{
+	    fprintf(stderr, "%ld %p", PyInt_AsLong(result), r[0].node);
+	}
+	else
+	{
+	    fprintf(stderr, "internal %p", r[0].node);
+	}
+
+	result = CxNodeTaxonNumGet(r[1].node);
+	if (result != Py_None)
+	{
+	    fprintf(stderr, "and %ld %p\n", PyInt_AsLong(result), r[1].node);
+	}
+	else
+	{
+	    fprintf(stderr, "and internal %p\n", r[1].node);
+	}
+    }
 #endif
     edge = CxEdgeNew(aTree);
     CxEdgeAttach(edge, r[0].node, r[1].node);
@@ -369,9 +392,8 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
     retval = false;
     RETURN:
     /* Clean up. */
-    CxmFree(d);
-    CxmFree(dPrev);
-    CxmFree(r);
+    CxmFree(dOrig);
+    CxmFree(rOrig);
     return retval;
 }
 
