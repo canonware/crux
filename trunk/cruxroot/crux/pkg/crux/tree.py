@@ -16,7 +16,7 @@ import newick
 import random
 
 class _newick_parser(newick.newick):
-    def __init__(self, tree, map={}):
+    def __init__(self, tree, map):
         self._tree = tree
         self._map = map
         self._taxon_stack = []
@@ -147,7 +147,7 @@ class _newick_parser(newick.newick):
                 self._taxon_stack.insert(0, node_a)
 
 class tree(_tree.Tree):
-    def __init__(self, with=None, map={}):
+    def __init__(self, with=None, map=None):
         if type(with) == int:
             self._random_new(with)
         elif type(with) == str or type(with) == file:
@@ -188,12 +188,19 @@ class tree(_tree.Tree):
 
         self.base_set(subtree_a)
 
-    def _newick_new(self, input, map={}):
-        self._map = map
-        parser = _newick_parser(self, map)
+    def _newick_new(self, input, map=None):
+        if map != None:
+            self._map = map.copy()
+        else:
+            self._map = {}
+        parser = _newick_parser(self, self._map)
         return parser.parse(input, self)
 
-    def prints(self, labels=False, lengths=False):
+    def prints(self, labels=False, lengths=False, map=None):
+        if map != None:
+            self._map = map.copy()
+            self._rmap = None
+
         n = self.base_get()
         if n != None:
             if labels:
