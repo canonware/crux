@@ -44,7 +44,7 @@ for testMatrix in testMatrices:
     map = t.taxonMapGet()
     labels = map.taxaGet()
     t.canonize()
-    t.render(labels=True, lengths=True, lengthFormat="%.6f", outFile=sys.stdout)
+    t.render(labels=True, lengths=True, lengthFormat="%.0f", outFile=sys.stdout)
 
     for i in forints(10):
         matrix = crux.DistMatrix.DistMatrix(testMatrix)
@@ -52,10 +52,10 @@ for testMatrix in testMatrices:
         #matrix.render(distFormat="%2.0f", outFile=sys.stdout)
         t = crux.Tree.Tree(matrix)
 
-        treeStr = t.render(labels=True, lengths=True, lengthFormat="%.6f")
+        treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
         t = crux.Tree.Tree(treeStr, map=map)
         t.canonize()
-        t.render(labels=True, lengths=True, lengthFormat="%.6f",
+        t.render(labels=True, lengths=True, lengthFormat="%.0f",
                  outFile=sys.stdout)
 
 print "Test end"
