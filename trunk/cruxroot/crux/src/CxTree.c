@@ -61,16 +61,16 @@ CxpTreeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     CxmXepBegin();
     CxmXepTry
-	{
-	    self->tr = CxTrNew();
-	    CxTrAuxSet(self->tr, self);
-	    retval = (PyObject *) self;
-	}
+    {
+	self->tr = CxTrNew();
+	CxTrAuxSet(self->tr, self);
+	retval = (PyObject *) self;
+    }
     CxmXepCatch(CxmXepOOM)
-	{
-	    CxmXepHandled();
-	    retval = PyErr_NoMemory();
-	}
+    {
+	CxmXepHandled();
+	retval = PyErr_NoMemory();
+    }
     CxmXepEnd();
 
     RETURN:
@@ -177,14 +177,14 @@ CxTreeNtaxaGet(CxtTreeObject *self)
 
     CxmXepBegin();
     CxmXepTry
-	{
-	    retval = Py_BuildValue("i", CxTrNtaxaGet(self->tr));
-	}
+    {
+	retval = Py_BuildValue("i", CxTrNtaxaGet(self->tr));
+    }
     CxmXepCatch(CxmXepOOM)
-	{
-	    CxmXepHandled();
-	    retval = PyErr_NoMemory();
-	}
+    {
+	CxmXepHandled();
+	retval = PyErr_NoMemory();
+    }
     CxmXepEnd();
 
     return retval;
@@ -201,14 +201,14 @@ CxTreeNedgesCget(CxtTreeObject *self)
 
     CxmXepBegin();
     CxmXepTry
-	{
-	    retval = Py_BuildValue("i", CxTrNedgesGet(self->tr));
-	}
+    {
+	retval = Py_BuildValue("i", CxTrNedgesGet(self->tr));
+    }
     CxmXepCatch(CxmXepOOM)
-	{
-	    CxmXepHandled();
-	    retval = PyErr_NoMemory();
-	}
+    {
+	CxmXepHandled();
+	retval = PyErr_NoMemory();
+    }
     CxmXepEnd();
 
     return retval;
@@ -519,22 +519,22 @@ CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     CxmXepBegin();
     CxmXepTry
-	{
-	    Py_INCREF(tree);
-	    self->tree = tree;
-	    self->node = CxTrNodeNew(tree->tr);
-	    CxTrNodeAuxSet(tree->tr, self->node, self);
+    {
+	Py_INCREF(tree);
+	self->tree = tree;
+	self->node = CxTrNodeNew(tree->tr);
+	CxTrNodeAuxSet(tree->tr, self->node, self);
 
-	    self->valid = true;
+	self->valid = true;
 
-	    retval = (PyObject *) self;
-	}
+	retval = (PyObject *) self;
+    }
     CxmXepCatch(CxmXepOOM)
-	{
-	    Py_DECREF(tree);
-	    CxmXepHandled();
-	    retval = PyErr_NoMemory();
-	}
+    {
+	Py_DECREF(tree);
+	CxmXepHandled();
+	retval = PyErr_NoMemory();
+    }
     CxmXepEnd();
 
     RETURN:
@@ -883,51 +883,51 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     CxmXepBegin();
     CxmXepTry
-	{
-	    Py_INCREF(tree);
-	    self->tree = tree;
-	    self->edge = CxTrEdgeNew(tree->tr);
-	    CxTrEdgeAuxSet(tree->tr, self->edge, self);
-	    tryStage = 1;
+    {
+	Py_INCREF(tree);
+	self->tree = tree;
+	self->edge = CxTrEdgeNew(tree->tr);
+	CxTrEdgeAuxSet(tree->tr, self->edge, self);
+	tryStage = 1;
 
-	    /* Create associated ring objects. */
-	    ringA = CxRingNew(self, 0);
-	    //Py_INCREF(ringA);
-	    tryStage = 2;
+	/* Create associated ring objects. */
+	ringA = CxRingNew(self, 0);
+	//Py_INCREF(ringA);
+	tryStage = 2;
 
-	    ringB = CxRingNew(self, 1);
-	    //Py_INCREF(ringB);
+	ringB = CxRingNew(self, 1);
+	//Py_INCREF(ringB);
 
-	    self->valid = true;
+	self->valid = true;
 
-	    retval = (PyObject *) self;
-	}
+	retval = (PyObject *) self;
+    }
     CxmXepCatch(CxmXepOOM)
+    {
+	switch (tryStage)
 	{
-	    switch (tryStage)
+	    case 2:
 	    {
-		case 2:
-		{
-		    Py_DECREF(ringA);
-		}
-		case 1:
-		{
-		    CxTrEdgeDelete(self->tree->tr, self->edge);
-		    type->tp_free((PyObject *) self);
-		    Py_DECREF(tree);
-		}
-		case 0:
-		{
-		    break;
-		}
-		default:
-		{
-		    CxmNotReached();
-		}
+		Py_DECREF(ringA);
 	    }
-	    CxmXepHandled();
-	    retval = PyErr_NoMemory();
+	    case 1:
+	    {
+		CxTrEdgeDelete(self->tree->tr, self->edge);
+		type->tp_free((PyObject *) self);
+		Py_DECREF(tree);
+	    }
+	    case 0:
+	    {
+		break;
+	    }
+	    default:
+	    {
+		CxmNotReached();
+	    }
 	}
+	CxmXepHandled();
+	retval = PyErr_NoMemory();
+    }
     CxmXepEnd();
 
     RETURN:

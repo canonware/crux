@@ -1974,20 +1974,20 @@ CxpTrMpCPscore(CxtTr *aTr, CxtTrPs *aP, CxtTrPs *aA,
 									\
     i++;
 
-/* Calculate preliminary Fitch parsimony scores for each character. */
- charsP = (uint32_t *) aP->chars;
- charsA = (uint32_t *) aA->chars;
- charsB = (uint32_t *) aB->chars;
- for (i = 0, nwords = (aP->nchars >> 3); i < nwords;)
- {
-     CxmTrMpCPscoreInner();
-     CxmTrMpCPscoreInner();
-     CxmTrMpCPscoreInner();
-     CxmTrMpCPscoreInner();
- }
+    /* Calculate preliminary Fitch parsimony scores for each character. */
+    charsP = (uint32_t *) aP->chars;
+    charsA = (uint32_t *) aA->chars;
+    charsB = (uint32_t *) aB->chars;
+    for (i = 0, nwords = (aP->nchars >> 3); i < nwords;)
+    {
+	CxmTrMpCPscoreInner();
+	CxmTrMpCPscoreInner();
+	CxmTrMpCPscoreInner();
+	CxmTrMpCPscoreInner();
+    }
 #undef CxmTrMpCPscoreInner
 
- aP->nodeScore = ns;
+    aP->nodeScore = ns;
 }
 
 /* Unconditionally calculate the partial score for aP, using aA and aB as
@@ -2274,19 +2274,19 @@ CxpTrMpCFscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
 									\
     i++;
 
-	    /* Calculate partial Fitch parsimony scores for each character. */
-	    charsA = (uint32_t *) aA->chars;
-	    charsB = (uint32_t *) aB->chars;
-	    for (i = 0, nwords = (aA->nchars >> 3); i < nwords;)
-	    {
-		CxmTrMpCFscoreInner();
-		CxmTrMpCFscoreInner();
-		CxmTrMpCFscoreInner();
-		CxmTrMpCFscoreInner();
-	    }
+    /* Calculate partial Fitch parsimony scores for each character. */
+    charsA = (uint32_t *) aA->chars;
+    charsB = (uint32_t *) aB->chars;
+    for (i = 0, nwords = (aA->nchars >> 3); i < nwords;)
+    {
+	CxmTrMpCFscoreInner();
+	CxmTrMpCFscoreInner();
+	CxmTrMpCFscoreInner();
+	CxmTrMpCFscoreInner();
+    }
 #undef CxmTrMpCFscoreInner
 
-	    return retval;
+    return retval;
 }
 
 /* Unconditionally calculate the final score of a tree, using aA and aB as
