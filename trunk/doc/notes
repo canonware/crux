@@ -64,4 +64,16 @@ an internal edge.  Try to come up with an example that allows this to happen.
 the case.)
 
 --------------------------------------------------------------------------------
+30 December 2004
+--------------------------------------------------------------------------------
+
+An alternative strategy for finding pairs of taxa to join is to try to make use
+of failed choices by chasing down a taxon for which a minimal tdist was found.
+For example, if A and B are chosen, but C is too close to B, then try B and C,
+and if that fails, try C and whatever makes it fail, etc.  I think it may be
+possible to get stuck in a cycle, so some method of avoiding that would be
+necessary (give up after a certain number of attempts, keep a log, or some other
+method).
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------

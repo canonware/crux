@@ -1,3 +1,5 @@
+* Fix distance matrix parser to deal with a last line that is missing a newline.
+
 * Rewrite Newick parser in C.
 
 * Try to change the random NJ code to avoid having to look at columns when
