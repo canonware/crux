@@ -116,6 +116,11 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
     CxmAssert(aNtaxa > 1);
 
     /* Allocate an array that is large enough to hold the distances. */
+    // XXX
+    fprintf(stderr, "%s:%d:%s(): Allocate %u bytes\n",
+	    __FILE__, __LINE__, __func__,
+	    sizeof(CxtTreeNjd) * (CxpTreeNjXy2i(aNtaxa, aNtaxa - 2,
+						aNtaxa - 1) + 1));
     d = (CxtTreeNjd *) CxmMalloc(sizeof(CxtTreeNjd)
 				    * (CxpTreeNjXy2i(aNtaxa,
 						    aNtaxa - 2,
@@ -123,13 +128,21 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
 				       + 1));
     /* dPrev can be smaller, since it won't be used until the matrix is shrunk
      * once. */
+    // XXX
+    fprintf(stderr, "%s:%d:%s(): Allocate %u bytes\n",
+	    __FILE__, __LINE__, __func__,
+	    sizeof(CxtTreeNjd) * (CxpTreeNjXy2i(aNtaxa - 1, aNtaxa - 3,
+						aNtaxa - 2) + 1));
     dPrev = (CxtTreeNjd *) CxmMalloc(sizeof(CxtTreeNjd)
-					 * (CxpTreeNjXy2i(aNtaxa,
+					 * (CxpTreeNjXy2i(aNtaxa - 1,
 							 aNtaxa - 3,
 							 aNtaxa - 2)
 					    + 1));
 
     /* Allocate an array that is large enough to hold all the distance sums. */
+    // XXX
+    fprintf(stderr, "%s:%d:%s(): Allocate %lu bytes\n",
+	    __FILE__, __LINE__, __func__, sizeof(CxtTreeNjr) * aNtaxa);
     r = (CxtTreeNjr *) CxmMalloc(sizeof(CxtTreeNjr) * aNtaxa);
 
     /* Initialize untransformed distances. */
