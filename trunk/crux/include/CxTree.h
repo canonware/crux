@@ -530,6 +530,8 @@ CxRingPrevPargs(CxtRingObject *self);
 #if (!defined(CxmUseInlines))
 void *
 CxRingAuxGet(CxtRingObject *self, unsigned aInd);
+void
+CxRingAuxSwap(CxtRingObject *self, CxtRingObject *aOther);
 #endif
 #if (defined(CxmUseInlines) || defined(CxmTree_c))
 CxmInline void *
@@ -548,6 +550,22 @@ CxRingAuxGet(CxtRingObject *self, unsigned aInd)
     rVal = self->aux[aInd];
     RETURN:
     return rVal;
+}
+
+void
+CxRingAuxSwap(CxtRingObject *self, CxtRingObject *aOther)
+{
+    void **tAux;
+    unsigned tNAux;
+
+    tAux = self->aux;
+    tNAux = self->nAux;
+
+    self->aux = aOther->aux;
+    self->nAux = aOther->nAux;
+
+    aOther->aux = tAux;
+    aOther->nAux = tNAux;
 }
 #endif
 
