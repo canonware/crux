@@ -27,11 +27,11 @@ struct CxsXep
 {
     volatile CxmQr(CxtXep) link;
     volatile CxtXepv value;
-    volatile bool is_handled;
-    volatile bool is_linked;
+    volatile bool isHandled;
+    volatile bool isLinked;
     volatile CxtXeps state;
     volatile const char *filename;
-    volatile uint32_t line_num;
+    volatile uint32_t lineNum;
     jmp_buf context;
 };
 
@@ -45,19 +45,19 @@ CxXepShutdown(void);
     {									\
 	CxtXep _xep
 
-#define xep_try								\
+#define CxmXepTry							\
 	CxpXepLink(&_xep);						\
 	switch (setjmp(_xep.context))					\
 	{								\
 	    case CxmXepvNone:						\
 	    case CxmXepvCode:
 
-#define CxmXepCatch(a_value)						\
+#define CxmXepCatch(aValue)						\
 		break;							\
-	    case (a_value):
+	    case (aValue):
 
-#define CxmXepMcatch(a_value)						\
-	    case (a_value):
+#define CxmXepMcatch(aValue)						\
+	    case (aValue):
 
 #define CxmXepAcatch							\
 		break;							\
@@ -76,13 +76,13 @@ CxXepShutdown(void);
 
 #define CxmXepFilename() (_xep.filename)
 
-#define CxmXepLineNum() (_xep.line_num)
+#define CxmXepLineNum() (_xep.lineNum)
 
 void
-CxXepThrowE(CxtXepv a_value, volatile const char *a_filename,
-	    uint32_t a_line_num);
+CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
+	    uint32_t aLineNum);
 
-#define CxmXepThrow(a_value) CxXepThrowE((a_value), __FILE__, __LINE__)
+#define CxmXepThrow(aValue) CxXepThrowE((aValue), __FILE__, __LINE__)
 
 #define CxmXepRetry() CxpXepRetry(&_xep)
 
@@ -91,13 +91,13 @@ CxXepThrowE(CxtXepv a_value, volatile const char *a_filename,
 /* Private, but visible here so that the cpp macros above don't cause
  * compilation warnings. */
 void
-CxpXepRetry(CxtXep *a_xep);
+CxpXepRetry(CxtXep *aXep);
 
 void
-CxpXepHandled(CxtXep *a_xep);
+CxpXepHandled(CxtXep *aXep);
 
 void
-CxpXepLink(CxtXep *a_xep);
+CxpXepLink(CxtXep *aXep);
 
 void
-CxpXepUnlink(CxtXep *a_xep);
+CxpXepUnlink(CxtXep *aXep);

@@ -12,69 +12,69 @@
 #include "../include/_cruxmodule.h"
 
 #ifdef CxmDebug
-static bool s_CxXepInitialized = false;
+static bool CxpXepInitialized = false;
 #endif
-static CxtXep *s_xep_first;
+static CxtXep *CxpXepFirst;
 
 void
 CxXepInit(void)
 {
-    cxmAssert(s_CxXepInitialized == false);
+    cxmAssert(CxpXepInitialized == false);
 
-    s_xep_first = NULL;
+    CxpXepFirst = NULL;
 #ifdef CxmDebug
-    s_CxXepInitialized = true;
+    CxpXepInitialized = true;
 #endif
 }
 
 void
 CxXepShutdown(void)
 {
-    cxmAssert(s_CxXepInitialized);
+    cxmAssert(CxpXepInitialized);
 
 #ifdef CxmDebug
-    s_CxXepInitialized = false;
+    CxpXepInitialized = false;
 #endif
 }
 
 void
-CxXepThrowE(CxtXepv a_value, volatile const char *a_filename,
-	    uint32_t a_line_num)
+CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
+	    uint32_t aLineNum)
 {
-    CxtXep *xep_first, *xep;
+    CxtXep *xepFirst, *xep;
 
-    cxmAssert(s_CxXepInitialized);
-    cxmAssert(a_value > CxeXepsCatch);
+    cxmAssert(CxpXepInitialized);
+    cxmAssert(aValue > CxeXepsCatch);
 
     /* Iterate backward through the exception handlers until the exception is
      * handled or there are no more exception handlers. */
-    xep = xep_first = s_xep_first;
-    if (xep_first != NULL)
+    xep = xepFirst = CxpXepFirst;
+    if (xepFirst != NULL)
     {
-	xep = CxmQrPrev(xep_first, link);
+	xep = CxmQrPrev(xepFirst, link);
     }
     else
     {
 	/* No exception handlers at all. */
 	fprintf(stderr, "%s(): Unhandled exception %u thrown at %s:%u\n",
-		__func__, a_value, a_filename, a_line_num);
+		__func__, aValue, aFilename, aLineNum);
 	abort();
     }
 
     do
     {
-	xep->is_handled = false;
-	xep->filename = a_filename;
-	xep->line_num = a_line_num;
+	xep->isHandled = false;
+	xep->filename = aFilename;
+	xep->lineNum = aLineNum;
 
 	switch (xep->state)
 	{
 	    case CxeXepsTry:
 	    {
 		/* Execute the handler. */
-		xep->value = a_value;
+		xep->value = aValue;
 		xep->state = CxeXepsCatch;
-		longjmp(xep->context, (int) a_value);
+		longjmp(xep->context, (int) aValue);
 		cxmNotReached();
 	    }
 	    case CxeXepsCatch:
@@ -89,21 +89,21 @@ CxXepThrowE(CxtXepv a_value, volatile const char *a_filename,
 	}
 
 	xep = CxmQrPrev(xep, link);
-    } while (xep != xep_first);
+    } while (xep != xepFirst);
 
     /* No more exception handlers. */
     fprintf(stderr, "%s(): Unhandled exception %u thrown at %s:%u\n",
-	    __func__, a_value, xep->filename, xep->line_num);
+	    __func__, aValue, xep->filename, xep->lineNum);
     abort();
 }
 
 void
-CxpXepRetry(CxtXep *a_xep)
+CxpXepRetry(CxtXep *aXep)
 {
-    cxmAssert(s_CxXepInitialized);
+    cxmAssert(CxpXepInitialized);
 
 #ifdef CxmDebug
-    switch (a_xep->state)
+    switch (aXep->state)
     {
 	case CxeXepsCatch:
 	{
@@ -119,20 +119,20 @@ CxpXepRetry(CxtXep *a_xep)
 	}
     }
 #endif
-    a_xep->value = CxmXepvNone;
-    a_xep->state = CxeXepsTry;
-    a_xep->is_handled = true;
-    longjmp(a_xep->context, (int) CxmXepvCode);
+    aXep->value = CxmXepvNone;
+    aXep->state = CxeXepsTry;
+    aXep->isHandled = true;
+    longjmp(aXep->context, (int) CxmXepvCode);
     cxmNotReached();
 }
 
 void
-CxpXepHandled(CxtXep *a_xep)
+CxpXepHandled(CxtXep *aXep)
 {
-    cxmAssert(s_CxXepInitialized);
+    cxmAssert(CxpXepInitialized);
 
 #ifdef CxmDebug
-    switch (a_xep->state)
+    switch (aXep->state)
     {
 	case CxeXepsCatch:
 	{
@@ -149,78 +149,78 @@ CxpXepHandled(CxtXep *a_xep)
     }
 #endif
 
-    a_xep->is_handled = true;
-    CxpXepUnlink(a_xep);
+    aXep->isHandled = true;
+    CxpXepUnlink(aXep);
 }
 
 void
-CxpXepLink(CxtXep *a_xep)
+CxpXepLink(CxtXep *aXep)
 {
-    CxtXep *xep_first;
+    CxtXep *xepFirst;
 
-    cxmAssert(s_CxXepInitialized);
+    cxmAssert(CxpXepInitialized);
 
-    xep_first = s_xep_first;
+    xepFirst = CxpXepFirst;
 
     /* Link into the xep ring, if it exists. */
-    CxmQrNew(a_xep, link);
-    if (xep_first != NULL)
+    CxmQrNew(aXep, link);
+    if (xepFirst != NULL)
     {
-	cxmCheckPtr(CxmQrPrev(xep_first, link));
-	cxmCheckPtr(CxmQrNext(xep_first, link));
+	cxmCheckPtr(CxmQrPrev(xepFirst, link));
+	cxmCheckPtr(CxmQrNext(xepFirst, link));
 
-	CxmQrBeforeInsert(xep_first, a_xep, link);
+	CxmQrBeforeInsert(xepFirst, aXep, link);
     }
     else
     {
-	s_xep_first = a_xep;
+	CxpXepFirst = aXep;
     }
 
-    a_xep->value = CxmXepvNone;
-    a_xep->state = CxeXepsTry;
-    a_xep->is_handled = true;
-    a_xep->is_linked = true;
+    aXep->value = CxmXepvNone;
+    aXep->state = CxeXepsTry;
+    aXep->isHandled = true;
+    aXep->isLinked = true;
 }
 
 void
-CxpXepUnlink(CxtXep *a_xep)
+CxpXepUnlink(CxtXep *aXep)
 {
-    CxtXep *xep_first;
+    CxtXep *xepFirst;
 
-    cxmAssert(s_CxXepInitialized);
+    cxmAssert(CxpXepInitialized);
 
-    if (a_xep->is_linked)
+    if (aXep->isLinked)
     {
-	xep_first = s_xep_first;
-	cxmCheckPtr(CxmQrPrev(xep_first, link));
-	cxmCheckPtr(CxmQrNext(xep_first, link));
+	xepFirst = CxpXepFirst;
+	cxmCheckPtr(CxmQrPrev(xepFirst, link));
+	cxmCheckPtr(CxmQrNext(xepFirst, link));
 
 	/* Remove handler from ring. */
-	if (a_xep != xep_first)
+	if (aXep != xepFirst)
 	{
-	    CxmQrRemove(a_xep, link);
+	    CxmQrRemove(aXep, link);
 	}
 	else
 	{
-	    s_xep_first = NULL;
+	    CxpXepFirst = NULL;
 	}
-	a_xep->is_linked = false;
+	aXep->isLinked = false;
 
-	if (a_xep->is_handled == false)
+	if (aXep->isHandled == false)
 	{
-	    if (a_xep != xep_first)
+	    if (aXep != xepFirst)
 	    {
 		/* Propagate exception. */
-		CxXepThrowE(a_xep->value, a_xep->filename,
-			    a_xep->line_num);
+		CxXepThrowE(aXep->value, aXep->filename,
+			    aXep->lineNum);
 	    }
 	    else
 	    {
 		/* No more exception handlers. */
 		fprintf(stderr, "%s(): Unhandled exception "
 			"%u thrown at %s:%u\n", __func__,
-			a_xep->value, a_xep->filename,
-			a_xep->line_num);
+			aXep->value, aXep->filename,
+			aXep->lineNum);
 		abort();
 	    }
 	}

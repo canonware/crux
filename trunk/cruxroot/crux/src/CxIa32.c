@@ -16,7 +16,7 @@ bool CxgIa32UseSse2;
 /* Check for the cpuid instruction.  If the ID bit (21) in EFLAGS is writable
  * then cpuid is supported. */
 static bool
-ia32_has_cpuid(void)
+CxpIa32HasCpuid(void)
 {
     bool retval;
     int before, after;
@@ -50,14 +50,14 @@ ia32_has_cpuid(void)
 
 /* Set eax, call the cpuid instruction, and return e[abcd]x. */
 static void
-ia32_cpuid(unsigned a_eax, unsigned *r_abcd)
+CxpIa32Cpuid(unsigned aEax, unsigned *rAbcd)
 {
     asm volatile (
-	"movl %%ebx, %%esi;" /* Preserve r_abcd. */
+	"movl %%ebx, %%esi;" /* Preserve rAbcd. */
 	"cpuid;"
-	"xchgl %%ebx, %%esi;" /* Restore r_abcd. */
-	: "=a" (r_abcd[0]), "=S" (r_abcd[1]), "=c" (r_abcd[2]), "=d" (r_abcd[3])
-	: "0" (a_eax)
+	"xchgl %%ebx, %%esi;" /* Restore rAbcd. */
+	: "=a" (rAbcd[0]), "=S" (rAbcd[1]), "=c" (rAbcd[2]), "=d" (rAbcd[3])
+	: "0" (aEax)
 	);
 }
 
@@ -68,9 +68,9 @@ CxIa32CpuInit(void)
 
     /* If the cpuid instruction is supported, and the SSE2 feature flag is set,
      * enable the use of SSE2. */
-    if (ia32_has_cpuid())
+    if (CxpIa32HasCpuid())
     {
-	ia32_cpuid(1, abcd);
+	CxpIa32Cpuid(1, abcd);
 
 	/* Mask everything but bit 26 (SSE2 feature flag) of edx. */
 	if ((abcd[3] & 0x04000000) != 0)

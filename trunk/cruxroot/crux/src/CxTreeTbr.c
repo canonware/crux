@@ -29,7 +29,7 @@ CxTreeTbr(CxtCxtTreeObject *self, PyObject *args)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	CxTrTbr(self->tr, bisect, reconnect_a, reconnect_b);
 
@@ -57,7 +57,7 @@ CxTreeTbrNneighborsGet(CxtCxtTreeObject *self)
 	;
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	retval = Py_BuildValue("i", CxTrTbrNneighborsGet(self->tr));
     }
@@ -88,7 +88,7 @@ CxTreeTbrNeighborGet(CxtCxtTreeObject *self, PyObject *args)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	if (neighbor >= CxTrTbrNneighborsGet(self->tr))
 	{

@@ -38,7 +38,7 @@ tree_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	self->tr = CxTrNew();
 	CxTrAuxSet(self->tr, self);
@@ -134,7 +134,7 @@ CxTreeNtaxaGet(CxtCxtTreeObject *self)
 	;
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	retval = Py_BuildValue("i", CxTrNtaxaGet(self->tr));
     }
@@ -158,7 +158,7 @@ CxTreeNedgesCget(CxtCxtTreeObject *self)
 	;
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	retval = Py_BuildValue("i", CxTrNedgesGet(self->tr));
     }
@@ -448,7 +448,7 @@ node_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	Py_INCREF(tree);
 	self->tree = tree;
@@ -776,7 +776,7 @@ edge_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	Py_INCREF(tree);
 	self->tree = tree;

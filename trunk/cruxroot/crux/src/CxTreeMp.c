@@ -48,7 +48,7 @@ CxTreeMpPrepare(CxtCxtTreeObject *self, PyObject *args)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	/* Make sure that all taxa have the same number of characters. */
 	if (ntaxa > 0)
@@ -193,7 +193,7 @@ CxTreeTbrBestNeighborsMp(CxtCxtTreeObject *self, PyObject *args)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	CxTrTbrBestNeighborsMp(self->tr, maxhold);
 
@@ -235,7 +235,7 @@ CxTreeTbrBetterNeighborsMp(CxtCxtTreeObject *self, PyObject *args)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	CxTrTbrBetterNeighborsMp(self->tr, maxhold);
 
@@ -263,7 +263,7 @@ CxTreeTbrAllNeighborsMp(CxtCxtTreeObject *self)
 	;
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	CxTrTbrAllNeighborsMp(self->tr);
 
@@ -290,7 +290,7 @@ CxTreeNheldGet(CxtCxtTreeObject *self)
 	;
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	retval = Py_BuildValue("i", CxTrNheldGet(self->tr));
     }
@@ -327,7 +327,7 @@ CxTreeheldGet(CxtCxtTreeObject *self, PyObject *args)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	CxTrHeldGet(self->tr, held, &neighbor, &score);
 	CxTrTbrNeighborGet(self->tr, neighbor,

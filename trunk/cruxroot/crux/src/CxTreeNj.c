@@ -352,7 +352,7 @@ CxTreeNj(CxtCxtTreeObject *self, PyObject *args)
     }
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	distances = (double *) CxmMalloc(sizeof(double) * nelms);
 

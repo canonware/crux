@@ -21,7 +21,7 @@ CxTreeCanonize(CxtCxtTreeObject *self)
 	;
 
     CxmXepBegin();
-    xep_try
+    CxmXepTry
     {
 	CxtTrNode old_tr_node, tr_node;
 	CxtCxtNodeObject *node;
