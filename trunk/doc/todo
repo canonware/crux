@@ -1,11 +1,24 @@
+* Randomly break ties in the deterministic version of RNJ, so that the algorithm
+  will never get stuck due to certain tie patterns.
+
+* Try to change the random NJ code to avoid having to look at columns when
+  deciding on row pairs.
+
+* Gracefully raise an exception (or just complain and keep going?) when parsing
+  Newick files that have extra parens (as do ROSE outputs).
+
+  The NewickParser code shouldn't ever allow this to happen; the grammar that is
+  enforced should require multiple objects inside parens.
+
 * Add nj().
-
-* Somehow return whether a RNJ tree is additive?
-
-* Write regression tests for DistMatrix.distance[GS]et().
 
 * Figure out how to use command line parsing module on crux.opts, and write some
   canned scripts for inclusion in crux releases.
+
+  Save sys.argv, redefine sys.argv, call option parser, restore sys.argv.
+
+* Do not bother calculating bit vectors for leaf edges in the RF distance
+  calculation code.
 
 ================================================================================
 

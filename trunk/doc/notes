@@ -41,4 +41,27 @@ transformed distances on each row.  In practice, this is a small bias, but
 without somehow addressing this, I cannot claim completely unbiased random NJ.
 
 --------------------------------------------------------------------------------
+21 November 2004
+--------------------------------------------------------------------------------
+
+The randomized RNJ algorithm needs to iterate vertically over portions of the
+distance matrix.  Consider that it would be possible to store the upper and
+lower triangles of a symmetric matrix (2X as much memory), and all iteration
+could be done linearly in memory.  Matrix reductions could still be done with
+the fast algorithm for both triangles.  This would increase cache load for
+random reads, but linear reads would probably be quite a bit faster in all
+cases.
+
+--------------------------------------------------------------------------------
+26 November 2004
+--------------------------------------------------------------------------------
+
+It occurs to me that NJ may be capable of making the same type of mistake as RNJ
+makes (join nodes that are very close to each other, but that are separated by
+an internal edge.  Try to come up with an example that allows this to happen.
+
+(The NJ proofs say that this can't happen.  Gain an understanding of why this is
+the case.)
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
