@@ -31,16 +31,6 @@
 
 ================================================================================
 
-* Add aux-like facilities to CxTree.c.  I think the way to go is have 
-  {tree,node,edge}_aux_[gs]et(obj, a_ind, ...), where a_ind is in the range
-  [0..AUX_MAX], and AUX_MAX is a compile-time constant.  This means that each
-  tree/node/edge will have a built-in array of aux pointers, which can be
-  assigned to various tasks (MP, ML, etc.).  This wastes a bit of memory as
-  compared to some of the alternatives, but it's fast, pretty simple, and
-  doesn't require much work to add an extra aux pointer.  If it turns out way
-  down the road that there are too many aux pointer users to keep the whole
-  array around all the time, then I can switch to dynamic aux table management.
-
 * Move TBR code out of CxTr.c, into CxTreeTbr.c.  This will remove some scary
   constraints on how nodes/edges are rearranged (constraints imposed by the MP
   code).

@@ -9,6 +9,7 @@
  *
  ******************************************************************************/
 
+#define CxmTree_c
 #include "../include/_cruxmodule.h"
 
 #include <math.h>
@@ -65,6 +66,7 @@ CxpTreeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     {
 	self->tr = CxTrNew();
 	CxTrAuxSet(self->tr, self);
+	memset(self->aux, 0x0, sizeof(void *) * CxmTreeObjectAuxCount);
 	self->GcCleared = false;
 	retval = (PyObject *) self;
     }
@@ -580,6 +582,7 @@ CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	self->tree = tree;
 	self->node = CxTrNodeNew(tree->tr);
 	CxTrNodeAuxSet(tree->tr, self->node, self);
+	memset(self->aux, 0x0, sizeof(void *) * CxmNodeObjectAuxCount);
 	self->GcCleared = false;
 
 	retval = (PyObject *) self;
@@ -1006,6 +1009,7 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	self->tree = tree;
 	self->edge = CxTrEdgeNew(tree->tr);
 	CxTrEdgeAuxSet(tree->tr, self->edge, self);
+	memset(self->aux, 0x0, sizeof(void *) * CxmEdgeObjectAuxCount);
 	tryStage = 1;
 
 	/* Create associated ring objects. */
@@ -1543,6 +1547,7 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	goto RETURN;
     }
     CxTrRingAuxSet(self->tree->tr, self->ring, self);
+    memset(self->aux, 0x0, sizeof(void *) * CxmRingObjectAuxCount);
 
     self->GcDetached = false;
     self->GcCleared = false;
