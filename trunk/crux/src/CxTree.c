@@ -1096,12 +1096,6 @@ CxEdgeLengthSetPargs(CxtEdgeObject *self, PyObject *args)
 	retval = NULL;
 	goto RETURN;
     }
-    if (length < 0.0)
-    {
-	CxError(CxgEdgeValueError, "Length must be non-negative");
-	retval = NULL;
-	goto RETURN;
-    }
 
     CxEdgeLengthSet(self, length);
 
