@@ -124,6 +124,8 @@
   + Load/store:
     - NEXUS files.
     - Newick tree files.
+    - Phylip distance matrices.
+    - FASTA files.
     - Scripts (Python)
 
   + Manipulate (create, modify, store, print) trees and hybridization networks
