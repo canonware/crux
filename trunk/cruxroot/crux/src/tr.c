@@ -175,7 +175,7 @@ struct cw_tr_s
     void *aux;
 
     /* True if this tree has been modified since the internal state (ntaxa,
-     * nedges, bedges, trt, trti) was updated, false otherwise. */
+     * nedges, bedges, trt) was updated, false otherwise. */
     bool modified;
 
     /* Base of the tree (may or may not be set). */
@@ -204,12 +204,9 @@ struct cw_tr_s
      * TBR neighbors this tree has (trt[nedges].offset).
      *
      * Only the first trtused elements are valid, since not all bisection edges
-     * necessarily result in neighbors.
-     *
-     * trti is an array of edges that correspond to the entries in trt. */
+     * necessarily result in neighbors. */
     cw_trt_t *trt;
     uint32_t trtused;
-    cw_tr_edge_t *trti;
 
     /* Pointer to an array of trn's.  ntrns is the total number of trn's, not
      * all of which are necessarily in use.
@@ -1035,7 +1032,6 @@ tr_p_new(cw_tr_t *a_tr)
     a_tr->nbedges_b = 0;
     a_tr->trt = NULL;
     a_tr->trtused = 0;
-    a_tr->trti = NULL;
     a_tr->trns = NULL;
     a_tr->ntrns = 0;
     a_tr->sparetrns = CW_TR_NODE_NONE;
@@ -1348,83 +1344,21 @@ tr_p_bedges_gen(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_node_t *r_node_a,
 }
 
 static void
-tr_p_trti_update_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
-			 uint32_t *ar_edge_count)
+tr_p_trt_bisect_edge_update_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
+				    uint32_t *ar_edge_count)
 {
     cw_tr_ring_t ring;
 
     qri_others_foreach(ring, a_tr->trrs, a_ring, link)
     {
 	/* Record edge. */
-	a_tr->trti[*ar_edge_count] = tr_p_ring_edge_get(a_tr, ring);
+	a_tr->trt[*ar_edge_count].bisect_edge = tr_p_ring_edge_get(a_tr, ring);
 	(*ar_edge_count)++;
 
 	/* Recurse into neighbor subtree. */
-	tr_p_trti_update_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
-				 ar_edge_count);
-    }
-}
-
-CW_P_INLINE void
-tr_p_trti_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
-{
-    cw_assert(a_tr->modified == false);
-
-    /* Make sure that the trti array is the right size. */
-    if (a_tr->nedges > a_nedges_prev)
-    {
-	/* Grow the array. */
-	if (a_tr->trti == NULL)
-	{
-	    cw_assert(a_nedges_prev == 0);
-
-	    a_tr->trti = (cw_tr_edge_t *) cw_malloc(sizeof(cw_tr_edge_t)
-						    * a_tr->nedges);
-	}
-	else
-	{
-	    a_tr->trti = (cw_tr_edge_t *) cw_realloc(a_tr->trti,
-						     sizeof(cw_tr_edge_t)
-						     * a_tr->nedges);
-	}
-    }
-    else if (a_tr->nedges < a_nedges_prev)
-    {
-	/* Shrink the array. */
-	if (a_tr->nedges > 0)
-	{
-	    a_tr->trti = (cw_tr_edge_t *) cw_realloc(a_tr->trti,
-						     sizeof(cw_tr_edge_t)
-						     * a_tr->nedges);
-	}
-	else
-	{
-	    cw_free(a_tr->trti);
-	    a_tr->trti = NULL;
-	}
-    }
-
-    /* Recursively traverse the tree, and initialize trti along the way. */
-    if (a_tr->nedges > 0)
-    {
-	uint32_t edge_count;
-	cw_trn_t *trn;
-	cw_tr_ring_t ring;
-
-	cw_assert(a_tr->base != CW_TR_NODE_NONE);
-
-	edge_count = 0;
-	trn = &a_tr->trns[a_tr->base];
-	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
-	{
-	    /* Record edge. */
-	    a_tr->trti[edge_count] = tr_p_ring_edge_get(a_tr, ring);
-	    edge_count++;
-
-	    tr_p_trti_update_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
-				     &edge_count);
-	}
-	cw_assert(edge_count == a_tr->nedges);
+	tr_p_trt_bisect_edge_update_recurse(a_tr,
+					    tr_p_ring_other_get(a_tr, ring),
+					    ar_edge_count);
     }
 }
 
@@ -1434,9 +1368,6 @@ tr_p_trt_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
     uint32_t i, j, n, offset;
 
     cw_assert(a_tr->modified == false);
-
-    /* Update trti. */
-    tr_p_trti_update(a_tr, a_nedges_prev);
 
     /* Allocate/reallocate/deallocate trt. */
     if (a_tr->trt == NULL)
@@ -1454,17 +1385,39 @@ tr_p_trt_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
 					    * (a_tr->nedges + 1));
     }
 
+    /* Recursively traverse the tree, and initialize trt->bisect_edge along the
+     * way. */
+    if (a_tr->nedges > 0)
+    {
+	uint32_t edge_count;
+	cw_trn_t *trn;
+	cw_tr_ring_t ring;
+
+	cw_assert(a_tr->base != CW_TR_NODE_NONE);
+
+	edge_count = 0;
+	trn = &a_tr->trns[a_tr->base];
+	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
+	{
+	    /* Record edge. */
+	    a_tr->trt[edge_count].bisect_edge = tr_p_ring_edge_get(a_tr, ring);
+	    edge_count++;
+
+	    tr_p_trt_bisect_edge_update_recurse(a_tr,
+						tr_p_ring_other_get(a_tr, ring),
+						&edge_count);
+	}
+	cw_assert(edge_count == a_tr->nedges);
+    }
+
     /* Iteratively fill in trt. */
     for (i = j = offset = 0; i < a_tr->nedges; i++)
     {
 	/* Record offset. */
 	a_tr->trt[j].offset = offset;
 
-	/* Record bisection edge. */
-	a_tr->trt[j].bisect_edge = a_tr->trti[i];
-
 	/* Update offset. */
-	tr_p_bedges_gen(a_tr, a_tr->trti[i], NULL, NULL);
+	tr_p_bedges_gen(a_tr, a_tr->trt[i].bisect_edge, NULL, NULL);
 	n = (a_tr->nbedges_a * a_tr->nbedges_b) - 1;
 	if (n != 0)
 	{
@@ -2988,7 +2941,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
     neighbor = 0;
     for (i = 0; i < a_tr->nedges; i++)
     {
-	bisect = a_tr->trti[i];
+	bisect = a_tr->trt[i].bisect_edge;
 
 	/* Determine which edges are in each subtree. */
 	tr_p_bedges_gen(a_tr, bisect, &node_a, &node_b);
@@ -3205,7 +3158,6 @@ tr_delete(cw_tr_t *a_tr)
     if (a_tr->trt != NULL)
     {
 	cw_free(a_tr->trt);
-	cw_free(a_tr->trti);
     }
 
     if (a_tr->bedges != NULL)
