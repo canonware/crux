@@ -1602,46 +1602,50 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 	degree++;
     }
 
-    /* Allocate space for a temporary array that can be used to sort the
-     * ring. */
-    canonize = (struct cw_tr_canonize_s *)
-	cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-			mema_arg_get(a_tr->mema),
-			sizeof(struct cw_tr_canonize_s) * (degree - 1));
-
-    /* Iteratively canonize subtrees, keeping track of the minimum taxon number
-     * seen overall, as well as for each subtree. */
-    for (i = 0, ring = a_ring; i < (degree - 1); i++)
+    if (degree > 1)
     {
-	ring = qri_next(a_tr->trrs, ring, link);
+	/* Allocate space for a temporary array that can be used to sort the
+	 * ring. */
+	canonize = (struct cw_tr_canonize_s *)
+	    cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+			    mema_arg_get(a_tr->mema),
+			    sizeof(struct cw_tr_canonize_s) * (degree - 1));
 
-	min_taxon = tr_p_canonize(a_tr, tr_p_ring_other_get(a_tr, ring));
-	if (min_taxon < retval)
+	/* Iteratively canonize subtrees, keeping track of the minimum taxon
+	 * number seen overall, as well as for each subtree. */
+	for (i = 0, ring = a_ring; i < (degree - 1); i++)
 	{
-	    retval = min_taxon;
+	    ring = qri_next(a_tr->trrs, ring, link);
+
+	    min_taxon = tr_p_canonize(a_tr, tr_p_ring_other_get(a_tr, ring));
+	    if (min_taxon < retval)
+	    {
+		retval = min_taxon;
+	    }
+
+	    canonize[i].ring = ring;
+	    canonize[i].min_taxon = min_taxon;
 	}
 
-	canonize[i].ring = ring;
-	canonize[i].min_taxon = min_taxon;
+	/* Sort the subtrees. */
+	qsort(canonize, degree - 1, sizeof(struct cw_tr_canonize_s),
+	      tr_p_canonize_compar);
+
+	/* Re-arrange the ring.  The first element can be skipped, since the
+	 * removal/re-insertion of all other elements eventually leaves the
+	 * first element in the proper location. */
+	for (i = 1; i < (degree - 1); i++)
+	{
+	    qri_remove(a_tr->trrs, canonize[i].ring, link);
+	    qri_before_insert(a_tr->trrs, a_ring, canonize[i].ring, link);
+	}
+
+	/* Clean up. */
+	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
+			  mema_arg_get(a_tr->mema),
+			  canonize,
+			  sizeof(struct cw_tr_canonize_s) * (degree - 1));
     }
-
-    /* Sort the subtrees. */
-    qsort(canonize, degree - 1, sizeof(struct cw_tr_canonize_s),
-	  tr_p_canonize_compar);
-
-    /* Re-arrange the ring.  The first element can be skipped, since the
-     * removal/re-insertion of all other elements eventually leaves the first
-     * element in the proper location. */
-    for (i = 1; i < (degree - 1); i++)
-    {
-	qri_remove(a_tr->trrs, canonize[i].ring, link);
-	qri_before_insert(a_tr->trrs, a_ring, canonize[i].ring, link);
-    }
-
-    /* Clean up. */
-    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-		      mema_arg_get(a_tr->mema),
-		      canonize, sizeof(struct cw_tr_canonize_s) * (degree - 1));
 
     return retval;
 }
