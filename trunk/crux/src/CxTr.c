@@ -150,14 +150,14 @@ CxpTrNodeValidate(CxtTr *aTr, CxtTrNode aNode)
 CxmpInline CxtTrPs *
 CxpTrPsNew(CxtTr *aTr)
 {
-    CxtTrPs *retval;
+    CxtTrPs *rVal;
 
-    retval = (CxtTrPs *) CxmMalloc(sizeof(CxtTrPs));
+    rVal = (CxtTrPs *) CxmMalloc(sizeof(CxtTrPs));
 
-    retval->parent = NULL;
-    retval->chars = NULL;
+    rVal->parent = NULL;
+    rVal->chars = NULL;
 
-    return retval;
+    return rVal;
 }
 
 CxmpInline void
@@ -175,15 +175,15 @@ CxpTrPsDelete(CxtTr *aTr, CxtTrPs *aPs)
 CxmpInline CxtTrc
 CxpTrPsCharGet(CxtTr *aTr, CxtTrPs *aPs, uint32_t aOffset)
 {
-    CxtTrc retval;
+    CxtTrc rVal;
 
     CxmCheckPtr(aPs->chars);
     CxmAssert(aOffset < aPs->nchars);
 
-    retval = aPs->chars[aOffset >> 1];
-    retval >>= ((aOffset & 1) * 4);
+    rVal = aPs->chars[aOffset >> 1];
+    rVal >>= ((aOffset & 1) * 4);
 
-    return retval;
+    return rVal;
 }
 #endif
 
@@ -288,7 +288,7 @@ CxpTrEdgeInit(CxtTr *aTr, CxtTrEdge aEdge)
 CxmpInline CxtTrEdge
 CxpTrEdgeAlloc(CxtTr *aTr)
 {
-    CxtTrEdge retval;
+    CxtTrEdge rVal;
 
     if (aTr->sparetres == CxmTrEdgeNone)
     {
@@ -334,13 +334,13 @@ CxpTrEdgeAlloc(CxtTr *aTr)
     }
 
     // Remove a spare from the spares stack.
-    retval = aTr->sparetres;
-    aTr->sparetres = aTr->tres[retval].u.link;
+    rVal = aTr->sparetres;
+    aTr->sparetres = aTr->tres[rVal].u.link;
 
-    // Initialize retval.
-    CxpTrEdgeInit(aTr, retval);
+    // Initialize rVal.
+    CxpTrEdgeInit(aTr, rVal);
 
-    return retval;
+    return rVal;
 }
 
 CxmpInline void
@@ -526,7 +526,7 @@ CxpTrNodeInit(CxtTr *aTr, CxtTrNode aNode)
 CxmpInline CxtTrNode
 CxpTrNodeAlloc(CxtTr *aTr)
 {
-    CxtTrNode retval;
+    CxtTrNode rVal;
 
     if (aTr->sparetrns == CxmTrNodeNone)
     {
@@ -568,13 +568,13 @@ CxpTrNodeAlloc(CxtTr *aTr)
     }
 
     // Remove a spare from the spares stack.
-    retval = aTr->sparetrns;
-    aTr->sparetrns = aTr->trns[retval].u.link;
+    rVal = aTr->sparetrns;
+    aTr->sparetrns = aTr->trns[rVal].u.link;
 
-    // Initialize retval.
-    CxpTrNodeInit(aTr, retval);
+    // Initialize rVal.
+    CxpTrNodeInit(aTr, rVal);
 
-    return retval;
+    return rVal;
 }
 
 CxmpInline void
@@ -597,16 +597,16 @@ CxpTrNodeDealloc(CxtTr *aTr, CxtTrNode aNode)
 CxmpInline uint32_t
 CxpTrNodeDegree(CxtTr *aTr, CxtTrRing aRing)
 {
-    uint32_t retval;
+    uint32_t rVal;
     CxtTrRing ring;
 
-    retval = 1;
+    rVal = 1;
     CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	{
-	    retval++;
+	    rVal++;
 	}
 
-    return retval;
+    return rVal;
 }
 
 // Calculate the number of edges between two nodes.  A distance of 0 means that
@@ -615,27 +615,27 @@ static uint32_t
 CxpTrNodeDistance(CxtTr *aTr, CxtTrRing aRing, CxtTrNode aOther,
 		  uint32_t aDistance)
 {
-    uint32_t retval;
+    uint32_t rVal;
     CxtTrRing ring;
 
     if (CxTrRingNodeGet(aTr, aRing) == aOther)
     {
-	retval = aDistance;
+	rVal = aDistance;
 	goto RETURN;
     }
 
     CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	{
-	    if ((retval = CxpTrNodeDistance(aTr, CxTrRingOtherGet(aTr, ring),
-					    aOther, aDistance + 1)) != 0)
+	    if ((rVal = CxpTrNodeDistance(aTr, CxTrRingOtherGet(aTr, ring),
+					  aOther, aDistance + 1)) != 0)
 	    {
 		goto RETURN;
 	    }
 	}
 
-    retval = 0;
+    rVal = 0;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 CxtTrNode
@@ -675,16 +675,16 @@ CxTrNodeTaxonNumSet(CxtTr *aTr, CxtTrNode aNode,
 CxtTrRing
 CxTrNodeRingGet(CxtTr *aTr, CxtTrNode aNode)
 {
-    CxtTrRing retval;
+    CxtTrRing rVal;
     CxtTrn *trn;
 
     CxmDassert(CxpTrNodeValidate(aTr, aNode));
 
     trn = &aTr->trns[aNode];
 
-    retval = CxmQliFirst(&trn->rings);
+    rVal = CxmQliFirst(&trn->rings);
 
-    return retval;
+    return rVal;
 }
 
 void *
@@ -706,7 +706,7 @@ CxTrNodeAuxSet(CxtTr *aTr, CxtTrNode aNode, void *aAux)
 uint32_t
 CxTrNodeDegree(CxtTr *aTr, CxtTrNode aNode)
 {
-    uint32_t retval;
+    uint32_t rVal;
     CxtTrRing ring;
 
     CxmDassert(CxpTrNodeValidate(aTr, aNode));
@@ -714,20 +714,20 @@ CxTrNodeDegree(CxtTr *aTr, CxtTrNode aNode)
     ring = CxmQliFirst(&aTr->trns[aNode].rings);
     if (ring != CxmTrRingNone)
     {
-	retval = CxpTrNodeDegree(aTr, ring);
+	rVal = CxpTrNodeDegree(aTr, ring);
     }
     else
     {
-	retval = 0;
+	rVal = 0;
     }
 
-    return retval;
+    return rVal;
 }
 
 uint32_t
 CxTrNodeDistance(CxtTr *aTr, CxtTrNode aNode, CxtTrNode aOther)
 {
-    uint32_t retval;
+    uint32_t rVal;
     CxtTrn *trn;
     CxtTrRing ring;
 
@@ -742,9 +742,8 @@ CxTrNodeDistance(CxtTr *aTr, CxtTrNode aNode, CxtTrNode aOther)
     {
 	CxmQliForeach(ring, &trn->rings, aTr->trrs, link)
 	    {
-		if ((retval = CxpTrNodeDistance(aTr,
-						CxTrRingOtherGet(aTr, ring),
-						aOther, 1)) != 0)
+		if ((rVal = CxpTrNodeDistance(aTr, CxTrRingOtherGet(aTr, ring),
+					      aOther, 1)) != 0)
 		{
 		    break;
 		}
@@ -752,10 +751,10 @@ CxTrNodeDistance(CxtTr *aTr, CxtTrNode aNode, CxtTrNode aOther)
     }
     else
     {
-	retval = 0;
+	rVal = 0;
     }
 
-    return retval;
+    return rVal;
 }
 
 //==============================================================================
@@ -798,7 +797,7 @@ static CxtTrNode
 CxpTrLowestRecurse(CxtTr *aTr, CxtTrRing aRing, uint32_t *rNtaxa,
 		   uint32_t *rNedges, CxtTrNode aRoot)
 {
-    CxtTrNode retval, node, root, troot;
+    CxtTrNode rVal, node, root, troot;
     CxtTrRing ring;
     CxtTrn *trn;
 
@@ -815,12 +814,12 @@ CxpTrLowestRecurse(CxtTr *aTr, CxtTrRing aRing, uint32_t *rNtaxa,
 	&& (aRoot == CxmTrNodeNone
 	    || trn->taxonNum < aTr->trns[aRoot].taxonNum))
     {
-	retval = node;
+	rVal = node;
 	root = node;
     }
     else
     {
-	retval = CxmTrNodeNone;
+	rVal = CxmTrNodeNone;
 	root = aRoot;
     }
 
@@ -834,12 +833,12 @@ CxpTrLowestRecurse(CxtTr *aTr, CxtTrRing aRing, uint32_t *rNtaxa,
 				       rNtaxa, rNedges, root);
 	    if (troot != CxmTrNodeNone)
 	    {
-		retval = troot;
+		rVal = troot;
 		root = troot;
 	    }
 	}
 
-    return retval;
+    return rVal;
 }
 
 // Recursively traverse the tree, count the number of taxa, and find the lowest
@@ -848,7 +847,7 @@ static CxtTrNode
 CxpTrLowest(CxtTr *aTr, CxtTrNode aNode, uint32_t *rNtaxa,
 	    uint32_t *rNedges)
 {
-    CxtTrNode retval, root, troot;
+    CxtTrNode rVal, root, troot;
     CxtTrRing ring;
     CxtTrn *trn;
 
@@ -864,12 +863,12 @@ CxpTrLowest(CxtTr *aTr, CxtTrNode aNode, uint32_t *rNtaxa,
 
     if (trn->taxonNum != CxmTrNodeTaxonNone)
     {
-	retval = aNode;
+	rVal = aNode;
 	root = aNode;
     }
     else
     {
-	retval = CxmTrNodeNone;
+	rVal = CxmTrNodeNone;
 	root = CxmTrNodeNone;
     }
 
@@ -883,12 +882,12 @@ CxpTrLowest(CxtTr *aTr, CxtTrNode aNode, uint32_t *rNtaxa,
 				       rNtaxa, rNedges, root);
 	    if (troot != CxmTrNodeNone)
 	    {
-		retval = troot;
+		rVal = troot;
 		root = troot;
 	    }
 	}
 
-    return retval;
+    return rVal;
 }
 
 #ifdef CxmDebug
@@ -985,7 +984,7 @@ CxmpInline CxtTrNode
 CxpTrBisectionEdgeListGen(CxtTr *aTr, CxtTrRing aRing,
 			  CxtTrEdge *arEdges, uint32_t *arNedges)
 {
-    CxtTrNode retval;
+    CxtTrNode rVal;
     CxtTrRing ring;
 
     // Initialize the length of the list before recursing.
@@ -999,7 +998,7 @@ CxpTrBisectionEdgeListGen(CxtTr *aTr, CxtTrRing aRing,
 	    // single entry to the list, and return the node.
 	    arEdges[0] = CxmTrEdgeNone;
 	    (*arNedges)++;
-	    retval = CxTrRingNodeGet(aTr, aRing);
+	    rVal = CxTrRingNodeGet(aTr, aRing);
 	    break;
 	}
 	case 2:
@@ -1031,7 +1030,7 @@ CxpTrBisectionEdgeListGen(CxtTr *aTr, CxtTrRing aRing,
 							       ring),
 					     arEdges, arNedges);
 
-	    retval = CxmTrNodeNone;
+	    rVal = CxmTrNodeNone;
 	    break;
 	}
 	default:
@@ -1051,12 +1050,12 @@ CxpTrBisectionEdgeListGen(CxtTr *aTr, CxtTrRing aRing,
 						     arEdges, arNedges);
 		}
 
-	    retval = CxmTrNodeNone;
+	    rVal = CxmTrNodeNone;
 	    break;
 	}
     }
 
-    return retval;
+    return rVal;
 }
 
 // Generate lists of edges in each half of a logical bisection at edge
@@ -1181,24 +1180,24 @@ CxpTrtUpdate(CxtTr *aTr, uint32_t aNedgesPrev)
 static int
 CxpTrtCompare(const void *aKey, const void *aVal)
 {
-    int retval;
+    int rVal;
     const CxtTrt *key = (const CxtTrt *) aKey;
     const CxtTrt *val = (const CxtTrt *) aVal;
 
     if (key->offset < val->offset)
     {
-	retval = -1;
+	rVal = -1;
     }
     else if (key->offset < (&val[1])->offset)
     {
-	retval = 0;
+	rVal = 0;
     }
     else
     {
-	retval = 1;
+	rVal = 1;
     }
 
-    return retval;
+    return rVal;
 }
 
 static void
@@ -1290,13 +1289,13 @@ CxpTrCanonizeCompare(const void *aA, const void *aB)
 static uint32_t
 CxpTrCanonize(CxtTr *aTr, CxtTrRing aRing)
 {
-    uint32_t retval, degree;
+    uint32_t rVal, degree;
     CxtTrNode node;
 
     // Get taxon number (an internal node has CxmTrNodeTaxonNone).
     CxmDassert(CxpTrNodeValidate(aTr, CxTrRingNodeGet(aTr, aRing)));
     node = CxTrRingNodeGet(aTr, aRing);
-    retval = CxTrNodeTaxonNumGet(aTr, node);
+    rVal = CxTrNodeTaxonNumGet(aTr, node);
 
     // Get the degree of the node that this ring is a part of.
     degree = CxpTrNodeDegree(aTr, aRing);
@@ -1315,13 +1314,13 @@ CxpTrCanonize(CxtTr *aTr, CxtTrRing aRing)
 	// Iteratively canonize subtrees, keeping track of the minimum taxon
 	// number seen overall, as well as for each subtree.
 	i = 0;
-	retval = CxmTrNodeTaxonNone;
+	rVal = CxmTrNodeTaxonNone;
 	CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	    {
 		minTaxon = CxpTrCanonize(aTr, CxTrRingOtherGet(aTr, ring));
-		if (minTaxon < retval)
+		if (minTaxon < rVal)
 		{
-		    retval = minTaxon;
+		    rVal = minTaxon;
 		}
 
 		canonize[i].ring = ring;
@@ -1352,7 +1351,7 @@ CxpTrCanonize(CxtTr *aTr, CxtTrRing aRing)
 	CxmFree(canonize);
     }
 
-    return retval;
+    return rVal;
 }
 
 // As part of TBR, extract a node that has only two neighbors.  Take care to
@@ -1365,7 +1364,7 @@ CxpTrTbrNodeExtract(CxtTr *aTr, CxtTrNode aNode,
 		    CxtTrEdge *arTedges, uint32_t *arNtedges,
 		    CxtTrNode *arTnodes, uint32_t *arNtnodes)
 {
-    CxtTrNode retval;
+    CxtTrNode rVal;
 
     switch (CxTrNodeDegree(aTr, aNode))
     {
@@ -1373,7 +1372,7 @@ CxpTrTbrNodeExtract(CxtTr *aTr, CxtTrNode aNode,
 	{
 	    // This node is the only node remaining in the subtree.  It must be
 	    // directly reconnected to, so return it.
-	    retval = aNode;
+	    rVal = aNode;
 	    break;
 	}
 	case 1:
@@ -1462,18 +1461,18 @@ CxpTrTbrNodeExtract(CxtTr *aTr, CxtTrNode aNode,
 		(*arNtedges)++;
 	    }
 
-	    retval = CxmTrNodeNone;
+	    rVal = CxmTrNodeNone;
 	    break;
 	}
 	default:
 	{
 	    // Do nothing, since this node has enough neighbors to remain
 	    // relevant (3 or more).
-	    retval = CxmTrNodeNone;
+	    rVal = CxmTrNodeNone;
 	}
     }
 
-    return retval;
+    return rVal;
 }
 
 // Splice a node into the middle of aEdge, and return the node.
@@ -1482,7 +1481,7 @@ CxpTrTbrNodeSplice(CxtTr *aTr, CxtTrEdge aEdge,
 		   CxtTrEdge *arTedges, uint32_t *arNtedges,
 		   CxtTrNode *arTnodes, uint32_t *arNtnodes)
 {
-    CxtTrNode retval, nodeA, nodeB;
+    CxtTrNode rVal, nodeA, nodeB;
     CxtTrRing ringA, ringB, ring;
     CxtTrEdge edge;
     CxtTrPs *tps;
@@ -1513,11 +1512,11 @@ CxpTrTbrNodeSplice(CxtTr *aTr, CxtTrEdge aEdge,
     if (*arNtnodes > 0)
     {
 	(*arNtnodes)--;
-	retval = arTnodes[*arNtnodes];
+	rVal = arTnodes[*arNtnodes];
     }
     else
     {
-	// XXX retval = tr_p_node_wrapped_new(aTr);
+	// XXX rVal = tr_p_node_wrapped_new(aTr);
     }
 
     // Detach.
@@ -1529,10 +1528,10 @@ CxpTrTbrNodeSplice(CxtTr *aTr, CxtTrEdge aEdge,
     aTr->trrs[ring].ps = tps;
 
     // Reattach.
-    CxTrEdgeAttach(aTr, aEdge, nodeA, retval);
-    CxTrEdgeAttach(aTr, edge, nodeB, retval);
+    CxTrEdgeAttach(aTr, aEdge, nodeA, rVal);
+    CxTrEdgeAttach(aTr, edge, nodeB, rVal);
 
-    return retval;
+    return rVal;
 }
 
 static void
@@ -2112,11 +2111,11 @@ CxmpInline uint32_t
 CxpTrMpIa32Fscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
 		  uint32_t aMaxscore)
 {
-    uint32_t retval, i, nbytes, pns;
+    uint32_t rVal, i, nbytes, pns;
     CxtTrc *charsA, *charsB;
 
     // Calculate sum of subtree scores.
-    retval
+    rVal
 	= aA->subtreesScore + aA->nodeScore
 	+ aB->subtreesScore + aB->nodeScore;
 
@@ -2174,13 +2173,13 @@ CxpTrMpIa32Fscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
 	    //
 	    // c = p ? 0x00 : 0xff;
 	    // s = c ? 0 : 1;
-	    // retval += s;
+	    // rVal += s;
 	    "pxor %%xmm2, %%xmm2;"
 	    "movdqa %%xmm1, %%xmm3;"
 	    "pand %%xmm6, %%xmm3;" // Mask out unwanted bits of p.
 	    "pcmpeqb %%xmm3, %%xmm2;" // xmm2 contains c.
 	    "pand %%xmm7, %%xmm2;" // xmm2 contains s.
-	    "paddusb %%xmm2, %%xmm4;" // Update retval (add s).
+	    "paddusb %%xmm2, %%xmm4;" // Update rVal (add s).
 
 	    //==================================================================
 	    // Least significant bits.
@@ -2190,12 +2189,12 @@ CxpTrMpIa32Fscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
 	    //
 	    // c = p ? 0x00 : 0xff;
 	    // s = c ? 0 : 1;
-	    // retval += s;
+	    // rVal += s;
 	    "pxor %%xmm2, %%xmm2;"
 	    "pand %%xmm5, %%xmm1;" // Mask out unwanted bits of p.
 	    "pcmpeqb %%xmm1, %%xmm2;" // xmm2 contains c.
 	    "pand %%xmm7, %%xmm2;" // xmm2 contains s.
-	    "paddusb %%xmm2, %%xmm4;" // Update retval (add s).
+	    "paddusb %%xmm2, %%xmm4;" // Update rVal (add s).
 
 	    // Sum the upper 8 bytes and lower 8 bytes separately (there's no
 	    // choice in the matter -- that's what psadbw does).
@@ -2216,16 +2215,16 @@ CxpTrMpIa32Fscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
 	    : "memory"
 	    );
 
-	// Update retval and terminate if the max score was exceeded.
-	retval += pns;
-	if (retval > aMaxscore)
+	// Update rVal and terminate if the max score was exceeded.
+	rVal += pns;
+	if (rVal > aMaxscore)
 	{
-	    retval = UINT_MAX;
+	    rVal = UINT_MAX;
 	    break;
 	}
     }
 
-    return retval;
+    return rVal;
 }
 #endif
 
@@ -2233,7 +2232,7 @@ static uint32_t
 CxpTrMpCFscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
 	       uint32_t aMaxscore)
 {
-    uint32_t retval, i, nwords, a, b, m;
+    uint32_t rVal, i, nwords, a, b, m;
     uint32_t *charsA, *charsB;
     static const uint32_t bitsTable[] =
     {
@@ -2243,7 +2242,7 @@ CxpTrMpCFscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
     };
 
     // Calculate sum of subtree scores.
-    retval
+    rVal
 	= aA->subtreesScore + aA->nodeScore
 	+ aB->subtreesScore + aB->nodeScore;
 
@@ -2262,14 +2261,14 @@ CxpTrMpCFscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
     m &= 0x11111111;							\
 									\
     /* Count up changes. */						\
-    retval += bitsTable[m & 0xff]					\
+    rVal += bitsTable[m & 0xff]						\
 	+ bitsTable[(m >> 8) & 0xff]					\
 	+ bitsTable[(m >> 16) & 0xff]					\
 	+ bitsTable[(m >> 24) & 0xff];					\
 									\
-    if (retval > aMaxscore)						\
+    if (rVal > aMaxscore)						\
     {									\
-	retval = UINT_MAX;						\
+	rVal = UINT_MAX;						\
 	break;								\
     }									\
 									\
@@ -2287,7 +2286,7 @@ CxpTrMpCFscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
     }
 #undef CxmTrMpCFscoreInner
 
-    return retval;
+    return rVal;
 }
 
 // Unconditionally calculate the final score of a tree, using aA and aB as
@@ -2296,26 +2295,26 @@ CxmpInline uint32_t
 CxpTrMpFscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
 	      uint32_t aMaxscore)
 {
-    uint32_t retval;
+    uint32_t rVal;
 
 #ifdef CxmCpuIa32
     if (CxgIa32UseSse2)
     {
-	retval = CxpTrMpIa32Fscore(aTr, aA, aB, aMaxscore);
+	rVal = CxpTrMpIa32Fscore(aTr, aA, aB, aMaxscore);
     }
     else
 #endif
     {
-	retval = CxpTrMpCFscore(aTr, aA, aB, aMaxscore);
+	rVal = CxpTrMpCFscore(aTr, aA, aB, aMaxscore);
     }
 
-    return retval;
+    return rVal;
 }
 
 static CxtTrPs *
 CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
 {
-    CxtTrPs *retval
+    CxtTrPs *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -2345,7 +2344,7 @@ CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
 	case 1:
 	{
 	    // Leaf node.  Do nothing.
-	    retval = aTr->trrs[aRing].ps;
+	    rVal = aTr->trrs[aRing].ps;
 	    break;
 	}
 	case 2:
@@ -2367,7 +2366,7 @@ CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
 		{
 		    if (CxTrRingEdgeGet(aTr, ring) != aBisect)
 		    {
-			retval
+			rVal
 			    = CxpTrMpScoreRecurse(aTr,
 						  CxTrRingOtherGet(aTr, ring),
 						  aBisect);
@@ -2398,8 +2397,8 @@ CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
 					  aBisect);
 
 		// Calculate the partial score for this node.
-		retval = aTr->trrs[aRing].ps;
-		CxpTrMpCachePscore(aTr, retval, psA, psB);
+		rVal = aTr->trrs[aRing].ps;
+		CxpTrMpCachePscore(aTr, rVal, psA, psB);
 
 		break;
 	    }
@@ -2412,7 +2411,7 @@ CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
 	}
     }
 
-    return retval;
+    return rVal;
 }
 
 static void
@@ -2535,7 +2534,7 @@ CxpTrBisectionEdgeListMp(CxtTr *aTr, CxtTrEdge *aEdges,
 			 uint32_t aNedges, CxtTrEdge aBisect,
 			 uint32_t aMaxscore)
 {
-    bool retval;
+    bool rVal;
 
     if (aEdges[0] != CxmTrEdgeNone)
     {
@@ -2564,7 +2563,7 @@ CxpTrBisectionEdgeListMp(CxtTr *aTr, CxtTrEdge *aEdges,
 	{
 	    // Don't bother calculating other views or edge states, since this
 	    // subtree exceeds the maximum score that's of interest.
-	    retval = true;
+	    rVal = true;
 	    goto RETURN;
 	}
 
@@ -2608,9 +2607,9 @@ CxpTrBisectionEdgeListMp(CxtTr *aTr, CxtTrEdge *aEdges,
 #endif
     }
 
-    retval = false;
+    rVal = false;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 // Hold a tree.  If aMaxHeld is exceeded, the tree is not held.  This introduces
@@ -2619,7 +2618,7 @@ CxpTrBisectionEdgeListMp(CxtTr *aTr, CxtTrEdge *aEdges,
 CxmpInline bool
 CxpTrHold(CxtTr *aTr, uint32_t aMaxHold, uint32_t aNeighbor, uint32_t aScore)
 {
-    bool retval;
+    bool rVal;
 
     if (aTr->nheld < aMaxHold)
     {
@@ -2648,14 +2647,14 @@ CxpTrHold(CxtTr *aTr, uint32_t aMaxHold, uint32_t aNeighbor, uint32_t aScore)
 
 	aTr->nheld++;
 
-	retval = false;
+	rVal = false;
     }
     else
     {
-	retval = true;
+	rVal = true;
     }
 
-    return retval;
+    return rVal;
 }
 
 // Calculate the Fitch parsimony scores for all TBR neighbors of aTr, and hold
@@ -2788,12 +2787,12 @@ CxpTrTbrNeighborsMp(CxtTr *aTr, uint32_t aMaxHold, uint32_t aMaxscore,
 CxtTr *
 CxTrNew(void)
 {
-    CxtTr *retval;
+    CxtTr *rVal;
 
-    retval = (CxtTr *) CxmMalloc(sizeof(CxtTr));
-    CxpTrNew(retval);
+    rVal = (CxtTr *) CxmMalloc(sizeof(CxtTr));
+    CxpTrNew(rVal);
 
-    return retval;
+    return rVal;
 }
 
 void
@@ -3310,7 +3309,7 @@ CxTrMpFinish(CxtTr *aTr)
 uint32_t
 CxTrMpScore(CxtTr *aTr)
 {
-    uint32_t retval;
+    uint32_t rVal;
     CxtTrRing ring;
 
     CxmDassert(CxpTrValidate(aTr));
@@ -3332,14 +3331,14 @@ CxTrMpScore(CxtTr *aTr)
 				  CxmTrEdgeNone);
 
 	// Calculate the final score.
-	retval = CxpTrMpFscore(aTr, psA, psB, UINT_MAX);
+	rVal = CxpTrMpFscore(aTr, psA, psB, UINT_MAX);
     }
     else
     {
-	retval = 0;
+	rVal = 0;
     }
 
-    return retval;
+    return rVal;
 }
 
 void

@@ -122,12 +122,12 @@ class SyntaxError(Exception, SyntaxError):
 
     def __str__(self):
         if self._offset != None:
-            retval = "At offset %d (token %r, char %r): %s" \
-                     % (self._offset, self._token, self._char, self._message)
+            rVal = "At offset %d (token %r, char %r): %s" \
+                   % (self._offset, self._token, self._char, self._message)
         else:
-            retval = self._message
+            rVal = self._message
 
-        return retval
+        return rVal
 
 class NewickParser(object):
     def __init__(self):
@@ -219,7 +219,7 @@ class NewickParser(object):
     def _getc(self):
         if self._lookaheadC != None:
 	    # Lookahead character defined.
-            retval = self._lookaheadC
+            rVal = self._lookaheadC
             self._lookaheadC = None
         else:
             # Increment the offset.
@@ -243,12 +243,12 @@ class NewickParser(object):
                                                         self._c,
                                                         self._token)
 
-            retval = self._c
+            rVal = self._c
 
         # Append character to token.
         self._token += self._c
 
-        return retval
+        return rVal
 
     # Set lookahead_c so that it will be used by the next _getc call.
     def _ungetc(self):
@@ -317,12 +317,12 @@ class NewickParser(object):
 
             self._tokenAccept(self.closeParenAccept)
 
-            retval = True
+            rVal = True
         else:
             self._ungetc()
-            retval = False
+            rVal = False
 
-        return retval
+        return rVal
 
     def _subtree(self):
         self._wsProduction()
@@ -362,11 +362,11 @@ class NewickParser(object):
             self._token = uscore.sub(' ', self._token)
 
             self._tokenAccept(accept_method)
-            retval = True
+            rVal = True
         else:
-            retval = False
+            rVal = False
 
-        return retval
+        return rVal
 
     # If an unquoted label character is accepted, return True, otherwise return
     # False.
@@ -375,12 +375,12 @@ class NewickParser(object):
     def _ulabelCharProduction(self):
         ulabel_char = re.compile(r'[^ ()[\]\':;,]')
         if ulabel_char.match(self._getc()):
-            retval = True
+            rVal = True
         else:
             self._ungetc()
-            retval = False
+            rVal = False
 
-        return retval
+        return rVal
 
     # If a quoted label is accepted, return True, otherwise return False.
     #
@@ -400,12 +400,12 @@ class NewickParser(object):
 
             self._tokenAccept(accept_method)
 
-            retval = True
+            rVal = True
         else:
             self._ungetc()
-            retval = False
+            rVal = False
 
-        return retval
+        return rVal
 
     # Since there is only one lookahead character, this method is responsible
     # for reading the ' that terminates the quoted label.
@@ -414,14 +414,14 @@ class NewickParser(object):
     def _qlabelCharProduction(self):
         if self._getc() == "'":
             if self._getc() == "'":
-                retval = True
+                rVal = True
             else:
                 self._ungetc()
-                retval = False
+                rVal = False
         else:
-            retval = True
+            rVal = True
 
-        return retval
+        return rVal
 
     def _branchLengthProduction(self):
         sign = re.compile(r'[+-]')
@@ -461,12 +461,12 @@ class NewickParser(object):
     def _digitProduction(self):
         digit = re.compile(r'\d')
         if digit.match(self._getc()):
-            retval = True
+            rVal = True
         else:
             self._ungetc()
-            retval = False
+            rVal = False
 
-        return retval
+        return rVal
 
     # accepted _commentProduction()
     def _commentProduction(self):
@@ -478,12 +478,12 @@ class NewickParser(object):
                     self._ungetc()
                     if not self._commentProduction():
                         self._getc()
-            retval = True
+            rVal = True
         else:
             self._ungetc()
-            retval = False
+            rVal = False
 
-        return retval
+        return rVal
 
     # accepted _whitespaceProduction()
     def _whitespaceProduction(self):
@@ -493,12 +493,12 @@ class NewickParser(object):
                 if not whitespace.match(self._getc()):
                     self._ungetc()
                     break
-            retval = True
+            rVal = True
         else:
             self._ungetc()
-            retval = False
+            rVal = False
 
-        return retval
+        return rVal
 
     def _wsProduction(self):
         again = True

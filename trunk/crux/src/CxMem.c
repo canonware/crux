@@ -14,58 +14,58 @@
 void *
 CxMemMallocE(size_t aSize, const char *aFilename, uint32_t aLineNum)
 {
-    void *retval;
+    void *rVal;
 
-    retval = malloc(aSize);
-    if (retval == NULL)
+    rVal = malloc(aSize);
+    if (rVal == NULL)
     {
 #ifdef CxmDebug
 	fprintf(stderr, "%s(): %p <-- malloc(%zu) at %s:%u\n",
-		__func__, retval, aSize, aFilename, aLineNum);
+		__func__, rVal, aSize, aFilename, aLineNum);
 #endif
 	CxmXepThrow(CxmXepOOM);
     }
 
-    return retval;
+    return rVal;
 }
 
 void *
 CxMemCallocE(size_t aNumber, size_t aSize, const char *aFilename,
 	     uint32_t aLineNum)
 {
-    void *retval;
+    void *rVal;
 
-    retval = calloc(aNumber, aSize);
-    if (retval == NULL)
+    rVal = calloc(aNumber, aSize);
+    if (rVal == NULL)
     {
 #ifdef CxmDebug
 	fprintf(stderr, "%s(): %p <-- calloc(%zu, %zu) at %s:%u\n",
-		__func__, retval, aNumber, aSize,
+		__func__, rVal, aNumber, aSize,
 		aFilename, aLineNum);
 #endif
 	CxmXepThrow(CxmXepOOM);
     }
-    return retval;
+    return rVal;
 }
 
 void *
 CxMemReallocE(void *aPtr, size_t aSize, const char *aFilename,
 	      uint32_t aLineNum)
 {
-    void *retval;
+    void *rVal;
 
-    retval = realloc(aPtr, aSize);
-    if (retval == NULL)
+    rVal = realloc(aPtr, aSize);
+    if (rVal == NULL)
     {
 #ifdef CxmDebug
 	fprintf(stderr, "%s(): %p <-- realloc(%p, %zu) at %s:%u\n",
-		__func__, retval, aPtr, aSize,
+		__func__, rVal, aPtr, aSize,
 		aFilename, aLineNum);
 #endif
 	CxmXepThrow(CxmXepOOM);
     }
 
-    return retval;
+    return rVal;
 }
 
 void

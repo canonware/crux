@@ -85,20 +85,20 @@ class CTMatrix(object):
                         print >> file, "%s" % self.dataGet(taxon)[i:]
 
     def fastaPrints(self):
-        retval = ""
+        rVal = ""
 
         taxa = self._taxonMap.taxaGet()
         for taxon in taxa:
             if self.dataGet(taxon) != None:
-                retval += ">%s\n" % taxon
+                rVal += ">%s\n" % taxon
                 # Break into lines of length 75.
                 for i in forints(len(self.dataGet(taxon)), step=75):
                     if i + 75 < len(self.dataGet(taxon)):
-                        retval += "%s\n" % self.dataGet(taxon)[i:i+75]
+                        rVal += "%s\n" % self.dataGet(taxon)[i:i+75]
                     else:
-                        retval += "%s\n" % self.dataGet(taxon)[i:]
+                        rVal += "%s\n" % self.dataGet(taxon)[i:]
 
-        return retval
+        return rVal
 
     # Append CharacterType objects to _chars.
     def charsAppend(self, chars):
@@ -115,11 +115,11 @@ class CTMatrix(object):
     # Return the character data for a taxon.
     def dataGet(self, taxon):
         if not self._taxonData.has_key(self._taxonMap.indGet(taxon)):
-            retval = None
+            rVal = None
         else:
-            retval = self._taxonData[self._taxonMap.indGet(taxon)]
+            rVal = self._taxonData[self._taxonMap.indGet(taxon)]
 
-        return retval
+        return rVal
 
     # Set the character data for a taxon.
     def dataSet(self, taxon, data):

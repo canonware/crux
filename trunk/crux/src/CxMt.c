@@ -130,14 +130,14 @@ CxpMtUint32Get(CxtMt *aMt)
 CxmpInline int64_t
 CxpMtSint64Get(CxtMt *aMt)
 {
-    int64_t retval;
+    int64_t rVal;
 
-    retval = (int64_t) CxpMtUint32Get(aMt);
-    retval &= 0xfffffffeU; // Clear least significant bit.
-    retval <<= 31;
-    retval |= ((int64_t) CxpMtUint32Get(aMt));
+    rVal = (int64_t) CxpMtUint32Get(aMt);
+    rVal &= 0xfffffffeU; // Clear least significant bit.
+    rVal <<= 31;
+    rVal |= ((int64_t) CxpMtUint32Get(aMt));
 
-    return retval;
+    return rVal;
 }
 
 void
@@ -242,20 +242,20 @@ CxMtSint64Get(CxtMt *aMt)
 int64_t
 CxMtSint64RangeGet(CxtMt *aMt, int64_t aRange)
 {
-    int64_t retval, above;
+    int64_t rVal, above;
 
     above = 0x7fffffffffffffffLL - (0x7fffffffffffffffLL % aRange);
     while (1)
     {
-	retval = CxpMtSint64Get(aMt);
-	if (retval < above)
+	rVal = CxpMtSint64Get(aMt);
+	if (rVal < above)
 	{
-	    retval %= aRange;
+	    rVal %= aRange;
 	    break;
 	}
     }
 
-    return retval;
+    return rVal;
 }
 
 // generates a random number on [0,0x7fffffff]-interval
@@ -268,20 +268,20 @@ CxMtSint32Get(CxtMt *aMt)
 int32_t
 CxMtSint32RangeGet(CxtMt *aMt, int32_t aRange)
 {
-    int32_t retval, above;
+    int32_t rVal, above;
 
     above = 0x7fffffffL - (0x7fffffffL % aRange);
     while (1)
     {
-	retval = (int32_t) (CxpMtUint32Get(aMt)>>1);
-	if (retval < above)
+	rVal = (int32_t) (CxpMtUint32Get(aMt)>>1);
+	if (rVal < above)
 	{
-	    retval %= aRange;
+	    rVal %= aRange;
 	    break;
 	}
     }
 
-    return retval;
+    return rVal;
 }
 
 // generates a random number on [0,0xffffffff]-interval
@@ -294,20 +294,20 @@ CxMtUint32Get(CxtMt *aMt)
 uint32_t
 CxMtUint32RangeGet(CxtMt *aMt, uint32_t aRange)
 {
-    uint32_t retval, above;
+    uint32_t rVal, above;
 
     above = 0xffffffffLU - (0xffffffffLU % aRange);
     while (1)
     {
-	retval = CxpMtUint32Get(aMt);
-	if (retval < above)
+	rVal = CxpMtUint32Get(aMt);
+	if (rVal < above)
 	{
-	    retval %= aRange;
+	    rVal %= aRange;
 	    break;
 	}
     }
 
-    return retval;
+    return rVal;
 }
 
 // generates a random number on [0,1]-real-interval

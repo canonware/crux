@@ -14,7 +14,7 @@
 PyObject *
 CxTreeTbr(CxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -24,7 +24,7 @@ CxTreeTbr(CxtTreeObject *self, PyObject *args)
     if (PyArg_ParseTuple(args, "(iii)", &bisect, &reconnectA, &reconnectB)
 	== 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -34,23 +34,23 @@ CxTreeTbr(CxtTreeObject *self, PyObject *args)
 	CxTrTbr(self->tr, bisect, reconnectA, reconnectB);
 
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxTreeTbrNneighborsGet(CxtTreeObject *self)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -59,22 +59,22 @@ CxTreeTbrNneighborsGet(CxtTreeObject *self)
     CxmXepBegin();
     CxmXepTry
     {
-	retval = Py_BuildValue("i", CxTrTbrNneighborsGet(self->tr));
+	rVal = Py_BuildValue("i", CxTrTbrNneighborsGet(self->tr));
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxTreeTbrNeighborGet(CxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -83,7 +83,7 @@ CxTreeTbrNeighborGet(CxtTreeObject *self, PyObject *args)
 
     if (PyArg_ParseTuple(args, "i", &neighbor) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -95,25 +95,25 @@ CxTreeTbrNeighborGet(CxtTreeObject *self, PyObject *args)
 	    CxError(CxgTreeValueError,
 		    "neighbor: %u is out of range [0..%u]",
 		    neighbor, CxTrTbrNneighborsGet(self->tr));
-	    retval = NULL;
+	    rVal = NULL;
 	    Py_INCREF(PyExc_ValueError);
-	    retval = PyExc_ValueError;
+	    rVal = PyExc_ValueError;
 	}
 	else
 	{
 	    CxTrTbrNeighborGet(self->tr, neighbor,
 				&bisect, &reconnectA, &reconnectB);
 
-	    retval = Py_BuildValue("(iii)", bisect, reconnectA, reconnectB);
+	    rVal = Py_BuildValue("(iii)", bisect, reconnectA, reconnectB);
 	}
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
-    return retval;
+    return rVal;
 }

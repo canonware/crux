@@ -222,16 +222,16 @@ CxpDistMatrixNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
 static float *
 CxpDistMatrixNjRInit(float *aD, long aNtaxa)
 {
-    float *retval;
+    float *rVal;
     float dist, *dElm;
     long x, y;
 
-    retval = (float *) CxmMalloc(sizeof(float) * aNtaxa);
+    rVal = (float *) CxmMalloc(sizeof(float) * aNtaxa);
     
     // Calculate r (sum of distances to other nodes) for each node.
     for (x = 0; x < aNtaxa; x++)
     {
-	retval[x] = 0.0;
+	rVal[x] = 0.0;
     }
 
     for (x = 0, dElm = aD; x < aNtaxa; x++)
@@ -241,40 +241,40 @@ CxpDistMatrixNjRInit(float *aD, long aNtaxa)
 	    dist = *dElm;
 	    dElm++;
 
-	    retval[x] += dist;
-	    retval[y] += dist;
+	    rVal[x] += dist;
+	    rVal[y] += dist;
 	}
     }
 
-    return retval;
+    return rVal;
 }
 
 static float *
 CxpDistMatrixNjRScaledInit(long aNtaxa)
 {
-    float *retval;
+    float *rVal;
 
-    retval = (float *) CxmMalloc(sizeof(float) * aNtaxa);
+    rVal = (float *) CxmMalloc(sizeof(float) * aNtaxa);
 
-    return retval;
+    return rVal;
 }
 
 static CxtNodeObject **
 CxpDistMatrixNjNodesInit(CxtTreeObject *aTree, long aNtaxa)
 {
-    CxtNodeObject **retval;
+    CxtNodeObject **rVal;
     long x;
 
-    retval = (CxtNodeObject **) CxmMalloc(sizeof(CxtNodeObject *) * aNtaxa);
+    rVal = (CxtNodeObject **) CxmMalloc(sizeof(CxtNodeObject *) * aNtaxa);
 
     // Create a node for each taxon in the matrix.
     for (x = 0; x < aNtaxa; x++)
     {
-	retval[x] = CxNodeNew(aTree);
-	CxNodeTaxonNumSet(retval[x], x);
+	rVal[x] = CxNodeNew(aTree);
+	CxNodeTaxonNumSet(rVal[x], x);
     }
 
-    return retval;
+    return rVal;
 }
 
 CxmpInline void
@@ -514,40 +514,40 @@ CxpDistMatrixNjFinalJoin(float *aD, CxtNodeObject **aNodes,
 CxmpInline int
 CxpDistMatrixNjDistCompare(float aA, float aB)
 {
-    int retval;
+    int rVal;
 
     if (aB != 0.0)
     {
 	if (fabs(1.0 - (aA / aB)) < FLT_EPSILON)
 	{
-	    retval = 0;
+	    rVal = 0;
 	}
 	else if (aA < aB)
 	{
-	    retval = -1;
+	    rVal = -1;
 	}
 	else
 	{
-	    retval = 1;
+	    rVal = 1;
 	}
     }
     else
     {
 	if (aA <= -FLT_EPSILON)
 	{
-	    retval = -1;
+	    rVal = -1;
 	}
 	else if (aA >= FLT_EPSILON)
 	{
-	    retval = 1;
+	    rVal = 1;
 	}
 	else
 	{
-	    retval = 0;
+	    rVal = 0;
 	}
     }
 
-    return retval;
+    return rVal;
 }
 
 CxmpInline void
@@ -663,7 +663,7 @@ CxmpInline long
 CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 			     long aX, CxtMt *aMt, float *rDist)
 {
-    long retval;
+    long rVal;
     float *dElm, dist, minDist;
     long y, nmins;
 
@@ -687,7 +687,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 		{
 		    nmins = 1;
 		    minDist = dist;
-		    retval = y;
+		    rVal = y;
 		    break;
 		}
 		case 0:
@@ -697,7 +697,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 		    nmins++;
 		    if (CxMtSint32RangeGet(aMt, nmins) == 0)
 		    {
-			retval = y;
+			rVal = y;
 		    }
 		    break;
 		}
@@ -732,7 +732,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 		{
 		    nmins = 1;
 		    minDist = dist;
-		    retval = y;
+		    rVal = y;
 		    break;
 		}
 		case 0:
@@ -742,7 +742,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 		    nmins++;
 		    if (CxMtSint32RangeGet(aMt, nmins) == 0)
 		    {
-			retval = y;
+			rVal = y;
 		    }
 		    break;
 		}
@@ -760,14 +760,14 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
     CxmAssert(minDist != HUGE_VAL);
 
     *rDist = minDist;
-    return retval;
+    return rVal;
 }
 
 CxmpInline bool
 CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
 			   float aDist)
 {
-    bool retval;
+    bool rVal;
     float *dElm, dist;
     long y;
 
@@ -785,7 +785,7 @@ CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
 
 	    if (CxpDistMatrixNjDistCompare(dist, aDist) == -1)
 	    {
-		retval = false;
+		rVal = false;
 		goto RETURN;
 	    }
 	}
@@ -805,21 +805,21 @@ CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
 
 	    if (CxpDistMatrixNjDistCompare(dist, aDist) == -1)
 	    {
-		retval = false;
+		rVal = false;
 		goto RETURN;
 	    }
 	}
     }
 
-    retval = true;
+    rVal = true;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 CxmpInline long
 CxpDistMatrixNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 {
-    long retval
+    long rVal
 #ifdef CxmCcSilence
 	= -1
 #endif
@@ -843,13 +843,13 @@ CxpDistMatrixNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 	if (dist < minDist)
 	{
 	    minDist = dist;
-	    retval = y;
+	    rVal = y;
 	}
     }
     CxmAssert(minDist != HUGE_VAL);
-    CxmAssert(retval != -1);
+    CxmAssert(rVal != -1);
 
-    return retval;
+    return rVal;
 }
 
 // Make sure that clustering aA and aB would not change the distances between
@@ -861,7 +861,7 @@ CxmpInline bool
 CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 				   long aA, long aB)
 {
-    bool retval;
+    bool rVal;
     long iAB, iA, iB, x;
     float distA, distB, dist;
 
@@ -891,7 +891,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 								  aA, x)])
 		!= 0)
 	    {
-		retval = false;
+		rVal = false;
 		goto RETURN;
 	    }
 
@@ -900,7 +900,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 								  aB, x)])
 		!= 0)
 	    {
-		retval = false;
+		rVal = false;
 		goto RETURN;
 	    }
 	}
@@ -921,7 +921,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 				       aD[CxpDistMatrixNjXy2i(aNleft, x, aA)])
 	    != 0)
 	{
-	    retval = false;
+	    rVal = false;
 	    goto RETURN;
 	}
 
@@ -929,7 +929,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)])
 	    != 0)
 	{
-	    retval = false;
+	    rVal = false;
 	    goto RETURN;
 	}
     }
@@ -952,7 +952,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 				       aD[CxpDistMatrixNjXy2i(aNleft, aA, x)])
 	    != 0)
 	{
-	    retval = false;
+	    rVal = false;
 	    goto RETURN;
 	}
 
@@ -960,14 +960,14 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)])
 	    != 0)
 	{
-	    retval = false;
+	    rVal = false;
 	    goto RETURN;
 	}
     }
 
-    retval = true;
+    rVal = true;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 // Finish checking whether it is okay to cluster rows aA and aB;
@@ -981,7 +981,7 @@ CxmpInline bool
 CxpDistMatrixNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 			     long aA, long aB)
 {
-    bool retval;
+    bool rVal;
     long x, iA, iB;
     float distAB, dist;
 
@@ -1005,7 +1005,7 @@ CxpDistMatrixNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	    // function is only used for deterministic RNJ.
 	    if (dist < distAB)
 	    {
-		retval = false;
+		rVal = false;
 		goto RETURN;
 	    }
 	    iB++;
@@ -1024,7 +1024,7 @@ CxpDistMatrixNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	// function is only used for deterministic RNJ.
 	if (dist < distAB)
 	{
-	    retval = false;
+	    rVal = false;
 	    goto RETURN;
 	}
 
@@ -1033,7 +1033,7 @@ CxpDistMatrixNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	// function is only used for deterministic RNJ.
 	if (dist < distAB)
 	{
-	    retval = false;
+	    rVal = false;
 	    goto RETURN;
 	}
 
@@ -1056,35 +1056,35 @@ CxpDistMatrixNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	// function is only used for deterministic RNJ.
 	if (dist < distAB)
 	{
-	    retval = false;
+	    rVal = false;
 	    goto RETURN;
 	}
 	iB += aNleft - 2 - x;
     }
 
-    retval = true;
+    rVal = true;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 // Get a seed for the C-based PRNG from Python's PRNG.
 static bool
 CxpDistMatrixNjSeedGet(long *rSeed)
 {
-    bool retval;
+    bool rVal;
     PyObject *globals, *locals, *result, *seedCode;
 
     globals = PyEval_GetGlobals();
     if (globals == NULL)
     {
-	retval = true;
+	rVal = true;
 	goto RETURN;
     }
 
     locals = Py_BuildValue("{sl}", "max", LONG_MAX);
     if (locals == NULL)
     {
-	retval = true;
+	rVal = true;
 	goto RETURN;
     }
 	
@@ -1097,7 +1097,7 @@ seed = random.randint(0, max)\n\
     if (seedCode == NULL)
     {
 	Py_DECREF(locals);
-	retval = true;
+	rVal = true;
 	goto RETURN;
     }
 
@@ -1106,7 +1106,7 @@ seed = random.randint(0, max)\n\
     {
 	Py_DECREF(seedCode);
 	Py_DECREF(locals);
-	retval = true;
+	rVal = true;
 	goto RETURN;
     }
     Py_DECREF(result);
@@ -1116,15 +1116,15 @@ seed = random.randint(0, max)\n\
     if (result == NULL)
     {
 	Py_DECREF(locals);
-	retval = true;
+	rVal = true;
 	goto RETURN;
     }
     *rSeed = PyInt_AsLong(result);
     Py_DECREF(locals);
 
-    retval = false;
+    rVal = false;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 // Try all clusterings of two rows in the matrix, in a random order.  Do this in
@@ -1145,7 +1145,7 @@ CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
 			     CxtNodeObject ***arNodes, long aNleft,
 			     CxtTreeObject *aTree, bool aAdditive)
 {
-    bool retval;
+    bool rVal;
     long randomRow, closestRow, x, y;
     float distX, distY;
     float *d = *arD;
@@ -1159,7 +1159,7 @@ CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
 
     if (CxpDistMatrixNjSeedGet(&seed))
     {
-	retval = true;
+	rVal = true;
 	goto RETURN;
     }
     CxMtNew(&mt);
@@ -1241,9 +1241,9 @@ CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
     *arD = d;
     *arNodes = nodes;
 
-    retval = false;
+    rVal = false;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 // Iteratively try all clusterings of two rows in the matrix.  Do this in a
@@ -1344,7 +1344,7 @@ CxpDistMatrixNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
 static bool
 CxpDistMatrixNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
 {
-    bool retval;
+    bool rVal;
     float *rOrig, *r; // Distance sums.
     float *rScaledOrig, *rScaled; // Scaled distance sums: r/(nleft-2)).
     CxtNodeObject **nodesOrig, **nodes; // Nodes associated with each row.
@@ -1361,7 +1361,7 @@ CxpDistMatrixNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
     {
         if (CxpDistMatrixNjSeedGet(&seed))
 	{
-	    retval = true;
+	    rVal = true;
 	    goto RETURN;
 	}
 	CxMtNew(&mt);
@@ -1406,7 +1406,7 @@ CxpDistMatrixNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
     CxTreeBaseSet(aTree, node);
     Py_DECREF(node);
 
-    retval = false;
+    rVal = false;
     // Clean up.
     CxmFree(nodesOrig);
     CxmFree(rScaledOrig);
@@ -1416,7 +1416,7 @@ CxpDistMatrixNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
         CxMtDelete(&mt);
     }
     RETURN:
-    return retval;
+    return rVal;
 }
 
 // Create a tree from a pairwise distance matrix, using the RNJ algorithm.
@@ -1424,7 +1424,7 @@ static bool
 CxpDistMatrixRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
 		 bool aRandom)
 {
-    bool retval;
+    bool rVal;
     float *rOrig, *r; // Distance sums.
     float *rScaledOrig, *rScaled; // Scaled distance sums: r/(nleft-2)).
     CxtNodeObject **nodesOrig, **nodes; // Nodes associated with each row.
@@ -1445,7 +1445,7 @@ CxpDistMatrixRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
 	if (CxpDistMatrixNjRandomCluster(&aD, r, rScaled, &nodes, aNtaxa, aTree,
 					 aAdditive))
 	{
-	    retval = true;
+	    rVal = true;
 	    goto RETURN;
 	}
     }
@@ -1463,19 +1463,19 @@ CxpDistMatrixRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
     CxTreeBaseSet(aTree, node);
     Py_DECREF(node);
 
-    retval = false;
+    rVal = false;
     RETURN:
     // Clean up.
     CxmFree(nodesOrig);
     CxmFree(rScaledOrig);
     CxmFree(rOrig);
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxDistMatrixNj(CxtDistMatrixObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtTreeObject *tree;
     float *d;
     long ntaxa;
@@ -1483,12 +1483,12 @@ CxDistMatrixNj(CxtDistMatrixObject *self, PyObject *args)
 
     if (PyArg_ParseTuple(args, "O!i", &CxtTree, &tree, &random) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
     Py_INCREF(Py_None);
-    retval = Py_None;
+    rVal = Py_None;
     CxmXepBegin();
     CxmXepTry
     {
@@ -1499,8 +1499,8 @@ CxDistMatrixNj(CxtDistMatrixObject *self, PyObject *args)
 	    // NJ.
 	    if (CxpDistMatrixNj(tree, d, ntaxa, (bool) random))
 	    {
-		Py_DECREF(retval);
-		retval = NULL;
+		Py_DECREF(rVal);
+		rVal = NULL;
 	    }
 	    CxmFree(d);
 	}
@@ -1508,18 +1508,18 @@ CxDistMatrixNj(CxtDistMatrixObject *self, PyObject *args)
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxDistMatrixRnj(CxtDistMatrixObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtTreeObject *tree;
     float *d;
     long ntaxa;
@@ -1528,12 +1528,12 @@ CxDistMatrixRnj(CxtDistMatrixObject *self, PyObject *args)
     if (PyArg_ParseTuple(args, "O!ii", &CxtTree, &tree, &random, &additive)
 	== 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
     Py_INCREF(Py_None);
-    retval = Py_None;
+    rVal = Py_None;
     CxmXepBegin();
     CxmXepTry
     {
@@ -1545,8 +1545,8 @@ CxDistMatrixRnj(CxtDistMatrixObject *self, PyObject *args)
 	    if (CxpDistMatrixRnj(tree, d, ntaxa, (bool) additive,
 				 (bool) random))
 	    {
-		Py_DECREF(retval);
-		retval = NULL;
+		Py_DECREF(rVal);
+		rVal = NULL;
 	    }
 	    CxmFree(d);
 	}
@@ -1554,10 +1554,10 @@ CxDistMatrixRnj(CxtDistMatrixObject *self, PyObject *args)
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
-    return retval;
+    return rVal;
 }

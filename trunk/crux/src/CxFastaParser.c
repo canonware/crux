@@ -16,7 +16,7 @@ static PyTypeObject CxtFastaParser;
 static PyObject *
 CxpFastaParserNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -26,7 +26,7 @@ CxpFastaParserNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self = (CxtFastaParserObject *) type->tp_alloc(type, 0);
     if (self == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -35,9 +35,9 @@ CxpFastaParserNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self->tokenLen = 0;
     self->line = 0;
 
-    retval = (PyObject *) self;
+    rVal = (PyObject *) self;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 static int
@@ -92,7 +92,7 @@ CxmpInline bool
 CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, long *rLine,
 		   long *rColumn)
 {
-    bool retval;
+    bool rVal;
     char c;
     long line = self->line;
     long column = self->column;
@@ -101,7 +101,7 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, long *rLine,
     {
 	if (fread(&c, 1, 1, self->i.f.file) == 0)
 	{
-	    retval = true;
+	    rVal = true;
 	    goto RETURN;
 	}
     }
@@ -111,7 +111,7 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, long *rLine,
 	self->i.s.offset++;
 	if (c == '\0')
 	{
-	    retval = true;
+	    rVal = true;
 	    goto RETURN;
 	}
     }
@@ -132,22 +132,22 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, long *rLine,
     *rLine = line;
     *rColumn = column;
 
-    retval = false;
+    rVal = false;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *rVal;
     PyObject *input;
     char *charType;
     bool dnaChars;
 
     if (PyArg_ParseTuple(args, "Os", &input, &charType) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -166,7 +166,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     else
     {
 	CxError(CxgFastaParserTypeError, "input: file or string expected");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -183,7 +183,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     {
 	CxError(CxgFastaParserValueError,
 		"charType: 'DNA' or 'protein' expected");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -436,39 +436,39 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	Py_DECREF(result);
 
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
 	break;
 
 	ERROR:
-	retval = NULL;
+	rVal = NULL;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
 	PyErr_NoMemory();
-	retval = NULL;
+	rVal = NULL;
     }
     CxmXepEnd();
 
     RETURN:
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxFastaParserToken(CxtFastaParserObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
 
     if (self->buf != NULL)
     {
-	retval = PyString_FromStringAndSize(self->buf, self->tokenLen);
+	rVal = PyString_FromStringAndSize(self->buf, self->tokenLen);
     }
     else
     {
-	retval = PyString_FromString("");
+	rVal = PyString_FromString("");
     }
 
-    return retval;
+    return rVal;
 }
 
 PyObject *

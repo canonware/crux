@@ -37,35 +37,35 @@ class TaxonMap(object):
 
     def labelGet(self, ind):
         if self._ind2label.has_key(ind):
-            retval = self._ind2label[ind]
+            rVal = self._ind2label[ind]
         else:
-            retval = None
+            rVal = None
 
-        return retval
+        return rVal
 
     def indGet(self, label):
         if self._label2ind.has_key(label):
-            retval = self._label2ind[label]
+            rVal = self._label2ind[label]
         else:
-            retval = None
+            rVal = None
 
-        return retval
+        return rVal
 
     def taxaGet(self):
-        retval = self._ind2label.keys()
-        retval.sort()
+        rVal = self._ind2label.keys()
+        rVal.sort()
         i = 0
-        for ind in retval:
+        for ind in rVal:
             # Make sure that taxon indices are contiguous.
             if ind != i:
                 raise crux.TaxonMap.ValueError(
                     "Taxon indices must be contiguous")
 
-            retval[ind] = self._ind2label[ind]
+            rVal[ind] = self._ind2label[ind]
 
             i += 1
 
-        return retval
+        return rVal
 
     # Map a label to an index.  Typical usage is something like:
     #

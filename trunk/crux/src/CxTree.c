@@ -42,7 +42,7 @@
 static PyObject *
 CxpTreeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -52,7 +52,7 @@ CxpTreeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self = (CxtTreeObject *) type->tp_alloc(type, 0);
     if (self == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -63,27 +63,27 @@ CxpTreeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	CxTrAuxSet(self->tr, self);
 	memset(self->aux, 0x0, sizeof(void *) * CxmTreeObjectAuxCount);
 	self->GcCleared = false;
-	retval = (PyObject *) self;
+	rVal = (PyObject *) self;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
- 	    __FILE__, __LINE__, __func__, retval, retval->ob_refcnt);
+ 	    __FILE__, __LINE__, __func__, rVal, rVal->ob_refcnt);
 #endif
-    return retval;
+    return rVal;
 }
 
 static int
 CxpTreeTraverse(CxtTreeObject *self, visitproc visit, void *arg)
 {
-    int retval;
+    int rVal;
     CxtTrNode base;
 
 #ifdef CxmTreeGCVerbose
@@ -101,19 +101,19 @@ CxpTreeTraverse(CxtTreeObject *self, visitproc visit, void *arg)
 	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, base);
 	    if (visit((PyObject *) node, arg) < 0)
 	    {
-		retval = -1;
+		rVal = -1;
 		goto RETURN;
 	    }
 	}
     }
 
-    retval = 0;
+    rVal = 0;
     RETURN:
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    return retval;
+    return rVal;
 }
 
 static int
@@ -171,19 +171,19 @@ static PyObject *CxpTreeNewCode;
 CxtTreeObject *
 CxTreeNew(void)
 {
-    CxtTreeObject *retval;
+    CxtTreeObject *rVal;
     PyObject *globals, *locals, *obj;
 
     globals = PyEval_GetGlobals();
     if (globals == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     locals = Py_BuildValue("{}");
     if (locals == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -192,21 +192,21 @@ CxTreeNew(void)
 			  locals);
     if (obj == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     Py_DECREF(obj);
 
-    retval = (CxtTreeObject *) PyDict_GetItemString(locals, "tree");
-    if (retval == NULL)
+    rVal = (CxtTreeObject *) PyDict_GetItemString(locals, "tree");
+    if (rVal == NULL)
     {
 	goto RETURN;
     }
-    Py_INCREF(retval);
+    Py_INCREF(rVal);
 
     RETURN:
     Py_DECREF(locals);
-    return retval;
+    return rVal;
 }
 
 unsigned
@@ -218,7 +218,7 @@ CxTreeNtaxaGet(CxtTreeObject *self)
 PyObject *
 CxTreeNtaxaGetPargs(CxtTreeObject *self)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -227,22 +227,22 @@ CxTreeNtaxaGetPargs(CxtTreeObject *self)
     CxmXepBegin();
     CxmXepTry
     {
-	retval = Py_BuildValue("i", CxTrNtaxaGet(self->tr));
+	rVal = Py_BuildValue("i", CxTrNtaxaGet(self->tr));
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxTreeNedgesCget(CxtTreeObject *self)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -251,56 +251,56 @@ CxTreeNedgesCget(CxtTreeObject *self)
     CxmXepBegin();
     CxmXepTry
     {
-	retval = Py_BuildValue("i", CxTrNedgesGet(self->tr));
+	rVal = Py_BuildValue("i", CxTrNedgesGet(self->tr));
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
-    return retval;
+    return rVal;
 }
 
 CxtNodeObject *
 CxTreeBaseGet(CxtTreeObject *self)
 {
-    CxtNodeObject *retval;
+    CxtNodeObject *rVal;
     CxtTrNode base;
 
     base = CxTrBaseGet(self->tr);
     if (base == CxmTrNodeNone)
     {
-	retval = NULL;
+	rVal = NULL;
     }
     else
     {
-	retval = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, base);
+	rVal = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, base);
     }
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxTreeBaseGetPargs(CxtTreeObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtTrNode base;
 
     base = CxTrBaseGet(self->tr);
     if (base == CxmTrNodeNone)
     {
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
     }
     else
     {
-	retval = (PyObject *) CxTrNodeAuxGet(self->tr, base);
-	Py_INCREF(retval);
+	rVal = (PyObject *) CxTrNodeAuxGet(self->tr, base);
+	Py_INCREF(rVal);
     }
 
-    return retval;
+    return rVal;
 }
 
 void
@@ -337,28 +337,28 @@ CxTreeBaseSet(CxtTreeObject *self, CxtNodeObject *aNode)
 PyObject *
 CxTreeBaseSetPargs(CxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtNodeObject *node;
 
     node = NULL;
     if (PyArg_ParseTuple(args, "|O!", &CxtNode, &node) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     if (node != NULL && node->tree != self)
     {
 	CxError(CxgTreeValueError, "Node does not belong to this tree");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
     CxTreeBaseSet(self, node);
 
     Py_INCREF(Py_None);
-    retval = Py_None;
+    rVal = Py_None;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 static PyMethodDef CxpTreeMethods[] =
@@ -580,7 +580,7 @@ tree = crux.Tree.Tree()\n\
 static PyObject *
 CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -590,14 +590,14 @@ CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     if (PyArg_ParseTuple(args, "O!", &CxtTree, &tree) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
     self = (CxtNodeObject *) type->tp_alloc(type, 0);
     if (self == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -611,28 +611,28 @@ CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	memset(self->aux, 0x0, sizeof(void *) * CxmNodeObjectAuxCount);
 	self->GcCleared = false;
 
-	retval = (PyObject *) self;
+	rVal = (PyObject *) self;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	Py_DECREF(tree);
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
- 	    __FILE__, __LINE__, __func__, retval, retval->ob_refcnt);
+ 	    __FILE__, __LINE__, __func__, rVal, rVal->ob_refcnt);
 #endif
-    return retval;
+    return rVal;
 }
 
 static int
 CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
 {
-    int retval;
+    int rVal;
     CxtTrRing trRing, trCurRing;
     CxtRingObject *ring;
 
@@ -645,7 +645,7 @@ CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
     {
 	if (visit((PyObject *) self->tree, arg) < 0)
 	{
-	    retval = -1;
+	    rVal = -1;
 	    goto RETURN;
 	}
 
@@ -662,7 +662,7 @@ CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
 							trCurRing);
 		if (visit((PyObject *) ring, arg) < 0)
 		{
-		    retval = -1;
+		    rVal = -1;
 		    goto RETURN;
 		}
 
@@ -671,13 +671,13 @@ CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
 	}
     }
 
-    retval = 0;
+    rVal = 0;
     RETURN:
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    return retval;
+    return rVal;
 }
 
 static int
@@ -765,19 +765,19 @@ static PyObject *CxpNodeNewCode;
 CxtNodeObject *
 CxNodeNew(CxtTreeObject *aTree)
 {
-    CxtNodeObject *retval;
+    CxtNodeObject *rVal;
     PyObject *globals, *locals, *obj;
 
     globals = PyEval_GetGlobals();
     if (globals == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     locals = Py_BuildValue("{sO}", "tree", (PyObject *) aTree);
     if (locals == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -786,21 +786,21 @@ CxNodeNew(CxtTreeObject *aTree)
 			  locals);
     if (obj == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     Py_DECREF(obj);
 
-    retval = (CxtNodeObject *) PyDict_GetItemString(locals, "node");
-    if (retval == NULL)
+    rVal = (CxtNodeObject *) PyDict_GetItemString(locals, "node");
+    if (rVal == NULL)
     {
 	goto RETURN;
     }
-    Py_INCREF(retval);
+    Py_INCREF(rVal);
 
     RETURN:
     Py_DECREF(locals);
-    return retval;
+    return rVal;
 }
 
 PyObject *
@@ -818,7 +818,7 @@ CxNodeTaxonNumGet(CxtNodeObject *self)
 PyObject *
 CxNodeTaxonNumGetPargs(CxtNodeObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
     uint32_t taxonNum;
 
     taxonNum = CxTrNodeTaxonNumGet(self->tree->tr, self->node);
@@ -826,14 +826,14 @@ CxNodeTaxonNumGetPargs(CxtNodeObject *self)
     if (taxonNum == CxmTrNodeTaxonNone)
     {
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
     }
     else
     {
-	retval = Py_BuildValue("i", taxonNum);
+	rVal = Py_BuildValue("i", taxonNum);
     }
 
-    return retval;
+    return rVal;
 }
 
 void
@@ -845,47 +845,47 @@ CxNodeTaxonNumSet(CxtNodeObject *self, uint32_t aTaxonNum)
 PyObject *
 CxNodeTaxonNumSetPargs(CxtNodeObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *rVal;
     uint32_t taxonNum;
 
     taxonNum = CxmTrNodeTaxonNone;
     if (PyArg_ParseTuple(args, "|i", &taxonNum) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
     CxNodeTaxonNumSet(self, taxonNum);
 
     Py_INCREF(Py_None);
-    retval = Py_None;
+    rVal = Py_None;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 CxtRingObject *
 CxNodeRing(CxtNodeObject *self)
 {
-    CxtRingObject *retval;
+    CxtRingObject *rVal;
     CxtTrRing trRing;
 
     trRing = CxTrNodeRingGet(self->tree->tr, self->node);
     if (trRing != CxmTrRingNone)
     {
-	retval = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
+	rVal = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
     }
     else
     {
-	retval = NULL;
+	rVal = NULL;
     }
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxNodeRingPargs(CxtNodeObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtRingObject *ring;
     CxtTrRing trRing;
 
@@ -894,15 +894,15 @@ CxNodeRingPargs(CxtNodeObject *self)
     {
 	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
 	Py_INCREF(ring);
-	retval = (PyObject *) ring;
+	rVal = (PyObject *) ring;
     }
     else
     {
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
     }
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
@@ -1027,7 +1027,7 @@ node = crux.Node.Node(tree)\n\
 static PyObject *
 CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -1038,14 +1038,14 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     if (PyArg_ParseTuple(args, "O!", &CxtTree, &tree) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
     self = (CxtEdgeObject *) type->tp_alloc(type, 0);
     if (self == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -1074,7 +1074,7 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 	self->GcDetached = false;
 	self->GcCleared = false;
-	retval = (PyObject *) self;
+	rVal = (PyObject *) self;
 
 	// It's okay to traverse the edge and rings now.
 	PyObject_GC_Track(self->ringA);
@@ -1104,22 +1104,22 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	    }
 	}
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
- 	    __FILE__, __LINE__, __func__, retval, retval->ob_refcnt);
+ 	    __FILE__, __LINE__, __func__, rVal, rVal->ob_refcnt);
 #endif
-    return retval;
+    return rVal;
 }
 
 static int
 CxpEdgeTraverse(CxtEdgeObject *self, visitproc visit, void *arg)
 {
-    int retval;
+    int rVal;
 
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Enter: %p (%d)\n",
@@ -1130,30 +1130,30 @@ CxpEdgeTraverse(CxtEdgeObject *self, visitproc visit, void *arg)
     {
 	if (visit((PyObject *) self->tree, arg) < 0)
 	{
-	    retval = -1;
+	    rVal = -1;
 	    goto RETURN;
 	}
 
 	if (visit((PyObject *) self->ringA, arg) < 0)
 	{
-	    retval = -1;
+	    rVal = -1;
 	    goto RETURN;
 	}
 
 	if (visit((PyObject *) self->ringB, arg) < 0)
 	{
-	    retval = -1;
+	    rVal = -1;
 	    goto RETURN;
 	}
     }
 
-    retval = 0;
+    rVal = 0;
     RETURN:
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    return retval;
+    return rVal;
 }
 
 static int
@@ -1228,19 +1228,19 @@ static PyObject *CxpEdgeNewCode;
 CxtEdgeObject *
 CxEdgeNew(CxtTreeObject *aTree)
 {
-    CxtEdgeObject *retval;
+    CxtEdgeObject *rVal;
     PyObject *globals, *locals, *obj;
 
     globals = PyEval_GetGlobals();
     if (globals == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     locals = Py_BuildValue("{sO}", "tree", (PyObject *) aTree);
     if (locals == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -1249,21 +1249,21 @@ CxEdgeNew(CxtTreeObject *aTree)
 			  locals);
     if (obj == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     Py_DECREF(obj);
 
-    retval = (CxtEdgeObject *) PyDict_GetItemString(locals, "edge");
-    if (retval == NULL)
+    rVal = (CxtEdgeObject *) PyDict_GetItemString(locals, "edge");
+    if (rVal == NULL)
     {
 	goto RETURN;
     }
-    Py_INCREF(retval);
+    Py_INCREF(rVal);
 
     RETURN:
     Py_DECREF(locals);
-    return retval;
+    return rVal;
 }
 
 PyObject *
@@ -1293,22 +1293,22 @@ CxEdgeLengthSet(CxtEdgeObject *self, double aLength)
 PyObject *
 CxEdgeLengthSetPargs(CxtEdgeObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *rVal;
     double length;
 
     length = 0.0;
     if (PyArg_ParseTuple(args, "|d", &length) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
     CxEdgeLengthSet(self, length);
 
     Py_INCREF(Py_None);
-    retval = Py_None;
+    rVal = Py_None;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 void
@@ -1333,41 +1333,41 @@ CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
 PyObject *
 CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtNodeObject *nodeA, *nodeB;
 
     if (PyArg_ParseTuple(args, "O!O!", &CxtNode, &nodeA,
 			 &CxtNode, &nodeB) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     // Make sure that the edge is currently detached.
     if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring) != CxmTrNodeNone)
     {
 	CxError(CxgEdgeValueError, "Edge is already attached");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     if (nodeA->tree != self->tree || nodeB->tree != self->tree)
     {
 	CxError(CxgEdgeValueError, "Node does not belong to this tree");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
     CxEdgeAttach(self, nodeA, nodeB);
 
     Py_INCREF(Py_None);
-    retval = Py_None;
+    rVal = Py_None;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxEdgeDetach(CxtEdgeObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtTrNode trNodeA, trNodeB;
     CxtNodeObject *nodeA, *nodeB;
     CxtTrRing trRingA, trRingB;
@@ -1376,7 +1376,7 @@ CxEdgeDetach(CxtEdgeObject *self)
     if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring) == CxmTrNodeNone)
     {
 	CxError(CxgEdgeValueError, "Edge is already detached");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -1402,9 +1402,9 @@ CxEdgeDetach(CxtEdgeObject *self)
     Py_DECREF(self->ringB);
 
     Py_INCREF(Py_None);
-    retval = Py_None;
+    rVal = Py_None;
     RETURN:
-    return retval;
+    return rVal;
 }
 
 static PyMethodDef CxpEdgeMethods[] =
@@ -1544,7 +1544,7 @@ edge = crux.Edge.Edge(tree)\n\
 static PyObject *
 CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -1555,14 +1555,14 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     if (PyArg_ParseTuple(args, "O!i", &CxtEdge, &edge, &end) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
     self = (CxtRingObject *) type->tp_alloc(type, 0);
     if (self == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -1571,7 +1571,7 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	type->tp_free((PyObject *) self);
 
 	CxError(CxgRingValueError, "End must be 0 or 1");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     
@@ -1594,7 +1594,7 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	type->tp_free((PyObject *) self);
 
 	CxError(CxgRingValueError, "Internal error (aux should be NULL)");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     CxTrRingAuxSet(self->tree->tr, self->ring, self);
@@ -1603,20 +1603,20 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self->GcDetached = false;
     self->GcCleared = false;
 
-    retval = (PyObject *) self;
+    rVal = (PyObject *) self;
 
     RETURN:
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
- 	    __FILE__, __LINE__, __func__, retval, retval->ob_refcnt);
+ 	    __FILE__, __LINE__, __func__, rVal, rVal->ob_refcnt);
 #endif
-    return retval;
+    return rVal;
 }
 
 static int
 CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
 {
-    int retval;
+    int rVal;
     CxtTrNode trNode;
     CxtTrRing trRing;
     CxtRingObject *ring;
@@ -1630,7 +1630,7 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
     {
 	if (visit((PyObject *) self->tree, arg) < 0)
 	{
-	    retval = -1;
+	    rVal = -1;
 	    goto RETURN;
 	}
 
@@ -1642,7 +1642,7 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
 	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNode);
 	    if (visit((PyObject *) node, arg) < 0)
 	    {
-		retval = -1;
+		rVal = -1;
 		goto RETURN;
 	    }
 	}
@@ -1650,7 +1650,7 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
 	// Report edge.
 	if (visit((PyObject *) self->edge, arg) < 0)
 	{
-	    retval = -1;
+	    rVal = -1;
 	    goto RETURN;
 	}
 
@@ -1659,7 +1659,7 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
 	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
 	if (visit((PyObject *) ring, arg) < 0)
 	{
-	    retval = -1;
+	    rVal = -1;
 	    goto RETURN;
 	}
 
@@ -1668,18 +1668,18 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
 	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
 	if (visit((PyObject *) ring, arg) < 0)
 	{
-	    retval = -1;
+	    rVal = -1;
 	    goto RETURN;
 	}
     }
 
-    retval = 0;
+    rVal = 0;
     RETURN:
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    return retval;
+    return rVal;
 }
 
 static int
@@ -1751,13 +1751,13 @@ static PyObject *CxpRingNewCode;
 CxtRingObject *
 CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd)
 {
-    CxtRingObject *retval;
+    CxtRingObject *rVal;
     PyObject *globals, *locals, *obj;
 
     globals = PyEval_GetGlobals();
     if (globals == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     locals = Py_BuildValue("{sOsi}",
@@ -1765,7 +1765,7 @@ CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd)
 			   "end", aEnd);
     if (locals == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -1774,21 +1774,21 @@ CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd)
 			  locals);
     if (obj == NULL)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     Py_DECREF(obj);
 
-    retval = (CxtRingObject *) PyDict_GetItemString(locals, "ring");
-    if (retval == NULL)
+    rVal = (CxtRingObject *) PyDict_GetItemString(locals, "ring");
+    if (rVal == NULL)
     {
 	goto RETURN;
     }
-    Py_INCREF(retval);
+    Py_INCREF(rVal);
 
     RETURN:
     Py_DECREF(locals);
-    return retval;
+    return rVal;
 }
 
 CxtTreeObject *
@@ -1806,141 +1806,141 @@ CxRingTreePargs(CxtRingObject *self)
 CxtNodeObject *
 CxRingNode(CxtRingObject *self)
 {
-    CxtNodeObject *retval;
+    CxtNodeObject *rVal;
     CxtTrNode node;
 
     node = CxTrRingNodeGet(self->tree->tr, self->ring);
     if (node != CxmTrNodeNone)
     {
-	retval = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, node);
+	rVal = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, node);
     }
     else
     {
-	retval = NULL;
+	rVal = NULL;
     }
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxRingNodePargs(CxtRingObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtTrNode node;
 
     node = CxTrRingNodeGet(self->tree->tr, self->ring);
     if (node != CxmTrNodeNone)
     {
-	retval = (PyObject *) CxTrNodeAuxGet(self->tree->tr, node);
-	Py_INCREF(retval);
+	rVal = (PyObject *) CxTrNodeAuxGet(self->tree->tr, node);
+	Py_INCREF(rVal);
     }
     else
     {
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
     }
 
-    return retval;
+    return rVal;
 }
 
 CxtEdgeObject *
 CxRingEdge(CxtRingObject *self)
 {
-    CxtEdgeObject *retval;
+    CxtEdgeObject *rVal;
     CxtTrEdge edge;
 
     edge = CxTrRingEdgeGet(self->tree->tr, self->ring);
-    retval = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, edge);
+    rVal = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, edge);
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxRingEdgePargs(CxtRingObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtTrEdge edge;
 
     edge = CxTrRingEdgeGet(self->tree->tr, self->ring);
-    retval = (PyObject *) CxTrEdgeAuxGet(self->tree->tr, edge);
-    Py_INCREF(retval);
+    rVal = (PyObject *) CxTrEdgeAuxGet(self->tree->tr, edge);
+    Py_INCREF(rVal);
 
-    return retval;
+    return rVal;
 }
 
 CxtRingObject *
 CxRingOther(CxtRingObject *self)
 {
-    CxtRingObject *retval;
+    CxtRingObject *rVal;
     CxtTrRing other;
 
     other = CxTrRingOtherGet(self->tree->tr, self->ring);
-    retval = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, other);
+    rVal = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, other);
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxRingOtherPargs(CxtRingObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtTrRing other;
 
     other = CxTrRingOtherGet(self->tree->tr, self->ring);
-    retval = (PyObject *) CxTrRingAuxGet(self->tree->tr, other);
-    Py_INCREF(retval);
+    rVal = (PyObject *) CxTrRingAuxGet(self->tree->tr, other);
+    Py_INCREF(rVal);
 
-    return retval;
+    return rVal;
 }
 
 CxtRingObject *
 CxRingNext(CxtRingObject *self)
 {
-    CxtRingObject *retval;
+    CxtRingObject *rVal;
     CxtTrRing nextRing;
 
     nextRing = CxTrRingNextGet(self->tree->tr, self->ring);
-    retval = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, nextRing);
+    rVal = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, nextRing);
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxRingNextPargs(CxtRingObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtTrRing nextRing;
 
     nextRing = CxTrRingNextGet(self->tree->tr, self->ring);
-    retval = (PyObject *) CxTrRingAuxGet(self->tree->tr, nextRing);
-    Py_INCREF(retval);
+    rVal = (PyObject *) CxTrRingAuxGet(self->tree->tr, nextRing);
+    Py_INCREF(rVal);
 
-    return retval;
+    return rVal;
 }
 
 CxtRingObject *
 CxRingPrev(CxtRingObject *self)
 {
-    CxtRingObject *retval;
+    CxtRingObject *rVal;
     CxtTrRing prevRing;
 
     prevRing = CxTrRingPrevGet(self->tree->tr, self->ring);
-    retval = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, prevRing);
+    rVal = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, prevRing);
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxRingPrevPargs(CxtRingObject *self)
 {
-    PyObject *retval;
+    PyObject *rVal;
     CxtTrRing prevRing;
 
     prevRing = CxTrRingPrevGet(self->tree->tr, self->ring);
-    retval = (PyObject *) CxTrRingAuxGet(self->tree->tr, prevRing);
-    Py_INCREF(retval);
+    rVal = (PyObject *) CxTrRingAuxGet(self->tree->tr, prevRing);
+    Py_INCREF(rVal);
 
-    return retval;
+    return rVal;
 }
 
 static PyMethodDef CxpRingMethods[] =

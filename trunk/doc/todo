@@ -1,5 +1,3 @@
-* Rename "retval"-->"rVal" throughout code.
-
 * Clean up the Tree constructor.  Consider making distance-based tree
   constructors into methods of DistMatrix.  This may make more sense, and it
   reduces constructor clutter.

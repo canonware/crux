@@ -33,11 +33,11 @@ class _NewickParser(NewickParser.NewickParser):
         if not NewickParser.NewickParser.parse(self, input):
             if len(self._taxonStack) > 0:
                 self._tree.baseSet(self._taxonStack[0])
-            retval = False
+            rVal = False
         else:
-            retval = True
+            rVal = True
 
-        return retval
+        return rVal
 
     # Overridden method.
     def openParenAccept(self):
@@ -263,15 +263,15 @@ class Tree(C_Tree):
         else:
             callback(";")
 
-        # Clean up and set retval according to where the output was sent.
+        # Clean up and set rVal according to where the output was sent.
         if outFile == None:
-            retval = self._string
+            rVal = self._string
             self._string = None
         else:
             callback("\n")
-            retval = None
+            rVal = None
             self._outFile = None
-        return retval
+        return rVal
 
     # Callback method that is used by the render method for recursive rendering
     # of the tree in Newick format.

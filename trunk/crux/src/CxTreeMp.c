@@ -14,7 +14,7 @@
 PyObject *
 CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -35,7 +35,7 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
     elim = 1;
     if (PyArg_ParseTuple(args, "O!|i", &PyList_Type, &taxa, &elim) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -44,7 +44,7 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
     {
 	CxError(CxgTreeValueError,
 		"elim: False or True expected");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -141,22 +141,22 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	}
 
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
 	break;
 
 	ERROR:
 	CxmFree(tarr);
-	retval = NULL;
+	rVal = NULL;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
-    return retval;
+    return rVal;
 }
 
 PyObject *
@@ -177,7 +177,7 @@ CxTreeMp(CxtTreeObject *self)
 PyObject *
 CxTreeTbrBestNeighborsMp(CxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -187,14 +187,14 @@ CxTreeTbrBestNeighborsMp(CxtTreeObject *self, PyObject *args)
     maxHold = CxmTrHoldAll;
     if (PyArg_ParseTuple(args, "|i", &maxHold) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     if (maxHold < 0 && maxHold != CxmTrHoldAll)
     {
 	CxError(CxgTreeValueError,
 		"maxHold: non-negative integer expected");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -204,23 +204,23 @@ CxTreeTbrBestNeighborsMp(CxtTreeObject *self, PyObject *args)
 	CxTrTbrBestNeighborsMp(self->tr, maxHold);
 
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxTreeTbrBetterNeighborsMp(CxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -230,14 +230,14 @@ CxTreeTbrBetterNeighborsMp(CxtTreeObject *self, PyObject *args)
     maxHold = CxmTrHoldAll;
     if (PyArg_ParseTuple(args, "|i", &maxHold) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     if (maxHold < 0 && maxHold != CxmTrHoldAll)
     {
 	CxError(CxgTreeValueError,
 		"maxHold: non-negative integer expected");
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
 
@@ -247,23 +247,23 @@ CxTreeTbrBetterNeighborsMp(CxtTreeObject *self, PyObject *args)
 	CxTrTbrBetterNeighborsMp(self->tr, maxHold);
 
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxTreeTbrAllNeighborsMp(CxtTreeObject *self)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -275,22 +275,22 @@ CxTreeTbrAllNeighborsMp(CxtTreeObject *self)
 	CxTrTbrAllNeighborsMp(self->tr);
 
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxTreeNheldGet(CxtTreeObject *self)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -299,22 +299,22 @@ CxTreeNheldGet(CxtTreeObject *self)
     CxmXepBegin();
     CxmXepTry
     {
-	retval = Py_BuildValue("i", CxTrNheldGet(self->tr));
+	rVal = Py_BuildValue("i", CxTrNheldGet(self->tr));
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
-    return retval;
+    return rVal;
 }
 
 PyObject *
 CxTreeheldGet(CxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -324,13 +324,13 @@ CxTreeheldGet(CxtTreeObject *self, PyObject *args)
 
     if (PyArg_ParseTuple(args, "i", &held) == 0)
     {
-	retval = NULL;
+	rVal = NULL;
 	goto RETURN;
     }
     if (held >= CxTrNheldGet(self->tr))
     {
 	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
+	rVal = PyExc_ValueError;
 	goto RETURN;
     }
 
@@ -341,16 +341,16 @@ CxTreeheldGet(CxtTreeObject *self, PyObject *args)
 	CxTrTbrNeighborGet(self->tr, neighbor,
 			    &bisect, &reconnectA, &reconnectB);
 
-	retval = Py_BuildValue("(i(iii))", score,
+	rVal = Py_BuildValue("(i(iii))", score,
 			       bisect, reconnectA, reconnectB);
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
     RETURN:
-    return retval;
+    return rVal;
 }

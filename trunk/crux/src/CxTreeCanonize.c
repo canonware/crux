@@ -14,7 +14,7 @@
 PyObject *
 CxTreeCanonize(CxtTreeObject *self)
 {
-    PyObject *retval
+    PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
@@ -46,14 +46,14 @@ CxTreeCanonize(CxtTreeObject *self)
 	}
 
 	Py_INCREF(Py_None);
-	retval = Py_None;
+	rVal = Py_None;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	rVal = PyErr_NoMemory();
     }
     CxmXepEnd();
 
-    return retval;
+    return rVal;
 }

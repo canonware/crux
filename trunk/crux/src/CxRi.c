@@ -114,7 +114,7 @@ CxRiIndGet(CxtRi *aRi)
 uint32_t
 CxRiRandomGet(CxtRi *aRi, CxtMt *aMt)
 {
-    uint32_t retval, r;
+    uint32_t rVal, r;
 
     CxmAssert(aRi->nints > 0);
 
@@ -145,29 +145,29 @@ CxRiRandomGet(CxtRi *aRi, CxtMt *aMt)
     }
 
     // 5)
-    retval = aRi->arr[r];
+    rVal = aRi->arr[r];
     aRi->arr[r] = aRi->arr[aRi->ind];
-    aRi->arr[aRi->ind] = retval;
+    aRi->arr[aRi->ind] = rVal;
 
     // 6)
     aRi->ind++;
 
-    CxmAssert(retval != 0);
-    CxmAssert(retval <= aRi->nints);
+    CxmAssert(rVal != 0);
+    CxmAssert(rVal <= aRi->nints);
 #ifdef CxmDebug
     {
 	uint32_t i;
 
 	for (i = 0; i < aRi->ind - 1; i++)
 	{
-	    CxmAssert(aRi->arr[i] != retval);
+	    CxmAssert(aRi->arr[i] != rVal);
 	}
     }
 #endif
 
     // Decrement, in order to deal with the fact that all numbers in the array
     // are one greater than actual (allows 0 to mean "invalid").
-    retval--;
+    rVal--;
 
-    return retval;
+    return rVal;
 }

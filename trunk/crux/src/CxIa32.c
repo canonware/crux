@@ -20,7 +20,7 @@ bool CxgIa32UseSse2;
 static bool
 CxpIa32HasCpuid(void)
 {
-    bool retval;
+    bool rVal;
     int before, after;
 
     asm volatile (
@@ -45,9 +45,9 @@ CxpIa32HasCpuid(void)
 	: "cc" // Clobbers condition code register.
 	);
 
-    retval = (before != after) ? true : false;
+    rVal = (before != after) ? true : false;
 
-    return retval;
+    return rVal;
 }
 
 // Set eax, call the cpuid instruction, and return e[abcd]x.
