@@ -1738,11 +1738,10 @@ CW_P_INLINE void
 tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		    cw_tr_ps_t *a_b)
 {
-
     /* Only calculate the parent's node score if the cached value is invalid. */
     if (a_a->parent != a_p || a_b->parent != a_p)
     {
-	cw_uint32_t i, nchars, ns;
+	cw_uint32_t endlimit, curlimit, i, nchars, ns;
 	cw_trc_t *chars_p, *chars_a, *chars_b;
 
 	/* Calculate sum of subtree scores. */
@@ -1787,73 +1786,101 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		);
 	}
 
-	/* Use SSE2 to evaluate as many of the characters as possible.  This
-	 * loop handles 16 characters per iteration. */
-	for (i = 0;
-	     i < (nchars ^ (nchars & 0xf));
-	     i += 16)
+	/* The inner loop can be run a maximum of 255 times before the partial
+	 * node score results (stored in %xmm5) are added to ns (otherwise,
+	 * overflow could occur).  Therefore, the outer loop calculates the
+	 * upper bound for the inner loop, thereby avoiding extra computation in
+	 * the inner loop. */
+	endlimit = nchars ^ (nchars & 0xf);
+	curlimit = 255 * 16;
+	if (curlimit > endlimit)
 	{
-	    asm volatile (
-		/* Read character data, and'ing and or'ing them together.
-		 *
-		 * a = *chars_a;
-		 * b = *chars_b;
-		 * p = a & b;
-		 * d = a | b;
-		 */
-		"movdqa %[a], %%xmm0;"
-		"movdqa %%xmm0, %%xmm1;"
-		"por %[b], %%xmm0;" /* xmm0 contains d. */
-		"pand %[b], %%xmm1;" /* xmm1 contains p. */
-
-		/* Create bitmasks according to whether the character state sets
-		 * are empty.
-		 *
-		 * c = p ? 0x00 : 0xff;
-		 * e = (c & d);
-		 * s = p ? 0 : 1;
-		 */
-		"pxor %%xmm2, %%xmm2;"
-		"pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
-		"pand %%xmm2, %%xmm0;" /* xmm0 contains e. */
-		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
-
-		/* Update node score.
-		 *
-		 * ns += s;
-		 */
-		// XXX In the worst case, this only works 255 times.
-		"paddusb %%xmm2, %%xmm5;"
-
-		/* p = (p | e); */
-		"por %%xmm1, %%xmm0;" /* xmm0 contains p. */
-
-		/* Store results.
-		 *
-		 * *chars_p = p;
-		 */
-		"movdqa %%xmm0, %[p];"
-		: [p] "=m" (chars_p[i])
-		: [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
-		: "memory"
-		);
+	    curlimit = endlimit;
 	}
-
-	/* Update ns. */
+	for (;;)
 	{
-	    cw_uint32_t j;
-	    unsigned char pns[16];
-
-	    asm volatile (
-		"movdqu %%xmm5, %[pns];"
-		: [pns] "=m" (*pns)
-		:
-		: "memory"
-	    );
-
-	    for (j = 0; j < 16; j++)
+	    /* Use SSE2 to evaluate as many of the characters as possible.  This
+	     * loop handles 16 characters per iteration. */
+	    for (i = 0; i < curlimit; i += 16)
 	    {
-		ns += pns[j];
+		asm volatile (
+		    /* Read character data, and'ing and or'ing them together.
+		     *
+		     * a = *chars_a;
+		     * b = *chars_b;
+		     * p = a & b;
+		     * d = a | b;
+		     */
+		    "movdqa %[a], %%xmm0;"
+		    "movdqa %%xmm0, %%xmm1;"
+		    "por %[b], %%xmm0;" /* xmm0 contains d. */
+		    "pand %[b], %%xmm1;" /* xmm1 contains p. */
+
+		    /* Create bitmasks according to whether the character state
+		     * sets are empty.
+		     *
+		     * c = p ? 0x00 : 0xff;
+		     * e = (c & d);
+		     * s = p ? 0 : 1;
+		     */
+		    "pxor %%xmm2, %%xmm2;"
+		    "pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
+		    "pand %%xmm2, %%xmm0;" /* xmm0 contains e. */
+		    "pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
+
+		    /* Update node score.  Each byte in %xmm5 is only capable of
+		     * holding up to 255, which is why the outer loop is
+		     * necessary.
+		     *
+		     * ns += s;
+		     */
+		    "paddusb %%xmm2, %%xmm5;"
+
+		    /* p = (p | e); */
+		    "por %%xmm1, %%xmm0;" /* xmm0 contains p. */
+
+		    /* Store results.
+		     *
+		     * *chars_p = p;
+		     */
+		    "movdqa %%xmm0, %[p];"
+		    : [p] "=m" (chars_p[i])
+		    : [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
+		    : "memory"
+		    );
+	    }
+
+	    /* Update ns and reset pns. */
+	    {
+		cw_uint32_t j;
+		unsigned char pns[16];
+
+		asm volatile (
+		    "movdqu %%xmm5, %[pns];"
+		    "pxor %%xmm5, %%xmm5;"
+		    : [pns] "=m" (*pns)
+		    :
+		    : "memory"
+		    );
+
+		for (j = 0; j < 16; j++)
+		{
+		    ns += pns[j];
+		}
+	    }
+
+	    /* Break out of the loop if the bound for the inner loop was the
+	     * maximum possible. */
+	    if (curlimit == endlimit)
+	    {
+		break;
+	    }
+	    /* Update the bound for the inner loop, taking care not to exceed
+	     * the maximum possible bound. */
+	    curlimit += 255 * 16;
+	    if (curlimit > endlimit)
+	    {
+		curlimit = endlimit;
 	    }
 	}
 
