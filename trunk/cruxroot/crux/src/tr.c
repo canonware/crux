@@ -730,6 +730,17 @@ trn_p_connection_patch(cw_trn_t *a_trn, cw_uint32_t a_edge,
 	*ar_spare = NULL;
 
 	trn_p_edge_get(a_trn, a_edge, &a, &edge);
+// XXX Remove.
+//	if (a == NULL
+//	    || edge > 2
+//	    || a->neighbors[edge] == NULL)
+//	{
+//	    fprintf(stderr, "a_trn: %p, a: %p, a_edge: %u, edge: %u\n",
+//		    a_trn, a, a_edge, edge);
+//	    fprintf(stderr, "Sleeping...\n");
+//	    sleep(3600);
+//	    abort();
+//	}
 	b = a->neighbors[edge];
 
 	/* Detach a and b. */
@@ -807,18 +818,6 @@ trn_new(cw_trn_t *a_trn)
 void
 trn_delete(cw_trn_t *a_trn)
 {
-    cw_uint32_t i;
-
-    cw_dassert(trn_p_validate(a_trn));
-
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
-    {
-	if (a_trn->neighbors[i] != NULL)
-	{
-	    trn_detach(a_trn, a_trn->neighbors[i]);
-	}
-    }
-
 #ifdef CW_DBG
     memset(a_trn, 0x5a, sizeof(cw_trn_t));
 #endif
@@ -1521,10 +1520,9 @@ tr_new(cw_tr_t *a_tr, cw_trn_t *a_trn)
 void
 tr_delete(cw_tr_t *a_tr, cw_bool_t a_delete_trns)
 {
-    cw_dassert(tr_p_validate(a_tr, TRUE));
-
     if (a_delete_trns)
     {
+	cw_dassert(tr_p_validate(a_tr, TRUE));
 	if (a_tr->rooted == FALSE)
 	{
 	    trn_delete(a_tr->root);
