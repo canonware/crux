@@ -316,8 +316,19 @@ CxTreeNtaxaGetPargs(CxtTreeObject *self)
     return rVal;
 }
 
+unsigned
+CxTreeNedgesGet(CxtTreeObject *self)
+{
+    unsigned rVal;
+
+    // XXX Doesn't catch OOM errors.
+    rVal = CxTrNedgesGet(self->tr);
+
+    return rVal;
+}
+
 PyObject *
-CxTreeNedgesCget(CxtTreeObject *self)
+CxTreeNedgesGetPargs(CxtTreeObject *self)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
@@ -996,7 +1007,7 @@ static PyMethodDef CxpTreeMethods[] =
     },
     {
 	"nedgesGet",
-	(PyCFunction) CxTreeNedgesCget,
+	(PyCFunction) CxTreeNedgesGetPargs,
 	METH_NOARGS,
 	"nedgesGet"
     },

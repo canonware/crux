@@ -209,8 +209,10 @@ CxTreeNtaxaGet(CxtTreeObject *self);
 PyObject *
 CxTreeNtaxaGetPargs(CxtTreeObject *self);
 
+unsigned
+CxTreeNedgesGet(CxtTreeObject *self);
 PyObject *
-CxTreeNedgesCget(CxtTreeObject *self);
+CxTreeNedgesGetPargs(CxtTreeObject *self);
 
 CxtNodeObject *
 CxTreeBaseGet(CxtTreeObject *self);
