@@ -261,14 +261,18 @@ CxpTreeNjNodesJoin(float *aD, float *aRScaled, CxtNodeObject **aNodes,
     node = CxNodeNew(aTree);
     edgeX = CxEdgeNew(aTree);
     CxEdgeAttach(edgeX, node, aNodes[aXMin]);
+    Py_DECREF(aNodes[aXMin]);
     iMin = CxpTreeNjXy2i(aNleft, aXMin, aYMin);
     distX = (aD[iMin] + aRScaled[aXMin] - aRScaled[aYMin]) / 2;
     CxEdgeLengthSet(edgeX, distX);
+    Py_DECREF(edgeX);
 
     edgeY = CxEdgeNew(aTree);
     CxEdgeAttach(edgeY, node, aNodes[aYMin]);
+    Py_DECREF(aNodes[aYMin]);
     distY = aD[iMin] - distX;
     CxEdgeLengthSet(edgeY, distY);
+    Py_DECREF(edgeY);
 
     *rNode = node;
     *rDistX = distX;
@@ -455,6 +459,8 @@ CxpTreeNjFinalJoin(float *aD, CxtNodeObject **aNodes, CxtTreeObject *aTree)
     edge = CxEdgeNew(aTree);
     CxEdgeAttach(edge, aNodes[0], aNodes[1]);
     CxEdgeLengthSet(edge, aD[0]);
+    Py_DECREF(edge);
+    Py_DECREF(aNodes[1]);
 
     return aNodes[0];
 }
@@ -922,6 +928,7 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive)
 
     /* Set the tree base. */
     CxTreeBaseSet(aTree, node);
+    Py_DECREF(node);
 #ifdef CxmTreeNjVerbose
     time(&t);
     tm = localtime(&t);
@@ -956,34 +963,14 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
     CxmXepBegin();
     CxmXepTry
     {
-	CxtTrNode oldTrNode, trNode;
-	CxtNodeObject *node;
-
 	CxDistMatrixUpperHandoff((CxtDistMatrixObject *) distMatrix,
 				 &d, &ntaxa);
 
 	if (ntaxa > 1)
 	{
-	    oldTrNode = CxTrBaseGet(self->tr);
-
 	    /* Neighbor-join. */
 	    CxpTreeNj(self, d, ntaxa, (bool) additive);
 	    CxmFree(d);
-
-	    /* Reference new base. */
-	    trNode = CxTrBaseGet(self->tr);
-	    if (trNode != CxmTrNodeNone)
-	    {
-		node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, trNode);
-		Py_INCREF(node);
-	    }
-
-	    /* Decref old base. */
-	    if (oldTrNode != CxmTrNodeNone)
-	    {
-		node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
-		Py_DECREF(node);
-	    }
 	}
     }
     CxmXepCatch(CxmXepOOM)
