@@ -1699,6 +1699,10 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
     return retval;
 }
 
+/* As part of TBR, extract a node that has only two neighbors.  Take care to
+ * leave reconnection edges in the tree.  Return CW_TR_NODE_NONE, unless there
+ * is only one node in the subtree; in that case, return the node so that it can
+ * be used directly during reconnection. */
 CW_P_INLINE cw_tr_node_t
 tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 		      cw_tr_edge_t a_reconnect_a, cw_tr_edge_t a_reconnect_b,
@@ -1726,6 +1730,7 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 	    cw_tr_edge_t edge_lose, edge_keep;
 	    cw_tr_node_t tnode_a, tnode_b;
 
+	    /* Get the edges connected to a_node. */
 	    ring = qli_first(&a_tr->trns[a_node].rings);
 	    edge_lose = tr_p_ring_edge_get(a_tr, ring);
 	    tnode_a = tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring));
@@ -1734,8 +1739,7 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 	    edge_keep = tr_p_ring_edge_get(a_tr, ring);
 	    tnode_b = tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring));
 
-	    if (tr_p_ring_edge_get(a_tr, ring) == a_reconnect_a
-		|| tr_p_ring_edge_get(a_tr, ring) == a_reconnect_b)
+	    if (edge_lose == a_reconnect_a || edge_lose == a_reconnect_b)
 	    {
 		cw_tr_edge_t tedge;
 
@@ -1744,6 +1748,7 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 		edge_keep = edge_lose;
 		edge_lose = tedge;
 	    }
+	    cw_assert(edge_lose != a_reconnect_a && edge_lose != a_reconnect_b);
 
 	    /* Detach. */
 	    tr_edge_detach(a_tr, edge_keep);
@@ -1757,13 +1762,15 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 	    (*ar_ntedges)++;
 	    ar_tnodes[*ar_ntnodes] = a_node;
 	    (*ar_ntnodes)++;
+	    cw_assert(a_tr->trns[a_node].taxon_num == CW_TR_NODE_TAXON_NONE);
 
 	    retval = CW_TR_NODE_NONE;
 	    break;
 	}
 	default:
 	{
-	    /* Do nothing. */
+	    /* Do nothing, since this node has enough neighbors to remain
+	     * relevant (3 or more). */
 	    retval = CW_TR_NODE_NONE;
 	}
     }
@@ -1771,6 +1778,7 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
     return retval;
 }
 
+/* Splice a node into the middle of a_edge, and return the node. */
 CW_P_INLINE cw_tr_node_t
 tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge, 
 		     cw_tr_edge_t *ar_tedges, uint32_t *ar_ntedges,
@@ -1790,8 +1798,8 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
     /* Get an edge. */
     if (*ar_ntedges > 0)
     {
-	edge = ar_tedges[*ar_ntedges];
 	(*ar_ntedges)--;
+	edge = ar_tedges[*ar_ntedges];
     }
     else
     {
@@ -1801,8 +1809,8 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
     /* Get a node. */
     if (*ar_ntnodes > 0)
     {
-	retval = ar_tnodes[*ar_ntnodes];
 	(*ar_ntnodes)--;
+	retval = ar_tnodes[*ar_ntnodes];
     }
     else
     {
@@ -1851,6 +1859,9 @@ tr_p_mp_trn_prepare(cw_tr_t *a_tr, cw_trn_t *a_trn, char *a_taxa[],
 		case 'n':
 		case 'X':
 		case 'x':
+		/* Treat gaps as uncertainty.  This isn't the only way to do
+		 * things, and may need to be made configurable. */
+		case '-':
 		{
 		    a_trn->ps->chars[i] = 0xf;
 		    break;
@@ -1939,13 +1950,6 @@ tr_p_mp_trn_prepare(cw_tr_t *a_tr, cw_trn_t *a_trn, char *a_taxa[],
 		    a_trn->ps->chars[i] = 0x1;
 		    break;
 		}
-		case '-':
-		{
-		    /* Treat gaps as uncertainty.  This isn't the only way to
-		     * do things, and may need to be made configurable. */
-		    a_trn->ps->chars[i] = 0xf;
-		    break;
-		}
 		default:
 		{
 		    cw_not_reached();
@@ -1963,9 +1967,8 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
     cw_tr_ring_t ring;
     cw_tre_t *tre;
 
-    trn = &a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)];
-
     /* Prepare the node associated with a_ring. */
+    trn = &a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)];
     tr_p_mp_trn_prepare(a_tr, trn, a_taxa, a_ntaxa, a_nchars);
 
     /* Recurse into subtrees. */
@@ -2002,8 +2005,8 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
     cw_tr_ring_t ring;
     cw_tre_t *tre;
 
+    /* Clean up the node associated with a_ring. */
     trn = &a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)];
-
     tr_p_mp_trn_finish(a_tr, trn);
 
     /* Recurse into subtrees. */
@@ -2353,6 +2356,8 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 
 	    /* This is a trifurcating node that is adjacent to the bisection. */
 
+	    /* Get the ring element that connects to the other portion of the
+	     * subtree on this side of the bisection. */
 	    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
 	    {
 		if (tr_p_ring_edge_get(a_tr, ring) != a_bisect)
@@ -2365,7 +2370,8 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	    ps_c = a_tr->trns[tr_p_ring_node_get(a_tr, cring)].ps;
 
 	    /* Pass down the cached parent value, if the last time this node was
-	     * recursed through, the bisection edge was the same. */
+	     * recursed through, the bisection edge was the same, and the tree
+	     * hasn't been modified in the meanwhile. */
 	    ps = a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)].ps;
 	    if (ps->bisect == a_bisect && ps->seq == a_tr->seq)
 	    {
@@ -2410,7 +2416,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 		ring = qri_next(a_tr->trrs, ring, link);
 		ps_b = a_tr->trns[
 		    tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring))
-		    ].ps;
+		].ps;
 		tr_p_mp_score_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
 				      a_bisect);
 
@@ -2433,11 +2439,14 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
     }
 }
 
-static void
+/* Calculate the the score of a tree (or subtree, if a_bisect is set), and store
+ * the result in a_root. */
+CW_P_INLINE void
 tr_p_mp_score(cw_tr_t *a_tr, cw_tr_edge_t a_root, cw_tr_edge_t a_bisect)
 {
     cw_tr_ring_t ring_a, ring_b;
 
+    /* Calculate partial scores for the subtrees on each end of a_root. */
     ring_a = tr_p_edge_ring_get(a_tr, a_root, 0);
     tr_p_mp_score_recurse(a_tr, ring_a, a_bisect);
 
@@ -2450,6 +2459,7 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_edge_t a_root, cw_tr_edge_t a_bisect)
 		   a_tr->trns[tr_p_ring_node_get(a_tr, ring_b)].ps);
 }
 
+/* Calculate the partial score for each edge in a_edges. */
 CW_P_INLINE void
 tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 			    uint32_t a_nedges, cw_tr_edge_t a_bisect)
@@ -2510,6 +2520,8 @@ tr_p_hold(cw_tr_t *a_tr, uint32_t a_max_hold, uint32_t a_neighbor,
     }
 }
 
+/* Calculate the Fitch parsimony scores for all TBR neighbors of a_tr, and hold
+ * results according to the function parameters. */
 CW_P_INLINE void
 tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 		      uint32_t a_maxscore, cw_tr_hold_how_t a_how)
@@ -2635,13 +2647,10 @@ cw_tr_t *
 tr_new(cw_mema_t *a_mema)
 {
     cw_tr_t *retval;
-    cw_opaque_alloc_t *alloc;
-    void *arg;
 
-    alloc = mema_alloc_get(a_mema);
-    arg = mema_arg_get(a_mema);
-
-    retval = (cw_tr_t *) cw_opaque_alloc(alloc, arg, sizeof(cw_tr_t));
+    retval = (cw_tr_t *) cw_opaque_alloc(mema_alloc_get(a_mema),
+					 mema_arg_get(a_mema),
+					 sizeof(cw_tr_t));
 
     tr_p_new(retval, a_mema);
 
@@ -2828,11 +2837,9 @@ tr_base_set(cw_tr_t *a_tr, cw_tr_node_t a_base)
 void
 tr_canonize(cw_tr_t *a_tr)
 {
-    cw_check_ptr(a_tr);
-    cw_assert(a_tr->magic == CW_TR_MAGIC);
-
     /* Update internal state, so that ntaxa and nedges are correct. */
     tr_p_update(a_tr);
+    cw_dassert(tr_p_validate(a_tr));
 
     if (a_tr->base != CW_TR_NODE_NONE)
     {
@@ -2853,9 +2860,8 @@ tr_canonize(cw_tr_t *a_tr)
 	}
     }
 
-    // XXX Re-update internal state?
+    /* Re-update internal state. */
     tr_p_update(a_tr);
-
     cw_dassert(tr_p_validate(a_tr));
 }
 
@@ -2866,11 +2872,12 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
        cw_tr_node_t (*a_node_alloc_callback)(cw_tr_t *, void *),
        void *a_arg)
 {
-    cw_tr_node_t node_a, node_b;
+    cw_tr_node_t node_a, node_b, nodes[4];
     cw_tr_edge_t edge, tedges[3];
     uint32_t ntedges = 0;
     cw_tr_node_t tnodes[2];
     uint32_t ntnodes = 0;
+    uint32_t i, j;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
@@ -2885,36 +2892,67 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
     tedges[ntedges] = a_bisect;
     ntedges++;
 
-    /* For node_[ab], extract the node if it has only two neighbors.  If one of
-     * the adjacent edges happens to be a reconnection edge, preserve it and
-     * discard the other edge, so that reconnection to the edge works.
+    /* For nodes_[ab], extract the node if it has only two neighbors.
      *
-     * The return value of these calls is CW_TR_NODE_NONE, unless there is only
-     * one node in the subtree, in which case that node is returned so that it
-     * can be used directly during reconnection. */
-    node_a = tr_p_tbr_node_extract(a_tr, node_a, a_reconnect_a, a_reconnect_b,
-				   tedges, &ntedges, tnodes, &ntnodes);
-    node_b = tr_p_tbr_node_extract(a_tr, node_b, a_reconnect_a, a_reconnect_b,
-				   tedges, &ntedges, tnodes, &ntnodes);
+     * nodes_[0..1] are CW_TR_NODE_NONE, unless they refer to the only node in a
+     * subtree. */
+    nodes[0] = tr_p_tbr_node_extract(a_tr, node_a, a_reconnect_a, a_reconnect_b,
+				     tedges, &ntedges, tnodes, &ntnodes);
+    nodes[1] = tr_p_tbr_node_extract(a_tr, node_b, a_reconnect_a, a_reconnect_b,
+				     tedges, &ntedges, tnodes, &ntnodes);
 
     /* For each reconnection edge, splice a node into the edge (if the subtree
-     * has more than one node). */
-    if (node_a == CW_TR_NODE_NONE)
+     * has more than one node).
+     *
+     * nodes[2..3] are set to CW_TR_NODE_NONE if no reconnection edge is
+     * specified. */
+    if (a_reconnect_a != CW_TR_EDGE_NONE)
     {
-	node_a = tr_p_tbr_node_splice(a_tr, a_reconnect_a,
-				      tedges, &ntedges, tnodes, &ntnodes,
-				      a_edge_alloc_callback,
-				      a_node_alloc_callback,
-				      a_arg);
+	nodes[2] = tr_p_tbr_node_splice(a_tr, a_reconnect_a,
+					tedges, &ntedges, tnodes, &ntnodes,
+					a_edge_alloc_callback,
+					a_node_alloc_callback,
+					a_arg);
     }
-    if (node_b == CW_TR_NODE_NONE)
+    else
     {
-	node_b = tr_p_tbr_node_splice(a_tr, a_reconnect_b,
-				      tedges, &ntedges, tnodes, &ntnodes,
-				      a_edge_alloc_callback,
-				      a_node_alloc_callback,
-				      a_arg);
+	nodes[2] = CW_TR_NODE_NONE;
     }
+
+    if (a_reconnect_b != CW_TR_EDGE_NONE)
+    {
+	nodes[3] = tr_p_tbr_node_splice(a_tr, a_reconnect_b,
+					tedges, &ntedges, tnodes, &ntnodes,
+					a_edge_alloc_callback,
+					a_node_alloc_callback,
+					a_arg);
+    }
+    else
+    {
+	nodes[3] = CW_TR_NODE_NONE;
+    }
+
+    /* Only two of nodes[0..3] refer to valid nodes.  Collapse those two into
+     * nodes[0..1]. */
+    for (i = 0; i < 2; i++)
+    {
+	if (nodes[i] == CW_TR_NODE_NONE)
+	{
+	    for (j = i + 1; j < 4; j++)
+	    {
+		if (nodes[j] != CW_TR_NODE_NONE)
+		{
+		    nodes[i] = nodes[j];
+		    nodes[j] = CW_TR_NODE_NONE;
+		    break;
+		}
+	    }
+	}
+    }
+    cw_assert(nodes[0] != CW_TR_NODE_NONE);
+    cw_assert(nodes[1] != CW_TR_NODE_NONE);
+    cw_assert(nodes[2] == CW_TR_NODE_NONE);
+    cw_assert(nodes[3] == CW_TR_NODE_NONE);
 
     /* Attach the two spliced-in nodes. */
     if (ntedges > 0)
@@ -2926,7 +2964,7 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
     {
 	edge = a_edge_alloc_callback(a_tr, a_arg);
     }
-    tr_edge_attach(a_tr, edge, node_a, node_b);
+    tr_edge_attach(a_tr, edge, nodes[0], nodes[1]);
 
     /* Update. */
     tr_p_update(a_tr);
@@ -3065,6 +3103,7 @@ tr_mp_finish(cw_tr_t *a_tr)
     {
 	trn = &a_tr->trns[a_tr->base];
 
+	/* Clean up the base node. */
 	tr_p_mp_trn_finish(a_tr, trn);
 
 	/* Clean up the tree. */
@@ -3075,7 +3114,7 @@ tr_mp_finish(cw_tr_t *a_tr)
 
 	    qli_foreach(ring, &trn->rings, a_tr->trrs, link)
 	    {
-		/* Clean up edge. */
+		/* Clean up edge before recursing. */
 		tre = &a_tr->tres[tr_p_ring_edge_get(a_tr, ring)];
 		if (tre->ps != NULL)
 		{
@@ -3094,30 +3133,21 @@ uint32_t
 tr_mp_score(cw_tr_t *a_tr)
 {
     uint32_t retval;
-    cw_trn_t *trn;
     cw_tr_ring_t ring;
 
     cw_dassert(tr_p_validate(a_tr));
 
-    if (a_tr->base != CW_TR_NODE_NONE)
+    if (a_tr->base != CW_TR_NODE_NONE
+	&& (ring = qli_first(&a_tr->trns[a_tr->base].rings)) != CW_TR_RING_NONE)
     {
-	trn = &a_tr->trns[a_tr->base];
+	cw_tr_edge_t edge;
+	cw_tr_ps_t *ps;
 
-	if ((ring = qli_first(&trn->rings)) != CW_TR_RING_NONE)
-	{
-	    cw_tr_edge_t edge;
-	    cw_tr_ps_t *ps;
+	edge = tr_p_ring_edge_get(a_tr, ring);
+	tr_p_mp_score(a_tr, edge, CW_TR_EDGE_NONE);
 
-	    edge = tr_p_ring_edge_get(a_tr, ring);
-	    tr_p_mp_score(a_tr, edge, CW_TR_EDGE_NONE);
-
-	    ps = a_tr->tres[edge].ps;
-	    retval = ps->subtrees_score + ps->node_score;
-	}
-	else
-	{
-	    retval = 0;
-	}
+	ps = a_tr->tres[edge].ps;
+	retval = ps->subtrees_score + ps->node_score;
     }
     else
     {
