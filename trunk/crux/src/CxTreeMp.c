@@ -971,10 +971,173 @@ CxTreeMpFinish(CxtTreeObject *self)
     return rVal;
 }
 
+// XXX Move up.
+CxmpInline void
+CxpTreeMpCacheInvalidate(CxtTreeMpPs *aPs)
+{
+    CxmCheckPtr(aPs);
+
+    // Reset this node's parent pointer, to keep the old parent from using an
+    // invalid cached value.
+    aPs->parent = NULL;
+}
+
+// Calculate the partial score for aP, using aA and aB as children.  However, do
+// some extra bookkeeping in order to be able to cache the results, and later
+// recognize that precisely the same calculation was cached.
+CxmpInline void
+CxpTreeMpCachePscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+{
+    CxmError("XXX Not implemented");
+}
+
+// Unconditionally calculate the final score of a tree, using aA and aB as
+// children.
+CxmpInline unsigned
+CxpTreeMpFscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
+{
+    CxmError("XXX Not implemented");
+}
+
+static CxtTreeMpPs *
+CxpTreeMpScoreRecurse(CxtTreeMpData *aData, CxtRingObject *aRing,
+		      CxtEdgeObject *aBisect)
+{
+    CxtTreeMpPs *rVal
+#ifdef CxmCcSilence
+	= NULL
+#endif
+	;
+    unsigned degree;
+    bool adjacent;
+    CxtRingObject *ring;
+
+    // Get the degree of the node.  Don't count the bisection edge (only an
+    // issue if this node is adjacent to the bisection).
+    degree = 1;
+    adjacent = false;
+    for (ring = CxRingNext(aRing); ring != aRing; ring = CxRingNext(ring))
+    {
+	if (CxRingEdge(ring) != aBisect)
+	{
+	    degree++;
+	}
+	else
+	{
+	    adjacent = true;
+	}
+    }
+
+    switch (degree)
+    {
+	case 1:
+	{
+	    // Leaf node.  Do nothing.
+	    rVal = (CxtTreeMpPs *) CxRingAuxGet(aRing, aData->ringAuxInd);
+	    break;
+	}
+	case 2:
+	{
+	    // This is a trifurcating node that is adjacent to the bisection.
+	    // Return the child node's ps, since this node's ps is
+	    // irrelevant.
+	    CxmAssert(adjacent);
+
+	    // Clear the cache for the view that is being bypassed.  This is
+	    // critical to correctness of the caching machinery, since each view
+	    // should never be claimed as the parent of more than two other
+	    // views.
+	    CxpTreeMpCacheInvalidate((CxtTreeMpPs *)
+				     CxRingAuxGet(aRing, aData->ringAuxInd));
+
+	    // Get the ring element that connects to the other portion of the
+	    // subtree on this side of the bisection.
+	    for (ring = CxRingNext(aRing);
+		 ring != aRing;
+		 ring = CxRingNext(ring))
+	    {
+		if (CxRingEdge(ring) != aBisect)
+		{
+		    rVal = CxpTreeMpScoreRecurse(aData, CxRingOther(ring),
+						 aBisect);
+		    break;
+		}
+	    }
+	    break;
+	}
+	case 3:
+	{
+	    if (adjacent == false)
+	    {
+		CxtTreeMpPs *psA, *psB;
+
+		// This is a normal trifurcating node.  This is the common case,
+		// and is handled separately from the code below for performance
+		// reasons.
+
+		// Recursively calculate partial scores for the subtrees.
+		ring = CxRingNext(ring);
+		psA = CxpTreeMpScoreRecurse(aData, ring, aBisect);
+
+		ring = CxRingNext(ring);
+		psB = CxpTreeMpScoreRecurse(aData, ring, aBisect);
+
+		// Calculate the partial score for this node.
+		rVal = (CxtTreeMpPs *) CxRingAuxGet(aRing, aData->ringAuxInd);
+		CxpTreeMpCachePscore(rVal, psA, psB);
+	    }
+	    // Fall through if this node is adjacent to the bisection.
+	}
+	default:
+	{
+	    // This is a multifurcating node.
+	    CxmError("XXX Not implemented");
+	}
+    }
+
+    return rVal;
+}
+
 PyObject *
 CxTreeMp(CxtTreeObject *self)
 {
-    return Py_BuildValue("i", CxTrMpScore(self->tr));
+    PyObject *rVal;
+    unsigned score;
+    CxtNodeObject *base;
+    CxtRingObject *ring;
+
+    base = CxTreeBaseGet(self);
+    if (base != NULL && (ring = CxNodeRing(base)) != NULL)
+    {
+	CxtTreeMpData *data;
+	CxtEdgeObject *edge;
+	CxtRingObject *ringA, *ringB;
+	CxtTreeMpPs *psA, *psB;
+
+	if (CxpTreeMpDataGet(self, &data))
+	{
+	    rVal = NULL;
+	    goto RETURN;
+	}
+
+	edge = CxRingEdge(ring);
+	CxEdgeRingsGet(edge, &ringA, &ringB);
+
+	// Calculate partial scores for the subtrees on each end of edge.
+	psA = CxpTreeMpScoreRecurse(data, ringA, NULL);
+	psB = CxpTreeMpScoreRecurse(data, ringB, NULL);
+
+	// Calculate the final score.
+	score = CxpTreeMpFscore(psA, psB, UINT_MAX);
+    }
+    else
+    {
+	score = 0;
+    }
+
+    rVal = Py_BuildValue("i", score);
+    RETURN:
+    return rVal;
 }
 
 PyObject *
