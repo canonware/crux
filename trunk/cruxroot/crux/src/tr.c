@@ -395,7 +395,7 @@ tr_p_ps_delete(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
 			  a_ps->achars,
-			  sizeof(cw_trc_t) * ((a_ps->nchars / 2) + 8));
+			  sizeof(cw_trc_t) * ((a_ps->nchars >> 1)) + 8);
     }
 
     cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
@@ -451,7 +451,7 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
 			  a_ps->achars,
-			  sizeof(cw_trc_t) * ((a_ps->nchars / 2) + 8));
+			  sizeof(cw_trc_t) * ((a_ps->nchars >> 1) + 8));
 	a_ps->chars = NULL;
     }
 
@@ -462,36 +462,20 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 
 	/* Calculate the number of pad characters to append, such that the total
 	 * number of characters is a multiple of 16. */
-	if ((a_nchars & 0x1f) != 0)
-	{
-	    npad = 32 - (a_nchars & 0x1f);
-	}
-	else
-	{
-	    npad = 0;
-	}
+	npad = (32 - (a_nchars & 0x1f)) & 0xfU;
 	cw_assert(((a_nchars + npad) & 0x1f) == 0);
 
+	/* Tack on 8 bytes; all modern systems provide at least 8 byte
+	 * alignment. */
 	a_ps->achars
 	    = (cw_trc_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
 					   mema_arg_get(a_tr->mema),
 					   sizeof(cw_trc_t)
-					   * (((a_nchars + npad) / 2) + 8));
+					   * (((a_nchars + npad) >> 1)) + 8);
 
-	/* Make sure that chars is 16 byte-aligned. */
-	if ((((unsigned) a_ps->achars) & 0xfU) == 0)
-	{
-	    a_ps->chars = a_ps->achars;
-	}
-	else
-	{
-	    /* All modern systems guarantee at least 8 byte alignment, so assume
-	     * that offsetting by 8 bytes is correct. */
-	    cw_assert(&a_ps->achars[8]
-		      == &a_ps->achars[16 - (((unsigned) a_ps->achars)
-					     & 0xfU)]);
-	    a_ps->chars = &a_ps->achars[8];
-	}
+	/* Make sure that chars is 16 byte-aligned.  Assume that chars is at
+	 * least 8 byte-aligned. */
+	a_ps->chars = &a_ps->achars[((unsigned) a_ps->achars) & 0xfU];
 
 	/* Set all pad characters to {ACGT}.  This allows the pad characters to
 	 * be calculated along with the actual characters, without affecting the
@@ -2155,7 +2139,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
     /* Initialize SSE2 registers. */
     {
-	static const unsigned char low[] =
+	static const unsigned char low[] __attribute__ ((aligned (16))) =
 	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f"
 	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f";
 
@@ -2165,7 +2149,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 	    /* Fill xmm5 with masks for the least significant four bits of each
 	     * byte. */
-	    "movdqu %[low], %%xmm5;"
+	    "movdqa %[low], %%xmm5;"
 
 	    /* Fill xmm6 with masks for the most significant four bits of each
 	     * byte. */
@@ -2191,11 +2175,11 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     {
 	curlimit = nbytes;
     }
-    for (;;)
+    for (i = 0;;)
     {
 	/* Use SSE2 to evaluate as many of the characters as possible.  This
 	 * loop handles 32 characters per iteration. */
-	for (i = 0; i < curlimit; i += 16)
+	for (; i < curlimit; i += 16)
 	{
 	    asm volatile (
 		/* Read character data, and'ing and or'ing them together.
@@ -2271,38 +2255,20 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	    uint32_t pns;
 
 	    asm volatile (
+		/* Sum the upper 8 bytes and lower 8 bytes separately (that's
+		 * what psadbw does). */
 		"pxor %%xmm0, %%xmm0;"
+		"psadbw %%xmm0, %%xmm4;"
 
-		/* Bytes --> words. */
+		/* Combine the results of psadbw. */
 		"movdqa %%xmm4, %%xmm3;"
-		"punpcklbw %%xmm0, %%xmm3;"
-		"punpckhbw %%xmm0, %%xmm4;"
-		"paddw %%xmm3, %%xmm4;"
-
-		/* Words --> dwords. */
-		"movdqa %%xmm4, %%xmm3;"
-		"punpcklwd %%xmm0, %%xmm3;"
-		"punpckhwd %%xmm0, %%xmm4;"
-		"paddd %%xmm3, %%xmm4;"
-
-		/* Dwords --> qwords. */
-		"movdqa %%xmm4, %%xmm3;"
-		"punpckldq %%xmm0, %%xmm3;"
-		"punpckhdq %%xmm0, %%xmm4;"
+		"punpckhqdq %%xmm0, %%xmm4;"
 		"paddq %%xmm3, %%xmm4;"
 
-		/* Qwords --> dqwords. */
-		"movdqa %%xmm4, %%xmm3;"
-		"punpcklqdq %%xmm0, %%xmm3;"
-		"punpckhqdq %%xmm0, %%xmm4;"
-		"paddq %%xmm3, %%xmm4;" /* Good enough for the possible range. */
-
-		/* Copy the result to pns. */
+		/* Store the result. */
 		"movd %%xmm4, %[pns];"
-
-		/* Reset the cumulator. */
 		"pxor %%xmm4, %%xmm4;"
-		: [pns] "=m" (pns)
+		: [pns] "=r" (pns)
 		:
 		: "memory"
 		);
@@ -2489,23 +2455,24 @@ tr_p_mp_cache_invalidate(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
 
 #ifdef CW_CPU_IA32
 CW_P_INLINE uint32_t
-tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
+tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
+		    uint32_t a_maxscore)
 {
-    uint32_t retval, curlimit, i, nbytes;
-    cw_trc_t *chars_p, *chars_a, *chars_b;
+    uint32_t retval, i, nbytes, pns;
+    cw_trc_t *chars_a, *chars_b;
 
-    /* Calculate node score. */
-    retval = 0;
+    /* Calculate sum of subtree scores. */
+    retval
+	= a_a->subtrees_score + a_a->node_score
+	+ a_b->subtrees_score + a_b->node_score;
 
     /* Calculate partial Fitch parsimony scores for each character. */
     chars_a = a_a->chars;
     chars_b = a_b->chars;
 
-    nbytes = (a_a->nchars >> 1);
-
     /* Initialize SSE2 registers. */
     {
-	static const unsigned char low[] =
+	static const unsigned char low[] __attribute__ ((aligned (16))) =
 	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f"
 	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f";
 
@@ -2515,7 +2482,7 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 
 	    /* Fill xmm5 with masks for the least significant four bits of each
 	     * byte. */
-	    "movdqu %[low], %%xmm5;"
+	    "movdqa %[low], %%xmm5;"
 
 	    /* Fill xmm6 with masks for the most significant four bits of each
 	     * byte. */
@@ -2532,125 +2499,78 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	    );
     }
 
-    /* The inner loop can be run a maximum of 127 times before the partial node
-     * score results (stored in %xmm4) are added to ns (otherwise, overflow
-     * could occur).  Therefore, the outer loop calculates the upper bound for
-     * the inner loop, thereby avoiding extra computation in the inner loop. */
-    curlimit = 127 * 16;
-    if (curlimit > nbytes)
+    /* Use SSE2 to evaluate as many of the characters as possible.  This loop
+     * handles 32 characters per iteration. */
+    for (i = 0, nbytes = (a_a->nchars >> 1); i < nbytes; i += 16)
     {
-	curlimit = nbytes;
-    }
-    for (;;)
-    {
-	/* Use SSE2 to evaluate as many of the characters as possible.  This
-	 * loop handles 32 characters per iteration. */
-	for (i = 0; i < curlimit; i += 16)
+	asm volatile (
+	    /* Read character data, and'ing and or'ing them together.
+	     *
+	     * a = *chars_a;
+	     * b = *chars_b;
+	     * p = a & b;
+	     */
+	    "movdqa %[a], %%xmm1;"
+	    "pand %[b], %%xmm1;" /* xmm1 contains p. */
+
+	    /**************************************************************/
+	    /* Most significant bits. */
+
+	    /* Create bitmasks according to whether the character state sets are
+	     * empty.
+	     *
+	     * c = p ? 0x00 : 0xff;
+	     * s = c ? 0 : 1;
+	     * retval += s;
+	     */
+	    "pxor %%xmm2, %%xmm2;"
+	    "movdqa %%xmm1, %%xmm3;"
+	    "pand %%xmm6, %%xmm3;" /* Mask out unwanted bits of p. */
+	    "pcmpeqb %%xmm3, %%xmm2;" /* xmm2 contains c. */
+	    "pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
+	    "paddusb %%xmm2, %%xmm4;" /* Update retval (add s). */
+
+	    /**************************************************************/
+	    /* Least significant bits. */
+
+	    /* Create bitmasks according to whether the character state sets are
+	     * empty.
+	     *
+	     * c = p ? 0x00 : 0xff;
+	     * s = c ? 0 : 1;
+	     * retval += s;
+	     */
+	    "pxor %%xmm2, %%xmm2;"
+	    "pand %%xmm5, %%xmm1;" /* Mask out unwanted bits of p. */
+	    "pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
+	    "pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
+	    "paddusb %%xmm2, %%xmm4;" /* Update retval (add s). */
+
+	    /* Sum the upper 8 bytes and lower 8 bytes separately (there's no
+	     * choice in the matter -- that's what psadbw does). */
+	    "pxor %%xmm0, %%xmm0;"
+	    "psadbw %%xmm0, %%xmm4;"
+
+	    /* Combine the results of psadbw. */
+	    "movdqa %%xmm4, %%xmm3;"
+	    "punpckhqdq %%xmm0, %%xmm4;"
+	    "paddq %%xmm3, %%xmm4;"
+
+	    /* Store the result. */
+	    "movd %%xmm4, %[pns];"
+	    "pxor %%xmm4, %%xmm4;"
+
+	    : [pns] "=r" (pns)
+	    : [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
+	    : "memory"
+	    );
+
+	/* Update retval and terminate if the max score was exceeded. */
+	retval += pns;
+	if (retval > a_maxscore)
 	{
-	    asm volatile (
-		/* Read character data, and'ing and or'ing them together.
-		 *
-		 * a = *chars_a;
-		 * b = *chars_b;
-		 * p = a & b;
-		 */
-		"movdqa %[a], %%xmm1;"
-		"pand %[b], %%xmm1;" /* xmm1 contains p. */
-
-		/**************************************************************/
-		/* Most significant bits. */
-
-		/* Create bitmasks according to whether the character state sets
-		 * are empty.
-		 *
-		 * c = p ? 0x00 : 0xff;
-		 * s = c ? 0 : 1;
-		 * retval += s;
-		 */
-		"pxor %%xmm2, %%xmm2;"
-		"movdqa %%xmm1, %%xmm3;"
-		"pand %%xmm6, %%xmm3;" /* Mask out unwanted bits of p. */
-		"pcmpeqb %%xmm3, %%xmm2;" /* xmm2 contains c. */
-		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
-		"paddusb %%xmm2, %%xmm4;" /* Update retval (add s). */
-
-		/**************************************************************/
-		/* Least significant bits. */
-
-		/* Create bitmasks according to whether the character state sets
-		 * are empty.
-		 *
-		 * c = p ? 0x00 : 0xff;
-		 * s = c ? 0 : 1;
-		 * retval += s;
-		 */
-		"pxor %%xmm2, %%xmm2;"
-		"pand %%xmm5, %%xmm1;" /* Mask out unwanted bits of p. */
-		"pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
-		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
-		"paddusb %%xmm2, %%xmm4;" /* Update retval (add s). */
-		: [p] "=m" (chars_p[i])
-		: [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
-		: "memory"
-		);
-	}
-
-	/* Update retval and reset pns. */
-	{
-	    uint32_t pns;
-
-	    asm volatile (
-		"pxor %%xmm0, %%xmm0;"
-
-		/* Bytes --> words. */
-		"movdqa %%xmm4, %%xmm3;"
-		"punpcklbw %%xmm0, %%xmm3;"
-		"punpckhbw %%xmm0, %%xmm4;"
-		"paddw %%xmm3, %%xmm4;"
-
-		/* Words --> dwords. */
-		"movdqa %%xmm4, %%xmm3;"
-		"punpcklwd %%xmm0, %%xmm3;"
-		"punpckhwd %%xmm0, %%xmm4;"
-		"paddd %%xmm3, %%xmm4;"
-
-		/* Dwords --> qwords. */
-		"movdqa %%xmm4, %%xmm3;"
-		"punpckldq %%xmm0, %%xmm3;"
-		"punpckhdq %%xmm0, %%xmm4;"
-		"paddq %%xmm3, %%xmm4;"
-
-		/* Qwords --> dqwords. */
-		"movdqa %%xmm4, %%xmm3;"
-		"punpcklqdq %%xmm0, %%xmm3;"
-		"punpckhqdq %%xmm0, %%xmm4;"
-		"paddq %%xmm3, %%xmm4;" /* Good enough for the possible range. */
-
-		/* Copy the result to pns. */
-		"movd %%xmm4, %[pns];"
-
-		/* Reset the cumulator. */
-		"pxor %%xmm4, %%xmm4;"
-		: [pns] "=m" (pns)
-		:
-		: "memory"
-		);
-
-	    retval += pns;
-	}
-
-	/* Break out of the loop if the bound for the inner loop was the maximum
-	 * possible. */
-	if (curlimit == nbytes)
-	{
+	    retval = UINT_MAX;
 	    break;
-	}
-	/* Update the bound for the inner loop, taking care not to exceed the
-	 * maximum possible bound. */
-	curlimit += 127 * 16;
-	if (curlimit > nbytes)
-	{
-	    curlimit = nbytes;
 	}
     }
 
@@ -2659,13 +2579,18 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 #endif
 
 static uint32_t
-tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
+tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
+		 uint32_t a_maxscore)
 {
     uint32_t retval, i, nbytes, a, b;
     cw_trc_t *chars_a, *chars_b;
 
+    /* Calculate sum of subtree scores. */
+    retval
+	= a_a->subtrees_score + a_a->node_score
+	+ a_b->subtrees_score + a_b->node_score;
+
     /* Calculate partial Fitch parsimony scores for each character. */
-    retval = 0;
     chars_a = a_a->chars;
     chars_b = a_b->chars;
     for (i = 0, nbytes = (a_a->nchars >> 1); i < nbytes; i++)
@@ -2676,11 +2601,21 @@ tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	if (((a & b) & 0xf0U) == 0)
 	{
 	    retval++;
+	    if (retval > a_maxscore)
+	    {
+		retval = UINT_MAX;
+		break;
+	    }
 	}
 
 	if (((a & b) & 0x0fU) == 0)
 	{
 	    retval++;
+	    if (retval > a_maxscore)
+	    {
+		retval = UINT_MAX;
+		break;
+	    }
 	}
     }
 
@@ -2690,24 +2625,20 @@ tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 /* Unconditionally calculate the final score of a tree, using a_a and a_b as
  * children. */
 CW_P_INLINE uint32_t
-tr_p_mp_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
+tr_p_mp_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
+	       uint32_t a_maxscore)
 {
     uint32_t retval;
-
-    /* Calculate sum of subtree scores. */
-    retval
-	= a_a->subtrees_score + a_a->node_score
-	+ a_b->subtrees_score + a_b->node_score;
 
 #ifdef CW_CPU_IA32
     if (modcrux_ia32_use_sse2)
     {
-	retval += tr_p_mp_ia32_fscore(a_tr, a_a, a_b);
+	retval = tr_p_mp_ia32_fscore(a_tr, a_a, a_b, a_maxscore);
     }
     else
 #endif
     {
-	retval += tr_p_mp_c_fscore(a_tr, a_a, a_b);
+	retval = tr_p_mp_c_fscore(a_tr, a_a, a_b, a_maxscore);
     }
 
     return retval;
@@ -2919,14 +2850,17 @@ tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 /* Calculate the partial score for each edge in a_edges.  a_edges[0] must either
  * be CW_TR_EDGE_NONE, or the edge connected to the node that is in turn
  * connected to the bisection edge. */
-CW_P_INLINE void
+CW_P_INLINE bool
 tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
-			    uint32_t a_nedges, cw_tr_edge_t a_bisect)
+			    uint32_t a_nedges, cw_tr_edge_t a_bisect,
+			    uint32_t a_maxscore)
 {
+    bool retval;
+
     if (a_edges[0] != CW_TR_EDGE_NONE)
     {
 	cw_tr_ring_t ring_a, ring_b;
-	cw_tr_ps_t *ps_a, *ps_b;
+	cw_tr_ps_t *ps, *ps_a, *ps_b;
 	uint32_t i;
 
 	ring_a = tr_p_edge_ring_get(a_tr, a_edges[0], 0);
@@ -2945,7 +2879,15 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 	 * edge, which means that the node does not have a useful ps.  The first
 	 * edge is the only one for which this is an issue, so it is handled
 	 * here. */
-	tr_p_mp_pscore(a_tr, a_tr->tres[a_edges[0]].ps, ps_a, ps_b);
+	ps = a_tr->tres[a_edges[0]].ps;
+	tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
+	if (ps->subtrees_score + ps->node_score > a_maxscore)
+	{
+	    /* Don't bother calculating other views or edge states, since this
+	     * subtree exceeds the maximum score that's of interest. */
+	    retval = true;
+	    goto RETURN;
+	}
 
 	/* Perform the pre-order traversal, calculating the remaining views that
 	 * were not calculated by the above post-order traversal.  Take care to
@@ -2986,16 +2928,22 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 #endif
 	}
     }
+
+    retval = false;
+    RETURN:
+    return retval;
 }
 
 /* Hold a tree.  If a_max_held is exceeded, the tree is not held.  This
  * introduces a bias in which trees are held.  There exist algorithms for making
  * this an unbiased process, but there is no need for that functionality at the
  * moment. */
-CW_P_INLINE void
+CW_P_INLINE bool
 tr_p_hold(cw_tr_t *a_tr, uint32_t a_max_hold, uint32_t a_neighbor,
 	  uint32_t a_score)
 {
+    bool retval;
+
     if (a_tr->nheld < a_max_hold)
     {
 	cw_trh_t *trh;
@@ -3030,7 +2978,15 @@ tr_p_hold(cw_tr_t *a_tr, uint32_t a_max_hold, uint32_t a_neighbor,
 	trh->score = a_score;
 
 	a_tr->nheld++;
+
+	retval = false;
     }
+    else
+    {
+	retval = true;
+    }
+
+    return retval;
 }
 
 /* Iteratively (logically) reconnect every legitimate pairing of edges between
@@ -3043,8 +2999,8 @@ CW_P_INLINE void
 tr_p_tbr_neighbors_mp_inner(cw_tr_t *a_tr, cw_tr_ps_t *a_ps,
 			    cw_tr_node_t a_node,
 			    bool a_reversible, uint32_t a_max_hold,
-			    uint32_t a_maxscore, cw_tr_hold_how_t a_how,
-			    uint32_t *ar_neighbor)
+			    cw_tr_hold_how_t a_how,
+			    uint32_t *ar_neighbor, uint32_t *ar_curmax)
 {
     uint32_t i, score;
     cw_tr_edge_t edge;
@@ -3065,37 +3021,42 @@ tr_p_tbr_neighbors_mp_inner(cw_tr_t *a_tr, cw_tr_ps_t *a_ps,
 	}
 
 	/* Calculate the final parsimony score for this reconnection. */
-	score = tr_p_mp_fscore(a_tr, a_ps, ps);
+	score = tr_p_mp_fscore(a_tr, a_ps, ps, *ar_curmax);
 
 	/* Hold the tree, if appropriate. */
 	switch (a_how)
 	{
 	    case TR_HOLD_BEST:
 	    {
-		if (a_tr->nheld == 0 || score == a_tr->held[0].score)
+		if (score < *ar_curmax)
 		{
-		    /* No trees held, or this tree is as good as those
-		     * currently held. */
-		    tr_p_hold(a_tr, a_max_hold, *ar_neighbor, score);
-		}
-		else if (score < a_tr->held[0].score)
-		{
-		    /* This tree is better than the tree(s) currently
-		     * held.  Clear the held trees, then hold this
-		     * one. */
 		    a_tr->nheld = 0;
-		    tr_p_hold(a_tr, a_max_hold, *ar_neighbor, score);
+		}
+
+		if (score <= *ar_curmax || a_tr->nheld == 0)
+		{
+		    /* No trees held, or this tree is as good as those currently
+		     * held. */
+		    if (tr_p_hold(a_tr, a_max_hold, *ar_neighbor, score))
+		    {
+			/* No more room for trees. */
+			*ar_curmax = score - 1;
+		    }
+		    else
+		    {
+			*ar_curmax = score;
+		    }
 		}
 		break;
 	    }
 	    case TR_HOLD_BETTER:
 	    {
-		if (score < a_maxscore)
+		if (score <= *ar_curmax)
 		{
-		    /* No trees held, or this (neighboring) tree is
-		     * better than the tree whose neighbors are being
-		     * evaluated. */
+		    /* No trees held, or this (neighboring) tree is better than
+		     * the tree whose neighbors are being evaluated. */
 		    tr_p_hold(a_tr, a_max_hold, *ar_neighbor, score);
+		    *ar_curmax = score - 1;
 		}
 		break;
 	    }
@@ -3119,13 +3080,15 @@ CW_P_INLINE void
 tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 		      uint32_t a_maxscore, cw_tr_hold_how_t a_how)
 {
-    uint32_t neighbor, i, j;
+    uint32_t neighbor, i, j, curmax;
     cw_tr_edge_t bisect;
     cw_tr_node_t node_a, node_b;
     cw_tr_ring_t ring_a, ring_b;
     cw_tr_ps_t *ps, *ps_a, *ps_b;
 
     cw_dassert(tr_p_validate(a_tr));
+
+    curmax = a_maxscore;
 
     /* Set up tree holding data structures. */
     a_tr->nheld = 0;
@@ -3142,8 +3105,14 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 
 	/* Calculate the partial score for each edge in the second edge list.
 	 * The partial scores for the first list are calculated on the fly. */
-	tr_p_bisection_edge_list_mp(a_tr, &a_tr->bedges[a_tr->nbedges_a],
-				    a_tr->nbedges_b, bisect);
+	if (tr_p_bisection_edge_list_mp(a_tr, &a_tr->bedges[a_tr->nbedges_a],
+					a_tr->nbedges_b, bisect, curmax))
+	{
+	    /* The subtree exceeds the max score, so don't bother trying any of
+	     * the trees that would result from reconnecting to it. */
+	    neighbor += (a_tr->trt[i + 1].offset - a_tr->trt[i].offset);
+	    continue;
+	}
 
 	/* Iteratively calculate the partial score for each edge in the first
 	 * edge list.  At each iteration, immediately use the edge to calculate
@@ -3173,9 +3142,16 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 	     * useful ps.  The first edge is the only one for which this is an
 	     * issue, so it is handled here. */
 	    tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
+	    if (ps->subtrees_score + ps->node_score > curmax)
+	    {
+		/* The subtree exceeds the max score, so don't bother trying any
+		 * of the trees that would result from reconnecting to it. */
+		neighbor += (a_tr->trt[i + 1].offset - a_tr->trt[i].offset);
+		continue;
+	    }
 	    tr_p_tbr_neighbors_mp_inner(a_tr, ps, node_b, true,
-					a_max_hold, a_maxscore, a_how,
-					&neighbor);
+					a_max_hold, a_how,
+					&neighbor, &curmax);
 
 	    /* Perform the pre-order traversal, calculating the remaining views
 	     * that were not calculated by the above post-order traversal.  Take
@@ -3194,16 +3170,20 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 							     a_tr->bedges[j],
 							     1)].ps);
 		tr_p_tbr_neighbors_mp_inner(a_tr, ps, node_b, false,
-					    a_max_hold, a_maxscore, a_how,
-					    &neighbor);
+					    a_max_hold, a_how,
+					    &neighbor, &curmax);
 	    }
 	}
 	else
 	{
 	    /* There is only one node in this subtree. */
 	    tr_p_tbr_neighbors_mp_inner(a_tr,
-		      a_tr->trrs[qli_first(&a_tr->trns[node_a].rings)].ps,
-		      node_b, true, a_max_hold, a_maxscore, a_how, &neighbor);
+					a_tr->trrs[
+					    qli_first(&a_tr->trns[node_a].rings)
+					].ps,
+					node_b, true,
+					a_max_hold, a_how,
+					&neighbor, &curmax);
 	}
     }
 }
@@ -3868,7 +3848,7 @@ tr_mp_score(cw_tr_t *a_tr)
 				     CW_TR_EDGE_NONE);
 
 	/* Calculate the final score. */
-	retval = tr_p_mp_fscore(a_tr, ps_a, ps_b);
+	retval = tr_p_mp_fscore(a_tr, ps_a, ps_b, UINT_MAX);
     }
     else
     {
@@ -3891,10 +3871,13 @@ tr_tbr_best_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold)
 void
 tr_tbr_better_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold)
 {
+    uint32_t score;
+
     cw_dassert(tr_p_validate(a_tr));
 
+    score = tr_mp_score(a_tr);
     tr_p_tbr_neighbors_mp(a_tr, a_max_hold,
-			  tr_mp_score(a_tr),
+			  score > 0 ? score - 1 : 0,
 			  TR_HOLD_BETTER);
 }
 
