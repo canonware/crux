@@ -157,46 +157,6 @@ CxpTreeNjRScaledUpdate(float *aRScaled, float *aR, long aNleft)
 }
 
 CxmpInline void
-CxpTreeNjMinFind(float *aD, float *aRScaled, long aNleft,
-		 long *rXMin, long *rYMin)
-{
-    float *dElm, transMin, transCur;
-    long x, y, xMin, yMin;
-
-    /* Calculate the transformed distance for each pairwise distance.  Keep
-     * track of the minimum transformed distance, so that the corresponding
-     * nodes can be joined.  Ties are broken arbitrarily (the first minimum
-     * found is used).
-     *
-     * This is by far the most time-consuming portion of neighbor joining.
-     *
-     * Use pointer arithmetic (dElm), rather than d[i].  This appears to reduce
-     * register pressure on x86, and has a significant positive performance
-     * impact. */
-#ifdef CxmCcSilence
-    xMin = yMin = 0;
-#endif
-    for (x = 0, dElm = aD, transMin = HUGE_VAL; x < aNleft; x++)
-    {
-	for (y = x + 1; y < aNleft; y++)
-	{
-	    transCur = *dElm - (aRScaled[x] + aRScaled[y]);
-	    dElm++;
-
-	    if (transCur < transMin)
-	    {
-		xMin = x;
-		yMin = y;
-		transMin = transCur;
-	    }
-	}
-    }
-
-    *rXMin = xMin;
-    *rYMin = yMin;
-}
-
-CxmpInline void
 CxpTreeNjNodesJoin(float *aD, float *aRScaled, CxtNodeObject **aNodes,
 		   CxtTreeObject *aTree, long aNleft, long aXMin, long aYMin,
 		   CxtNodeObject **rNode, float *rDistX, float *rDistY)
@@ -397,159 +357,117 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 {
     bool retval;
     long x, iA, iB;
-    float dist, distA, distB;
+    float distAB, dist;
 
     CxmAssert(aA < aB);
 
     /* Compare the transformed distances from {aA, aB} to every other node, and
      * make sure that the two are always closer. */
-    dist = aD[CxpTreeNjXy2i(aNleft, aA, aB)] - (aRScaled[aA] + aRScaled[aB]);
+    distAB = aD[CxpTreeNjXy2i(aNleft, aA, aB)] - (aRScaled[aA] + aRScaled[aB]);
+
+    if (aB < aNleft - 1)
+    {
+	for (x = aB + 1,
+		 iB = CxpTreeNjXy2i(aNleft, aB, aB + 1);
+	     x < aNleft;
+	     x++)
+	{
+	    /* Make sure aA and aB are closer together than any nodes are to
+	     * either aA or aB. */
+
+	    /* Row aA was already done in CxpTreeNjCluster(). */
+
+	    dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	    if (dist < distAB)
+	    {
+		retval = false;
+		goto RETURN;
+	    }
+	    iB++;
+	}
+    }
+
     for (x = 0,
 	     iA = aA - 1,
 	     iB = aB - 1;
 	 x < aNleft;
 	 x++)
     {
+	/* Make sure aA and aB are closer together than any nodes are to either
+	 * aA or aB. */
 	if (x < aA)
 	{
-	    distA = aD[iA];
+	    dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
+	    if (dist < distAB)
+	    {
+		retval = false;
+		goto RETURN;
+	    }
 	    iA += aNleft - 2 - x;
 
-	    distB = aD[iB];
+	    dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	    if (dist < distAB)
+	    {
+		retval = false;
+		goto RETURN;
+	    }
 	    iB += aNleft - 2 - x;
 	}
 	else if (x > aA)
 	{
 	    iA++;
-	    distA = aD[iA];
+	    dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
+	    if (dist < distAB)
+	    {
+		retval = false;
+		goto RETURN;
+	    }
 
 	    if (x < aB)
 	    {
-		distB = aD[iB];
+		dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+		if (dist < distAB)
+		{
+		    retval = false;
+		    goto RETURN;
+		}
 		iB += aNleft - 2 - x;
-	    }
-	    else if (x > aB)
-	    {
-		iB++;
-		distB = aD[iB];
 	    }
 	    else
 	    {
-		continue;
+		break;
 	    }
 	}
 	else // (x == aA)
 	{
 	    iB += aNleft - 2 - x;
-	    continue;
-	}
-
-	/* Make sure aA and aB are closer together than any nodes are to either
-	 * aA or aB. */
-	distA -= (aRScaled[x] + aRScaled[aA]);
-	distB -= (aRScaled[x] + aRScaled[aB]);
-
-	if (distA < dist || distB < dist)
-	{
-	    retval = false;
-	    goto RETURN;
 	}
     }
 
     retval = true;
-#ifdef CxmTreeNjVerbose
-    fprintf(stderr, "Cluster rows %ld and %ld\n", aA, aB);
+#if (0)
+    // XXX Remove.
+    {
+	static bool inited = false;
+
+	if (inited == false)
+	{
+	    time_t t;
+	    time(&t);
+	    srand(t);
+	    inited = true;
+	}
+	retval = rand() & 1;
+    }
 #endif
     RETURN:
     return retval;
 }
 
-static long
+static void
 CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
-		 CxtNodeObject ***arNodes, long *arNleft,
-		 CxtTreeObject *aTree, long aPrevJoin)
+		 CxtNodeObject ***arNodes, long *arNleft, CxtTreeObject *aTree)
 {
-    long retval = 0;
-    float *d = *arD;
-    float *r = *arR;
-    float *rScaled = *arRScaled;
-    CxtNodeObject *node;
-    CxtNodeObject **nodes = *arNodes;
-    long nleft = *arNleft;
-    long x, prevJoin, a, b;
-    float distX, distY;
-    bool stop;
-
-    /* Try to cluster with the most recently created node.  Continue doing
-     * this as long as possible (clustering succeeds, or we run out of
-     * nodes. */
-    prevJoin = aPrevJoin;
-    stop = false;
-    while (nleft > 2 && stop == false)
-    {
-	stop = true;
-	for (x = 0; x < nleft; x++)
-	{
-	    if (x < prevJoin)
-	    {
-		a = x;
-		b = prevJoin;
-	    }
-	    else if (x > prevJoin)
-	    {
-		a = prevJoin;
-		b = x;
-	    }
-	    else
-	    {
-		continue;
-	    }
-
-	    if (CxpTreeNjPairClusterOk(d, rScaled, nleft, a, b))
-	    {
-#ifdef CxmTreeNjDump
-		CxpTreeDump(d, r, rScaled, nodes, nleft);
-#endif
-		CxpTreeNjNodesJoin(d, rScaled, nodes, aTree,
-				   nleft, a, b, &node, &distX, &distY);
-		CxpTreeNjRSubtract(d, r, nleft, a, b);
-		CxpTreeNjCompact(d, r, rScaled, nodes, nleft, a, b,
-				 node, distX, distY);
-		CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
-		nleft--;
-		CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-		/* Take into account that the first row was moved to b, then the
-		 * matrix indexing was moved forward. */
-		if (a != 0)
-		{
-		    prevJoin = a - 1;
-		}
-		else
-		{
-		    prevJoin = b - 1;
-		}
-		stop = false;
-		retval++;
-		break;
-	    }
-	}
-    }
-
-    *arD = d;
-    *arR = r;
-    *arRScaled = rScaled;
-    *arNodes = nodes;
-    *arNleft = nleft;
-
-    return retval;
-}
-
-static long
-CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
-		     CxtNodeObject ***arNodes, long *arNleft,
-		     CxtTreeObject *aTree)
-{
-    long retval = 0;
     long x, y, min, prevJoin;
     float *dElm;
     float dist, minDist, distX, distY;
@@ -560,31 +478,40 @@ CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
     CxtNodeObject **nodes = *arNodes;
     long nleft = *arNleft;
 
-    for (x = 0; x < nleft - 2;) /* Avoid last row, y indexes one past x. */
+    for (x = 0; x < nleft - 1 && nleft > 2;) /* y indexes one past x. */
     {
 	/* Find the minimum distance from the node on row x to any other
 	 * node that comes after this one in the matrix.  This has the effect of
 	 * trying each node pairing only once. */
-	for (y = x + 1,
-		 dElm = &d[CxpTreeNjXy2i(nleft, x, y)],
-		 minDist = HUGE_VAL;
-	     y < nleft;
-	     y++)
+	if (x < nleft - 2)
 	{
-	    dist = *dElm;
-	    dElm++;
-
-	    if (dist < minDist)
+	    for (y = x + 1,
+		     dElm = &d[CxpTreeNjXy2i(nleft, x, y)],
+		     minDist = HUGE_VAL;
+		 y < nleft;
+		 y++)
 	    {
-		minDist = dist;
-		min = y;
+		dist = *dElm - (rScaled[x] + rScaled[y]);
+		dElm++;
+
+		if (dist < minDist)
+		{
+		    minDist = dist;
+		    min = y;
+		}
 	    }
+	    CxmAssert(minDist != HUGE_VAL);
 	}
-	CxmAssert(minDist != HUGE_VAL);
+	else
+	{
+	    min = x + 1;
+	}
 
 	if (CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min))
 	{
-	    retval++;
+#ifdef CxmTreeNjDump
+	    CxpTreeDump(d, r, rScaled, nodes, nleft);
+#endif
 	    CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, x, min,
 			       &node, &distX, &distY);
 	    CxpTreeNjRSubtract(d, r, nleft, x, min);
@@ -618,8 +545,6 @@ CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
     *arRScaled = rScaled;
     *arNodes = nodes;
     *arNleft = nleft;
-
-    return retval;
 }
 
 #ifdef CxmTreeNjDump
@@ -711,24 +636,17 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     float *rOrig, *r; /* Distance sums. */
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
-    long nleft, xMin, yMin, nclustered, totalClustered;
+    long nleft;
     CxtNodeObject *node;
-    float distX, distY;
+#ifdef CxmTreeNjVerbose
+    time_t t;
+    struct tm *tm;
+    time_t starttime;
+    time(&starttime);
+#endif
 
     CxmCheckPtr(aDistMatrix);
     CxmAssert(aNtaxa > 1);
-#ifdef CxmTreeNjVerbose
-    static bool initialized = false;
-    time_t starttime;
-    long ntaxa;
-
-    if (initialized == false)
-    {
-	ntaxa = aNtaxa;
-	time(&starttime);
-	initialized = true;
-    }
-#endif
 
     /* Initialize distance matrix, r, rScaled, and nodes. */
     if ((dOrig = d = CxpTreeNjMatrixInit(aDistMatrix, aNtaxa)) == NULL)
@@ -736,88 +654,32 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	retval = true;
 	goto RETURN;
     }
+
     rOrig = r = CxpTreeNjRInit(d, aNtaxa);
     rScaledOrig = rScaled = CxpTreeNjRScaledInit(aNtaxa);
     nodesOrig = nodes = CxpTreeNjNodesInit(aTree, aNtaxa);
 
     nleft = aNtaxa;
 
-    /* Do as many full passes through the matrix as are beneficial. */
+    /* Iteratively try all clusterings, until only two rows are left. */
     CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-    totalClustered = 0;
-#ifdef CxmTreeNjVerbose
-    fprintf(stderr, "INIT vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
-#endif
-    while ((nclustered = CxpTreeNjFullCluster(&d, &r, &rScaled, &nodes,
-					      &nleft, aTree)) > 0)
-    {
-	totalClustered += nclustered;
-#ifdef CxmTreeNjVerbose
-	fprintf(stderr, "INIT ------------------------------------------\n");
-#endif
-    }
-#ifdef CxmTreeNjVerbose
-    fprintf(stderr, "INIT ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-#endif
-
-    /* Iteratitively join two nodes in the matrix, until only two are left. */
     while (nleft > 2)
     {
-#ifdef CxmTreeNjVerbose
-	{
-	    time_t t;
-	    struct tm *tm;
-
-	    time(&t);
-	    tm = localtime(&t);
-	    if (nleft < ntaxa)
-	    {
-		fprintf(stderr,
-			"%d/%02d/%02d %02d:%02d:%02d [%ld]: %1.3f sec/join\n",
-			tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday + 1,
-			tm->tm_hour, tm->tm_min, tm->tm_sec, nleft,
-			((float) (t - starttime)) / ((float) (ntaxa - nleft)));
-	    }
-	}
-#endif
-	/* Standard neighbor joining. */
-#ifdef CxmTreeNjDump
-	CxpTreeDump(d, r, rScaled, nodes, nleft);
-#endif
-	CxpTreeNjMinFind(d, rScaled, nleft, &xMin, &yMin);
-	CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, xMin, yMin,
-			   &node, &distX, &distY);
-	CxpTreeNjRSubtract(d, r, nleft, xMin, yMin);
-	CxpTreeNjCompact(d, r, rScaled, nodes, nleft, xMin, yMin,
-			 node, distX, distY);
-	CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
-	nleft--;
-	CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-
-	/* Try to cluster nodes. */
-	nclustered = CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree,
-				      xMin);
-	if (nclustered > 0)
-	{
-	    totalClustered += nclustered;
-#ifdef CxmTreeNjVerbose
-	    fprintf(stderr, "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
-#endif
-	    totalClustered += CxpTreeNjFullCluster(&d, &r, &rScaled, &nodes,
-						   &nleft, aTree);
-#ifdef CxmTreeNjVerbose
-	    fprintf(stderr, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-#endif
-	}
+	CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree);
     }
-#ifdef CxmTreeNjVerbose
-    fprintf(stderr, "Clustered %ld times\n", totalClustered);
-#endif
 
     node = CxpTreeNjFinalJoin(d, nodes, aTree);
 
     /* Set the tree base. */
     CxTreeBaseSet(aTree, node);
+#ifdef CxmTreeNjVerbose
+    time(&t);
+    tm = localtime(&t);
+    fprintf(stderr, "%d/%02d/%02d %02d:%02d:%02d: %d second%s\n",
+	    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday + 1,
+	    tm->tm_hour, tm->tm_min, tm->tm_sec,
+	    (int)(t - starttime), (t - starttime) == 1 ? "" : "s");
+#endif
 
     retval = false;
     /* Clean up. */
