@@ -367,30 +367,7 @@ tr_p_node_dealloc(cw_tr_t *a_tr, cw_tr_node_t a_node)
 cw_tr_node_t
 tr_node_new(cw_tr_t *a_tr)
 {
-    cw_tr_node_t retval;
-    cw_trn_t *trn;
-    cw_uint32_t i;
-
-    cw_dassert(tr_p_validate(a_tr));
-
-    retval = tr_p_node_alloc(a_tr);
-    trn = &a_tr->trns[retval];
-
-    trn->aux = NULL;
-    trn->taxon_num = CW_TR_NODE_TAXON_NONE;
-
-    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
-    {
-	trn->neighbors[i] = CW_TR_NODE_NONE;
-    }
-
-    trn->ps = NULL;
-
-#ifdef CW_DBG
-    trn->magic = CW_TRN_MAGIC;
-#endif
-
-    return retval;
+    return tr_p_node_alloc(a_tr);
 }
 
 void
@@ -398,11 +375,6 @@ tr_node_delete(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
     cw_dassert(tr_p_validate(a_tr));
     cw_dassert(tr_p_node_validate(a_tr, a_node));
-
-    if (a_tr->trns[a_node].ps != NULL)
-    {
-	tr_p_ps_delete(a_tr, a_tr->trns[a_node].ps);
-    }
 
     tr_p_node_dealloc(a_tr, a_node);
 }
@@ -1559,13 +1531,17 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
     }
     tr_p_ps_prepare(a_tr, trn->ps, a_nchars);
 
-    /* If this is a leaf node, initialize the character state sets. */
+    /* If this is a leaf node, initialize the character state sets and
+     * scores. */
     if ((taxon_num = tr_node_taxon_num_get(a_tr, a_node))
 	!= CW_TR_NODE_TAXON_NONE)
     {
 	cw_uint8_t *chars;
 
 	cw_assert(taxon_num < a_ntaxa);
+
+	trn->ps->subtrees_score = 0;
+	trn->ps->node_score = 0;
 
 	chars = a_taxa[taxon_num];
 	for (i = 0; i < a_nchars; i++)
@@ -1820,11 +1796,10 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 }
 
 static cw_uint32_t
-tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
-	      cw_tr_node_t a_node_b, cw_uint32_t a_maxscore)
+tr_p_mp_score(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b,
+	      cw_uint32_t a_maxscore)
 {
     cw_uint32_t retval;
-    cw_trn_t *trn;
     cw_bool_t maxed;
 
     maxed = FALSE;
@@ -1842,10 +1817,6 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
 	goto RETURN;
     }
 
-    /* Initialize the temporary node enough so that it can be used by
-     * tr_p_mp_pscore(). */
-    a_tr->trns[0].ps = a_ps;
-
     /* Clear the parent pointers of a_node_[ab], to make sure that the score is
      * actually calculated.  This is necessary since the "root" node is always
      * the temporary node.  One artifact of this is that repeating precisely the
@@ -1858,7 +1829,7 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
     tr_p_mp_pscore(a_tr, 0, a_node_a, a_node_b);
 
     /* Add up the final score. */
-    retval = trn->ps->subtrees_score + trn->ps->node_score;
+    retval = a_tr->trns[0].ps->subtrees_score + a_tr->trns[0].ps->node_score;
     RETURN:
     return retval;
 }
@@ -1913,6 +1884,9 @@ tr_delete(cw_tr_t *a_tr)
     dealloc = mema_dealloc_get(a_tr->mema);
     arg = mema_arg_get(a_tr->mema);
 
+    /* Clean up the temporary node. */
+    tr_p_node_dealloc(a_tr, 0);
+
     /* This assumes that all nodes are deallocated before tr_delete() is
      * called. */
     cw_opaque_dealloc(dealloc, arg, a_tr->trns, sizeof(cw_trn_t) * a_tr->ntrns);
@@ -1925,6 +1899,13 @@ tr_delete(cw_tr_t *a_tr)
 
     if (a_tr->tres != NULL)
     {
+	cw_uint32_t i;
+
+	for (i = 0; i < a_tr->nedges; i++)
+	{
+	    tr_p_ps_delete(a_tr, a_tr->tres[i].ps);
+	}
+
 	cw_opaque_dealloc(dealloc, arg, a_tr->tres,
 			  sizeof(cw_tre_t) * a_tr->nedges);
     }
@@ -2276,12 +2257,21 @@ tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
 
     tr_p_update(a_tr);
 
+    /* Prepare the tree. */
     tr_p_mp_prepare_recurse(a_tr, a_tr->base, CW_TR_NODE_NONE, a_taxa, a_ntaxa,
+			    a_nchars);
+
+    /* Prepare the temporary node. */
+    tr_p_mp_prepare_recurse(a_tr, 0, CW_TR_NODE_NONE, a_taxa, a_ntaxa,
 			    a_nchars);
 
     /* Initialize ps's for tre's. */
     for (i = 0; i < a_tr->nedges; i++)
     {
+	if (a_tr->tres[i].ps == NULL)
+	{
+	    a_tr->tres[i].ps = tr_p_ps_new(a_tr);
+	}
 	tr_p_ps_prepare(a_tr, a_tr->tres[i].ps, a_nchars);
     }
 }
@@ -2292,7 +2282,6 @@ tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore)
     cw_dassert(tr_p_validate(a_tr));
     cw_assert(a_tr->modified == FALSE);
 
-    return tr_p_mp_score(a_tr, a_tr->tres[0].ps,
-			 a_tr->trns[a_tr->base].neighbors[0], a_tr->base,
+    return tr_p_mp_score(a_tr, a_tr->trns[a_tr->base].neighbors[0], a_tr->base,
 			 a_maxscore);
 }
