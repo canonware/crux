@@ -287,11 +287,39 @@ tr_p_ring_other_get(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 static bool
 tr_p_validate(cw_tr_t *a_tr);
 
+/* Validate a ring. */
+static bool
+tr_p_ring_validate(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
+{
+    cw_trr_t *trr;
+
+    cw_check_ptr(a_tr);
+    cw_assert(a_tr->magic == CW_TR_MAGIC);
+    cw_assert(a_ring < a_tr->ntres);
+
+    trr = &a_tr->trrs[a_ring];
+
+    cw_assert(trr->node < a_tr->ntrns);
+
+    return true;
+}
+
 /* Validate an edge. */
 static bool
 tr_p_edge_validate(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
-    cw_error("XXX Not implemented");
+    cw_tre_t *tre;
+
+    cw_check_ptr(a_tr);
+    cw_assert(a_tr->magic == CW_TR_MAGIC);
+    cw_assert(a_edge < a_tr->ntres);
+
+    tre = &a_tr->tres[a_edge];
+
+    cw_assert(tre->magic == CW_TRE_MAGIC);
+
+    tr_p_ring_validate(a_tr, (a_edge << 1));
+    tr_p_ring_validate(a_tr, (a_edge << 1) + 1);
 
     return true;
 }
@@ -608,99 +636,76 @@ tr_edge_aux_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, void *a_aux)
     a_tr->tres[a_edge].u.aux = a_aux;
 }
 
-#if (0) // XXX
-void
-tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b,
-	     cw_tr_edge_t a_edge)
-{
-    cw_trn_t *trn_a, *trn_b;
-
-    cw_dassert(tr_p_node_validate(a_tr, a_a));
-    cw_dassert(tr_p_node_validate(a_tr, a_b));
-    cw_assert(a_a != a_b);
-    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
-    cw_dassert(tr_edge_node_get(a_tr, a_edge, 0) == CW_TR_NODE_NONE);
-    cw_dassert(tr_edge_node_get(a_tr, a_edge, 1) == CW_TR_NODE_NONE);
-
-    trn_a = &a_tr->trns[a_a];
-    trn_b = &a_tr->trns[a_b];
-
-#ifdef CW_DBG
-    /* Make sure that the nodes aren't already connected. */
-    {
-	cw_tr_ring_t ring;
-
-	qli_foreach(ring, &trn_a->rings, a_tr->trrs, link)
-	{
-	    cw_assert(tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring))
-		      != a_b);
-	}
-	qli_foreach(ring, &trn_b->rings, a_tr->trrs, link)
-	{
-	    cw_assert(tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring))
-		      != a_a);
-	}
-    }
-#endif
-
-    /* Attach nodes to edge. */
-    qli_tail_insert(&trn_a->rings, a_tr->trrs,
-		    tr_p_edge_ring_get(a_tr, a_edge, 0), link);
-    qli_tail_insert(&trn_b->rings, a_tr->trrs,
-		    tr_p_edge_ring_get(a_tr, a_edge, 1), link);
-
-    a_tr->modified = true;
-
-    cw_dassert(tr_p_node_validate(a_tr, a_a));
-    cw_dassert(tr_p_node_validate(a_tr, a_b));
-}
-
-cw_tr_edge_t
-tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
-{
-    cw_trn_t *trn_a, *trn_b;
-    uint32_t i, j;
-
-    cw_dassert(tr_p_node_validate(a_tr, a_a));
-    cw_dassert(tr_p_node_validate(a_tr, a_b));
-
-    trn_a = &a_tr->trns[a_a];
-    trn_b = &a_tr->trns[a_b];
-
-    /* Find the slot in a_a that points to a_b. */
-    for (i = 0; trn_a->neighbors[i] != a_b; i++)
-    {
-	cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
-    }
-
-    /* Find the slot in a_b that points to a_a. */
-    for (j = 0; trn_b->neighbors[j] != a_a; j++)
-    {
-	cw_assert(j < CW_TR_NODE_MAX_NEIGHBORS);
-    }
-
-    /* Detach the two nodes. */
-    trn_a->neighbors[i] = CW_TR_NODE_NONE;
-    trn_b->neighbors[j] = CW_TR_NODE_NONE;
-
-    a_tr->modified = true;
-
-    cw_dassert(tr_p_node_validate(a_tr, a_a));
-    cw_dassert(tr_p_node_validate(a_tr, a_b));
-}
-#endif // XXX
-
 void
 tr_edge_attach(cw_tr_t *a_tr, cw_tr_edge_t a_edge, cw_tr_node_t a_node_a,
 	       cw_tr_node_t a_node_b)
 {
-    cw_error("XXX Not implemented");
+    cw_trn_t *trn_a, *trn_b;
+    cw_tr_ring_t ring;
+
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+    cw_dassert(tr_edge_node_get(a_tr, a_edge, 0) == CW_TR_NODE_NONE);
+    cw_dassert(tr_edge_node_get(a_tr, a_edge, 1) == CW_TR_NODE_NONE);
+    cw_dassert(tr_p_node_validate(a_tr, a_node_a));
+    cw_dassert(tr_p_node_validate(a_tr, a_node_b));
+    cw_assert(a_node_a != a_node_b);
+
+    trn_a = &a_tr->trns[a_node_a];
+    trn_b = &a_tr->trns[a_node_b];
+
+#ifdef CW_DBG
+    /* Make sure that the nodes aren't already connected. */
+    qli_foreach(ring, &trn_a->rings, a_tr->trrs, link)
+    {
+	cw_assert(tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring))
+		  != a_node_b);
+    }
+    qli_foreach(ring, &trn_b->rings, a_tr->trrs, link)
+    {
+	cw_assert(tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring))
+		  != a_node_a);
+    }
+#endif
+
+    /* First end. */
+    ring = tr_p_edge_ring_get(a_tr, a_edge, 0);
+    qli_tail_insert(&trn_a->rings, a_tr->trrs, ring, link);
+    a_tr->trrs[ring].node = a_node_a;
+
+    /* Second end. */
+    ring = tr_p_edge_ring_get(a_tr, a_edge, 1);
+    qli_tail_insert(&trn_b->rings, a_tr->trrs, ring, link);
+    a_tr->trrs[ring].node = a_node_b;
+
+    /* Mark tree as modified. */
+    a_tr->modified = true;
+
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+    cw_dassert(tr_p_node_validate(a_tr, a_node_a));
+    cw_dassert(tr_p_node_validate(a_tr, a_node_b));
 }
 
 void
 tr_edge_detach(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
-    cw_error("XXX Not implemented");
+    cw_tr_ring_t ring;
+
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+    cw_dassert(tr_edge_node_get(a_tr, a_edge, 0) != CW_TR_NODE_NONE);
+    cw_dassert(tr_edge_node_get(a_tr, a_edge, 1) != CW_TR_NODE_NONE);
+
+    ring = tr_p_edge_ring_get(a_tr, a_edge, 0);
+    qri_remove(a_tr->trrs, ring, link);
+    a_tr->trrs[ring].node = CW_TR_NODE_NONE;
+
+    ring = tr_p_edge_ring_get(a_tr, a_edge, 1);
+    qri_remove(a_tr->trrs, ring, link);
+    a_tr->trrs[ring].node = CW_TR_NODE_NONE;
+
+    /* Mark tree as modified. */
+    a_tr->modified = true;
+
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
 }
 
 /******************************************************************************/
