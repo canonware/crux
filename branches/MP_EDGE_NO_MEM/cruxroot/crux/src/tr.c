@@ -47,16 +47,9 @@ typedef char cw_trc_t;
 /* Partial parsimony score information. */
 struct cw_tr_ps_s
 {
-    /* Parent which most recently used this node's partial score when caching
-     * its results.  Both children must still point to the parent in order for
-     * the cached results to be valid. */
-    cw_tr_ps_t *parent;
-
-    /* Sum of the subtree scores, and this node's score, given particular
-     * children.  In order for this to be useful, both childrens' parent
-     * pointers must still point to this node. */
-    uint32_t subtrees_score;
-    uint32_t node_score;
+    /* Sum of the subtree scores and this node's score, given particular
+     * children. */
+    uint32_t score;
 
     /* chars points to an array of Fitch parsimony state sets.  Each element in
      * the array contains a bitmap representation of a subset of {ACGT} in the 4
@@ -381,7 +374,6 @@ tr_p_ps_new(cw_tr_t *a_tr)
 					    mema_arg_get(a_tr->mema),
 					    sizeof(cw_tr_ps_t));
 
-    retval->parent = NULL;
     retval->chars = NULL;
 
     return retval;
@@ -582,15 +574,13 @@ tr_p_edge_alloc(cw_tr_t *a_tr)
 CW_P_INLINE void
 tr_p_edge_dealloc(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
+#ifdef CW_DBG
     cw_tre_t *tre;
+#endif
     cw_trr_t *trr;
 
-    tre = &a_tr->tres[a_edge];
-    if (tre->ps != NULL)
-    {
-	tr_p_ps_delete(a_tr, tre->ps);
-    }
 #ifdef CW_DBG
+    tre = &a_tr->tres[a_edge];
     memset(tre, 0x5a, sizeof(cw_tre_t));
 #endif
 
@@ -1924,8 +1914,7 @@ tr_p_mp_ring_prepare(cw_tr_t *a_tr, cw_tr_ring_t a_ring, char *a_taxa[],
 	uint32_t i, j;
 	char *chars;
 
-	trr->ps->subtrees_score = 0;
-	trr->ps->node_score = 0;
+	trr->ps->score = 0;
 
 	chars = a_taxa[taxon_num];
 	for (i = j = 0; i < a_nchars; i++)
@@ -2049,7 +2038,6 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 			bool *a_chars_mask, uint32_t a_ninformative)
 {
     cw_tr_ring_t ring;
-    cw_tre_t *tre;
 
     /* Prepare a_ring. */
     tr_p_mp_ring_prepare(a_tr, a_ring, a_taxa, a_ntaxa, a_nchars,
@@ -2058,14 +2046,6 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
     /* Recurse into subtrees. */
     qri_others_foreach(ring, a_tr->trrs, a_ring, link)
     {
-	/* Prepare edge before recursing. */
-	tre = &a_tr->tres[tr_p_ring_edge_get(a_tr, ring)];
-	if (tre->ps == NULL)
-	{
-	    tre->ps = tr_p_ps_new(a_tr);
-	}
-	tr_p_ps_prepare(a_tr, tre->ps, a_ninformative);
-
 	/* Prepare ring. */
 	tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars,
 			     a_chars_mask, a_ninformative);
@@ -2095,7 +2075,6 @@ static void
 tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 {
     cw_tr_ring_t ring;
-    cw_tre_t *tre;
 
     /* Clean up a_ring. */
     tr_p_mp_ring_finish(a_tr, a_ring);
@@ -2103,14 +2082,6 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
     /* Recurse into subtrees. */
     qri_others_foreach(ring, a_tr->trrs, a_ring, link)
     {
-	/* Clean up edge before recursing. */
-	tre = &a_tr->tres[tr_p_ring_edge_get(a_tr, ring)];
-	if (tre->ps != NULL)
-	{
-	    tr_p_ps_delete(a_tr, tre->ps);
-	    tre->ps = NULL;
-	}
-
 	/* Clean up ring. */
 	tr_p_mp_ring_finish(a_tr, ring);
 
@@ -2291,7 +2262,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	}
     }
 
-    a_p->node_score = ns;
+    a_p->score += ns;
 }
 #endif
 
@@ -2337,7 +2308,7 @@ tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	chars_p[i] = r;
     }
 
-    a_p->node_score = ns;
+    a_p->score += ns;
 }
 
 /* Unconditionally calculate the partial score for a_p, using a_a and a_b as
@@ -2345,14 +2316,8 @@ tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 CW_P_INLINE void
 tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
-    /* Reset this node's parent pointer, to keep the parent from using an
-     * invalid cached value. */
-    a_p->parent = NULL;
-
     /* Calculate sum of subtree scores. */
-    a_p->subtrees_score
-	= a_a->subtrees_score + a_a->node_score
-	+ a_b->subtrees_score + a_b->node_score;
+    a_p->score = a_a->score + a_b->score;
 
 #ifdef CW_CPU_IA32
     if (modcrux_ia32_use_sse2)
@@ -2366,93 +2331,6 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
     }
 }
 
-/* The sole purpose of this function is to assure that the contents of
- * tr_p_mp_pscore() are not inlined in tr_p_mp_cache_pscore().  Most of the
- * time, the cache should be usable, so the actual scoring code doesn't usually
- * get called. */
-static void
-tr_p_no_inline_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
-			cw_tr_ps_t *a_b)
-{
-    tr_p_mp_pscore(a_tr, a_p, a_a, a_b);
-}
-
-/* Calculate the partial score for a_p, using a_a and a_b as children.  However,
- * do some extra bookkeeping in order to be able to cache the results, and later
- * recognize that precisely the same calculation was cached. */
-CW_P_INLINE void
-tr_p_mp_cache_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
-		     cw_tr_ps_t *a_b)
-{
-//#define CW_TR_MP_CACHE_PSCORE_VALIDATE
-#ifdef CW_TR_MP_CACHE_PSCORE_VALIDATE
-    bool cached;
-    uint32_t cached_node_score;
-#endif
-
-    cw_check_ptr(a_p);
-    cw_check_ptr(a_a);
-    cw_check_ptr(a_b);
-
-    /* Only calculate the parent's node score if the cached value is invalid. */
-    if (a_a->parent != a_p || a_b->parent != a_p)
-#ifdef CW_TR_MP_CACHE_PSCORE_VALIDATE
-    {
-	cached = false;
-    }
-    else
-    {
-	cached = true;
-	cached_node_score = a_p->node_score;
-
-	if (a_p->subtrees_score
-	    != (a_a->subtrees_score + a_a->node_score
-		+ a_b->subtrees_score + a_b->node_score))
-	{
-	    fprintf(stderr,
-		    "%s:%d:%s(): subtrees_score %u (should be %u)\n",
-		    __FILE__, __LINE__, __FUNCTION__,
-		    a_p->subtrees_score,
-		    a_a->subtrees_score + a_a->node_score
-		    + a_b->subtrees_score + a_b->node_score);
-	    abort();
-	}
-    }
-#endif
-    {
-	/* Set parent pointers, so that cached values may be used in future
-	 * runs. */
-	a_a->parent = a_p;
-	a_b->parent = a_p;
-
-	/* Calculate the partial score. */
-	tr_p_no_inline_mp_pscore(a_tr, a_p, a_a, a_b);
-    }
-
-#ifdef CW_TR_MP_CACHE_PSCORE_VALIDATE
-    if (cached)
-    {
-	if (cached_node_score != a_p->node_score)
-	{
-	    fprintf(stderr, "%s:%d:%s(): node_score %u (should be %u)\n",
-		    __FILE__, __LINE__, __FUNCTION__,
-		    cached_node_score, a_p->node_score);
-	    abort();
-	}
-    }
-#endif
-}
-
-CW_P_INLINE void
-tr_p_mp_cache_invalidate(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
-{
-    cw_check_ptr(a_ps);
-
-    /* Reset this node's parent pointer, to keep the old parent from using an
-     * invalid cached value. */
-    a_ps->parent = NULL;
-}
-
 #ifdef CW_CPU_IA32
 CW_P_INLINE uint32_t
 tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
@@ -2462,9 +2340,7 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
     cw_trc_t *chars_a, *chars_b;
 
     /* Calculate sum of subtree scores. */
-    retval
-	= a_a->subtrees_score + a_a->node_score
-	+ a_b->subtrees_score + a_b->node_score;
+    retval = a_a->score + a_b->score;
 
     /* Calculate partial Fitch parsimony scores for each character. */
     chars_a = a_a->chars;
@@ -2586,9 +2462,7 @@ tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
     cw_trc_t *chars_a, *chars_b;
 
     /* Calculate sum of subtree scores. */
-    retval
-	= a_a->subtrees_score + a_a->node_score
-	+ a_b->subtrees_score + a_b->node_score;
+    retval = a_a->score + a_b->score;
 
     /* Calculate partial Fitch parsimony scores for each character. */
     chars_a = a_a->chars;
@@ -2683,12 +2557,6 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	     * irrelevant. */
 	    cw_assert(adjacent);
 
-	    /* Clear the cache for the view that is being bypassed.  This is
-	     * critical to correctness of the caching machinery, since each view
-	     * should never be claimed as the parent of more than two other
-	     * views. */
-	    tr_p_mp_cache_invalidate(a_tr, a_tr->trrs[a_ring].ps);
-
 	    /* Get the ring element that connects to the other portion of the
 	     * subtree on this side of the bisection. */
 	    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
@@ -2727,7 +2595,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 
 		/* Calculate the partial score for this node. */
 		retval = a_tr->trrs[a_ring].ps;
-		tr_p_mp_cache_pscore(a_tr, retval, ps_a, ps_b);
+		tr_p_mp_pscore(a_tr, retval, ps_a, ps_b);
 
 		break;
 	    }
@@ -2743,10 +2611,11 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
     return retval;
 }
 
-static void
+static cw_tr_ps_t *
 tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 		      cw_tr_edge_t a_bisect)
 {
+    cw_tr_ps_t *retval = NULL;
     uint32_t degree;
     bool adjacent;
     cw_tr_ring_t ring;
@@ -2787,18 +2656,15 @@ tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 	    {
 		if (tr_p_ring_edge_get(a_tr, ring) != a_bisect)
 		{
-		    /* Clear the cache for the view that is being bypassed.
-		     * This is critical to correctness of the caching machinery,
-		     * since each view should never be claimed as the parent of
-		     * more than two other views. */
-		    tr_p_mp_cache_invalidate(a_tr, a_tr->trrs[ring].ps);
-
 		    /* Recurse. */
 		    tr_p_mp_views_recurse(a_tr,
 					  tr_p_ring_other_get(a_tr, ring),
 					  a_ps,
 					  a_bisect);
-		    break;
+		}
+		else
+		{
+		    retval = a_tr->trrs[ring].ps;
 		}
 	    }
 	    break;
@@ -2830,18 +2696,15 @@ tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 
 		/* Calculate views and edges, and recurse. */
 		tr_p_mp_pscore(a_tr, ps_a, a_ps, ps_b_other);
-		tr_p_mp_pscore(a_tr,
-			       a_tr->tres[tr_p_ring_edge_get(a_tr, ring_a)].ps,
-			       ps_a,
-			       a_tr->trrs[ring_a_other].ps);
-		tr_p_mp_views_recurse(a_tr, ring_a_other, ps_a, a_bisect);
-
 		tr_p_mp_pscore(a_tr, ps_b, a_ps, ps_a_other);
-		tr_p_mp_pscore(a_tr,
-			       a_tr->tres[tr_p_ring_edge_get(a_tr, ring_b)].ps,
-			       ps_b,
-			       a_tr->trrs[ring_b_other].ps);
+
+		tr_p_mp_views_recurse(a_tr, ring_a_other, ps_a, a_bisect);
+		tr_p_mp_pscore(a_tr, ps_a, ps_a, ps_a_other);
+		a_tr->tres[tr_p_ring_edge_get(a_tr, ring_a)].ps = ps_a;
+
 		tr_p_mp_views_recurse(a_tr, ring_b_other, ps_b, a_bisect);
+		tr_p_mp_pscore(a_tr, ps_b, ps_b, ps_b_other);
+		a_tr->tres[tr_p_ring_edge_get(a_tr, ring_b)].ps = ps_b;
 
 		break;
 	    }
@@ -2853,6 +2716,8 @@ tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 	    cw_error("XXX Not implemented");
 	}
     }
+
+    return retval;
 }
 
 /* Calculate the partial score for each edge in a_edges.  a_edges[0] must either
@@ -2868,7 +2733,7 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
     if (a_edges[0] != CW_TR_EDGE_NONE)
     {
 	cw_tr_ring_t ring_a, ring_b;
-	cw_tr_ps_t *ps, *ps_a, *ps_b;
+	cw_tr_ps_t *ps_a, *ps_b, *ps_x, *ps_y;
 
 	ring_a = tr_p_edge_ring_get(a_tr, a_edges[0], 0);
 	ring_b = tr_p_edge_ring_get(a_tr, a_edges[0], 1);
@@ -2886,9 +2751,9 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 	 * edge, which means that the node does not have a useful ps.  The first
 	 * edge is the only one for which this is an issue, so it is handled
 	 * here. */
-	ps = a_tr->tres[a_edges[0]].ps;
-	tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
-	if (ps->subtrees_score + ps->node_score > a_maxscore)
+	// XXX This is extra work that need not be done, if things are
+	// restructured a bit.
+	if (tr_p_mp_fscore(a_tr, ps_a, ps_b, a_maxscore) > a_maxscore)
 	{
 	    /* Don't bother calculating other views or edge states, since this
 	     * subtree exceeds the maximum score that's of interest. */
@@ -2900,8 +2765,16 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 	 * were not calculated by the above post-order traversal, as well as
 	 * calculating the state sets for the edges along the way.  Take care to
 	 * pass the appropriate ps's. */
-	tr_p_mp_views_recurse(a_tr, ring_a, ps_b, a_bisect);
-	tr_p_mp_views_recurse(a_tr, ring_b, ps_a, a_bisect);
+	ps_x = tr_p_mp_views_recurse(a_tr, ring_a, ps_b, a_bisect);
+	ps_y = tr_p_mp_views_recurse(a_tr, ring_b, ps_a, a_bisect);
+
+	if (ps_x == NULL)
+	{
+	    ps_x = ps_y;
+	}
+	cw_check_ptr(ps_x);
+	tr_p_mp_pscore(a_tr, ps_x, ps_a, ps_b);
+	a_tr->tres[a_edges[0]].ps = ps_x;
 
 #ifdef CW_DBG
 	/* Validate per-edge partial scores. */
@@ -2912,23 +2785,14 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 	    {
 		/* All edge partial scores should have the same value, since the
 		 * location of the root is irrelevant to the score. */
-		if (a_tr->tres[a_edges[i]].ps->subtrees_score
-		    + a_tr->tres[a_edges[i]].ps->node_score
-		    != a_tr->tres[a_edges[0]].ps->subtrees_score
-		    + a_tr->tres[a_edges[0]].ps->node_score)
+		if (a_tr->tres[a_edges[i]].ps->score
+		    != a_tr->tres[a_edges[0]].ps->score)
 		{
 		    fprintf(stderr,
-			    "%s:%d:%s(): Expected %u (%u + %u),"
-			    " got %u (%u + %u)\n",
+			    "%s:%d:%s(): Expected %u, got %u\n",
 			    __FILE__, __LINE__, __func__,
-			    a_tr->tres[a_edges[0]].ps->subtrees_score
-			    + a_tr->tres[a_edges[0]].ps->node_score,
-			    a_tr->tres[a_edges[0]].ps->subtrees_score,
-			    + a_tr->tres[a_edges[0]].ps->node_score,
-			    a_tr->tres[a_edges[i]].ps->subtrees_score
-			    + a_tr->tres[a_edges[i]].ps->node_score,
-			    a_tr->tres[a_edges[i]].ps->subtrees_score,
-			    a_tr->tres[a_edges[i]].ps->node_score);
+			    a_tr->tres[a_edges[0]].ps->score,
+			    a_tr->tres[a_edges[i]].ps->score);
 		    abort();
 		}
 	    }
@@ -3549,7 +3413,6 @@ tr_mp_prepare(cw_tr_t *a_tr, bool a_uninformative_eliminate,
     {
 	cw_trn_t *trn;
 	cw_tr_ring_t ring;
-	cw_tre_t *tre;
 	uint32_t i, ninformative;
 	bool chars_mask[a_nchars];
 
@@ -3710,14 +3573,6 @@ tr_mp_prepare(cw_tr_t *a_tr, bool a_uninformative_eliminate,
 	trn = &a_tr->trns[a_tr->base];
 	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
 	{
-	    /* Prepare edge before recursing. */
-	    tre = &a_tr->tres[tr_p_ring_edge_get(a_tr, ring)];
-	    if (tre->ps == NULL)
-	    {
-		tre->ps = tr_p_ps_new(a_tr);
-	    }
-	    tr_p_ps_prepare(a_tr, tre->ps, ninformative);
-
 	    /* Prepare ring. */
 	    tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars,
 				 chars_mask, ninformative);
@@ -3741,20 +3596,11 @@ tr_mp_finish(cw_tr_t *a_tr)
     {
 	cw_trn_t *trn;
 	cw_tr_ring_t ring;
-	cw_tre_t *tre;
 
 	/* Clean up the tree. */
 	trn = &a_tr->trns[a_tr->base];
 	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
 	{
-	    /* Clean up edge before recursing. */
-	    tre = &a_tr->tres[tr_p_ring_edge_get(a_tr, ring)];
-	    if (tre->ps != NULL)
-	    {
-		tr_p_ps_delete(a_tr, tre->ps);
-		tre->ps = NULL;
-	    }
-
 	    /* Clean up ring. */
 	    tr_p_mp_ring_finish(a_tr, ring);
 
