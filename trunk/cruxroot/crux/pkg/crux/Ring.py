@@ -9,15 +9,9 @@
 #
 ################################################################################
 
-import _Ring
+from C_Ring import *
 
-class Exception(_Ring.Exception):
-    pass
-
-class ValueError(Exception, _Ring.ValueError):
-    pass
-
-class Ring(_Ring.Ring):
+class Ring(C_Ring):
     def __init__(self, edge, end):
         pass
 #EOF

@@ -27,28 +27,16 @@
 #
 ################################################################################
 
-import _FastaParser
+from C_FastaParser import *
 
-class Exception(_FastaParser.Exception):
-    pass
-
-class ValueError(Exception, _FastaParser.ValueError):
-    pass
-
-class TypeError(Exception, _FastaParser.TypeError):
-    pass
-
-class SyntaxError(Exception, _FastaParser.SyntaxError):
-    pass
-
-class FastaParser(_FastaParser.FastaParser):
+class FastaParser(C_FastaParser):
     def __init__(self):
         pass
 
     # Parse input, which has either 'DNA' or 'protein' character data.
     def parse(self, input, charType='DNA'):
         self._charType = charType
-        _FastaParser.FastaParser.parse(self, input, charType)
+        C_FastaParser._parse(self, input, charType)
 
     # Return the character type being parsed.
     def charType(self):

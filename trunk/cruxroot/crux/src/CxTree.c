@@ -404,7 +404,7 @@ static PyTypeObject CxtTree =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
-    "_Tree.Tree",	/* char *tp_name */
+    "C_Tree.C_Tree",	/* char *tp_name */
     sizeof(CxtTreeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
     (destructor) CxpTreeDelete,	/* destructor tp_dealloc */
@@ -463,17 +463,18 @@ CxTreeInit(void)
     {
 	return;
     }
-    m = Py_InitModule3("_Tree", CxpTreeFuncs, "Tree extensions");
+    m = Py_InitModule3("C_Tree", CxpTreeFuncs, "Tree extensions");
     Py_INCREF(&CxtTree);
-    PyModule_AddObject(m, "Tree", (PyObject *) &CxtTree);
+    PyModule_AddObject(m, "C_Tree", (PyObject *) &CxtTree);
 
     /* Create exception objects. */
-    CxgTreeException = PyErr_NewException("_Tree.Exception", CxgException,
+    CxgTreeException = PyErr_NewException("C_Tree.Exception", CxgException,
 					  NULL);
     Py_INCREF(CxgTreeException);
     PyModule_AddObject(m, "Exception", CxgTreeException);
 
-    CxgTreeValueError = PyErr_NewException("_Tree.ValueError", CxgTreeException,
+    CxgTreeValueError = PyErr_NewException("C_Tree.ValueError",
+					   CxgTreeException,
 					   NULL);
     Py_INCREF(CxgTreeValueError);
     PyModule_AddObject(m, "ValueError", CxgTreeValueError);
@@ -776,7 +777,7 @@ static PyTypeObject CxtNode =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
-    "_Node.Node",	/* char *tp_name */
+    "C_Node.C_Node",	/* char *tp_name */
     sizeof(CxtNodeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
     (destructor) CxpNodeDelete,	/* destructor tp_dealloc */
@@ -832,9 +833,9 @@ CxNodeInit(void)
     {
 	return;
     }
-    m = Py_InitModule3("_Node", CxpNodeFuncs, "Node extensions");
+    m = Py_InitModule3("C_Node", CxpNodeFuncs, "Node extensions");
     Py_INCREF(&CxtNode);
-    PyModule_AddObject(m, "Node", (PyObject *) &CxtNode);
+    PyModule_AddObject(m, "C_Node", (PyObject *) &CxtNode);
 
     /* Pre-compile Python code that is used for creating a node. */
     CxpNodeNewCode = Py_CompileString("\
@@ -1281,7 +1282,7 @@ static PyTypeObject CxtEdge =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
-    "_Edge.Edge",	/* char *tp_name */
+    "C_Edge.C_Edge",	/* char *tp_name */
     sizeof(CxtEdgeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
     (destructor) CxpEdgeDelete,	/* destructor tp_dealloc */
@@ -1340,17 +1341,18 @@ CxEdgeInit(void)
     {
 	return;
     }
-    m = Py_InitModule3("_Edge", CxpEdgeFuncs, "Edge extensions");
+    m = Py_InitModule3("C_Edge", CxpEdgeFuncs, "Edge extensions");
     Py_INCREF(&CxtEdge);
-    PyModule_AddObject(m, "Edge", (PyObject *) &CxtEdge);
+    PyModule_AddObject(m, "C_Edge", (PyObject *) &CxtEdge);
 
     /* Create exception objects. */
-    CxgEdgeException = PyErr_NewException("_Edge.Exception", CxgException,
+    CxgEdgeException = PyErr_NewException("C_Edge.Exception", CxgException,
 					  NULL);
     Py_INCREF(CxgEdgeException);
     PyModule_AddObject(m, "Exception", CxgEdgeException);
 
-    CxgEdgeValueError = PyErr_NewException("_Edge.ValueError", CxgEdgeException,
+    CxgEdgeValueError = PyErr_NewException("C_Edge.ValueError",
+					   CxgEdgeException,
 					   NULL);
     Py_INCREF(CxgEdgeValueError);
     PyModule_AddObject(m, "ValueError", CxgEdgeValueError);
@@ -1692,7 +1694,7 @@ static PyTypeObject CxtRing =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
-    "_Ring.Ring",	/* char *tp_name */
+    "C_Ring.C_Ring",	/* char *tp_name */
     sizeof(CxtRingObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
     (destructor) CxpRingDelete,	/* destructor tp_dealloc */
@@ -1751,17 +1753,18 @@ CxRingInit(void)
     {
 	return;
     }
-    m = Py_InitModule3("_Ring", CxpRingFuncs, "Ring extensions");
+    m = Py_InitModule3("C_Ring", CxpRingFuncs, "Ring extensions");
     Py_INCREF(&CxtRing);
-    PyModule_AddObject(m, "Ring", (PyObject *) &CxtRing);
+    PyModule_AddObject(m, "C_Ring", (PyObject *) &CxtRing);
 
     /* Create exception objects. */
-    CxgRingException = PyErr_NewException("_Ring.Exception", CxgException,
+    CxgRingException = PyErr_NewException("C_Ring.Exception", CxgException,
 					  NULL);
     Py_INCREF(CxgRingException);
     PyModule_AddObject(m, "Exception", CxgRingException);
 
-    CxgRingValueError = PyErr_NewException("_Ring.ValueError", CxgRingException,
+    CxgRingValueError = PyErr_NewException("C_Ring.ValueError",
+					   CxgRingException,
 					   NULL);
     Py_INCREF(CxgRingValueError);
     PyModule_AddObject(m, "ValueError", CxgRingValueError);

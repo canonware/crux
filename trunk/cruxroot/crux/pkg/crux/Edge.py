@@ -9,15 +9,9 @@
 #
 ################################################################################
 
-import _Edge
+from C_Edge import *
 
-class Exception(_Edge.Exception):
-    pass
-
-class ValueError(Exception, _Edge.ValueError):
-    pass
-
-class Edge(_Edge.Edge):
+class Edge(C_Edge):
     def __init__(self, tree):
         pass
 #EOF

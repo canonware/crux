@@ -11,8 +11,6 @@
 
 from _crux import *
 
-from Exception import *
-
 import Tree
 import Node
 import Edge

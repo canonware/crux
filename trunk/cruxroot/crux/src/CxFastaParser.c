@@ -154,7 +154,6 @@ CxpSyntaxError(CxtFastaParserObject *self, int line, int column, char c,
 PyObject *
 CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 {
-    PyObject *retval;
     PyObject *input;
     char *charType;
     bool dnaChars;
@@ -443,10 +442,10 @@ CxFastaParserLine(CxtFastaParserObject *self)
 static PyMethodDef CxpFastaParserMethods[] =
 {
     {
-	"parse",
+	"_parse",
 	(PyCFunction) CxFastaParserParse,
 	METH_VARARGS,
-	"parse"
+	"_parse"
     },
     {
 	"token",
@@ -467,7 +466,7 @@ static PyTypeObject CxtFastaParser =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
-    "_FastaParser.FastaParser",	/* char *tp_name */
+    "C_FastaParser.C_FastaParser",	/* char *tp_name */
     sizeof(CxtFastaParserObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
     (destructor) CxpFastaParserDelete,	/* destructor tp_dealloc */
@@ -528,35 +527,35 @@ CxFastaParserInit(void)
     {
 	return;
     }
-    m = Py_InitModule3("_FastaParser", CxpFastaParserFuncs,
+    m = Py_InitModule3("C_FastaParser", CxpFastaParserFuncs,
 		       "FastaParser extensions");
     Py_INCREF(&CxtFastaParser);
-    PyModule_AddObject(m, "FastaParser", (PyObject *) &CxtFastaParser);
+    PyModule_AddObject(m, "C_FastaParser", (PyObject *) &CxtFastaParser);
 
     /* Create exception objects. */
     /* Exception. */
-    CxgFastaParserException = PyErr_NewException("_FastaParser.Exception",
+    CxgFastaParserException = PyErr_NewException("C_FastaParser.Exception",
 						 CxgException,
 						 NULL);
     Py_INCREF(CxgFastaParserException);
     PyModule_AddObject(m, "Exception", CxgFastaParserException);
 
     /* ValueError. */
-    CxgFastaParserValueError = PyErr_NewException("_FastaParser.ValueError",
+    CxgFastaParserValueError = PyErr_NewException("C_FastaParser.ValueError",
 						  CxgFastaParserException,
 						  NULL);
     Py_INCREF(CxgFastaParserValueError);
     PyModule_AddObject(m, "ValueError", CxgFastaParserValueError);
 
     /* TypeError. */
-    CxgFastaParserTypeError = PyErr_NewException("_FastaParser.TypeError",
+    CxgFastaParserTypeError = PyErr_NewException("C_FastaParser.TypeError",
 						 CxgFastaParserException,
 						 NULL);
     Py_INCREF(CxgFastaParserTypeError);
     PyModule_AddObject(m, "TypeError", CxgFastaParserTypeError);
 
     /* SyntaxError. */
-    CxgFastaParserSyntaxError = PyErr_NewException("_FastaParser.SyntaxError",
+    CxgFastaParserSyntaxError = PyErr_NewException("C_FastaParser.SyntaxError",
 						   CxgFastaParserException,
 						   NULL);
     Py_INCREF(CxgFastaParserSyntaxError);

@@ -20,7 +20,7 @@
 ################################################################################
 
 import DistMatrix
-import crux.Exception
+import crux
 
 class Exception(crux.Exception):
     pass

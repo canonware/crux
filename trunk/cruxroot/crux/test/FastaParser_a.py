@@ -113,7 +113,7 @@ def testStrs(strs, charType):
         print "\n=== %r ===" % str
         try:
             test.parse(str, charType)
-        except:
+        except crux.Exception:
             error = sys.exc_info()
             print "Exception %s: %s" % (error[0], error[1])
 
@@ -124,7 +124,7 @@ def testStrs(strs, charType):
             f.write(str)
             f.seek(0, 0)
             test.parse(f, charType)
-        except:
+        except crux.Exception:
             error = sys.exc_info()
             print "Exception %s: %s" % (error[0], error[1])
 

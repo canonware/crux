@@ -9,7 +9,7 @@
 #
 ################################################################################
 
-import _Tree
+from C_Tree import *
 
 import Node
 import Edge
@@ -19,12 +19,6 @@ import TaxonMap
 import DistMatrix
 
 import random
-
-class Exception(_Tree.Exception):
-    pass
-
-class ValueError(Exception, _Tree.ValueError):
-    pass
 
 class _NewickParser(NewickParser.NewickParser):
     def __init__(self, tree, map):
@@ -155,7 +149,7 @@ class _NewickParser(NewickParser.NewickParser):
                 # Push a node back onto the stack.
                 self._taxonStack.insert(0, nodeA)
 
-class Tree(_Tree.Tree):
+class Tree(C_Tree):
     def __init__(self, with=None, map=TaxonMap.TaxonMap()):
         if type(with) == int:
             self._map = map
