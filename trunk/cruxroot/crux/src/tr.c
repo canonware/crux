@@ -2124,7 +2124,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 		    }
 		    case TR_HOLD_BETTER:
 		    {
-			if (a_tr->held == NULL || score < a_maxscore)
+			if (score < a_maxscore)
 			{
 			    /* No trees held, or this (neighboring) tree is
 			     * better than the tree whose neighbors are being
@@ -2152,10 +2152,6 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 	    }
 	}
     }
-
-    /* Clean up. */
-//    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema), mema_arg_get(a_tr->mema),
-//		      edges_a, sizeof(cw_uint32_t) * a_tr->nedges);
 }
 
 cw_tr_t *
