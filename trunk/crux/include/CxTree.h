@@ -9,6 +9,11 @@
 //
 //==============================================================================
 
+typedef struct CxsTreeAux CxtTreeAux;
+typedef struct CxsNodeAux CxtNodeAux;
+typedef struct CxsEdgeAux CxtEdgeAux;
+typedef struct CxsRingAux CxtRingAux;
+
 typedef struct CxsTreeObject CxtTreeObject;
 typedef struct CxsNodeObject CxtNodeObject;
 typedef struct CxsEdgeObject CxtEdgeObject;
@@ -19,6 +24,75 @@ extern PyTypeObject CxtNode;
 extern PyTypeObject CxtEdge;
 extern PyTypeObject CxtRing;
 
+typedef void
+CxtTreeAuxCleanup(CxtTreeObject *, void *);
+typedef void
+CxtNodeAuxCleanup(CxtNodeObject *, void *);
+typedef void
+CxtEdgeAuxCleanup(CxtEdgeObject *, void *);
+typedef void
+CxtRingAuxCleanup(CxtRingObject *, void *);
+
+struct CxsTreeAux
+{
+    // Used to associate types of aux data with particular indices.
+    const char *key;
+
+    // Opaque data associated with this registration.
+    void *data;
+
+    // Called during tree destruction.
+    CxtTreeAuxCleanup *cleanupFinal;
+
+    // Called during cleanup of tree aux pointers.
+    CxtTreeAuxCleanup *cleanupTree;
+};
+
+struct CxsNodeAux
+{
+    // Used to associate types of aux data with particular indices.
+    const char *key;
+
+    // Opaque data associated with this registration.
+    void *data;
+
+    // Called during tree destruction.
+    CxtTreeAuxCleanup *cleanupFinal;
+
+    // Called during node destruction.
+    CxtNodeAuxCleanup *cleanupNode;
+};
+
+struct CxsEdgeAux
+{
+    // Used to associate types of aux data with particular indices.
+    const char *key;
+
+    // Opaque data associated with this registration.
+    void *data;
+
+    // Called during tree destruction.
+    CxtTreeAuxCleanup *cleanupFinal;
+
+    // Called during edge destruction.
+    CxtEdgeAuxCleanup *cleanupEdge;
+};
+
+struct CxsRingAux
+{
+    // Used to associate types of aux data with particular indices.
+    const char *key;
+
+    // Opaque data associated with this registration.
+    void *data;
+
+    // Called during tree destruction.
+    CxtTreeAuxCleanup *cleanupFinal;
+
+    // Called during ring destruction.
+    CxtRingAuxCleanup *cleanupRing;
+};
+
 struct CxsTreeObject
 {
     PyObject_HEAD
@@ -26,8 +100,24 @@ struct CxsTreeObject
     uint64_t seq;
     bool GcCleared;
 
-#define CxmTreeObjectAuxCount 1
-    void *aux[CxmTreeObjectAuxCount];
+    // Aux control data structures for trees, nodes, edges, and rings.  Actual
+    // aux pointers reside in the respective objects, but all control
+    // information is centrally located here.
+    CxtTreeAux *treeAux;
+    unsigned nTreeAux;
+
+    CxtNodeAux *nodeAux;
+    unsigned nNodeAux;
+
+    CxtEdgeAux *edgeAux;
+    unsigned nEdgeAux;
+
+    CxtRingAux *ringAux;
+    unsigned nRingAux;
+
+    // Aux data.
+    void **aux;
+    unsigned nAux;
 };
 
 struct CxsNodeObject
@@ -37,8 +127,9 @@ struct CxsNodeObject
     CxtTrNode node;
     bool GcCleared;
 
-#define CxmNodeObjectAuxCount 1
-    void *aux[CxmNodeObjectAuxCount];
+    // Aux data.
+    void **aux;
+    unsigned nAux;
 };
 
 struct CxsEdgeObject
@@ -51,9 +142,9 @@ struct CxsEdgeObject
     bool GcDetached:1;
     bool GcCleared:1;
 
-#define CxmEdgeObjectAuxCount 1
-#define CxmEdgeObjectAuxMp 0
-    void *aux[CxmEdgeObjectAuxCount];
+    // Aux data.
+    void **aux;
+    unsigned nAux;
 };
 
 struct CxsRingObject
@@ -65,9 +156,9 @@ struct CxsRingObject
     bool GcDetached:1;
     bool GcCleared:1;
 
-#define CxmRingObjectAuxCount 1
-#define CxmRingObjectAuxMp 0
-    void *aux[CxmRingObjectAuxCount];
+    // Aux data.
+    void **aux;
+    unsigned nAux;
 };
 
 extern PyObject *CxgTreeException;
@@ -135,10 +226,6 @@ CxTreeIterate(CxtTreeObject *aTree,
 #if (!defined(CxmUseInlines))
 uint64_t
 CxTreeSeq(CxtTreeObject *self);
-void *
-CxTreeAuxGet(CxtTreeObject *self, unsigned aInd);
-void
-CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux);
 #endif
 #if (defined(CxmUseInlines) || defined(CxmTree_c))
 CxmInline uint64_t
@@ -146,23 +233,118 @@ CxTreeSeq(CxtTreeObject *self)
 {
     return self->seq;
 }
+#endif
 
+bool
+CxTreeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		  CxtTreeAuxCleanup *aCleanupFinal,
+		  CxtTreeAuxCleanup *aCleanupTree, unsigned *rInd);
+bool
+CxTreeAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd);
+
+#if (!defined(CxmUseInlines))
+void *
+CxTreeAuxData(CxtTreeObject *self, unsigned aInd);
+#endif
+#if (defined(CxmUseInlines) || defined(CxmTree_c))
+CxmInline void *
+CxTreeAuxData(CxtTreeObject *self, unsigned aInd)
+{
+    CxmAssert(aInd < self->nTreeAux);
+
+    return self->treeAux[aInd].data;
+}
+#endif
+
+bool
+CxTreeNodeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtTreeAuxCleanup *aCleanupFinal,
+		      CxtNodeAuxCleanup *aCleanupNode, unsigned *rInd);
+bool
+CxTreeNodeAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd);
+
+#if (!defined(CxmUseInlines))
+void *
+CxNodeAuxData(CxtTreeObject *self, unsigned aInd);
+#endif
+#if (defined(CxmUseInlines) || defined(CxmTree_c))
+CxmInline void *
+CxNodeAuxData(CxtTreeObject *self, unsigned aInd)
+{
+    CxmAssert(aInd < self->nNodeAux);
+
+    return self->nodeAux[aInd].data;
+}
+#endif
+
+bool
+CxTreeEdgeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtTreeAuxCleanup *aCleanupFinal,
+		      CxtEdgeAuxCleanup *aCleanupEdge, unsigned *rInd);
+bool
+CxTreeEdgeAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd);
+
+#if (!defined(CxmUseInlines))
+void *
+CxEdgeAuxData(CxtTreeObject *self, unsigned aInd);
+#endif
+#if (defined(CxmUseInlines) || defined(CxmTree_c))
+CxmInline void *
+CxEdgeAuxData(CxtTreeObject *self, unsigned aInd)
+{
+    CxmAssert(aInd < self->nEdgeAux);
+
+    return self->edgeAux[aInd].data;
+}
+#endif
+
+bool
+CxTreeRingAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtTreeAuxCleanup *aCleanupFinal,
+		      CxtRingAuxCleanup *aCleanupRing, unsigned *rInd);
+bool
+CxTreeRingAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd);
+
+#if (!defined(CxmUseInlines))
+void *
+CxRingAuxData(CxtTreeObject *self, unsigned aInd);
+#endif
+#if (defined(CxmUseInlines) || defined(CxmTree_c))
+CxmInline void *
+CxRingAuxData(CxtTreeObject *self, unsigned aInd)
+{
+    CxmAssert(aInd < self->nRingAux);
+
+    return self->ringAux[aInd].data;
+}
+#endif
+
+#if (!defined(CxmUseInlines))
+void *
+CxTreeAuxGet(CxtTreeObject *self, unsigned aInd);
+#endif
+#if (defined(CxmUseInlines) || defined(CxmTree_c))
 CxmInline void *
 CxTreeAuxGet(CxtTreeObject *self, unsigned aInd)
 {
-    CxmAssert(aInd < CxmTreeObjectAuxCount);
+    void *rVal;
 
-    return self->aux[aInd];
-}
+    CxmAssert(aInd < self->nTreeAux);
 
-CxmInline void
-CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux)
-{
-    CxmAssert(aInd < CxmTreeObjectAuxCount);
+    if (self->nAux <= aInd)
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
 
-    self->aux[aInd] = aAux;
+    rVal = self->aux[aInd];
+    RETURN:
+    return rVal;
 }
 #endif
+
+bool
+CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux);
 
 // Node.
 CxtNodeObject *
@@ -186,37 +368,40 @@ CxNodeRing(CxtNodeObject *self);
 PyObject *
 CxNodeRingPargs(CxtNodeObject *self);
 
+void
+CxNodeRingSet(CxtNodeObject *self, CxtRingObject *aRing);
+
 unsigned
 CxNodeDegree(CxtNodeObject *self);
 PyObject *
 CxNodeDegreePargs(CxtNodeObject *self);
 
-void
-CxNodeRingSet(CxtNodeObject *self, CxtRingObject *aRing);
-
 #if (!defined(CxmUseInlines))
 void *
 CxNodeAuxGet(CxtNodeObject *self, unsigned aInd);
-void
-CxNodeAuxSet(CxtNodeObject *self, unsigned aInd, void *aAux);
 #endif
 #if (defined(CxmUseInlines) || defined(CxmTree_c))
 CxmInline void *
 CxNodeAuxGet(CxtNodeObject *self, unsigned aInd)
 {
-    CxmAssert(aInd < CxmNodeObjectAuxCount);
+    void *rVal;
 
-    return self->aux[aInd];
-}
+    CxmAssert(aInd < self->tree->nNodeAux);
 
-CxmInline void
-CxNodeAuxSet(CxtNodeObject *self, unsigned aInd, void *aAux)
-{
-    CxmAssert(aInd < CxmNodeObjectAuxCount);
+    if (self->nAux <= aInd)
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
 
-    self->aux[aInd] = aAux;
+    rVal = self->aux[aInd];
+    RETURN:
+    return rVal;
 }
 #endif
+
+bool
+CxNodeAuxSet(CxtNodeObject *self, unsigned aInd, void *aAux);
 
 // Edge.
 CxtEdgeObject *
@@ -254,26 +439,29 @@ CxEdgeDetachPargs(CxtEdgeObject *self);
 #if (!defined(CxmUseInlines))
 void *
 CxEdgeAuxGet(CxtEdgeObject *self, unsigned aInd);
-void
-CxEdgeAuxSet(CxtEdgeObject *self, unsigned aInd, void *aAux);
 #endif
 #if (defined(CxmUseInlines) || defined(CxmTree_c))
 CxmInline void *
 CxEdgeAuxGet(CxtEdgeObject *self, unsigned aInd)
 {
-    CxmAssert(aInd < CxmEdgeObjectAuxCount);
+    void *rVal;
 
-    return self->aux[aInd];
-}
+    CxmAssert(aInd < self->tree->nEdgeAux);
 
-CxmInline void
-CxEdgeAuxSet(CxtEdgeObject *self, unsigned aInd, void *aAux)
-{
-    CxmAssert(aInd < CxmEdgeObjectAuxCount);
+    if (self->nAux <= aInd)
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
 
-    self->aux[aInd] = aAux;
+    rVal = self->aux[aInd];
+    RETURN:
+    return rVal;
 }
 #endif
+
+bool
+CxEdgeAuxSet(CxtEdgeObject *self, unsigned aInd, void *aAux);
 
 // Ring.
 CxtRingObject *
@@ -312,23 +500,26 @@ CxRingPrevPargs(CxtRingObject *self);
 #if (!defined(CxmUseInlines))
 void *
 CxRingAuxGet(CxtRingObject *self, unsigned aInd);
-void
-CxRingAuxSet(CxtRingObject *self, unsigned aInd, void *aAux);
 #endif
 #if (defined(CxmUseInlines) || defined(CxmTree_c))
 CxmInline void *
 CxRingAuxGet(CxtRingObject *self, unsigned aInd)
 {
-    CxmAssert(aInd < CxmRingObjectAuxCount);
+    void *rVal;
 
-    return self->aux[aInd];
-}
+    CxmAssert(aInd < self->tree->nRingAux);
 
-CxmInline void
-CxRingAuxSet(CxtRingObject *self, unsigned aInd, void *aAux)
-{
-    CxmAssert(aInd < CxmRingObjectAuxCount);
+    if (self->nAux <= aInd)
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
 
-    self->aux[aInd] = aAux;
+    rVal = self->aux[aInd];
+    RETURN:
+    return rVal;
 }
 #endif
+
+bool
+CxRingAuxSet(CxtRingObject *self, unsigned aInd, void *aAux);

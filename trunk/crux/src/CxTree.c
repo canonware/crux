@@ -61,8 +61,17 @@ CxpTreeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     {
 	self->tr = CxTrNew();
 	CxTrAuxSet(self->tr, self);
-	memset(self->aux, 0x0, sizeof(void *) * CxmTreeObjectAuxCount);
 	self->seq = 1; // 0 is skipped so that it can mean "uninitialized".
+
+	self->treeAux = NULL;
+	self->nTreeAux = 0;
+	self->nodeAux = NULL;
+	self->nNodeAux = 0;
+	self->edgeAux = NULL;
+	self->nEdgeAux = 0;
+	self->ringAux = NULL;
+	self->nRingAux = 0;
+
 	self->GcCleared = false;
 	rVal = (PyObject *) self;
     }
@@ -152,12 +161,78 @@ CxpTreeClear(CxtTreeObject *self)
 static void
 CxpTreeDelete(CxtTreeObject *self)
 {
+    unsigned i;
+
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Enter: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
     CxpTreeClear(self);
+
+    // Clean up aux.
+    if (self->aux != NULL)
+    {
+	for (i = 0; i < self->nAux; i++)
+	{
+	    if (self->treeAux[i].cleanupTree != NULL)
+	    {
+		self->treeAux[i].cleanupTree(self, self->aux[i]);
+	    }
+	}
+
+	free(self->aux);
+    }
+
+    // Clean up aux control data structures.
+    for (i = 0; i < self->nRingAux; i++)
+    {
+	if (self->ringAux[i].cleanupFinal != NULL)
+	{
+	    self->ringAux[i].cleanupFinal(self, self->ringAux[i].data);
+	}
+    }
+    if (self->ringAux != NULL)
+    {
+	free(self->ringAux);
+    }
+
+    for (i = 0; i < self->nEdgeAux; i++)
+    {
+	if (self->edgeAux[i].cleanupFinal != NULL)
+	{
+	    self->edgeAux[i].cleanupFinal(self, self->edgeAux[i].data);
+	}
+    }
+    if (self->edgeAux != NULL)
+    {
+	free(self->edgeAux);
+    }
+
+    for (i = 0; i < self->nNodeAux; i++)
+    {
+	if (self->nodeAux[i].cleanupFinal != NULL)
+	{
+	    self->nodeAux[i].cleanupFinal(self, self->nodeAux[i].data);
+	}
+    }
+    if (self->nodeAux != NULL)
+    {
+	free(self->nodeAux);
+    }
+
+    for (i = 0; i < self->nTreeAux; i++)
+    {
+	if (self->treeAux[i].cleanupFinal != NULL)
+	{
+	    self->treeAux[i].cleanupFinal(self, self->treeAux[i].data);
+	}
+    }
+    if (self->treeAux != NULL)
+    {
+	free(self->treeAux);
+    }
+
     CxTrDelete(self->tr);
     self->ob_type->tp_free((PyObject*) self);
 
@@ -513,6 +588,368 @@ CxTreeIterate(CxtTreeObject *aTree,
     return rVal;
 }
 
+bool
+CxTreeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		  CxtTreeAuxCleanup *aCleanupFinal,
+		  CxtTreeAuxCleanup *aCleanupTree, unsigned *rInd)
+{
+    bool rVal;
+
+    CxmCheckPtr(aKey);
+#ifdef CxmDebug
+    {
+	unsigned i;
+
+	for (i = 0; i < self->nTreeAux; i++)
+	{
+	    CxmAssert(self->treeAux[i].key != aKey);
+	}
+    }
+#endif
+
+    // Allocate space for aux registration.
+    if (self->treeAux == NULL)
+    {
+	self->treeAux = (CxtTreeAux *) malloc(sizeof(CxtTreeAux));
+	if (self->treeAux == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+    }
+    else
+    {
+	CxtTreeAux *tTreeAux;
+
+	tTreeAux = (CxtTreeAux *) realloc(self->treeAux,
+					  sizeof(CxtTreeAux)
+					  * (self->nTreeAux + 1));
+	if (self->treeAux == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	self->treeAux = tTreeAux;
+    }
+
+    self->treeAux[self->nTreeAux].key = aKey;
+    self->treeAux[self->nTreeAux].data = aData;
+    self->treeAux[self->nTreeAux].cleanupFinal = aCleanupFinal;
+
+    *rInd = self->nTreeAux;
+    self->nTreeAux++;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd)
+{
+    bool rVal;
+    unsigned i;
+
+    for (i = 0; i < self->nTreeAux; i++)
+    {
+	if (strcmp(self->treeAux[i].key, aKey) == 0)
+	{
+	    *rInd = i;
+	    rVal = false;
+	    goto RETURN;
+	}
+    }
+
+    rVal = true;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeNodeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtTreeAuxCleanup *aCleanupFinal,
+		      CxtNodeAuxCleanup *aCleanupNode, unsigned *rInd)
+{
+    bool rVal;
+
+    CxmCheckPtr(aKey);
+#ifdef CxmDebug
+    {
+	unsigned i;
+
+	for (i = 0; i < self->nNodeAux; i++)
+	{
+	    CxmAssert(self->nodeAux[i].key != aKey);
+	}
+    }
+#endif
+
+    // Allocate space for aux registration.
+    if (self->nodeAux == NULL)
+    {
+	self->nodeAux = (CxtNodeAux *) malloc(sizeof(CxtNodeAux));
+	if (self->nodeAux == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+    }
+    else
+    {
+	CxtNodeAux *tNodeAux;
+
+	tNodeAux = (CxtNodeAux *) realloc(self->nodeAux,
+					  sizeof(CxtNodeAux)
+					  * (self->nNodeAux + 1));
+	if (self->nodeAux == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	self->nodeAux = tNodeAux;
+    }
+
+    self->nodeAux[self->nNodeAux].key = aKey;
+    self->nodeAux[self->nNodeAux].data = aData;
+    self->nodeAux[self->nNodeAux].cleanupFinal = aCleanupFinal;
+    self->nodeAux[self->nNodeAux].cleanupNode = aCleanupNode;
+
+    *rInd = self->nNodeAux;
+    self->nNodeAux++;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeNodeAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd)
+{
+    bool rVal;
+    unsigned i;
+
+    for (i = 0; i < self->nNodeAux; i++)
+    {
+	if (strcmp(self->nodeAux[i].key, aKey) == 0)
+	{
+	    *rInd = i;
+	    rVal = false;
+	    goto RETURN;
+	}
+    }
+
+    rVal = true;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeEdgeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtTreeAuxCleanup *aCleanupFinal,
+		      CxtEdgeAuxCleanup *aCleanupEdge, unsigned *rInd)
+{
+    bool rVal;
+
+    CxmCheckPtr(aKey);
+#ifdef CxmDebug
+    {
+	unsigned i;
+
+	for (i = 0; i < self->nEdgeAux; i++)
+	{
+	    CxmAssert(self->edgeAux[i].key != aKey);
+	}
+    }
+#endif
+
+    // Allocate space for aux registration.
+    if (self->edgeAux == NULL)
+    {
+	self->edgeAux = (CxtEdgeAux *) malloc(sizeof(CxtEdgeAux));
+	if (self->edgeAux == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+    }
+    else
+    {
+	CxtEdgeAux *tEdgeAux;
+
+	tEdgeAux = (CxtEdgeAux *) realloc(self->edgeAux,
+					  sizeof(CxtEdgeAux)
+					  * (self->nEdgeAux + 1));
+	if (self->edgeAux == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	self->edgeAux = tEdgeAux;
+    }
+
+    self->edgeAux[self->nEdgeAux].key = aKey;
+    self->edgeAux[self->nEdgeAux].data = aData;
+    self->edgeAux[self->nEdgeAux].cleanupFinal = aCleanupFinal;
+    self->edgeAux[self->nEdgeAux].cleanupEdge = aCleanupEdge;
+
+    *rInd = self->nEdgeAux;
+    self->nEdgeAux++;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeEdgeAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd)
+{
+    bool rVal;
+    unsigned i;
+
+    for (i = 0; i < self->nEdgeAux; i++)
+    {
+	if (strcmp(self->edgeAux[i].key, aKey) == 0)
+	{
+	    *rInd = i;
+	    rVal = false;
+	    goto RETURN;
+	}
+    }
+
+    rVal = true;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeRingAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtTreeAuxCleanup *aCleanupFinal,
+		      CxtRingAuxCleanup *aCleanupRing, unsigned *rInd)
+{
+    bool rVal;
+
+    CxmCheckPtr(aKey);
+#ifdef CxmDebug
+    {
+	unsigned i;
+
+	for (i = 0; i < self->nRingAux; i++)
+	{
+	    CxmAssert(self->ringAux[i].key != aKey);
+	}
+    }
+#endif
+
+    // Allocate space for aux registration.
+    if (self->ringAux == NULL)
+    {
+	self->ringAux = (CxtRingAux *) malloc(sizeof(CxtRingAux));
+	if (self->ringAux == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+    }
+    else
+    {
+	CxtRingAux *tRingAux;
+
+	tRingAux = (CxtRingAux *) realloc(self->ringAux,
+					  sizeof(CxtRingAux)
+					  * (self->nRingAux + 1));
+	if (self->ringAux == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	self->ringAux = tRingAux;
+    }
+
+    self->ringAux[self->nRingAux].key = aKey;
+    self->ringAux[self->nRingAux].data = aData;
+    self->ringAux[self->nRingAux].cleanupFinal = aCleanupFinal;
+    self->ringAux[self->nRingAux].cleanupRing = aCleanupRing;
+
+    *rInd = self->nRingAux;
+    self->nRingAux++;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeRingAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd)
+{
+    bool rVal;
+    unsigned i;
+
+    for (i = 0; i < self->nRingAux; i++)
+    {
+	if (strcmp(self->ringAux[i].key, aKey) == 0)
+	{
+	    *rInd = i;
+	    rVal = false;
+	    goto RETURN;
+	}
+    }
+
+    rVal = true;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux)
+{
+    bool rVal;
+
+    CxmAssert(aInd < self->nTreeAux);
+
+    if (self->nAux <= aInd)
+    {
+	// Allocate space for aux vector.
+	if (self->aux == NULL)
+	{
+	    self->aux = (void **) calloc(aInd + 1, sizeof(void *));
+	    if (self->aux == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+	}
+	else
+	{
+	    void **tAux;
+	    unsigned i;
+
+	    tAux = (void **) realloc(self->aux, (aInd + 1) * sizeof(void *));
+	    if (tAux == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+
+	    self->aux = tAux;
+	    for (i = self->nAux; i < aInd + 1; i++)
+	    {
+		self->aux[i] = NULL;
+	    }
+	}
+	self->nAux = aInd + 1;
+    }
+
+    self->aux[aInd] = aAux;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
 static PyMethodDef CxpTreeMethods[] =
 {
     {
@@ -766,9 +1203,10 @@ CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	self->tree = tree;
 	self->node = CxTrNodeNew(tree->tr);
 	CxTrNodeAuxSet(tree->tr, self->node, self);
-	memset(self->aux, 0x0, sizeof(void *) * CxmNodeObjectAuxCount);
-	self->GcCleared = false;
+	self->aux = NULL;
+	self->nAux = 0;
 
+	self->GcCleared = false;
 	rVal = (PyObject *) self;
     }
     CxmXepCatch(CxmXepOOM)
@@ -906,6 +1344,22 @@ CxpNodeDelete(CxtNodeObject *self)
 #endif
 
     CxpNodeClear(self);
+
+    if (self->aux != NULL)
+    {
+	unsigned i;
+
+	for (i = 0; i < self->nAux; i++)
+	{
+	    if (self->tree->nodeAux[i].cleanupNode != NULL)
+	    {
+		self->tree->nodeAux[i].cleanupNode(self, self->aux[i]);
+	    }
+	}
+
+	free(self->aux);
+    }
+
     self->ob_type->tp_free((PyObject*) self);
 
 #ifdef CxmTreeGCVerbose
@@ -1080,6 +1534,53 @@ CxNodeDegreePargs(CxtNodeObject *self)
     return Py_BuildValue("i", CxTrNodeDegree(self->tree->tr, self->node));
 }
 
+bool
+CxNodeAuxSet(CxtNodeObject *self, unsigned aInd, void *aAux)
+{
+    bool rVal;
+
+    CxmAssert(aInd < self->tree->nNodeAux);
+
+    if (self->nAux <= aInd)
+    {
+	// Allocate space for aux vector.
+	if (self->aux == NULL)
+	{
+	    self->aux = (void **) calloc(aInd + 1, sizeof(void *));
+	    if (self->aux == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+	}
+	else
+	{
+	    void **tAux;
+	    unsigned i;
+
+	    tAux = (void **) realloc(self->aux, (aInd + 1) * sizeof(void *));
+	    if (tAux == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+
+	    self->aux = tAux;
+	    for (i = self->nAux; i < aInd + 1; i++)
+	    {
+		self->aux[i] = NULL;
+	    }
+	}
+	self->nAux = aInd + 1;
+    }
+
+    self->aux[aInd] = aAux;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
 static PyMethodDef CxpNodeMethods[] =
 {
     {
@@ -1229,7 +1730,8 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	self->tree = tree;
 	self->edge = CxTrEdgeNew(tree->tr);
 	CxTrEdgeAuxSet(tree->tr, self->edge, self);
-	memset(self->aux, 0x0, sizeof(void *) * CxmEdgeObjectAuxCount);
+	self->aux = NULL;
+	self->nAux = 0;
 	tryStage = 1;
 
 	// Create associated ring objects.
@@ -1372,6 +1874,21 @@ CxpEdgeDelete(CxtEdgeObject *self)
 #endif
 
     CxpEdgeClear(self);
+
+    if (self->aux != NULL)
+    {
+	unsigned i;
+
+	for (i = 0; i < self->nAux; i++)
+	{
+	    if (self->tree->edgeAux[i].cleanupEdge != NULL)
+	    {
+		self->tree->edgeAux[i].cleanupEdge(self, self->aux[i]);
+	    }
+	}
+
+	free(self->aux);
+    }
 
     // Delete the CxTrEdge (and associated CxTrRing objects).  The CxtRingObject
     // clear/delete code held onto a reference to this CxtEdgeOjbect long enough
@@ -1613,6 +2130,53 @@ CxEdgeDetachPargs(CxtEdgeObject *self)
     return rVal;
 }
 
+bool
+CxEdgeAuxSet(CxtEdgeObject *self, unsigned aInd, void *aAux)
+{
+    bool rVal;
+
+    CxmAssert(aInd < self->tree->nEdgeAux);
+
+    if (self->nAux <= aInd)
+    {
+	// Allocate space for aux vector.
+	if (self->aux == NULL)
+	{
+	    self->aux = (void **) calloc(aInd + 1, sizeof(void *));
+	    if (self->aux == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+	}
+	else
+	{
+	    void **tAux;
+	    unsigned i;
+
+	    tAux = (void **) realloc(self->aux, (aInd + 1) * sizeof(void *));
+	    if (tAux == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+
+	    self->aux = tAux;
+	    for (i = self->nAux; i < aInd + 1; i++)
+	    {
+		self->aux[i] = NULL;
+	    }
+	}
+	self->nAux = aInd + 1;
+    }
+
+    self->aux[aInd] = aAux;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
 static PyMethodDef CxpEdgeMethods[] =
 {
     {
@@ -1804,7 +2368,8 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	goto RETURN;
     }
     CxTrRingAuxSet(self->tree->tr, self->ring, self);
-    memset(self->aux, 0x0, sizeof(void *) * CxmRingObjectAuxCount);
+    self->aux = NULL;
+    self->nAux = 0;
 
     self->GcDetached = false;
     self->GcCleared = false;
@@ -1937,6 +2502,21 @@ CxpRingDelete(CxtRingObject *self)
 #endif
 
     CxpRingClear(self);
+
+    if (self->aux != NULL)
+    {
+	unsigned i;
+
+	for (i = 0; i < self->nAux; i++)
+	{
+	    if (self->tree->ringAux[i].cleanupRing != NULL)
+	    {
+		self->tree->ringAux[i].cleanupRing(self, self->aux[i]);
+	    }
+	}
+
+	free(self->aux);
+    }
 
     // Drop the reference to the associated edge, now that there is no chance of
     // accessing it again.
@@ -2144,6 +2724,53 @@ CxRingPrevPargs(CxtRingObject *self)
     rVal = (PyObject *) CxTrRingAuxGet(self->tree->tr, prevRing);
     Py_INCREF(rVal);
 
+    return rVal;
+}
+
+bool
+CxRingAuxSet(CxtRingObject *self, unsigned aInd, void *aAux)
+{
+    bool rVal;
+
+    CxmAssert(aInd < self->tree->nRingAux);
+
+    if (self->nAux <= aInd)
+    {
+	// Allocate space for aux vector.
+	if (self->aux == NULL)
+	{
+	    self->aux = (void **) calloc(aInd + 1, sizeof(void *));
+	    if (self->aux == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+	}
+	else
+	{
+	    void **tAux;
+	    unsigned i;
+
+	    tAux = (void **) realloc(self->aux, (aInd + 1) * sizeof(void *));
+	    if (tAux == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+
+	    self->aux = tAux;
+	    for (i = self->nAux; i < aInd + 1; i++)
+	    {
+		self->aux[i] = NULL;
+	    }
+	}
+	self->nAux = aInd + 1;
+    }
+
+    self->aux[aInd] = aAux;
+
+    rVal = false;
+    RETURN:
     return rVal;
 }
 
