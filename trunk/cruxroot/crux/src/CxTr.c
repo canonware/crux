@@ -39,7 +39,7 @@ CxpTrRingInit(CxtTr *aTr, CxtTrRing aRing)
 {
     CxtTrr *trr;
 
-    cxmAssert((aRing >> 1) < aTr->ntres);
+    CxmAssert((aRing >> 1) < aTr->ntres);
 
     trr = &aTr->trrs[aRing];
 
@@ -52,7 +52,7 @@ CxpTrRingInit(CxtTr *aTr, CxtTrRing aRing)
 void *
 CxTrRingAuxGet(CxtTr *aTr, CxtTrRing aRing)
 {
-    cxmDassert(CxpTrRingValidate(aTr, aRing));
+    CxmDassert(CxpTrRingValidate(aTr, aRing));
 
     return aTr->trrs[aRing].aux;
 }
@@ -60,7 +60,7 @@ CxTrRingAuxGet(CxtTr *aTr, CxtTrRing aRing)
 void
 CxTrRingAuxSet(CxtTr *aTr, CxtTrRing aRing, void *aAux)
 {
-    cxmDassert(CxpTrRingValidate(aTr, aRing));
+    CxmDassert(CxpTrRingValidate(aTr, aRing));
 
     aTr->trrs[aRing].aux = aAux;
 }
@@ -76,13 +76,13 @@ CxpTrRingValidate(CxtTr *aTr, CxtTrRing aRing)
 {
     CxtTrr *trr;
 
-    cxmCheckPtr(aTr);
-    cxmAssert(aTr->magic == CxmTrMagic);
-    cxmAssert((aRing >> 1) < aTr->ntres);
+    CxmCheckPtr(aTr);
+    CxmAssert(aTr->magic == CxmTrMagic);
+    CxmAssert((aRing >> 1) < aTr->ntres);
 
     trr = &aTr->trrs[aRing];
 
-    cxmAssert(trr->node < aTr->ntrns || trr->node == CxmTrNodeNone);
+    CxmAssert(trr->node < aTr->ntrns || trr->node == CxmTrNodeNone);
 
     return true;
 }
@@ -93,13 +93,13 @@ CxpTrEdgeValidate(CxtTr *aTr, CxtTrEdge aEdge)
 {
     CxtTre *tre;
 
-    cxmCheckPtr(aTr);
-    cxmAssert(aTr->magic == CxmTrMagic);
-    cxmAssert(aEdge < aTr->ntres);
+    CxmCheckPtr(aTr);
+    CxmAssert(aTr->magic == CxmTrMagic);
+    CxmAssert(aEdge < aTr->ntres);
 
     tre = &aTr->tres[aEdge];
 
-    cxmAssert(tre->magic == CxmTreMagic);
+    CxmAssert(tre->magic == CxmTreMagic);
 
     CxpTrRingValidate(aTr, (aEdge << 1));
     CxpTrRingValidate(aTr, (aEdge << 1) + 1);
@@ -115,13 +115,13 @@ CxpTrNodeValidate(CxtTr *aTr, CxtTrNode aNode)
     CxtTrRing ring;
     uint32_t nneighbors;
 
-    cxmCheckPtr(aTr);
-    cxmAssert(aTr->magic == CxmTrMagic);
-    cxmAssert(aNode < aTr->ntrns);
+    CxmCheckPtr(aTr);
+    CxmAssert(aTr->magic == CxmTrMagic);
+    CxmAssert(aNode < aTr->ntrns);
 
     trn = &aTr->trns[aNode];
 
-    cxmAssert(trn->magic == CxmTrnMagic);
+    CxmAssert(trn->magic == CxmTrnMagic);
 
     nneighbors = 0;
     CxmQliForeach(ring, &trn->rings, aTr->trrs, link)
@@ -136,7 +136,7 @@ CxpTrNodeValidate(CxtTr *aTr, CxtTrNode aNode)
     {
 	/* Only leaf nodes can have taxon numbers.  Leaf nodes have at most
 	 * 1 neighbor. */
-	cxmAssert(nneighbors <= 1);
+	CxmAssert(nneighbors <= 1);
     }
 
     return true;
@@ -177,8 +177,8 @@ CxpTrPsCharGet(CxtTr *aTr, CxtTrPs *aPs, uint32_t aOffset)
 {
     CxtTrc retval;
 
-    cxmCheckPtr(aPs->chars);
-    cxmAssert(aOffset < aPs->nchars);
+    CxmCheckPtr(aPs->chars);
+    CxmAssert(aOffset < aPs->nchars);
 
     retval = aPs->chars[aOffset >> 1];
     retval >>= ((aOffset & 1) * 4);
@@ -191,9 +191,9 @@ CxmpInline void
 CxpTrPsCharSet(CxtTr *aTr, CxtTrPs *aPs, CxtTrc aChar,
 	       uint32_t aOffset)
 {
-    cxmCheckPtr(aPs->chars);
-    cxmAssert((aChar & 0xfU) == aChar);
-    cxmAssert(aOffset
+    CxmCheckPtr(aPs->chars);
+    CxmAssert((aChar & 0xfU) == aChar);
+    CxmAssert(aOffset
 	      < aPs->nchars + ((32 - (aPs->nchars & 0x1fU)) & 0x1fU));
 
     if ((aOffset & 1) == 0)
@@ -232,7 +232,7 @@ CxpTrPsPrepare(CxtTr *aTr, CxtTrPs *aPs, uint32_t aNchars)
 	     * number of bytes is a multiple of 16 (total number of taxonomical
 	     * characters is a multiple of 32). */
 	    npad = (32 - (aNchars & 0x1fU)) & 0x1fU;
-	    cxmAssert(((aNchars + npad) & 0x1fU) == 0);
+	    CxmAssert(((aNchars + npad) & 0x1fU) == 0);
 
 	    /* Tack on 8 bytes; all modern systems provide at least 8 byte
 	     * alignment. */
@@ -297,7 +297,7 @@ CxpTrEdgeAlloc(CxtTr *aTr)
 	if (aTr->tres == NULL)
 	{
 	    aTr->tres = (CxtTre *) CxmMalloc(sizeof(CxtTre));
-	    cxmAssert(aTr->trrs == NULL);
+	    CxmAssert(aTr->trrs == NULL);
 	    aTr->trrs = (CxtTrr *) CxmMalloc(sizeof(CxtTrr) * 2);
 	    nspares = 1;
 	    aTr->ntres = 1;
@@ -307,7 +307,7 @@ CxpTrEdgeAlloc(CxtTr *aTr)
 	    aTr->tres = (CxtTre *) CxmRealloc(aTr->tres,
 					      sizeof(CxtTre)
 					      * aTr->ntres * 2);
-	    cxmCheckPtr(aTr->trrs);
+	    CxmCheckPtr(aTr->trrs);
 	    aTr->trrs = (CxtTrr *) CxmRealloc(aTr->trrs,
 					      sizeof(CxtTrr)
 					      * aTr->ntres * 4);
@@ -383,10 +383,10 @@ CxTrEdgeNew(CxtTr *aTr)
 void
 CxTrEdgeDelete(CxtTr *aTr, CxtTrEdge aEdge)
 {
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    cxmAssert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 0))
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmAssert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 0))
 	      == CxmTrNodeNone);
-    cxmAssert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 1))
+    CxmAssert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 1))
 	      == CxmTrNodeNone);
 
     CxpTrEdgeDealloc(aTr, aEdge);
@@ -396,8 +396,8 @@ CxTrEdgeDelete(CxtTr *aTr, CxtTrEdge aEdge)
 CxtTrNode
 CxTrEdgeNodeGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd)
 {
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    cxmAssert(aEnd == 0 || aEnd == 1);
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmAssert(aEnd == 0 || aEnd == 1);
 
     return CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, aEnd));
 }
@@ -405,7 +405,7 @@ CxTrEdgeNodeGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd)
 double
 CxTrEdgeLengthGet(CxtTr *aTr, CxtTrEdge aEdge)
 {
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
 
     return aTr->tres[aEdge].length;
 }
@@ -413,7 +413,7 @@ CxTrEdgeLengthGet(CxtTr *aTr, CxtTrEdge aEdge)
 void
 CxTrEdgeLengthSet(CxtTr *aTr, CxtTrEdge aEdge, double aLength)
 {
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
 
     aTr->tres[aEdge].length = aLength;
 }
@@ -421,7 +421,7 @@ CxTrEdgeLengthSet(CxtTr *aTr, CxtTrEdge aEdge, double aLength)
 void *
 CxTrEdgeAuxGet(CxtTr *aTr, CxtTrEdge aEdge)
 {
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
 
     return aTr->tres[aEdge].u.aux;
 }
@@ -429,7 +429,7 @@ CxTrEdgeAuxGet(CxtTr *aTr, CxtTrEdge aEdge)
 void
 CxTrEdgeAuxSet(CxtTr *aTr, CxtTrEdge aEdge, void *aAux)
 {
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
 
     aTr->tres[aEdge].u.aux = aAux;
 }
@@ -441,13 +441,13 @@ CxTrEdgeAttach(CxtTr *aTr, CxtTrEdge aEdge, CxtTrNode aNodeA,
     CxtTrn *trn;
     CxtTrRing ring;
 
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    cxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 0) == CxmTrNodeNone);
-    cxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 1) == CxmTrNodeNone);
-    cxmDassert(CxpTrNodeValidate(aTr, aNodeA));
-    cxmDassert(CxpTrNodeValidate(aTr, aNodeB));
-    cxmAssert(aNodeA != aNodeB);
-    cxmAssert(CxTrNodeDistance(aTr, aNodeA, aNodeB) == 0);
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 0) == CxmTrNodeNone);
+    CxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 1) == CxmTrNodeNone);
+    CxmDassert(CxpTrNodeValidate(aTr, aNodeA));
+    CxmDassert(CxpTrNodeValidate(aTr, aNodeB));
+    CxmAssert(aNodeA != aNodeB);
+    CxmAssert(CxTrNodeDistance(aTr, aNodeA, aNodeB) == 0);
 
     /* First end. */
     ring = CxTrEdgeRingGet(aTr, aEdge, 0);
@@ -464,10 +464,10 @@ CxTrEdgeAttach(CxtTr *aTr, CxtTrEdge aEdge, CxtTrNode aNodeA,
     /* Mark tree as modified. */
     aTr->modified = true;
 
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    cxmDassert(CxpTrNodeValidate(aTr, aNodeA));
-    cxmDassert(CxpTrNodeValidate(aTr, aNodeB));
-    cxmAssert(CxTrNodeDistance(aTr, aNodeA, aNodeB) == 1);
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmDassert(CxpTrNodeValidate(aTr, aNodeA));
+    CxmDassert(CxpTrNodeValidate(aTr, aNodeB));
+    CxmAssert(CxTrNodeDistance(aTr, aNodeA, aNodeB) == 1);
 }
 
 void
@@ -476,10 +476,10 @@ CxTrEdgeDetach(CxtTr *aTr, CxtTrEdge aEdge)
     CxtTrRing ring;
     CxtTrn *trn;
 
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    cxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 0) != CxmTrNodeNone);
-    cxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 1) != CxmTrNodeNone);
-    cxmAssert(CxTrNodeDistance(aTr, CxTrEdgeNodeGet(aTr, aEdge, 0),
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 0) != CxmTrNodeNone);
+    CxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 1) != CxmTrNodeNone);
+    CxmAssert(CxTrNodeDistance(aTr, CxTrEdgeNodeGet(aTr, aEdge, 0),
 			       CxTrEdgeNodeGet(aTr, aEdge, 1)) == 1);
 
     /* Detach from neighboring nodes.  Use CxmQliRemove() to make sure that the
@@ -497,7 +497,7 @@ CxTrEdgeDetach(CxtTr *aTr, CxtTrEdge aEdge)
     /* Mark tree as modified. */
     aTr->modified = true;
 
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
 }
 
 /******************************************************************************/
@@ -638,8 +638,8 @@ CxTrNodeNew(CxtTr *aTr)
 void
 CxTrNodeDelete(CxtTr *aTr, CxtTrNode aNode)
 {
-    cxmDassert(CxpTrNodeValidate(aTr, aNode));
-    cxmAssert(CxmQliFirst(&aTr->trns[aNode].rings) == CxmTrRingNone);
+    CxmDassert(CxpTrNodeValidate(aTr, aNode));
+    CxmAssert(CxmQliFirst(&aTr->trns[aNode].rings) == CxmTrRingNone);
 
     CxpTrNodeDealloc(aTr, aNode);
 }
@@ -647,7 +647,7 @@ CxTrNodeDelete(CxtTr *aTr, CxtTrNode aNode)
 uint32_t
 CxTrNodeTaxonNumGet(CxtTr *aTr, CxtTrNode aNode)
 {
-    cxmDassert(CxpTrNodeValidate(aTr, aNode));
+    CxmDassert(CxpTrNodeValidate(aTr, aNode));
 
     return aTr->trns[aNode].taxonNum;
 }
@@ -656,7 +656,7 @@ void
 CxTrNodeTaxonNumSet(CxtTr *aTr, CxtTrNode aNode,
 		    uint32_t aTaxonNum)
 {
-    cxmDassert(CxpTrNodeValidate(aTr, aNode));
+    CxmDassert(CxpTrNodeValidate(aTr, aNode));
 
     aTr->trns[aNode].taxonNum = aTaxonNum;
 
@@ -669,7 +669,7 @@ CxTrNodeRingGet(CxtTr *aTr, CxtTrNode aNode)
     CxtTrRing retval;
     CxtTrn *trn;
 
-    cxmDassert(CxpTrNodeValidate(aTr, aNode));
+    CxmDassert(CxpTrNodeValidate(aTr, aNode));
 
     trn = &aTr->trns[aNode];
 
@@ -681,7 +681,7 @@ CxTrNodeRingGet(CxtTr *aTr, CxtTrNode aNode)
 void *
 CxTrNodeAuxGet(CxtTr *aTr, CxtTrNode aNode)
 {
-    cxmDassert(CxpTrNodeValidate(aTr, aNode));
+    CxmDassert(CxpTrNodeValidate(aTr, aNode));
 
     return aTr->trns[aNode].u.aux;
 }
@@ -689,7 +689,7 @@ CxTrNodeAuxGet(CxtTr *aTr, CxtTrNode aNode)
 void
 CxTrNodeAuxSet(CxtTr *aTr, CxtTrNode aNode, void *aAux)
 {
-    cxmDassert(CxpTrNodeValidate(aTr, aNode));
+    CxmDassert(CxpTrNodeValidate(aTr, aNode));
 
     aTr->trns[aNode].u.aux = aAux;
 }
@@ -700,7 +700,7 @@ CxTrNodeDegree(CxtTr *aTr, CxtTrNode aNode)
     uint32_t retval;
     CxtTrRing ring;
 
-    cxmDassert(CxpTrNodeValidate(aTr, aNode));
+    CxmDassert(CxpTrNodeValidate(aTr, aNode));
 
     ring = CxmQliFirst(&aTr->trns[aNode].rings);
     if (ring != CxmTrRingNone)
@@ -722,9 +722,9 @@ CxTrNodeDistance(CxtTr *aTr, CxtTrNode aNode, CxtTrNode aOther)
     CxtTrn *trn;
     CxtTrRing ring;
 
-    cxmDassert(CxpTrNodeValidate(aTr, aNode));
-    cxmDassert(CxpTrNodeValidate(aTr, aOther));
-    cxmAssert(aNode != aOther);
+    CxmDassert(CxpTrNodeValidate(aTr, aNode));
+    CxmDassert(CxpTrNodeValidate(aTr, aOther));
+    CxmAssert(aNode != aOther);
 
     trn = &aTr->trns[aNode];
 
@@ -843,7 +843,7 @@ CxpTrLowest(CxtTr *aTr, CxtTrNode aNode, uint32_t *rNtaxa,
     CxtTrRing ring;
     CxtTrn *trn;
 
-    cxmAssert(aNode != CxmTrNodeNone);
+    CxmAssert(aNode != CxmTrNodeNone);
 
     trn = &aTr->trns[aNode];
 
@@ -889,9 +889,9 @@ CxpTrValidate(CxtTr *aTr)
 {
     uint32_t i, ntaxa, nedges;
 
-    cxmCheckPtr(aTr);
-    cxmAssert(aTr->magic == CxmTrMagic);
-    cxmAssert(aTr->modified == false);
+    CxmCheckPtr(aTr);
+    CxmAssert(aTr->magic == CxmTrMagic);
+    CxmAssert(aTr->modified == false);
 
     ntaxa = 0;
     nedges = 0;
@@ -899,8 +899,8 @@ CxpTrValidate(CxtTr *aTr)
     {
 	CxpTrLowest(aTr, aTr->base, &ntaxa, &nedges);
     }
-    cxmAssert(aTr->ntaxa == ntaxa);
-    cxmAssert(aTr->nedges == nedges);
+    CxmAssert(aTr->ntaxa == ntaxa);
+    CxmAssert(aTr->nedges == nedges);
 
     /* Iterate over trns and do some basic sanity checks. */
     for (i = 0; i < aTr->ntrns; i++)
@@ -912,13 +912,13 @@ CxpTrValidate(CxtTr *aTr)
 	else
 	{
 	    /* Make sure there are no valid trn's in the free list. */
-	    cxmAssert(aTr->trns[i].u.link == CxmTrNodeNone
+	    CxmAssert(aTr->trns[i].u.link == CxmTrNodeNone
 		      || aTr->trns[aTr->trns[i].u.link].magic
 		      != CxmTrnMagic);
 	}
     }
 
-    cxmAssert(aTr->sparetrns == CxmTrNodeNone
+    CxmAssert(aTr->sparetrns == CxmTrNodeNone
 	      || aTr->trns[aTr->sparetrns].magic != CxmTrnMagic);
 
     return true;
@@ -996,7 +996,7 @@ CxpTrBisectionEdgeListGen(CxtTr *aTr, CxtTrRing aRing,
 	case 2:
 	{
 	    /* A tree should never have nodes of degree 2. */
-	    cxmNotReached();
+	    CxmNotReached();
 	}
 	case 3:
 	{
@@ -1058,7 +1058,7 @@ CxpTrBedgesGen(CxtTr *aTr, CxtTrEdge aBisect, CxtTrNode *rNodeA,
 {
     CxtTrNode nodeA, nodeB;
 
-    cxmDassert(CxpTrEdgeValidate(aTr, aBisect));
+    CxmDassert(CxpTrEdgeValidate(aTr, aBisect));
 
     nodeA = CxpTrBisectionEdgeListGen(aTr,
 				      CxTrEdgeRingGet(aTr, aBisect, 0),
@@ -1102,7 +1102,7 @@ CxpTrtUpdate(CxtTr *aTr, uint32_t aNedgesPrev)
 {
     uint32_t i, j, n, offset;
 
-    cxmAssert(aTr->modified == false);
+    CxmAssert(aTr->modified == false);
 
     /* Allocate/reallocate/deallocate trt. */
     if (aTr->trt == NULL)
@@ -1128,7 +1128,7 @@ CxpTrtUpdate(CxtTr *aTr, uint32_t aNedgesPrev)
 	CxtTrn *trn;
 	CxtTrRing ring;
 
-	cxmAssert(aTr->base != CxmTrNodeNone);
+	CxmAssert(aTr->base != CxmTrNodeNone);
 
 	edgeCount = 0;
 	trn = &aTr->trns[aTr->base];
@@ -1142,7 +1142,7 @@ CxpTrtUpdate(CxtTr *aTr, uint32_t aNedgesPrev)
 					      CxTrRingOtherGet(aTr, ring),
 					      &edgeCount);
 	    }
-	cxmAssert(edgeCount == aTr->nedges);
+	CxmAssert(edgeCount == aTr->nedges);
     }
 
     /* Iteratively fill in trt. */
@@ -1271,7 +1271,7 @@ CxpTrCanonizeCompare(const void *aA, const void *aB)
     }
     else
     {
-	cxmAssert(a->minTaxon > b->minTaxon);
+	CxmAssert(a->minTaxon > b->minTaxon);
 	return 1;
     }
 }
@@ -1285,7 +1285,7 @@ CxpTrCanonize(CxtTr *aTr, CxtTrRing aRing)
     CxtTrNode node;
 
     /* Get taxon number (an internal node has CxmTrNodeTaxonNone). */
-    cxmDassert(CxpTrNodeValidate(aTr, CxTrRingNodeGet(aTr, aRing)));
+    CxmDassert(CxpTrNodeValidate(aTr, CxTrRingNodeGet(aTr, aRing)));
     node = CxTrRingNodeGet(aTr, aRing);
     retval = CxTrNodeTaxonNumGet(aTr, node);
 
@@ -1320,7 +1320,7 @@ CxpTrCanonize(CxtTr *aTr, CxtTrRing aRing)
 
 		i++;
 	    }
-	cxmAssert(i == degree - 1);
+	CxmAssert(i == degree - 1);
 
 	/* Sort the subtrees. */
 	qsort(canonize, degree - 1, sizeof(struct CxsTrCanonize),
@@ -1369,7 +1369,7 @@ CxpTrTbrNodeExtract(CxtTr *aTr, CxtTrNode aNode,
 	}
 	case 1:
 	{
-	    cxmNotReached();
+	    CxmNotReached();
 	}
 	case 2:
 	{
@@ -1430,7 +1430,7 @@ CxpTrTbrNodeExtract(CxtTr *aTr, CxtTrNode aNode,
 	    else
 	    {
 		/* Use edgeB when splicing node[AB] back together. */
-		cxmAssert(edgeA != aReconnectA && edgeA != aReconnectB);
+		CxmAssert(edgeA != aReconnectA && edgeA != aReconnectB);
 
 		/* Swap data in ringB and ringAOther. */
 		tps = aTr->trrs[ringB].ps;
@@ -1661,7 +1661,7 @@ CxpTrMpRingPrepare(CxtTr *aTr, CxtTrRing aRing, char *aTaxa[],
 		}
 		default:
 		{
-		    cxmNotReached();
+		    CxmNotReached();
 		}
 	    }
 	    j++;
@@ -2040,9 +2040,9 @@ CxpTrMpCachePscore(CxtTr *aTr, CxtTrPs *aP, CxtTrPs *aA,
     uint32_t cachedNodeScore;
 #endif
 
-    cxmCheckPtr(aP);
-    cxmCheckPtr(aA);
-    cxmCheckPtr(aB);
+    CxmCheckPtr(aP);
+    CxmCheckPtr(aA);
+    CxmCheckPtr(aB);
 
     /* Only calculate the parent's node score if the cached value is invalid. */
     if (aA->parent != aP || aB->parent != aP)
@@ -2096,7 +2096,7 @@ CxpTrMpCachePscore(CxtTr *aTr, CxtTrPs *aP, CxtTrPs *aA,
 CxmpInline void
 CxpTrMpCacheInvalidate(CxtTr *aTr, CxtTrPs *aPs)
 {
-    cxmCheckPtr(aPs);
+    CxmCheckPtr(aPs);
 
     /* Reset this node's parent pointer, to keep the old parent from using an
      * invalid cached value. */
@@ -2352,7 +2352,7 @@ CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
 	    /* This is a trifurcating node that is adjacent to the bisection.
 	     * Return the child node's ps, since this node's ps is
 	     * irrelevant. */
-	    cxmAssert(adjacent);
+	    CxmAssert(adjacent);
 
 	    /* Clear the cache for the view that is being bypassed.  This is
 	     * critical to correctness of the caching machinery, since each view
@@ -2407,7 +2407,7 @@ CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
 	default:
 	{
 	    /* This is a multifurcating node. */
-	    cxmError("XXX Not implemented");
+	    CxmError("XXX Not implemented");
 	}
     }
 
@@ -2450,7 +2450,7 @@ CxpTrMpViewsRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrPs *aPs,
 	    /* This is a trifurcating node that is adjacent to the bisection.
 	     * Pass the parent's ps when recursing, since this node's ps is
 	     * irrelevant. */
-	    cxmAssert(adjacent);
+	    CxmAssert(adjacent);
 
 	    /* Get the ring element that connects to the other portion of the
 	     * subtree on this side of the bisection. */
@@ -2521,7 +2521,7 @@ CxpTrMpViewsRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrPs *aPs,
 	default:
 	{
 	    /* This is a multifurcating node. */
-	    cxmError("XXX Not implemented");
+	    CxmError("XXX Not implemented");
 	}
     }
 }
@@ -2670,7 +2670,7 @@ CxpTrTbrNeighborsMp(CxtTr *aTr, uint32_t aMaxHold,
     CxtTrNode nodeA, nodeB;
     CxtTrPs *psA, *psB;
 
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     curmax = aMaxscore;
 
@@ -2779,7 +2779,7 @@ CxpTrTbrNeighborsMp(CxtTr *aTr, uint32_t aMaxHold,
 		    }
 		    default:
 		    {
-			cxmNotReached();
+			CxmNotReached();
 		    }
 		}
 
@@ -2806,8 +2806,8 @@ CxTrNew(void)
 void
 CxTrDelete(CxtTr *aTr)
 {
-    cxmCheckPtr(aTr);
-    cxmAssert(aTr->magic == CxmTrMagic);
+    CxmCheckPtr(aTr);
+    CxmAssert(aTr->magic == CxmTrMagic);
 
     if (aTr->held != NULL)
     {
@@ -2846,7 +2846,7 @@ uint32_t
 CxTrNtaxaGet(CxtTr *aTr)
 {
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     return aTr->ntaxa;
 }
@@ -2855,7 +2855,7 @@ uint32_t
 CxTrNedgesGet(CxtTr *aTr)
 {
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     return aTr->nedges;
 }
@@ -2863,8 +2863,8 @@ CxTrNedgesGet(CxtTr *aTr)
 CxtTrNode
 CxTrBaseGet(CxtTr *aTr)
 {
-    cxmCheckPtr(aTr);
-    cxmAssert(aTr->magic == CxmTrMagic);
+    CxmCheckPtr(aTr);
+    CxmAssert(aTr->magic == CxmTrMagic);
 
     return aTr->base;
 }
@@ -2872,12 +2872,12 @@ CxTrBaseGet(CxtTr *aTr)
 void
 CxTrBaseSet(CxtTr *aTr, CxtTrNode aBase)
 {
-    cxmCheckPtr(aTr);
-    cxmAssert(aTr->magic == CxmTrMagic);
+    CxmCheckPtr(aTr);
+    CxmAssert(aTr->magic == CxmTrMagic);
 #ifdef CxmDebug
     if (aBase != CxmTrNodeNone)
     {
-	cxmDassert(CxpTrNodeValidate(aTr, aBase));
+	CxmDassert(CxpTrNodeValidate(aTr, aBase));
     }
 #endif
 
@@ -2891,7 +2891,7 @@ CxTrCanonize(CxtTr *aTr)
 {
     /* Update internal state, so that ntaxa and nedges are correct. */
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     if (aTr->base != CxmTrNodeNone)
     {
@@ -2914,7 +2914,7 @@ CxTrCanonize(CxtTr *aTr)
 
     /* Re-update internal state. */
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 }
 
 void
@@ -2928,7 +2928,7 @@ CxTrTbr(CxtTr *aTr, CxtTrEdge aBisect, CxtTrEdge aReconnectA,
     uint32_t ntnodes = 0;
 
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     /* Get the nodes to either side of the edge where the bisection will be
      * done. */
@@ -2981,8 +2981,8 @@ CxTrTbr(CxtTr *aTr, CxtTrEdge aBisect, CxtTrEdge aReconnectA,
     if (nodes[0] != CxmTrNodeNone)
     {
 	/* nodes[0] (same as nodeA) is a single node. */
-	cxmAssert(nodes[0] == nodeA);
-	cxmAssert(nodes[1] == CxmTrNodeNone);
+	CxmAssert(nodes[0] == nodeA);
+	CxmAssert(nodes[1] == CxmTrNodeNone);
 
 	if (nodes[2] == CxmTrEdgeNone)
 	{
@@ -2993,7 +2993,7 @@ CxTrTbr(CxtTr *aTr, CxtTrEdge aBisect, CxtTrEdge aReconnectA,
     else if (nodes[1] != CxmTrNodeNone)
     {
 	/* nodes[1] (same as nodeB) is a single node. */
-	cxmAssert(nodes[1] == nodeB);
+	CxmAssert(nodes[1] == nodeB);
 
 	if (nodes[2] == CxmTrEdgeNone)
 	{
@@ -3010,14 +3010,14 @@ CxTrTbr(CxtTr *aTr, CxtTrEdge aBisect, CxtTrEdge aReconnectA,
 
     /* Update. */
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 }
 
 uint32_t
 CxTrTbrNneighborsGet(CxtTr *aTr)
 {
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     return aTr->trt[aTr->trtused].offset;
 }
@@ -3031,14 +3031,14 @@ CxTrTbrNeighborGet(CxtTr *aTr, uint32_t aNeighbor,
     uint32_t rem;
 
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
-    cxmAssert(aNeighbor < aTr->trt[aTr->trtused].offset);
+    CxmDassert(CxpTrValidate(aTr));
+    CxmAssert(aNeighbor < aTr->trt[aTr->trtused].offset);
 
     /* Get the bisection edge. */
     key.offset = aNeighbor;
     trt = bsearch(&key, aTr->trt, aTr->trtused, sizeof(CxtTrt),
 		  CxpTrtCompare);
-    cxmCheckPtr(trt);
+    CxmCheckPtr(trt);
     *rBisect = trt->bisectEdge;
 
     /* Get the reconnection edges.  The indices for a and b are mapped onto the
@@ -3077,8 +3077,8 @@ CxTrTbrNeighborGet(CxtTr *aTr, uint32_t aNeighbor,
 void *
 CxTrAuxGet(CxtTr *aTr)
 {
-    cxmCheckPtr(aTr);
-    cxmAssert(aTr->magic == CxmTrMagic);
+    CxmCheckPtr(aTr);
+    CxmAssert(aTr->magic == CxmTrMagic);
 
     return aTr->aux;
 }
@@ -3086,8 +3086,8 @@ CxTrAuxGet(CxtTr *aTr)
 void
 CxTrAuxSet(CxtTr *aTr, void *aAux)
 {
-    cxmCheckPtr(aTr);
-    cxmAssert(aTr->magic == CxmTrMagic);
+    CxmCheckPtr(aTr);
+    CxmAssert(aTr->magic == CxmTrMagic);
 
     aTr->aux = aAux;
 }
@@ -3097,7 +3097,7 @@ CxTrMpPrepare(CxtTr *aTr, bool aUninformativeEliminate,
 	      char *aTaxa[], uint32_t aNtaxa, uint32_t aNchars)
 {
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
     if (aTr->base != CxmTrNodeNone)
     {
 	CxtTrn *trn;
@@ -3223,7 +3223,7 @@ CxTrMpPrepare(CxtTr *aTr, bool aUninformativeEliminate,
 			}
 			default:
 			{
-			    cxmNotReached();
+			    CxmNotReached();
 			}
 		    }
 		}
@@ -3288,7 +3288,7 @@ CxTrMpFinish(CxtTr *aTr)
 {
 
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     if (aTr->base != CxmTrNodeNone)
     {
@@ -3323,7 +3323,7 @@ CxTrMpScore(CxtTr *aTr)
     uint32_t retval;
     CxtTrRing ring;
 
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     if (aTr->base != CxmTrNodeNone
 	&& (ring = CxmQliFirst(&aTr->trns[aTr->base].rings)) != CxmTrRingNone)
@@ -3355,7 +3355,7 @@ CxTrMpScore(CxtTr *aTr)
 void
 CxTrTbrBestNeighborsMp(CxtTr *aTr, uint32_t aMaxHold)
 {
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     CxpTrTbrNeighborsMp(aTr, aMaxHold,
 			CxmTrMaxscoreNone,
@@ -3367,7 +3367,7 @@ CxTrTbrBetterNeighborsMp(CxtTr *aTr, uint32_t aMaxHold)
 {
     uint32_t score;
 
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     score = CxTrMpScore(aTr);
     CxpTrTbrNeighborsMp(aTr, aMaxHold,
@@ -3378,7 +3378,7 @@ CxTrTbrBetterNeighborsMp(CxtTr *aTr, uint32_t aMaxHold)
 void
 CxTrTbrAllNeighborsMp(CxtTr *aTr)
 {
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     CxpTrTbrNeighborsMp(aTr, CxmTrHoldAll,
 			CxmTrMaxscoreNone,
@@ -3388,7 +3388,7 @@ CxTrTbrAllNeighborsMp(CxtTr *aTr)
 void
 CxTrHeldFinish(CxtTr *aTr)
 {
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     if (aTr->held != NULL)
     {
@@ -3403,7 +3403,7 @@ uint32_t
 CxTrNheldGet(CxtTr *aTr)
 {
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
+    CxmDassert(CxpTrValidate(aTr));
 
     return aTr->nheld;
 }
@@ -3415,9 +3415,9 @@ CxTrHeldGet(CxtTr *aTr, uint32_t aHeld, uint32_t *rNeighbor,
     CxtTrh *trh;
 
     CxpTrUpdate(aTr);
-    cxmDassert(CxpTrValidate(aTr));
-    cxmCheckPtr(aTr->held);
-    cxmAssert(aHeld < aTr->nheld);
+    CxmDassert(CxpTrValidate(aTr));
+    CxmCheckPtr(aTr->held);
+    CxmAssert(aHeld < aTr->nheld);
 
     trh = &aTr->held[aHeld];
     *rNeighbor = trh->neighbor;

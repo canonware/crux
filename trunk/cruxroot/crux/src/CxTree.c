@@ -154,11 +154,11 @@ CxTreeNew(void)
     obj = PyEval_EvalCode((PyCodeObject *) CxpTreeNewCode,
 			  globals,
 			  locals);
-    cxmCheckPtr(obj);
+    CxmCheckPtr(obj);
     Py_DECREF(obj);
 
     retval = (CxtTreeObject *) PyDict_GetItemString(locals, "tree");
-    cxmCheckPtr(retval);
+    CxmCheckPtr(retval);
     Py_INCREF(retval);
 
     Py_DECREF(locals);
@@ -470,7 +470,7 @@ tree = crux.Tree.Tree()\n\
 ",
 				      "<string>",
 				      Py_file_input);
-    cxmCheckPtr(CxpTreeNewCode);
+    CxmCheckPtr(CxpTreeNewCode);
 }
 
 /* End Tree. */
@@ -627,11 +627,11 @@ CxNodeNew(CxtTreeObject *aTree)
     obj = PyEval_EvalCode((PyCodeObject *) CxpNodeNewCode,
 			  globals,
 			  locals);
-    cxmCheckPtr(obj);
+    CxmCheckPtr(obj);
     Py_DECREF(obj);
 
     retval = (CxtNodeObject *) PyDict_GetItemString(locals, "node");
-    cxmCheckPtr(retval);
+    CxmCheckPtr(retval);
     Py_INCREF(retval);
 
     Py_DECREF(locals);
@@ -827,7 +827,7 @@ node = crux.Node.Node(tree)\n\
 ",
 				      "<string>",
 				      Py_file_input);
-    cxmCheckPtr(CxpNodeNewCode);
+    CxmCheckPtr(CxpNodeNewCode);
 }
 
 /* End Node. */
@@ -901,7 +901,7 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		}
 		default:
 		{
-		    cxmNotReached();
+		    CxmNotReached();
 		}
 	    }
 	    CxmXepHandled();
@@ -1056,11 +1056,11 @@ CxEdgeNew(CxtTreeObject *aTree)
     obj = PyEval_EvalCode((PyCodeObject *) CxpEdgeNewCode,
 			  globals,
 			  locals);
-    cxmCheckPtr(obj);
+    CxmCheckPtr(obj);
     Py_DECREF(obj);
 
     retval = (CxtEdgeObject *) PyDict_GetItemString(locals, "edge");
-    cxmCheckPtr(retval);
+    CxmCheckPtr(retval);
     Py_INCREF(retval);
 
     Py_DECREF(locals);
@@ -1331,7 +1331,7 @@ edge = crux.Edge.Edge(tree)\n\
 ",
 				      "<string>",
 				      Py_file_input);
-    cxmCheckPtr(CxpEdgeNewCode);
+    CxmCheckPtr(CxpEdgeNewCode);
 }
 
 /* End Edge. */
@@ -1524,11 +1524,11 @@ CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd)
     obj = PyEval_EvalCode((PyCodeObject *) CxpRingNewCode,
 			  globals,
 			  locals);
-    cxmCheckPtr(obj);
+    CxmCheckPtr(obj);
     Py_DECREF(obj);
 
     retval = (CxtRingObject *) PyDict_GetItemString(locals, "ring");
-    cxmCheckPtr(retval);
+    CxmCheckPtr(retval);
     Py_INCREF(retval);
 
     Py_DECREF(locals);
@@ -1726,7 +1726,7 @@ ring = crux.Ring.Ring(edge, end)\n\
 ",
 				      "<string>",
 				      Py_file_input);
-    cxmCheckPtr(CxpRingNewCode);
+    CxmCheckPtr(CxpRingNewCode);
 }
 
 /* End Ring. */

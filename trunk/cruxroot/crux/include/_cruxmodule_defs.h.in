@@ -13,7 +13,7 @@
 
 #undef CxmCcSilence
 
-#ifndef CxmAssert
+#ifndef CxmAssertions
 #undef CxmAssert
 #endif
 

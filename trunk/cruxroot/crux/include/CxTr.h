@@ -447,8 +447,8 @@ CxTrEdgeRingGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd);
 CxmInline CxtTrRing
 CxTrEdgeRingGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd)
 {
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    cxmAssert(aEnd == 0 || aEnd == 1);
+    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
+    CxmAssert(aEnd == 0 || aEnd == 1);
 
     return ((aEdge << 1) + aEnd);
 }
@@ -475,7 +475,7 @@ CxTrRingPrevGet(CxtTr *aTr, CxtTrRing aRing);
 CxmInline CxtTrNode
 CxTrRingNodeGet(CxtTr *aTr, CxtTrRing aRing)
 {
-    cxmDassert(CxpTrRingValidate(aTr, aRing));
+    CxmDassert(CxpTrRingValidate(aTr, aRing));
 
     return aTr->trrs[aRing].node;
 }
@@ -484,7 +484,7 @@ CxTrRingNodeGet(CxtTr *aTr, CxtTrRing aRing)
 CxmInline CxtTrEdge
 CxTrRingEdgeGet(CxtTr *aTr, CxtTrRing aRing)
 {
-    cxmDassert(CxpTrRingValidate(aTr, aRing));
+    CxmDassert(CxpTrRingValidate(aTr, aRing));
 
     return (aRing >> 1);
 }
@@ -493,7 +493,7 @@ CxTrRingEdgeGet(CxtTr *aTr, CxtTrRing aRing)
 CxmInline CxtTrRing
 CxTrRingOtherGet(CxtTr *aTr, CxtTrRing aRing)
 {
-    cxmDassert(CxpTrRingValidate(aTr, aRing));
+    CxmDassert(CxpTrRingValidate(aTr, aRing));
 
     return (aRing ^ 1);
 }
@@ -502,7 +502,7 @@ CxTrRingOtherGet(CxtTr *aTr, CxtTrRing aRing)
 CxmInline CxtTrRing
 CxTrRingNextGet(CxtTr *aTr, CxtTrRing aRing)
 {
-    cxmDassert(CxpTrRingValidate(aTr, aRing));
+    CxmDassert(CxpTrRingValidate(aTr, aRing));
 
     return CxmQriNext(aTr->trrs, aRing, link);
 }
@@ -511,7 +511,7 @@ CxTrRingNextGet(CxtTr *aTr, CxtTrRing aRing)
 CxmInline CxtTrRing
 CxTrRingPrevGet(CxtTr *aTr, CxtTrRing aRing)
 {
-    cxmDassert(CxpTrRingValidate(aTr, aRing));
+    CxmDassert(CxpTrRingValidate(aTr, aRing));
 
     return CxmQriPrev(aTr->trrs, aRing, link);
 }

@@ -110,8 +110,8 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
     CxtNodeObject *node;
     CxtEdgeObject *edgeX, *edgeY, *edge;
 
-    cxmCheckPtr(aDistances);
-    cxmAssert(aNtaxa > 1);
+    CxmCheckPtr(aDistances);
+    CxmAssert(aNtaxa > 1);
 
     /* Allocate an array that is large enough to hold the distances. */
     d = (CxtTreeNjd *) CxmMalloc(sizeof(CxtTreeNjd)

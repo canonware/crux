@@ -42,7 +42,7 @@ typedef unsigned char bool;
 #define CxmXepValueError 3
 
 /* assert()-alike.  It's a bit prettier and cleaner, but the same idea. */
-#define cxmError(a)							\
+#define CxmError(a)							\
     do									\
     {									\
 	fprintf(stderr, "%s:%u:%s(): Error: %s\n", __FILE__,		\
@@ -50,8 +50,8 @@ typedef unsigned char bool;
 		abort();						\
     } while (0)
 
-#ifdef CxmAssert
-#define cxmNotReached()							\
+#ifdef CxmAssertions
+#define CxmNotReached()							\
     do									\
     {									\
 	fprintf(stderr, "%s:%u:%s(): Unreachable code reached\n",	\
@@ -59,7 +59,7 @@ typedef unsigned char bool;
 		abort();						\
     } while (0)
 
-#define cxmAssert(a)							\
+#define CxmAssert(a)							\
     do									\
     {									\
 	if (!(a))							\
@@ -71,7 +71,7 @@ typedef unsigned char bool;
     } while (0)
 
 /* Macro to do the drudgery of assuring that a pointer is non-NULL. */
-#define cxmCheckPtr(x)							\
+#define CxmCheckPtr(x)							\
     do									\
     {									\
 	if (((x) == NULL) || ((x) == (void *) 0xa5a5a5a5)		\
@@ -83,16 +83,16 @@ typedef unsigned char bool;
 	}								\
     } while (0)
 #else
-#define cxmNotReached()
-#define cxmAssert(a)
-#define cxmCheckPtr(a)
+#define CxmNotReached()
+#define CxmAssert(a)
+#define CxmCheckPtr(a)
 #endif
 
 /* cw_dasssert() is used internally in places that the assertion should only
  * be made if CxmDebug is defined, such as checking magic variables that only
  * exist in that case. */
-#if (defined(CxmDebug) && defined(CxmAssert))
-#define cxmDassert(a)							\
+#if (defined(CxmDebug) && defined(CxmAssertions))
+#define CxmDassert(a)							\
     do									\
     {									\
 	if (!(a))							\
@@ -103,12 +103,12 @@ typedef unsigned char bool;
 	}								\
     } while (0)
 #else
-#define cxmDassert(a)
+#define CxmDassert(a)
 #endif
 
 /* Convenience macro for determining the offset of a field within a
  * structure. */
-#define cxmOffsetOf(aType, aField)					\
+#define CxmOffsetOf(aType, aField)					\
     ((uint32_t) &(((aType *)NULL)->aField))
 
 #include "CxQr.h"

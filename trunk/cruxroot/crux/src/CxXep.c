@@ -19,7 +19,7 @@ static CxtXep *CxpXepFirst;
 void
 CxXepInit(void)
 {
-    cxmAssert(CxpXepInitialized == false);
+    CxmAssert(CxpXepInitialized == false);
 
     CxpXepFirst = NULL;
 #ifdef CxmDebug
@@ -30,7 +30,7 @@ CxXepInit(void)
 void
 CxXepShutdown(void)
 {
-    cxmAssert(CxpXepInitialized);
+    CxmAssert(CxpXepInitialized);
 
 #ifdef CxmDebug
     CxpXepInitialized = false;
@@ -43,8 +43,8 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
 {
     CxtXep *xepFirst, *xep;
 
-    cxmAssert(CxpXepInitialized);
-    cxmAssert(aValue > CxeXepsCatch);
+    CxmAssert(CxpXepInitialized);
+    CxmAssert(aValue > CxeXepsCatch);
 
     /* Iterate backward through the exception handlers until the exception is
      * handled or there are no more exception handlers. */
@@ -75,7 +75,7 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
 		xep->value = aValue;
 		xep->state = CxeXepsCatch;
 		longjmp(xep->context, (int) aValue);
-		cxmNotReached();
+		CxmNotReached();
 	    }
 	    case CxeXepsCatch:
 	    {
@@ -84,7 +84,7 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
 	    }
 	    default:
 	    {
-		cxmNotReached();
+		CxmNotReached();
 	    }
 	}
 
@@ -100,7 +100,7 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
 void
 CxpXepRetry(CxtXep *aXep)
 {
-    cxmAssert(CxpXepInitialized);
+    CxmAssert(CxpXepInitialized);
 
 #ifdef CxmDebug
     switch (aXep->state)
@@ -111,11 +111,11 @@ CxpXepRetry(CxtXep *aXep)
 	}
 	case CxeXepsTry:
 	{
-	    cxmError("Exception retry outside handler");
+	    CxmError("Exception retry outside handler");
 	}
 	default:
 	{
-	    cxmNotReached();
+	    CxmNotReached();
 	}
     }
 #endif
@@ -123,13 +123,13 @@ CxpXepRetry(CxtXep *aXep)
     aXep->state = CxeXepsTry;
     aXep->isHandled = true;
     longjmp(aXep->context, (int) CxmXepvCode);
-    cxmNotReached();
+    CxmNotReached();
 }
 
 void
 CxpXepHandled(CxtXep *aXep)
 {
-    cxmAssert(CxpXepInitialized);
+    CxmAssert(CxpXepInitialized);
 
 #ifdef CxmDebug
     switch (aXep->state)
@@ -140,11 +140,11 @@ CxpXepHandled(CxtXep *aXep)
 	}
 	case CxeXepsTry:
 	{
-	    cxmError("Exception handled outside handler");
+	    CxmError("Exception handled outside handler");
 	}
 	default:
 	{
-	    cxmNotReached();
+	    CxmNotReached();
 	}
     }
 #endif
@@ -158,7 +158,7 @@ CxpXepLink(CxtXep *aXep)
 {
     CxtXep *xepFirst;
 
-    cxmAssert(CxpXepInitialized);
+    CxmAssert(CxpXepInitialized);
 
     xepFirst = CxpXepFirst;
 
@@ -166,8 +166,8 @@ CxpXepLink(CxtXep *aXep)
     CxmQrNew(aXep, link);
     if (xepFirst != NULL)
     {
-	cxmCheckPtr(CxmQrPrev(xepFirst, link));
-	cxmCheckPtr(CxmQrNext(xepFirst, link));
+	CxmCheckPtr(CxmQrPrev(xepFirst, link));
+	CxmCheckPtr(CxmQrNext(xepFirst, link));
 
 	CxmQrBeforeInsert(xepFirst, aXep, link);
     }
@@ -187,13 +187,13 @@ CxpXepUnlink(CxtXep *aXep)
 {
     CxtXep *xepFirst;
 
-    cxmAssert(CxpXepInitialized);
+    CxmAssert(CxpXepInitialized);
 
     if (aXep->isLinked)
     {
 	xepFirst = CxpXepFirst;
-	cxmCheckPtr(CxmQrPrev(xepFirst, link));
-	cxmCheckPtr(CxmQrNext(xepFirst, link));
+	CxmCheckPtr(CxmQrPrev(xepFirst, link));
+	CxmCheckPtr(CxmQrNext(xepFirst, link));
 
 	/* Remove handler from ring. */
 	if (aXep != xepFirst)
