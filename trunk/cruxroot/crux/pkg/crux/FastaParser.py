@@ -32,29 +32,38 @@ import string
 
 import crux.Exception
 
-class Exception(crux.Exception):
+class Exception(_FastaParser.Exception):
     pass
 
-class SyntaxError(Exception, SyntaxError):
-    def __init__(self, message, line=None, column=0, char='', token=[]):
-        self._message = message
-        self._line = line
-        self._column = column
-        self._char = char
-        self._token = token
+class ValueError(Exception, _FastaParser.ValueError):
+    pass
 
-    def __str__(self):
-        if self._line != None:
-            retval = "At %d:%d (token %r, char %r): %s" \
-                     % (self._line, self._column,
-                        string.join(self._token, ""), self._char,
-                        self._message)
-        else:
-            retval = self._message
+class TypeError(Exception, _FastaParser.TypeError):
+    pass
 
-        return retval
+class SyntaxError(Exception, _FastaParser.SyntaxError):
+    pass
 
-class FastaParser(object):
+# class SyntaxError(Exception, SyntaxError):
+#     def __init__(self, message, line=None, column=0, char='', token=[]):
+#         self._message = message
+#         self._line = line
+#         self._column = column
+#         self._char = char
+#         self._token = token
+
+#     def __str__(self):
+#         if self._line != None:
+#             retval = "At %d:%d (token %r, char %r): %s" \
+#                      % (self._line, self._column,
+#                         string.join(self._token, ""), self._char,
+#                         self._message)
+#         else:
+#             retval = self._message
+
+#         return retval
+
+class FastaParser(_FastaParser.FastaParser):
     def __init__(self):
         pass
 
@@ -89,7 +98,7 @@ class FastaParser(object):
                               .SyntaxError("Empty label",
                                            line, column,
                                            c, self._token)
-                        
+
                     self._tokenAccept(self.labelAccept, 'chars')
                 elif c == " " or c == "\t":
                     if len(self._token) == 0:

@@ -130,6 +130,7 @@ extern PyObject *CxgException;
 #include "CxTreeMp.h"
 #include "CxTreeNj.h"
 #include "CxTreeTbr.h"
+#include "CxFastaParser.h"
 
 void
 init_crux(void);

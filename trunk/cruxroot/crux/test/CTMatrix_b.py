@@ -15,6 +15,6 @@ matrix = crux.CTMatrix.CTMatrix()
 f = open(opts.scriptargs[1] + "/test/treezilla.fasta")
 matrix.fastaFileParse(f, 'DNA')
 
-print matrix.fastaPrints()
+#print matrix.fastaPrints()
 
 print "Test end"
