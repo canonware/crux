@@ -90,9 +90,23 @@ struct									\
 	 (var) = (((a_arr)[var].a_field.qrie_next != (a_ind))		\
 	 ? (a_arr)[var].a_field.qrie_next : UINT_MAX))
 
+// XXX Test.
+#define qri_others_foreach(var, a_arr, a_ind, a_field)			\
+    for ((var) = ((a_ind) != UINT_MAX)					\
+		  ? (a_arr)[a_ind].a_field.qrie_next : UINT_MAX;	\
+	 (var) != (a_ind);						\
+	 (var) = (a_arr)[var].a_field.qrie_next)
+
 #define qri_reverse_foreach(var, a_arr, a_ind, a_field)			\
     for ((var) = ((a_ind) != UINT_MAX)					\
 	       ? qri_prev(a_arr, a_ind, a_field) : UINT_MAX;		\
 	 (var) != UINT_MAX;						\
 	 (var) = (((var) != (a_ind))					\
 	 ? (a_arr)[var].a_field.qrie_prev : UINT_MAX))
+
+// XXX Test.
+#define qri_others_reverse_foreach(var, a_arr, a_ind, a_field)		\
+    for ((var) = ((a_ind) != UINT_MAX)					\
+		  ? (a_arr)[a_ind].a_field.qrie_prev : UINT_MAX;	\
+	 (var) != (a_ind);						\
+	 (var) = (a_arr)[var].a_field.qrie_prev)
