@@ -11,20 +11,13 @@
 
 #include "../include/_cruxmodule.h"
 
-typedef struct CxsTreeNjd CxtTreeNjd;
 typedef struct CxsTreeNjr CxtTreeNjr;
-
-/* Used by CxTreeNj() to represent a distance matrix cell. */
-struct CxsTreeNjd
-{
-    float dist;  /* Distance. */
-};
 
 /* Used by CxTreeNj(). */
 struct CxsTreeNjr
 {
     float r;
-    float rScaled;   /* r/(m-2)). */
+    float rScaled; /* r/(nleft-2)). */
     CxtNodeObject *node; /* Associated node. */
 };
 
@@ -93,7 +86,7 @@ static bool
 CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 {
     bool retval;
-    CxtTreeNjd *dOrig, *d; /* Distance matrix. */
+    float *dOrig, *d; /* Distance matrix. */
     CxtTreeNjr *rOrig, *r; /* Distance sums. */
     long nleft, i, x, y, iMin, xMin, yMin;
     float transMin, transCur;
@@ -109,13 +102,12 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     // XXX
     fprintf(stderr, "%s:%d:%s(): Allocate %u bytes\n",
 	    __FILE__, __LINE__, __func__,
-	    sizeof(CxtTreeNjd) * (CxpTreeNjXy2i(aNtaxa, aNtaxa - 2,
-						aNtaxa - 1) + 1));
-    dOrig = d = (CxtTreeNjd *) CxmMalloc(sizeof(CxtTreeNjd)
-					 * (CxpTreeNjXy2i(aNtaxa,
-							  aNtaxa - 2,
-							  aNtaxa - 1)
-					    + 1));
+	    sizeof(float) * (CxpTreeNjXy2i(aNtaxa, aNtaxa - 2,
+					   aNtaxa - 1) + 1));
+    dOrig = d = (float *) CxmMalloc(sizeof(float)
+				    * (CxpTreeNjXy2i(aNtaxa, aNtaxa - 2,
+						     aNtaxa - 1)
+				       + 1));
 
     /* Allocate an array that is large enough to hold all the distance sums. */
     // XXX
@@ -132,12 +124,12 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 				       x, y);
 	    if (PyFloat_Check(result))
 	    {
-		d[i].dist = (float) PyFloat_AsDouble(result);
+		d[i] = (float) PyFloat_AsDouble(result);
 		Py_DECREF(result);
 	    }
 	    else if (PyInt_Check(result))
 	    {
-		d[i].dist = (float) PyInt_AsLong(result);
+		d[i] = (float) PyInt_AsLong(result);
 		Py_DECREF(result);
 	    }
 	    else
@@ -190,8 +182,8 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	{
 	    for (y = x + 1; y < nleft; y++)
 	    {
-		r[x].r += d[i].dist;
-		r[y].r += d[i].dist;
+		r[x].r += d[i];
+		r[y].r += d[i];
 
 		i++;
 	    }
@@ -212,7 +204,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	{
 	    for (y = x + 1; y < nleft; y++)
 	    {
-		transCur = d[i].dist - ((r[x].rScaled + r[y].rScaled));
+		transCur = d[i] - ((r[x].rScaled + r[y].rScaled));
 
 		if (transCur < transMin)
 		{
@@ -241,7 +233,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 		fprintf(stderr, "%*s", (int) x * 9 + (!!x), " ");
 		for (y = x + 1; y < nleft; y++)
 		{
-		    fprintf(stderr, " %8.4f", d[i].dist);
+		    fprintf(stderr, " %8.4f", d[i]);
 
 		    i++;
 		}
@@ -271,7 +263,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     CxmAssert(PyErr_Occurred() == NULL);//XXX
 	edgeX = CxEdgeNew(aTree);
 	CxEdgeAttach(edgeX, node, r[xMin].node);
-	distX = (d[iMin].dist + r[xMin].rScaled - r[yMin].rScaled) / 2;
+	distX = (d[iMin] + r[xMin].rScaled - r[yMin].rScaled) / 2;
 	CxEdgeLengthSet(edgeX, distX);
 #ifdef CxmTreeNjVerbose
 	{
@@ -293,7 +285,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 
 	edgeY = CxEdgeNew(aTree);
 	CxEdgeAttach(edgeY, node, r[yMin].node);
-	distY = d[iMin].dist - distX;
+	distY = d[iMin] - distX;
 	CxEdgeLengthSet(edgeY, distY);
 #ifdef CxmTreeNjVerbose
 	{
@@ -324,9 +316,9 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	{
 	    if (x != xMin && x != yMin)
 	    {
-		d[CxpTreeNjXy2i(nleft, x, xMin)].dist
-		    = ((d[CxpTreeNjXy2i(nleft, x, xMin)].dist - distX)
-		       + (d[CxpTreeNjXy2i(nleft, x, yMin)].dist - distY)
+		d[CxpTreeNjXy2i(nleft, x, xMin)]
+		    = ((d[CxpTreeNjXy2i(nleft, x, xMin)] - distX)
+		       + (d[CxpTreeNjXy2i(nleft, x, yMin)] - distY)
 		       ) / 2;
 	    }
 	}
@@ -380,7 +372,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 #endif
     edge = CxEdgeNew(aTree);
     CxEdgeAttach(edge, r[0].node, r[1].node);
-    CxEdgeLengthSet(edge, d[0].dist);
+    CxEdgeLengthSet(edge, d[0]);
 
     /* Set the tree base. */
     CxTreeBaseSet(aTree, r[0].node);
