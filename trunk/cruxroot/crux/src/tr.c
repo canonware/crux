@@ -1692,7 +1692,6 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
     *r_reconnect_b = b;
 }
 
-// XXX Move.
 void
 tr_string(cw_tr_t *a_tr, cw_uint8_t *ar_string, cw_uint32_t a_len)
 {

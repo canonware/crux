@@ -23,10 +23,6 @@ struct cw_trn_s
 #ifdef CW_DBG
     cw_uint32_t magic;
 #define CW_TRN_MAGIC 0x63329478
-    /* If this trn has been inserted into a tree, it should no longer be
-     * externally modified.  This variable aids in asserting this invariant. */
-    // XXX Use this!
-    cw_bool_t in_tr;
 #endif
 
     /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
