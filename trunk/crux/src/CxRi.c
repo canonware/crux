@@ -119,7 +119,7 @@ CxRiRandomGet(CxtRi *aRi, CxtMt *aMt)
 
     CxmAssert(aRi->nints > 0);
 
-    /* This algorithm is explained in ri.h. */
+    /* This algorithm is explained in CxRi.h. */
 
     /* If all integers have been iterated over, re-initialize. */
     if (aRi->ind == aRi->nints)
