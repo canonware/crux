@@ -10,78 +10,78 @@
  ******************************************************************************/
 
 /* Ring definitions. */
-#define CxmQr(a_type)							\
+#define CxmQr(aType)							\
 struct									\
 {									\
-    a_type *CxmQre_next;							\
-    a_type *CxmQre_prev;							\
+    aType *CxQreNext;							\
+    aType *CxQrePrev;							\
 }
 
 /* Ring functions. */
-#define CxmQrNew(a_CxmQr, a_field)						\
+#define CxmQrNew(aQr, aField)						\
     do									\
     {									\
-	(a_CxmQr)->a_field.CxmQre_next = (a_CxmQr);				\
-	(a_CxmQr)->a_field.CxmQre_prev = (a_CxmQr);				\
+	(aQr)->aField.CxQreNext = (aQr);				\
+	(aQr)->aField.CxQrePrev = (aQr);				\
     } while (0)
 
-#define CxmQrNext(a_CxmQr, a_field) ((a_CxmQr)->a_field.CxmQre_next)
+#define CxmQrNext(aQr, aField) ((aQr)->aField.CxQreNext)
 
-#define CxmQrPrev(a_CxmQr, a_field) ((a_CxmQr)->a_field.CxmQre_prev)
+#define CxmQrPrev(aQr, aField) ((aQr)->aField.CxQrePrev)
 
-#define CxmQrBeforeInsert(a_CxmQrelm, a_CxmQr, a_field)			\
+#define CxmQrBeforeInsert(aQrElm, aQr, aField)				\
     do									\
     {									\
-	(a_CxmQr)->a_field.CxmQre_prev = (a_CxmQrelm)->a_field.CxmQre_prev;		\
-	(a_CxmQr)->a_field.CxmQre_next = (a_CxmQrelm);				\
-	(a_CxmQr)->a_field.CxmQre_prev->a_field.CxmQre_next = (a_CxmQr);		\
-	(a_CxmQrelm)->a_field.CxmQre_prev = (a_CxmQr);				\
+	(aQr)->aField.CxQrePrev = (aQrElm)->aField.CxQrePrev;		\
+	(aQr)->aField.CxQreNext = (aQrElm);				\
+	(aQr)->aField.CxQrePrev->aField.CxQreNext = (aQr);		\
+	(aQrElm)->aField.CxQrePrev = (aQr);				\
     } while (0)
 
-#define CxmQrAfterInsert(a_CxmQrelm, a_CxmQr, a_field)				\
+#define CxmQrAfterInsert(aQrElm, aQr, aField)				\
     do									\
     {									\
-	(a_CxmQr)->a_field.CxmQre_next = (a_CxmQrelm)->a_field.CxmQre_next;		\
-	(a_CxmQr)->a_field.CxmQre_prev = (a_CxmQrelm);				\
-	(a_CxmQr)->a_field.CxmQre_next->a_field.CxmQre_prev = (a_CxmQr);		\
-	(a_CxmQrelm)->a_field.CxmQre_next = (a_CxmQr);				\
+	(aQr)->aField.CxQreNext = (aQrElm)->aField.CxQreNext;		\
+	(aQr)->aField.CxQrePrev = (aQrElm);				\
+	(aQr)->aField.CxQreNext->aField.CxQrePrev = (aQr);		\
+	(aQrElm)->aField.CxQreNext = (aQr);				\
     } while (0)
 
-#define CxmQrMeld(a_CxmQr_a, a_CxmQr_b, a_type, a_field)			\
+#define CxmQrMeld(aQrA, aQrB, aType, aField)				\
     do									\
     {									\
-	a_type *t;							\
-	(a_CxmQr_a)->a_field.CxmQre_prev->a_field.CxmQre_next = (a_CxmQr_b);	\
-	(a_CxmQr_b)->a_field.CxmQre_prev->a_field.CxmQre_next = (a_CxmQr_a);	\
-	t = (a_CxmQr_a)->a_field.CxmQre_prev;					\
-	(a_CxmQr_a)->a_field.CxmQre_prev = (a_CxmQr_b)->a_field.CxmQre_prev;	\
-	(a_CxmQr_b)->a_field.CxmQre_prev = t;					\
+	aType *t;							\
+	(aQrA)->aField.CxQrePrev->aField.CxQreNext = (aQrB);		\
+	(aQrB)->aField.CxQrePrev->aField.CxQreNext = (aQrA);		\
+	t = (aQrA)->aField.CxQrePrev;					\
+	(aQrA)->aField.CxQrePrev = (aQrB)->aField.CxQrePrev;		\
+	(aQrB)->aField.CxQrePrev = t;					\
     } while (0)
 
-/* CxmQrMeld() and CxmQrSplit() are functionally equivalent, so there's no need to
- * have two copies of the code. */
-#define CxmQrSplit(a_CxmQr_a, a_CxmQr_b, a_type, a_field)			\
-    CxmQrMeld((a_CxmQr_a), (a_CxmQr_b), a_type, a_field)
+/* CxmQrMeld() and CxmQrSplit() are functionally equivalent, so there's no need
+ * to have two copies of the code. */
+#define CxmQrSplit(aQrA, aQrB, aType, aField)				\
+    CxmQrMeld((aQrA), (aQrB), aType, aField)
 
-#define CxmQrRemove(a_CxmQr, a_field)					\
+#define CxmQrRemove(aQr, aField)					\
     do									\
     {									\
-	(a_CxmQr)->a_field.CxmQre_prev->a_field.CxmQre_next			\
-	  = (a_CxmQr)->a_field.CxmQre_next;					\
-	(a_CxmQr)->a_field.CxmQre_next->a_field.CxmQre_prev			\
-	  = (a_CxmQr)->a_field.CxmQre_prev;					\
-	(a_CxmQr)->a_field.CxmQre_next = (a_CxmQr);				\
-	(a_CxmQr)->a_field.CxmQre_prev = (a_CxmQr);				\
+	(aQr)->aField.CxQrePrev->aField.CxQreNext			\
+	  = (aQr)->aField.CxQreNext;					\
+	(aQr)->aField.CxQreNext->aField.CxQrePrev			\
+	  = (aQr)->aField.CxQrePrev;					\
+	(aQr)->aField.CxQreNext = (aQr);				\
+	(aQr)->aField.CxQrePrev = (aQr);				\
     } while (0)
 
-#define CxmQrForeach(var, a_CxmQr, a_field)					\
-    for ((var) = (a_CxmQr);						\
-	 (var) != NULL;							\
-	 (var) = (((var)->a_field.CxmQre_next != (a_CxmQr))			\
-	 ? (var)->a_field.CxmQre_next : NULL))
+#define CxmQrForeach(aVar, aQr, aField)					\
+    for ((aVar) = (aQr);						\
+	 (aVar) != NULL;						\
+	 (aVar) = (((aVar)->aField.CxQreNext != (aQr))			\
+	 ? (aVar)->aField.CxQreNext : NULL))
 
-#define CxmQrReverseForeach(var, a_CxmQr, a_field)				\
-    for ((var) = ((a_CxmQr) != NULL) ? CxmQrPrev(a_CxmQr, a_field) : NULL;	\
-	 (var) != NULL;							\
-	 (var) = (((var) != (a_CxmQr))					\
-	 ? (var)->a_field.CxmQre_prev : NULL))
+#define CxmQrReverseForeach(aVar, aQr, aField)				\
+    for ((aVar) = ((aQr) != NULL) ? CxmQrPrev(aQr, aField) : NULL;	\
+	 (aVar) != NULL;						\
+	 (aVar) = (((aVar) != (aQr))					\
+	 ? (aVar)->aField.CxQrePrev : NULL))

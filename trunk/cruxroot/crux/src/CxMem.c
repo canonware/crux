@@ -12,16 +12,16 @@
 #include "../include/_cruxmodule.h"
 
 void *
-CxMemMallocE(size_t a_size, const char *a_filename, uint32_t a_line_num)
+CxMemMallocE(size_t aSize, const char *aFilename, uint32_t aLineNum)
 {
     void *retval;
 
-    retval = malloc(a_size);
+    retval = malloc(aSize);
     if (retval == NULL)
     {
 #ifdef CxmDebug
 	fprintf(stderr, "%s(): %p <-- malloc(%zu) at %s:%u\n",
-		__func__, retval, a_size, a_filename, a_line_num);
+		__func__, retval, aSize, aFilename, aLineNum);
 #endif
 	CxmXepThrow(CxmXepOOM);
     }
@@ -30,18 +30,18 @@ CxMemMallocE(size_t a_size, const char *a_filename, uint32_t a_line_num)
 }
 
 void *
-CxMemCallocE(size_t a_number, size_t a_size, const char *a_filename,
-	     uint32_t a_line_num)
+CxMemCallocE(size_t aNumber, size_t aSize, const char *aFilename,
+	     uint32_t aLineNum)
 {
     void *retval;
 
-    retval = calloc(a_number, a_size);
+    retval = calloc(aNumber, aSize);
     if (retval == NULL)
     {
 #ifdef CxmDebug
 	fprintf(stderr, "%s(): %p <-- calloc(%zu, %zu) at %s:%u\n",
-		__func__, retval, a_number, a_size,
-		a_filename, a_line_num);
+		__func__, retval, aNumber, aSize,
+		aFilename, aLineNum);
 #endif
 	CxmXepThrow(CxmXepOOM);
     }
@@ -49,18 +49,18 @@ CxMemCallocE(size_t a_number, size_t a_size, const char *a_filename,
 }
 
 void *
-CxMemReallocE(void *a_ptr, size_t a_size, const char *a_filename,
-	      uint32_t a_line_num)
+CxMemReallocE(void *aPtr, size_t aSize, const char *aFilename,
+	      uint32_t aLineNum)
 {
     void *retval;
 
-    retval = realloc(a_ptr, a_size);
+    retval = realloc(aPtr, aSize);
     if (retval == NULL)
     {
 #ifdef CxmDebug
 	fprintf(stderr, "%s(): %p <-- realloc(%p, %zu) at %s:%u\n",
-		__func__, retval, a_ptr, a_size,
-		a_filename, a_line_num);
+		__func__, retval, aPtr, aSize,
+		aFilename, aLineNum);
 #endif
 	CxmXepThrow(CxmXepOOM);
     }
@@ -69,7 +69,7 @@ CxMemReallocE(void *a_ptr, size_t a_size, const char *a_filename,
 }
 
 void
-CxMemFreeE(void *a_ptr, const char *a_filename, uint32_t a_line_num)
+CxMemFreeE(void *aPtr, const char *aFilename, uint32_t aLineNum)
 {
-    free(a_ptr);
+    free(aPtr);
 }

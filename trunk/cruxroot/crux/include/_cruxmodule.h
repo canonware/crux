@@ -64,16 +64,16 @@ typedef unsigned char bool;
     do									\
     {									\
 	fprintf(stderr, "%s:%u:%s(): Error: %s\n", __FILE__,		\
-		__LINE__, __func__, a);				\
+		__LINE__, __func__, a);					\
 		abort();						\
     } while (0)
 
 #ifdef CxmAssert
-#define cxmNotReached()						\
+#define cxmNotReached()							\
     do									\
     {									\
 	fprintf(stderr, "%s:%u:%s(): Unreachable code reached\n",	\
-		__FILE__, __LINE__, __func__);			\
+		__FILE__, __LINE__, __func__);				\
 		abort();						\
     } while (0)
 
@@ -83,7 +83,7 @@ typedef unsigned char bool;
 	if (!(a))							\
 	{								\
 	    fprintf(stderr, "%s:%u:%s(): Failed assertion: \"%s\"\n",	\
-		    __FILE__, __LINE__, __func__, #a);		\
+		    __FILE__, __LINE__, __func__, #a);			\
 	    abort();							\
 	}								\
     } while (0)
@@ -116,7 +116,7 @@ typedef unsigned char bool;
 	if (!(a))							\
 	{								\
 	    fprintf(stderr, "%s:%u:%s(): Failed assertion: \"%s\"\n",	\
-		    __FILE__, __LINE__, __func__, #a);		\
+		    __FILE__, __LINE__, __func__, #a);			\
 	    abort();							\
 	}								\
     } while (0)

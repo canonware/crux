@@ -13,106 +13,107 @@
 #define CxmQliHead							\
 struct									\
 {									\
-    uint32_t qlih_first;						\
+    uint32_t CxQlihFirst;						\
 }
 
-#define CxmQliHeadInitializer(a_head) {UINT_MAX}
+#define CxmQliHeadInitializer(aHead) {UINT_MAX}
 
 #define CxmQliElm	CxmQri
 
 /* List functions. */
-#define CxmQliNew(a_head)							\
+#define CxmQliNew(aHead)						\
     do									\
     {									\
-	(a_head)->qlih_first = UINT_MAX;				\
+	(aHead)->CxQlihFirst = UINT_MAX;				\
     } while (0)
 
-#define CxmQliElm_new(a_arr, a_ind, a_field)				\
-    CxmQriNew((a_arr), (a_ind), a_field)
+#define CxmQliElmNew(aArr, aInd, aField)				\
+    CxmQriNew((aArr), (aInd), aField)
 
-#define CxmQliFirst(a_head) ((a_head)->qlih_first)
+#define CxmQliFirst(aHead) ((aHead)->CxQlihFirst)
 
-#define CxmQliLast(a_head, a_arr, a_field)				\
-    ((CxmQliFirst(a_head) != UINT_MAX)					\
-      ? CxmQriPrev((a_arr), CxmQliFirst(a_head), a_field) : UINT_MAX)
+#define CxmQliLast(aHead, aArr, aField)					\
+    ((CxmQliFirst(aHead) != UINT_MAX)					\
+      ? CxmQriPrev((aArr), CxmQliFirst(aHead), aField) : UINT_MAX)
 
-#define CxmQliNext(a_head, a_arr, a_ind, a_field)				\
-    ((CxmQliLast(a_head, a_arr, a_field) != (a_ind))			\
-      ? CxmQriNext(a_arr, a_ind, a_field) : UINT_MAX)
+#define CxmQliNext(aHead, aArr, aInd, aField)				\
+    ((CxmQliLast(aHead, aArr, aField) != (aInd))			\
+      ? CxmQriNext(aArr, aInd, aField) : UINT_MAX)
 
-#define CxmQliPrev(a_head, a_arr, a_ind, a_field)				\
-    ((CxmQliFirst(a_head) != (a_ind)) ? CxmQriPrev(a_arr, a_ind, a_field)	\
-				    : UINT_MAX)
+#define CxmQliPrev(aHead, aArr, aInd, aField)				\
+    ((CxmQliFirst(aHead) != (aInd))					\
+			     ? CxmQriPrev(aArr, aInd, aField)		\
+			     : UINT_MAX)
 
-#define CxmQliBeforeInsert(a_head, a_arr, a_elmind, a_ind, a_field)	\
+#define CxmQliBeforeInsert(aHead, aArr, aElmind, aInd, aField)		\
     do									\
     {									\
-	CxmQriBeforeInsert(a_arr, a_elmind, a_ind, a_field);		\
-	if (CxmQliFirst(a_head) == (a_elmind))				\
+	CxmQriBeforeInsert(aArr, aElmind, aInd, aField);		\
+	if (CxmQliFirst(aHead) == (aElmind))				\
 	{								\
-	    CxmQliFirst(a_head) = (a_ind);				\
+	    CxmQliFirst(aHead) = (aInd);				\
 	}								\
     } while (0)
 
-#define CxmQliAfterInsert(a_arr, a_elmind, a_ind, a_field)		\
-    CxmQriAfterInsert(a_arr, a_elmind, a_ind, a_field)
+#define CxmQliAfterInsert(aArr, aElmind, aInd, aField)			\
+    CxmQriAfterInsert(aArr, aElmind, aInd, aField)
 
-#define CxmQliHead_insert(a_head, a_arr, a_ind, a_field)			\
+#define CxmQliHeadInsert(aHead, aArr, aInd, aField)			\
     do									\
     {									\
-	if (CxmQliFirst(a_head) != UINT_MAX)				\
+	if (CxmQliFirst(aHead) != UINT_MAX)				\
 	{								\
-	    CxmQriBeforeInsert(a_arr, CxmQliFirst(a_head), (a_ind),	\
-			      a_field);					\
+	    CxmQriBeforeInsert(aArr, CxmQliFirst(aHead), (aInd),	\
+			      aField);					\
 	}								\
-	CxmQliFirst(a_head) = (a_ind);					\
+	CxmQliFirst(aHead) = (aInd);					\
     } while (0)
 
-#define CxmQliTailInsert(a_head, a_arr, a_ind, a_field)			\
+#define CxmQliTailInsert(aHead, aArr, aInd, aField)			\
     do									\
     {									\
-	if (CxmQliFirst(a_head) != UINT_MAX)				\
+	if (CxmQliFirst(aHead) != UINT_MAX)				\
 	{								\
-	    CxmQriBeforeInsert(a_arr, CxmQliFirst(a_head), (a_ind),	\
-			      a_field);					\
+	    CxmQriBeforeInsert(aArr, CxmQliFirst(aHead), (aInd),	\
+			      aField);					\
 	}								\
-	CxmQliFirst(a_head) = CxmQriNext(a_arr, a_ind, a_field);		\
+	CxmQliFirst(aHead) = CxmQriNext(aArr, aInd, aField);		\
     } while (0)
 
-#define CxmQliRemove(a_head, a_arr, a_ind, a_field)			\
+#define CxmQliRemove(aHead, aArr, aInd, aField)				\
     do									\
     {									\
-	if (CxmQliFirst(a_head) == (a_ind))				\
+	if (CxmQliFirst(aHead) == (aInd))				\
 	{								\
-	    CxmQliFirst(a_head) = CxmQriNext(a_arr, CxmQliFirst(a_head),	\
-					 a_field);			\
+	    CxmQliFirst(aHead) = CxmQriNext(aArr, CxmQliFirst(aHead),	\
+					 aField);			\
 	}								\
-	if (CxmQliFirst(a_head) != (a_ind))				\
+	if (CxmQliFirst(aHead) != (aInd))				\
 	{								\
-	    CxmQriRemove(a_arr, a_ind, a_field);				\
+	    CxmQriRemove(aArr, aInd, aField);				\
 	}								\
 	else								\
 	{								\
-	    CxmQliFirst(a_head) = UINT_MAX;				\
+	    CxmQliFirst(aHead) = UINT_MAX;				\
 	}								\
     } while (0)
 
-#define CxmQliHead_remove(a_head, a_arr, a_field)				\
+#define CxmQliHeadRemove(aHead, aArr, aField)				\
     do									\
     {									\
-	uint32_t t = CxmQliFirst(a_head);					\
-	CxmQliRemove(a_head, a_arr, t, a_field);				\
+	uint32_t t = CxmQliFirst(aHead);				\
+	CxmQliRemove(aHead, aArr, t, aField);				\
     } while (0)
 
-#define CxmQliTailRemove(a_head, a_arr, a_field)				\
+#define CxmQliTailRemove(aHead, aArr, aField)				\
     do									\
     {									\
-	uint32_t t = CxmQliLast(a_head, a_arr, a_field);			\
-	CxmQliRemove((a_head), a_arr, t, a_field);			\
+	uint32_t t = CxmQliLast(aHead, aArr, aField);			\
+	CxmQliRemove((aHead), aArr, t, aField);				\
     } while (0)
 
-#define CxmQliForeach(a_var, a_head, a_arr, a_field)			\
-    CxmQriForeach((a_var), a_arr, CxmQliFirst(a_head), a_field)
+#define CxmQliForeach(aVar, aHead, aArr, aField)			\
+    CxmQriForeach((aVar), aArr, CxmQliFirst(aHead), aField)
 
-#define CxmQliReverseForeach(a_var, a_head, a_arr, a_field)		\
-    CxmQriReverseForeach((a_var), a_arr, CxmQliFirst(a_head), a_field)
+#define CxmQliReverseForeach(aVar, aHead, aArr, aField)			\
+    CxmQriReverseForeach((aVar), aArr, CxmQliFirst(aHead), aField)
