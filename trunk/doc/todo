@@ -1,3 +1,15 @@
+* Modify DistMatrix so that the token and distance accept methods are
+  over-ridable, then subclass it inside of the NJ code, and add the ability to
+  do NJ given a file or string, rather than just a pre-constructed distance
+  matrix.  This will avoid the problem of having multiple copies of the matrix
+  in memory.
+
+  The main trick to making this work will be the delayed logic involved in
+  determining the shape of the input matrix.  By internally allocating a
+  temporary array, and delaying calls to the acceptance methods until the shape
+  is known, thus making it possible to always insert that distances into the
+  correct locations.
+
 * Write regression tests for DistMatrix.distance[GS]et().
 
 * Use CTMatrix for MP.
@@ -6,6 +18,9 @@
 
 * Add true tree holding, rather than just the limited form of holding that the
   tr code supports.
+
+* Fix edge length printing for trees (one edge length is printed in two places
+  sometimes).
 
 ================================================================================
 
@@ -67,11 +82,6 @@
 * Terminate scoring early if identical on a per-word basis.
 
 ================================================================================
-
-* Fix edge length printing for trees (one edge length is printed in two places
-  sometimes).
-
-
 
 * Implement other heuristic tree constructors, such as sequential addition,
   UPGMA, star decomposition, etc.
