@@ -498,7 +498,7 @@ static bool
 CxpDistMatrixProcessDistance(CxtDistMatrixObject *self, long x, long y,
 			     const char *matrixFormat, bool *arEof)
 {
-    bool retval, eof;
+    bool retval;
     CxtDistMatrixTokenType tokenType;
     long line, column;
 
@@ -553,7 +553,7 @@ static bool
 CxpDistMatrixStashDistance(CxtDistMatrixObject *self, float *tdists, long y,
 			   bool *arEof)
 {
-    bool retval, eof;
+    bool retval;
     CxtDistMatrixTokenType tokenType;
     long line, column;
 

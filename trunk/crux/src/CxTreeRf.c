@@ -427,7 +427,7 @@ CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
 		goto ERROR;
 	    }
 
-	    if (otherNtaxa = CxTreeNtaxaGet((CxtTreeObject *) other) != ntaxa)
+	    if ((otherNtaxa = CxTreeNtaxaGet((CxtTreeObject *) other)) != ntaxa)
 	    {
 		CxError(CxgTreeTypeError,
 			"Wrong number of taxa (%ld), %ld expected",
