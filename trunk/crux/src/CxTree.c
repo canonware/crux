@@ -394,6 +394,12 @@ static PyMethodDef CxpTreeMethods[] =
 	"canonize"
     },
     {
+	"collapse",
+	(PyCFunction) CxTreeCollapse,
+	METH_NOARGS,
+	"collapse"
+    },
+    {
 	"_rfSequence",
 	(PyCFunction) CxTreeRfSequence,
 	METH_VARARGS,
@@ -698,8 +704,6 @@ CxpNodeClear(CxtNodeObject *self)
 	trRing = CxTrNodeRingGet(self->tree->tr, self->node);
 	if (trRing != CxmTrRingNone)
 	{
-	    PyObject *obj;
-
 	    trCurRing = trRing;
 	    do
 	    {
@@ -710,9 +714,7 @@ CxpNodeClear(CxtNodeObject *self)
 		trRing = trCurRing;
 		trCurRing = CxTrRingNextGet(self->tree->tr, trCurRing);
 
-		obj = CxEdgeDetach(ring->edge);
-		CxmCheckPtr(obj);
-		Py_DECREF(obj);
+		CxEdgeDetach(ring->edge);
 	    } while (trCurRing != trRing);
 	}
 
@@ -905,8 +907,14 @@ CxNodeRingPargs(CxtNodeObject *self)
     return rVal;
 }
 
-PyObject *
+unsigned
 CxNodeDegree(CxtNodeObject *self)
+{
+    return CxTrNodeDegree(self->tree->tr, self->node);
+}
+
+PyObject *
+CxNodeDegreePargs(CxtNodeObject *self)
 {
     return Py_BuildValue("i", CxTrNodeDegree(self->tree->tr, self->node));
 }
@@ -939,7 +947,7 @@ static PyMethodDef CxpNodeMethods[] =
     },
     {
 	"degree",
-	(PyCFunction) CxNodeDegree,
+	(PyCFunction) CxNodeDegreePargs,
 	METH_NOARGS,
 	"degree"
     },
@@ -1176,9 +1184,7 @@ CxpEdgeClear(CxtEdgeObject *self)
 	    if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring)
 		!= CxmTrNodeNone)
 	    {
-		PyObject *obj = CxEdgeDetach(self);
-		CxmCheckPtr(obj);
-		Py_DECREF(obj);
+		CxEdgeDetach(self);
 	    }
 	}
 
@@ -1272,14 +1278,28 @@ CxEdgeTree(CxtEdgeObject *self)
     return Py_BuildValue("O", self->tree);
 }
 
+void
+CxEdgeRingsGet(CxtEdgeObject *self, CxtRingObject **rRingA,
+	       CxtRingObject **rRingB)
+{
+    *rRingA = self->ringA;
+    *rRingB = self->ringB;
+}
+
 PyObject *
-CxEdgeRingsGet(CxtEdgeObject *self)
+CxEdgeRingsGetPargs(CxtEdgeObject *self)
 {
     return Py_BuildValue("(OO)", self->ringA, self->ringB);
 }
 
-PyObject *
+double
 CxEdgeLengthGet(CxtEdgeObject *self)
+{
+    return CxTrEdgeLengthGet(self->tree->tr, self->edge);
+}
+
+PyObject *
+CxEdgeLengthGetPargs(CxtEdgeObject *self)
 {
     return Py_BuildValue("d", CxTrEdgeLengthGet(self->tree->tr, self->edge));
 }
@@ -1364,10 +1384,10 @@ CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args)
     return rVal;
 }
 
-PyObject *
+bool
 CxEdgeDetach(CxtEdgeObject *self)
 {
-    PyObject *rVal;
+    bool rVal;
     CxtTrNode trNodeA, trNodeB;
     CxtNodeObject *nodeA, *nodeB;
     CxtTrRing trRingA, trRingB;
@@ -1375,8 +1395,7 @@ CxEdgeDetach(CxtEdgeObject *self)
     // Make sure that the edge is currently attached.
     if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring) == CxmTrNodeNone)
     {
-	CxError(CxgEdgeValueError, "Edge is already detached");
-	rVal = NULL;
+	rVal = true;
 	goto RETURN;
     }
 
@@ -1401,9 +1420,27 @@ CxEdgeDetach(CxtEdgeObject *self)
     Py_DECREF(self->ringA);
     Py_DECREF(self->ringB);
 
-    Py_INCREF(Py_None);
-    rVal = Py_None;
+    rVal = false;
     RETURN:
+    return rVal;
+}
+
+PyObject *
+CxEdgeDetachPargs(CxtEdgeObject *self)
+{
+    PyObject *rVal;
+
+    if (CxEdgeDetach(self))
+    {
+	CxError(CxgEdgeValueError, "Edge is already detached");
+	rVal = NULL;
+    }
+    else
+    {
+	Py_INCREF(Py_None);
+	rVal = Py_None;
+    }
+
     return rVal;
 }
 
@@ -1417,13 +1454,13 @@ static PyMethodDef CxpEdgeMethods[] =
     },
     {
 	"rings",
-	(PyCFunction) CxEdgeRingsGet,
+	(PyCFunction) CxEdgeRingsGetPargs,
 	METH_NOARGS,
 	"rings"
     },
     {
 	"lengthGet",
-	(PyCFunction) CxEdgeLengthGet,
+	(PyCFunction) CxEdgeLengthGetPargs,
 	METH_NOARGS,
 	"lengthGet"
     },
@@ -1441,7 +1478,7 @@ static PyMethodDef CxpEdgeMethods[] =
     },
     {
 	"detach",
-	(PyCFunction) CxEdgeDetach,
+	(PyCFunction) CxEdgeDetachPargs,
 	METH_NOARGS,
 	"detach"
     },
@@ -1574,7 +1611,7 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	rVal = NULL;
 	goto RETURN;
     }
-    
+
     Py_INCREF(edge->tree);
     Py_INCREF(edge);
 
@@ -1701,9 +1738,7 @@ CxpRingClear(CxtRingObject *self)
 
 	    if (CxTrRingNodeGet(self->tree->tr, self->ring) != CxmTrNodeNone)
 	    {
-		PyObject *obj = CxEdgeDetach(self->edge);
-		CxmCheckPtr(obj);
-		Py_DECREF(obj);
+		CxEdgeDetach(self->edge);
 	    }
 	}
 

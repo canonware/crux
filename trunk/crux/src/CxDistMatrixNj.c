@@ -15,7 +15,7 @@
 // Matrices are stored as upper-half matrices, which means that addressing is a
 // bit tricky.  The following matrix shows how addressing logically works, as
 // well as the order in which matrix elements are stored in memory:
-//   
+//
 //   x: 0  1  2  3  4  5  6  7  8
 //     --+--+--+--+--+--+--+--+--+ y:
 //       | 0| 1| 2| 3| 4| 5| 6| 7| 0
@@ -164,7 +164,7 @@ CxpDistMatrixNjDump(float *aD, float *aR, float *aRScaled,
     float *dElm;
     long x, y;
     uint32_t taxonNum;
-     
+
     fprintf(stderr,
 	    "----------------------------------------"
 	    "----------------------------------------\n");
@@ -227,7 +227,7 @@ CxpDistMatrixNjRInit(float *aD, long aNtaxa)
     long x, y;
 
     rVal = (float *) CxmMalloc(sizeof(float) * aNtaxa);
-    
+
     // Calculate r (sum of distances to other nodes) for each node.
     for (x = 0; x < aNtaxa; x++)
     {
@@ -499,7 +499,7 @@ CxpDistMatrixNjFinalJoin(float *aD, CxtNodeObject **aNodes,
 			 CxtTreeObject *aTree)
 {
     CxtEdgeObject *edge;
-    
+
     // Join the remaining two nodes.
     edge = CxEdgeNew(aTree);
     CxEdgeAttach(edge, aNodes[0], aNodes[1]);
@@ -1087,7 +1087,7 @@ CxpDistMatrixNjSeedGet(long *rSeed)
 	rVal = true;
 	goto RETURN;
     }
-	
+
     seedCode = Py_CompileString("\
 import random\n\
 seed = random.randint(0, max)\n\

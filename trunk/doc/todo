@@ -1,3 +1,12 @@
+* Move canonization code to CxTreeCanonize.c.
+
+* Rewrite Newick parser in C.
+
+  Gracefully raise an exception (or just complain and keep going?) when parsing
+  Newick files that have extra parens (as do ROSE outputs).  The NewickParser
+  code shouldn't ever allow this to happen; the grammar that is enforced should
+  require multiple objects inside parens.
+
 * Add basic TBR tests.
 
 ================================================================================
@@ -5,8 +14,6 @@
 * Move TBR code out of CxTr.c, into CxTreeTbr.c.  This will remove some scary
   constraints on how nodes/edges are rearranged (constraints imposed by the MP
   code).
-
-* Move canonization code to CxTreeCanonize.c.
 
 * Move MP code from CxTr.c to CxTreeMp.c.
 
@@ -25,15 +32,6 @@
 
 * Use tree validation API to make sure that the CxTreeRf.c code doesn't blow up
   on trees with non-contiguous taxon numbers.
-
-* Add a tree method that collapses zero-length (and negative-length) branches.
-
-* Rewrite Newick parser in C.
-
-  Gracefully raise an exception (or just complain and keep going?) when parsing
-  Newick files that have extra parens (as do ROSE outputs).  The NewickParser
-  code shouldn't ever allow this to happen; the grammar that is enforced should
-  require multiple objects inside parens.
 
 ================================================================================
 

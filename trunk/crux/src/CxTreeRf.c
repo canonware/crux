@@ -230,7 +230,8 @@ CxpTreeRfBipartitionsInit(CxtTreeObject *self)
     CxpTreeRfVecNew(&rVal->treeVec, ntaxa);
     CxpTreeRfVecNew(&rVal->leafVec, ntaxa);
     // Allocate (ntaxa - 3) slots in edgeVecs (one for each internal edge),
-    // unless the tree has no internal edges.
+    // unless the tree has no internal edges.  A tree with polytomies has fewer
+    // internal edges, which causes no problems.
     if (ntaxa >= 4)
     {
 	rVal->edgeVecs = (CxtTreeRfVec *) CxmCalloc(ntaxa - 3,

@@ -156,8 +156,10 @@ CxNodeRing(CxtNodeObject *self);
 PyObject *
 CxNodeRingPargs(CxtNodeObject *self);
 
-PyObject *
+unsigned
 CxNodeDegree(CxtNodeObject *self);
+PyObject *
+CxNodeDegreePargs(CxtNodeObject *self);
 
 #if (!defined(CxmUseInlines))
 void *
@@ -188,10 +190,17 @@ CxtEdgeObject *
 CxEdgeNew(CxtTreeObject *a_tree);
 PyObject *
 CxEdgeTree(CxtEdgeObject *self);
+
+void
+CxEdgeRingsGet(CxtEdgeObject *self, CxtRingObject **rRingA,
+	       CxtRingObject **rRingB);
 PyObject *
-CxEdgeRingsGet(CxtEdgeObject *self);
-PyObject *
+CxEdgeRingsGetPargs(CxtEdgeObject *self);
+
+double
 CxEdgeLengthGet(CxtEdgeObject *self);
+PyObject *
+CxEdgeLengthGetPargs(CxtEdgeObject *self);
 
 void
 CxEdgeLengthSet(CxtEdgeObject *self, double aLength);
@@ -204,8 +213,10 @@ CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
 PyObject *
 CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args);
 
-PyObject *
+bool
 CxEdgeDetach(CxtEdgeObject *self);
+PyObject *
+CxEdgeDetachPargs(CxtEdgeObject *self);
 
 #if (!defined(CxmUseInlines))
 void *

@@ -128,6 +128,7 @@ extern PyObject *CxgException;
 
 #include "CxTree.h"
 #include "CxTreeCanonize.h"
+#include "CxTreeCollapse.h"
 #include "CxTreeMp.h"
 #include "CxTreeRf.h"
 #include "CxTreeTbr.h"

@@ -22,28 +22,31 @@ print "%.2f" % a.rf(b)
 c = crux.Tree.Tree('(A,B,(C,D));', taxonMap=taxonMap)
 print "%.2f" % a.rf(c)
 
+d = crux.Tree.Tree('(A,B,C,D);', taxonMap=taxonMap)
+print "%.2f" % a.rf(d)
+
 print "("
-r = a.rf((a, b, c))
+r = a.rf((a, b, c, d))
 for distance in r:
     print "  %.2f" % distance
 print ")"
 
-d = crux.Tree.Tree(';', taxonMap=taxonMap)
-e = crux.Tree.Tree(';', taxonMap=taxonMap)
-print "%.2f" % d.rf(e)
+a = crux.Tree.Tree(';', taxonMap=taxonMap)
+b = crux.Tree.Tree(';', taxonMap=taxonMap)
+print "%.2f" % a.rf(b)
 
-d = crux.Tree.Tree('A;', taxonMap=taxonMap)
-e = crux.Tree.Tree('A;', taxonMap=taxonMap)
-print "%.2f" % d.rf(e)
+a = crux.Tree.Tree('A;', taxonMap=taxonMap)
+b = crux.Tree.Tree('A;', taxonMap=taxonMap)
+print "%.2f" % a.rf(b)
 
-d = crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
-e = crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
-print "%.2f" % d.rf(e)
+a = crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
+b = crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
+print "%.2f" % a.rf(b)
 
 try:
-    d = crux.Tree.Tree('A;', taxonMap=taxonMap)
-    e = crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
-    print "%.2f" % d.rf(e)
+    a = crux.Tree.Tree('A;', taxonMap=taxonMap)
+    b = crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
+    print "%.2f" % a.rf(b)
 except:
     import sys
 

@@ -584,7 +584,7 @@ CxpTrNodeDealloc(CxtTr *aTr, CxtTrNode aNode)
     CxtTrn *trn;
 
     trn = &aTr->trns[aNode];
-    
+
     memset(trn, 0x5a, sizeof(CxtTrn));
 #endif
 
@@ -877,7 +877,7 @@ CxpTrLowest(CxtTr *aTr, CxtTrNode aNode, uint32_t *rNtaxa,
 	{
 	    // Count edge.
 	    (*rNedges)++;
-	
+
 	    troot = CxpTrLowestRecurse(aTr, CxTrRingOtherGet(aTr, ring),
 				       rNtaxa, rNedges, root);
 	    if (troot != CxmTrNodeNone)
@@ -1477,7 +1477,7 @@ CxpTrTbrNodeExtract(CxtTr *aTr, CxtTrNode aNode,
 
 // Splice a node into the middle of aEdge, and return the node.
 CxmpInline CxtTrNode
-CxpTrTbrNodeSplice(CxtTr *aTr, CxtTrEdge aEdge, 
+CxpTrTbrNodeSplice(CxtTr *aTr, CxtTrEdge aEdge,
 		   CxtTrEdge *arTedges, uint32_t *arNtedges,
 		   CxtTrNode *arTnodes, uint32_t *arNtnodes)
 {
@@ -2929,7 +2929,7 @@ CxTrTbr(CxtTr *aTr, CxtTrEdge aBisect, CxtTrEdge aReconnectA,
 
     // Bisect.  aBisect will be used below for reconnection.
     CxTrEdgeDetach(aTr, aBisect);
-    
+
     // For nodes[AB], extract the node if it has only two neighbors.
     //
     // nodes[0..1] are CxmTrNodeNone, unless they refer to the only node in a

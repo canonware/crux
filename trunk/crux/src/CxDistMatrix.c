@@ -705,7 +705,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    CxmNotReached();
 	}
     }
-    
+
     if (matrixFormat == CxDistMatrixFormatLower)
     {
 	// Allocate a symmetric matrix.
@@ -1222,7 +1222,7 @@ CxpDistMatrixSample(CxtDistMatrixObject *self, PyObject *args)
 
     self->ntaxa = PyList_Size(rows);
     self->symmetric = orig->symmetric;
-    
+
     Py_INCREF(Py_None);
     rVal = Py_None;
     CxmXepBegin();
@@ -1545,7 +1545,7 @@ CxpDistMatrixStringRenderCallback(void *aContext, const char *aFormat, ...)
 			       context->bufSize - context->stringLen,
 			       aFormat, ap);
 	va_end(ap);
-	
+
 	if (tStringLen < context->bufSize - context->stringLen)
 	{
 	    // The string fit in the existing buffer.

@@ -16,7 +16,7 @@
 //==============================================================================
 //
 // Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
-// All rights reserved.                          
+// All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -29,8 +29,8 @@
 //      notice, this list of conditions and the following disclaimer in the
 //      documentation and/or other materials provided with the distribution.
 //
-//   3. The names of its contributors may not be used to endorse or promote 
-//      products derived from this software without specific prior written 
+//   3. The names of its contributors may not be used to endorse or promote
+//      products derived from this software without specific prior written
 //      permission.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -67,12 +67,12 @@ CxpMtInitGenRand(CxtMt *aMt, uint32_t aS)
 
     mt[0]= aS & 0xffffffffUL;
     for (mti=1; mti<CxmMtN; mti++) {
-        mt[mti] = 
-	    (1812433253UL * (mt[mti-1] ^ (mt[mti-1] >> 30)) + mti); 
+        mt[mti] =
+	    (1812433253UL * (mt[mti-1] ^ (mt[mti-1] >> 30)) + mti);
         // See Knuth TAOCP Vol2. 3rd Ed. P.106 for multiplier.
-        // In the previous versions, MSBs of the seed affect  
-        // only MSBs of the array mt[].                       
-        // 2002/01/09 modified by Makoto Matsumoto            
+        // In the previous versions, MSBs of the seed affect
+        // only MSBs of the array mt[].
+        // 2002/01/09 modified by Makoto Matsumoto
         mt[mti] &= 0xffffffffUL;
         // for >32 bit machines
     }
@@ -114,7 +114,7 @@ CxpMtUint32Get(CxtMt *aMt)
 
         mti = 0;
     }
-  
+
     y = mt[mti++];
 
     // Tempering
@@ -206,7 +206,7 @@ CxMtStringSeed(CxtMt *aMt, char *aSeed, uint32_t aSeedLen)
         if (i>=CxmMtN) { mt[0] = mt[CxmMtN-1]; i=1; }
     }
 
-    mt[0] = 0x80000000UL; // MSB is 1; assuring non-zero initial array 
+    mt[0] = 0x80000000UL; // MSB is 1; assuring non-zero initial array
 }
 
 void
@@ -314,15 +314,15 @@ CxMtUint32RangeGet(CxtMt *aMt, uint32_t aRange)
 double
 CxMtReal1Get(CxtMt *aMt)
 {
-    return CxpMtUint32Get(aMt)*(1.0/4294967295.0); 
-    // divided by 2^32-1 
+    return CxpMtUint32Get(aMt)*(1.0/4294967295.0);
+    // divided by 2^32-1
 }
 
 // generates a random number on [0,1)-real-interval
 double
 CxMtReal2Get(CxtMt *aMt)
 {
-    return CxpMtUint32Get(aMt)*(1.0/4294967296.0); 
+    return CxpMtUint32Get(aMt)*(1.0/4294967296.0);
     // divided by 2^32
 }
 
@@ -330,14 +330,14 @@ CxMtReal2Get(CxtMt *aMt)
 double
 CxMtReal3Get(CxtMt *aMt)
 {
-    return (((double)CxpMtUint32Get(aMt)) + 0.5)*(1.0/4294967296.0); 
+    return (((double)CxpMtUint32Get(aMt)) + 0.5)*(1.0/4294967296.0);
     // divided by 2^32
 }
 
 // generates a random number on [0,1) with 53-bit resolution
 double
 CxMtRes53Get(CxtMt *aMt)
-{ 
-    uint32_t a=CxpMtUint32Get(aMt)>>5, b=CxpMtUint32Get(aMt)>>6; 
-    return(a*67108864.0+b)*(1.0/9007199254740992.0); 
-} 
+{
+    uint32_t a=CxpMtUint32Get(aMt)>>5, b=CxpMtUint32Get(aMt)>>6;
+    return(a*67108864.0+b)*(1.0/9007199254740992.0);
+}
