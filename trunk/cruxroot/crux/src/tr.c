@@ -14,10 +14,12 @@
 
 typedef struct cw_tr_ps_s cw_tr_ps_t;
 typedef struct cw_trn_s cw_trn_t;
-typedef struct cw_trnr_s cw_trnr_t;
+typedef struct cw_trr_s cw_trr_t;
 typedef struct cw_tre_s cw_tre_t;
 typedef struct cw_trt_s cw_trt_t;
 typedef struct cw_trh_s cw_trh_t;
+
+typedef uint32_t cw_tr_ring_t;
 
 /* Character (in the systematics sense of the word). */
 typedef char cw_trc_t;
@@ -64,32 +66,30 @@ struct cw_trn_s
 #define CW_TRN_MAGIC 0x63329478
 #endif
 
-    /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
-     * for reference iteration. */
-    void *aux;
+    union
+    {
+	/* Auxiliary opaque data pointer.  This is used by the treenode wrapper
+	 * code for reference iteration. */
+	void *aux;
+
+	/* Spares linkage. */
+	cw_tr_node_t link;
+    } u;
 
     /* If CW_TR_NODE_TAXON_NONE, then the node is not a leaf node. */
     uint32_t taxon_num;
 
-    /* Ring of edges.  The edges are allocated from tr's tres array. */
-    qli_head tres;
+    /* Ring of trr's, which are associated with tre's. */
+    qli_head rings;
 };
 
 /* Tree node edge ring element. */
-struct cw_trnr_s
+struct cw_trr_s
 {
-    /* Edge this trnr is embedded in. */
-    cw_tr_edge_t edge;
+    /* Ring linkage. */
+    qri link;
 
-    /* Which element of the nodes field in cw_tre_t that this structure is
-     * embedded in (either 0 or 1).  Toggling the index back and forth is
-     * achieved by:
-     *
-     *   (trnr->end ~ 1)
-     */
-    uint32_t end;
-
-    /* Node whose ring this trnr is a part of. */
+    /* Node whose ring this trr is a part of. */
     cw_tr_node_t node;
 
     /* Used for Fitch parsimony scoring. */
@@ -111,11 +111,16 @@ struct cw_tre_s
 	void *aux;
 
 	/* Spares linkage. */
-	uint32_t link;
+	cw_tr_edge_t link;
     } u;
 
-    /* Nodes adjacent to this edge. */
-    cw_trnr_t nodes[2];
+    /* Index into tr->trrs of the first edge ring element associated with this
+     * edge.  The second edge ring element is directly after the first in
+     * tr->trrs. */
+    cw_tr_ring_t rings;
+
+    /* Edge length. */
+    double length;
 
     /* Used for Fitch parsimony scoring. */
     cw_tr_ps_t *ps;
@@ -214,13 +219,23 @@ struct cw_tr_s
     uint32_t ntrns;
     cw_tr_node_t sparetrns;
 
-    /* Pointer to an array of tre's.  ntres is the total number of tre's, not
-     * all of which are necessarily in use.
+    /* tres is a pointer to an array of tre's.  ntres is the total number of
+     * tre's, not all of which are necessarily in use.
      *
-     * sparetres is the index of the first spare tre in the spares stack. */
+     * sparetres is the index of the first spare tre in the spares stack.
+     *
+     * trrs is a pointer to an array of trr's.  There are always twice as many
+     * trr's in trrs as there are tre's in tres, and each pair of trr's in trrs
+     * is implicitly associated with the corresponding tre in tres.
+     *
+     *   tres[0] <==> trrs[0], trrs[1]
+     *   tres[1] <==> trrs[2], trrs[3]
+     *   etc.
+     */
     cw_tre_t *tres;
     uint32_t ntres;
     cw_tr_edge_t sparetres;
+    cw_trr_t *trrs;
 
     /* held is an array of held neighbors.  The array is iteratively doubled as
      * necessary.  heldlen is the actual length of the array, and nheld is the
@@ -236,12 +251,22 @@ struct cw_tr_s
 static bool
 tr_p_validate(cw_tr_t *a_tr);
 
+/* Validate an edge. */
+static bool
+tr_p_edge_validate(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
+{
+    cw_error("XXX Not implemented");
+
+    return true;
+}
+
 /* Validate a node. */
 static bool
 tr_p_node_validate(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
     cw_trn_t *trn;
-    uint32_t i, j, nneighbors, nloops;
+    cw_tr_ring_t ring;
+    uint32_t nneighbors;
 
     cw_check_ptr(a_tr);
     cw_assert(a_tr->magic == CW_TR_MAGIC);
@@ -251,22 +276,13 @@ tr_p_node_validate(cw_tr_t *a_tr, cw_tr_node_t a_node)
 
     cw_assert(trn->magic == CW_TRN_MAGIC);
 
-    for (i = nneighbors = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    nneighbors = 0;
+    qli_foreach(ring, &trn->rings, a_tr->trrs, link)
     {
-	if (trn->neighbors[i] != CW_TR_NODE_NONE)
-	{
-	    nneighbors++;
+	/* Validate edge. */
+	tr_p_edge_validate(a_tr, (ring >> 1));
 
-	    /* Make sure that all neighbors point back to this node. */
-	    for (j = nloops = 0; j < CW_TR_NODE_MAX_NEIGHBORS; j++)
-	    {
-		if (a_tr->trns[trn->neighbors[i]].neighbors[j] == a_node)
-		{
-		    nloops++;
-		}
-	    }
-	    cw_assert(nloops == 1);
-	}
+	nneighbors++;
     }
 
     if (trn->taxon_num != CW_TR_NODE_TAXON_NONE)
@@ -360,16 +376,138 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 
 /* tr_edge. */
 
+// XXX Move?
+CW_P_INLINE void
+tr_p_ring_init(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
+{
+    cw_trr_t *trr;
+
+    trr = &a_tr->trrs[a_ring];
+
+    qri_new(a_tr->trrs, a_ring, link);
+    trr->node = CW_TR_NODE_NONE;
+    trr->ps = NULL;
+}
+
+CW_P_INLINE void
+tr_p_edge_init(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
+{
+    cw_tre_t *tre;
+
+    tre = &a_tr->tres[a_edge];
+
+    tre->u.aux = NULL;
+    tr_p_ring_init(a_tr, (a_edge << 1));
+    tr_p_ring_init(a_tr, (a_edge << 1) + 1);
+    tre->length = 0.0;
+    tre->ps = NULL;
+
+#ifdef CW_DBG
+    tre->magic = CW_TRE_MAGIC;
+#endif
+}
+
+CW_P_INLINE cw_tr_edge_t
+tr_p_edge_alloc(cw_tr_t *a_tr)
+{
+    cw_tr_edge_t retval;
+
+    if (a_tr->sparetres == CW_TR_EDGE_NONE)
+    {
+	uint32_t i, nspares;
+
+	if (a_tr->tres == NULL)
+	{
+	    a_tr->tres
+		= (cw_tre_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+					       mema_arg_get(a_tr->mema),
+					       sizeof(cw_tre_t));
+	    cw_assert(a_tr->trrs == NULL);
+	    a_tr->trrs
+		= (cw_trr_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+					       mema_arg_get(a_tr->mema),
+					       sizeof(cw_trr_t) * 2);
+	    nspares = 1;
+	    a_tr->ntres = 1;
+	}
+	else
+	{
+	    a_tr->tres
+		= (cw_tre_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
+						 mema_arg_get(a_tr->mema),
+						 a_tr->tres,
+						 sizeof(cw_tre_t)
+						 * a_tr->ntres * 2,
+						 sizeof(cw_tre_t)
+						 * a_tr->ntres);
+	    cw_check_ptr(a_tr->trrs);
+	    a_tr->trrs
+		= (cw_trr_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
+						 mema_arg_get(a_tr->mema),
+						 a_tr->trrs,
+						 sizeof(cw_trr_t)
+						 * a_tr->ntres * 4,
+						 sizeof(cw_trr_t)
+						 * a_tr->ntres * 2);
+	    nspares = a_tr->ntres;
+	    a_tr->ntres *= 2;
+	}
+
+	/* Initialize last spare. */
+	a_tr->sparetres = a_tr->ntres - 1;
+	a_tr->tres[a_tr->sparetres].u.link = CW_TR_EDGE_NONE;
+
+	/* Insert other spares into spares stack. */
+	for (i = 1; i < nspares; i++)
+	{
+	    a_tr->sparetres--;
+	    a_tr->tres[a_tr->sparetres].u.link = a_tr->sparetres + 1;
+	}
+    }
+
+    /* Remove a spare from the spares stack. */
+    retval = a_tr->sparetres;
+    a_tr->sparetres = a_tr->tres[retval].u.link;
+
+    /* Initialize retval. */
+    tr_p_edge_init(a_tr, retval);
+
+    return retval;
+}
+
+CW_P_INLINE void
+tr_p_edge_dealloc(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
+{
+    cw_tre_t *tre;
+
+    tre = &a_tr->tres[a_edge];
+
+    if (tre->ps != NULL)
+    {
+	tr_p_ps_delete(a_tr, tre->ps);
+    }
+
+#ifdef CW_DBG
+    memset(&a_tr->tres[a_edge], 0x5a, sizeof(cw_tre_t));
+    memset(&a_tr->trrs[a_edge << 1], 0x5a, sizeof(cw_trr_t) * 2);
+#endif
+
+    a_tr->tres[a_edge].u.link = a_tr->sparetres;
+    a_tr->sparetres = a_edge;
+}
+
 cw_tr_edge_t
 tr_edge_new(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
+    return tr_p_edge_alloc(a_tr);
 }
 
 void
 tr_edge_delete(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+
+    tr_p_edge_dealloc(a_tr, a_edge);
 }
 
 cw_tr_node_t
@@ -378,25 +516,39 @@ tr_edge_node_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i)
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
     cw_assert(a_i == 0 || a_i == 1);
 
-    return a_tr->tres[a_edge].nodes[a_i].node;
+    return a_tr->trrs[(a_edge << 1) + a_i].node;
 }
 
 void
 tr_edge_next_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
 		 cw_tr_edge_t *r_next, uint32_t *r_i)
 {
-    cw_error("XXX Not implemented");
+    cw_tr_ring_t ringind;
+
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+    cw_assert(a_i == 0 || a_i == 1);
+
+    ringind = qri_next(a_tr->trrs, (a_edge << 1) + a_i, link);
+    *r_next = a_tr->trrs[ringind].node;
+    *r_i = (ringind & 1);
 }
 
 void
 tr_edge_prev_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
 		 cw_tr_edge_t *r_prev, uint32_t *r_i)
 {
-    cw_error("XXX Not implemented");
+    cw_tr_ring_t ringind;
+
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+    cw_assert(a_i == 0 || a_i == 1);
+
+    ringind = qri_prev(a_tr->trrs, (a_edge << 1) + a_i, link);
+    *r_prev = a_tr->trrs[ringind].node;
+    *r_i = (ringind & 1);
 }
 
 double
-tr_edge_length_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge);
+tr_edge_length_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
 
@@ -404,7 +556,7 @@ tr_edge_length_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge);
 }
 
 void
-tr_edge_length_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, double a_length);
+tr_edge_length_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, double a_length)
 {
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
 
@@ -414,13 +566,17 @@ tr_edge_length_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, double a_length);
 void *
 tr_edge_aux_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+
+    return a_tr->tres[a_edge].u.aux;
 }
 
 void
 tr_edge_aux_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, void *a_aux)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+
+    a_tr->tres[a_edge].u.aux = a_aux;
 }
 
 /******************************************************************************/
@@ -431,19 +587,12 @@ CW_P_INLINE void
 tr_p_node_init(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
     cw_trn_t *trn;
-    uint32_t i;
 
     trn = &a_tr->trns[a_node];
 
-    trn->aux = NULL;
+    trn->u.aux = NULL;
     trn->taxon_num = CW_TR_NODE_TAXON_NONE;
-
-    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
-    {
-	trn->neighbors[i] = CW_TR_NODE_NONE;
-    }
-
-    trn->ps = NULL;
+    qli_new(&trn->rings);
 
 #ifdef CW_DBG
     trn->magic = CW_TRN_MAGIC;
@@ -474,19 +623,19 @@ tr_p_node_alloc(cw_tr_t *a_tr)
 
 	/* Initialize last spare. */
 	a_tr->sparetrns = a_tr->ntrns - 1;
-	a_tr->trns[a_tr->sparetrns].neighbors[0] = CW_TR_NODE_NONE;
+	a_tr->trns[a_tr->sparetrns].u.link = CW_TR_NODE_NONE;
 
 	/* Insert other spares into spares stack. */
 	for (i = 1; i < nspares; i++)
 	{
 	    a_tr->sparetrns--;
-	    a_tr->trns[a_tr->sparetrns].neighbors[0] = a_tr->sparetrns + 1;
+	    a_tr->trns[a_tr->sparetrns].u.link = a_tr->sparetrns + 1;
 	}
     }
 
     /* Remove a spare from the spares stack. */
     retval = a_tr->sparetrns;
-    a_tr->sparetrns = a_tr->trns[retval].neighbors[0];
+    a_tr->sparetrns = a_tr->trns[retval].u.link;
 
     /* Initialize retval. */
     tr_p_node_init(a_tr, retval);
@@ -501,16 +650,11 @@ tr_p_node_dealloc(cw_tr_t *a_tr, cw_tr_node_t a_node)
 
     trn = &a_tr->trns[a_node];
     
-    if (trn->ps != NULL)
-    {
-	tr_p_ps_delete(a_tr, trn->ps);
-    }
-
 #ifdef CW_DBG
     memset(&a_tr->trns[a_node], 0x5a, sizeof(cw_trn_t));
 #endif
 
-    a_tr->trns[a_node].neighbors[0] = a_tr->sparetrns;
+    a_tr->trns[a_node].u.link = a_tr->sparetrns;
     a_tr->sparetrns = a_node;
 }
 
@@ -524,6 +668,8 @@ void
 tr_node_delete(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
     cw_dassert(tr_p_node_validate(a_tr, a_node));
+    // XXX Assert no edges?
+    cw_assert(qli_first(&a_tr->trns[a_node].rings) == UINT_MAX);
 
     tr_p_node_dealloc(a_tr, a_node);
 }
@@ -551,9 +697,23 @@ void
 tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node,
 		 cw_tr_edge_t *r_edge, uint32_t *r_i)
 {
+    cw_trn_t *trn;
+    cw_tr_ring_t ringind;
+
     cw_dassert(tr_p_node_validate(a_tr, a_node));
 
-    cw_error("XXX Not implemented");
+    trn = &a_tr->trns[a_node];
+
+    ringind = qli_first(&trn->rings);
+    if (ringind != CW_TR_EDGE_NONE)
+    {
+	*r_edge = (ringind >> 1);
+	*r_i = (ringind & 1);
+    }
+    else
+    {
+	*r_edge = CW_TR_EDGE_NONE;
+    }
 }
 
 void
