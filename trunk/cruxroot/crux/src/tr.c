@@ -498,6 +498,29 @@ tr_p_trt_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
     a_tr->trtused = j;
 }
 
+static int
+tr_p_trt_compare(const void *a_key, const void *a_val)
+{
+    int retval;
+    const cw_trt_t *key = (const cw_trt_t *) a_key;
+    const cw_trt_t *val = (const cw_trt_t *) a_val;
+
+    if (key->offset < val->offset)
+    {
+	retval = -1;
+    }
+    else if (key->offset < (&val[1])->offset)
+    {
+	retval = 0;
+    }
+    else
+    {
+	retval = 1;
+    }
+
+    return retval;
+}
+
 static void
 tr_p_tre_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
 {
@@ -787,6 +810,7 @@ tr_canonize(cw_tr_t *a_tr)
 {
     cw_dassert(tr_p_validate(a_tr, FALSE));
 
+    // XXX This isn't right.  trt and tre should be updated *after canonization.
     tr_p_update(a_tr);
 
     tr_p_canonize(a_tr, a_tr->croot, CW_TR_NODE_NONE);
@@ -827,9 +851,79 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,
 		    cw_uint32_t *r_reconnect_b)
 {
+    cw_trt_t key, *trt;
+    cw_uint32_t rem, nedges_a, nedges_b, a, b;
+
     cw_dassert(tr_p_validate(a_tr, FALSE));
 
-    cw_error("XXX Not implemented");
+    tr_p_update(a_tr);
+    cw_assert(a_neighbor < a_tr->trt[a_tr->trtused].offset);
+
+    /* Get the bisection edge. */
+    key.offset = a_neighbor;
+    trt = bsearch(&key, a_tr->trt, a_tr->trtused, sizeof(cw_trt_t),
+		  tr_p_trt_compare);
+    cw_check_ptr(trt);
+    *r_bisect = trt->bisect_edge;
+
+    /* Get the reconnection edges. */
+    rem = a_neighbor - trt->offset;
+
+    nedges_a = trt->nedges_a;
+    nedges_b = trt->nedges_b;
+
+    /* If the reconnection edges happen to be those that would reverse the
+     * bisection, instead return the last possible reconnection combination for
+     * this bisection.  This results in a rather strange ordering for the
+     * enumeration, but is always correct. */
+
+    /* No edges in one or both of the subtrees must be handled specially. */
+    if (nedges_a == 0)
+    {
+	/* {0,b}. */
+
+	/* A 2-taxon tree has no TBR neighbors. */
+	cw_assert(nedges_b != 0);
+
+	a = CW_TR_NODE_EDGE_NONE;
+	b = rem;
+
+	if (a == trt->self_a && b == trt->self_b)
+	{
+	    b = nedges_b - 1;
+	}
+    }
+    else if (nedges_b == 0)
+    {
+	/* {a,0}. */
+	a = rem;
+	b = CW_TR_NODE_EDGE_NONE;
+
+	if (a == trt->self_a && b == trt->self_b)
+	{
+	    a = nedges_a - 1;
+	}
+    }
+    else
+    {
+	/* {a,b}. */
+	a = rem / nedges_b;
+	b = rem % nedges_b;
+
+	/* (a * b) must be less than (nedges_a * nedges_b), since the last
+	 * combination is reserved to replace the combination that corresponds
+	 * to undoing the bisection. */
+	cw_assert(a * b < nedges_a * nedges_b);
+
+	if (a == trt->self_a && b == trt->self_b)
+	{
+	    a = nedges_a - 1;
+	    b = nedges_b - 1;
+	}
+    }
+
+    *r_reconnect_a = a;
+    *r_reconnect_b = b;
 }
 
 void *
