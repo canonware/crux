@@ -9,35 +9,42 @@
  *
  ******************************************************************************/
 
-typedef struct
+typedef struct CxsTreeObject CxtTreeObject;
+typedef struct CxsNodeObject CxtNodeObject;
+typedef struct CxsEdgeObject CxtEdgeObject;
+typedef struct CxsRingObject CxtRingObject;
+
+struct CxsTreeObject
 {
     PyObject_HEAD
     CxtTr *tr;
-} CxtTreeObject;
+};
 
-typedef struct
+struct CxsNodeObject
 {
     PyObject_HEAD
     CxtTreeObject *tree;
     CxtTrNode node;
-    bool valid;
-} CxtNodeObject;
+};
 
-typedef struct
+struct CxsEdgeObject
 {
     PyObject_HEAD
     CxtTreeObject *tree;
+    CxtRingObject *ringA;
+    CxtRingObject *ringB;
     CxtTrEdge edge;
-    bool valid;
-} CxtEdgeObject;
+    bool GcDetached;
+};
 
-typedef struct
+struct CxsRingObject
 {
     PyObject_HEAD
     CxtTreeObject *tree;
     CxtEdgeObject *edge;
     CxtTrRing ring;
-} CxtRingObject;
+    bool GcDetached;
+};
 
 extern PyObject *CxgTreeException;
 extern PyObject *CxgTreeValueError;

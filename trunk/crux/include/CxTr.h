@@ -109,6 +109,9 @@ struct CxsTre
 #define CxmTreMagic 0xa683fa07
 #endif
 
+    /* Reference count, used for destruction via CxTrEdgeDecref(). */
+    uint32_t refcount;
+
     union
     {
 	/* Auxiliary opaque data pointer. */
@@ -367,6 +370,10 @@ CxTrNodeNew(CxtTr *aTr);
 void
 CxTrNodeDelete(CxtTr *aTr, CxtTrNode aNode);
 
+/* Destructor that does not check whether there are are references to rings. */
+void
+CxTrNodeDecref(CxtTr *aTr, CxtTrNode aNode);
+
 /* Get the taxon number associated with aNode.  Return CxmTrNodeTaxonNone if
  * no taxon number is set. */
 uint32_t
@@ -410,6 +417,11 @@ CxTrEdgeNew(CxtTr *aTr);
 /* Destructor. */
 void
 CxTrEdgeDelete(CxtTr *aTr, CxtTrEdge aEdge);
+
+/* Reference-counted destructor.  This must be called three times (edge, 2
+ * rings) before the edge is actually destroyed. */
+void
+CxTrEdgeDecref(CxtTr *aTr, CxtTrEdge aEdge);
 
 /* Get the edge length. */
 double
