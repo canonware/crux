@@ -23,6 +23,9 @@ class testclass(crux.FastaParser.FastaParser):
     def labelAccept(self):
         self.vprint("label")
 
+    def commentAccept(self):
+        self.vprint("comment")
+
     def charsAccept(self):
         self.vprint("chars")
 
@@ -42,9 +45,20 @@ ACGT-
 ACG-T
 """,
 
+    """
+>Taxon_A This is a comment.
+ACGT-
+>Taxon_B	This is another comment.
+ACG-T
+""",
+
     # Error cases.
     """
 >
+""",
+
+    """
+> Comment
 """,
 
     """

@@ -14,8 +14,19 @@ Test begin
 --label--: 'Taxon_B'
 --chars--: 'ACG-T'
 
+=== '\n>Taxon_A This is a comment.\nACGT-\n>Taxon_B\tThis is another comment.\nACG-T\n' ===
+--label--: 'Taxon_A'
+--comment--: 'This is a comment.'
+--chars--: 'ACGT-'
+--label--: 'Taxon_B'
+--comment--: 'This is another comment.'
+--chars--: 'ACG-T'
+
 === '\n>\n' ===
 Exception crux.FastaParser.SyntaxError: At 2:1 (token '', char '\n'): Empty label
+
+=== '\n> Comment\n' ===
+Exception crux.FastaParser.SyntaxError: At 2:1 (token '', char ' '): Empty label
 
 === '\n>Label\n' ===
 --label--: 'Label'
@@ -53,8 +64,19 @@ Exception crux.FastaParser.SyntaxError: At 5:0 (token '', char ''): Missing char
 --label--: 'Taxon_B'
 --chars--: 'ACG-T'
 
+=== '\n>Taxon_A This is a comment.\nACGT-\n>Taxon_B\tThis is another comment.\nACG-T\n' ===
+--label--: 'Taxon_A'
+--comment--: 'This is a comment.'
+--chars--: 'ACGT-'
+--label--: 'Taxon_B'
+--comment--: 'This is another comment.'
+--chars--: 'ACG-T'
+
 === '\n>\n' ===
 Exception crux.FastaParser.SyntaxError: At 2:1 (token '', char '\n'): Empty label
+
+=== '\n> Comment\n' ===
+Exception crux.FastaParser.SyntaxError: At 2:1 (token '', char ' '): Empty label
 
 === '\n>Label\n' ===
 --label--: 'Label'

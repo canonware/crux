@@ -64,7 +64,7 @@ class FastaParser(object):
         self._srcOffset = 0
         self._line = 1
         self._column = 0
-        self._state = None # None, 'label', 'chars'
+        self._state = None # None, 'label', 'comment', 'chars'.
         self._token = []
 
         # Initialize regular expressions.
@@ -77,8 +77,8 @@ class FastaParser(object):
         # Match non-whitespace.
         reNotWhitespace = re.compile(r'[^\r\n\t ]')
 
-        # Read one character at a time and handle it using a DFA with three
-        # states (None (starting state), 'label', and 'chars').
+        # Read one character at a time and handle it using a DFA with four
+        # states (None (starting state), 'label', 'comment', and 'chars').
         (c, line, column) = self._getc()
         while (c != ""):
             if self._state == 'label':
@@ -90,6 +90,22 @@ class FastaParser(object):
                                            c, self._token)
                         
                     self._tokenAccept(self.labelAccept, 'chars')
+                elif c == " " or c == "\t":
+                    if len(self._token) == 0:
+                        raise crux.FastaParser\
+                              .SyntaxError("Empty label",
+                                           line, column,
+                                           c, self._token)
+
+                    self._tokenAccept(self.labelAccept, 'comment')
+                else:
+                    self._token.append(c)
+            elif self._state == 'comment':
+                if c == "\n":
+                    if len(self._token) > 0:
+                        self._tokenAccept(self.commentAccept, 'chars')
+                    else:
+                        self._state = 'chars'
                 else:
                     self._token.append(c)
             elif self._state == 'chars':
@@ -140,6 +156,10 @@ class FastaParser(object):
         return self._line
 
     def labelAccept(self):
+        # Virtual method.
+        pass
+
+    def commentAccept(self):
         # Virtual method.
         pass
 
