@@ -527,7 +527,7 @@ static PyTypeObject CxtFastaParser =
     0,			// setattrofunc tp_setattro
     0,			// PyBufferProcs *tp_as_buffer
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // long tp_flags
-    "FastaParser(): Create the C portion of a tree.",	// char *tp_doc
+    "FastaParser(): Create the C portion of a FASTA parser.",	// char *tp_doc
     (traverseproc) CxpFastaParserTraverse,	// traverseproc tp_traverse
     (inquiry) CxpFastaParserClear,	// inquiry tp_clear
     0,			// richcmpfunc tp_richcompare

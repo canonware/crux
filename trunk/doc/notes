@@ -171,7 +171,7 @@ since it would have to store pointers to comments that immediately follow it.
 --------------------------------------------------------------------------------
 
 ------
-Nexus:
+(C) NexusParser:
 
 - __init__(input, inputName) (parse from string or file descriptor)
 
@@ -181,23 +181,27 @@ Nexus:
 - tokenUnget (push token back into input)
 - textRange(offset, length) (return raw text)
 
-- handlerSearch (search for a handler, like "NexusFile", "BlockTaxa", etc.)
+- handlerSearch (search for a handler, like "File", "BlockTaxa", etc.)
 
-- root (return root node of AST, which is a NexusFile)
+- root (return root node of AST, which is a NexusParserFile)
 - print (write AST to a callback function)
 
--- NexusFile (default file parser)
+-- NexusParserFile (default file parser)
 
 
 ----------
-NexusBase:
+(C) NexusParserBase:
 
 - __init__(input, parent, index,
-           offset/length/line/column=None) (input is a Nexus object)
-- input (return Nexus object that this object was created from)
+           offset/length/line/column=None) (input is a NexusParser object)
+- input (return NexusParser object that this object was created from)
 - text/offset/line/column (return raw text/location)
 - lengthGet/Set (length isn't always known at creation time, so make it
                  settable)
+- cText (virtual method for canonized text, return None by default)
+
+- finish (set a flag that indicates this node and its children are finished)
+- finished (return whether finish has been called.
 
 - print
 
@@ -209,27 +213,28 @@ NexusBase:
 - left/right
 - accessCallback (used for throwing syntax errors)
 
+-- NexusParserSeparator
 
 ----------------------------
-NexusSyntaxError(NexusBase):
+NexusParserSyntaxError(NexusParserBase):
 
 - __init__(+message)
 - accessCallback (throw SyntaxError)
 
 
 ---------------------
-NexusFile(NexusBase):
+NexusParserFile(NexusParserBase):
 
 - nBlocks (return number of blocks)
 - blockGet(index) (return block by index)
 - blockSearch (search for block by name ("taxa", "trees", etc.)
 
--- NexusBlock (default block parser)
--- NexusBlockCharacters... (standard block parsers.
+-- NexusParserBlock (default block parser)
+-- NexusParserBlockCharacters... (standard block parsers.
 
 
 ----------------------
-NexusBlock(NexusBase):
+NexusParserBlock(NexusParserBase):
 
 - blockName (returns canonized name: "taxa", "trees", etc.)
 - statementSearch(command) (search for statement by command ("dimensions",
@@ -237,11 +242,11 @@ NexusBlock(NexusBase):
 - nStatements (return number of statements)
 - statementGet(index) (return statement by index)
 
--- NexusStatement (default statement parser)
+-- NexusParserStatement (default statement parser)
 
 
 --------------------------
-NexusStatement(NexusBase):
+NexusParserStatement(NexusParserBase):
 
 - commandName
 - nWords (return number of words that follow the command, not including ';')
@@ -249,15 +254,15 @@ NexusStatement(NexusBase):
 
 
 ---------------------
-NexusWord(NexusBase):
+NexusParserWord(NexusParserBase):
 
-- word (returns processed text -- '' collapse, '...'-->... , etc.)
+- cText (returns processed text -- '' collapse, '...'-->... , etc.)
 - nSeparators
 - separatorGet(index)
 
 
 ------------------------
-NexusSeparator(NexusBase): (whitespace or comment)
+NexusParserSeparator(NexusParserBase): (whitespace or comment)
 
 
 

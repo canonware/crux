@@ -134,6 +134,7 @@ extern PyObject *CxgException;
 #include "CxTreeTbr.h"
 #include "CxFastaParser.h"
 #include "CxNewickParser.h"
+#include "CxNexusParser.h"
 #include "CxDistMatrix.h"
 #include "CxDistMatrixNj.h"
 

@@ -9,17 +9,9 @@
 #
 ################################################################################
 
-from _crux import *
+from C_NexusParserBase import *
 
-import Tree
-import Node
-import Edge
-import Ring
-
-import DistMatrix
-import FastaParser
-import NewickParser
-import NexusParser
-import TaxonMap
-import CharacterType
-import CTMatrix
+class NexusParserBase(C_NexusParserBase):
+    def __init__(self, nexusParser, parent=None, siblingIndex=None,
+                 offset=None, length=None, line=None, column=None):
+        pass

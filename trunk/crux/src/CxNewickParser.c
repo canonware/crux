@@ -1308,7 +1308,7 @@ static PyTypeObject CxtNewickParser =
     0,			// setattrofunc tp_setattro
     0,			// PyBufferProcs *tp_as_buffer
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // long tp_flags
-    "NewickParser(): Create the C portion of a tree.",	// char *tp_doc
+    "NewickParser(): Create the C portion of a Newick parser.",	// char *tp_doc
     (traverseproc) CxpNewickParserTraverse,	// traverseproc tp_traverse
     (inquiry) CxpNewickParserClear,	// inquiry tp_clear
     0,			// richcmpfunc tp_richcompare

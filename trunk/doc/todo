@@ -25,6 +25,9 @@
 * Remove CxQri, CxQli, and CxQsi, after they are no longer used by the tree
   code.
 
+=== General maintenance ========================================================
+
+
 === General features ===========================================================
 
 * Add true tree holding, rather than just the limited form of holding that the
