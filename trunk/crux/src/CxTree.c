@@ -866,11 +866,9 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 	/* Create associated ring objects. */
 	ringA = CxRingNew(self, 0);
-	//Py_INCREF(ringA);
 	tryStage = 2;
 
 	ringB = CxRingNew(self, 1);
-	//Py_INCREF(ringB);
 
 	self->valid = true;
 
