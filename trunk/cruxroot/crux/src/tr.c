@@ -2240,8 +2240,12 @@ static void
 tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		 cw_tr_ps_t *a_b)
 {
-    uint32_t i, nbytes, ns, a, b, p, r;
-    cw_trc_t *chars_p, *chars_a, *chars_b;
+    uint32_t i, nwords, ns, a, b, p, m, r, un;
+    uint32_t *chars_p, *chars_a, *chars_b;
+    static const uint32_t bits_table[] = {
+	2, 1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	1, 0};
 
     /* Calculate node score. */
     ns = 0;
@@ -2250,51 +2254,45 @@ tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     a = chars_a[i];							\
     b = chars_b[i];							\
 									\
-    if ((p = ((a & b) & 0xf0U)) != 0)					\
-    {									\
-	r = p;								\
-    }									\
-    else								\
-    {									\
-	r = ((a | b) & 0xf0U);						\
-	ns++;								\
-    }									\
+    /* Get 1's in the least significant bits of state sets that are	\
+     * non-empty after the intersection operation. */			\
+    r = m = a & b;							\
+    m |= (m >> 1);							\
+    m |= (m >> 1);							\
+    m |= (m >> 1);							\
 									\
-    if ((p = ((a & b) & 0x0fU)) != 0)					\
-    {									\
-	r |= p;								\
-    }									\
-    else								\
-    {									\
-	r |= ((a | b) & 0x0fU);						\
-	ns++;								\
-    }									\
+    /* Mask out garbage. */						\
+    m &= 0x11111111;							\
 									\
+    /* Count up changes. */						\
+    ns += bits_table[m & 0xff]						\
+	+ bits_table[(m >> 8) & 0xff]					\
+	+ bits_table[(m >> 16) & 0xff]					\
+	+ bits_table[(m >> 24) & 0xff];					\
+									\
+    /* Propagate 1's to make a bit mask. */				\
+    m |= (m << 1);							\
+    m |= (m << 1);							\
+    m |= (m << 1);							\
+									\
+    /* Combine results of intersection and union operations. */		\
+    r &= m;								\
+    un = a | b;								\
+    m = (~m);								\
+    un &= m;								\
+    r |= un;								\
+									\
+    /* Store result. */							\
     chars_p[i] = r;							\
 									\
     i++;
 
     /* Calculate preliminary Fitch parsimony scores for each character. */
-    chars_p = a_p->chars;
-    chars_a = a_a->chars;
-    chars_b = a_b->chars;
-    for (i = 0, nbytes = (a_p->nchars >> 1); i < nbytes;)
+    chars_p = (uint32_t *) a_p->chars;
+    chars_a = (uint32_t *) a_a->chars;
+    chars_b = (uint32_t *) a_b->chars;
+    for (i = 0, nwords = (a_p->nchars >> 3); i < nwords;)
     {
-	MP_C_PSCORE_INNER();
-	MP_C_PSCORE_INNER();
-	MP_C_PSCORE_INNER();
-	MP_C_PSCORE_INNER();
-
-	MP_C_PSCORE_INNER();
-	MP_C_PSCORE_INNER();
-	MP_C_PSCORE_INNER();
-	MP_C_PSCORE_INNER();
-
-	MP_C_PSCORE_INNER();
-	MP_C_PSCORE_INNER();
-	MP_C_PSCORE_INNER();
-	MP_C_PSCORE_INNER();
-
 	MP_C_PSCORE_INNER();
 	MP_C_PSCORE_INNER();
 	MP_C_PSCORE_INNER();
@@ -2547,8 +2545,12 @@ static uint32_t
 tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
 		 uint32_t a_maxscore)
 {
-    uint32_t retval, i, nbytes, a, b;
-    cw_trc_t *chars_a, *chars_b;
+    uint32_t retval, i, nwords, a, b, m;
+    uint32_t *chars_a, *chars_b;
+    static const uint32_t bits_table[] = {
+	2, 1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	1, 0};
 
     /* Calculate sum of subtree scores. */
     retval
@@ -2559,47 +2561,35 @@ tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
     a = chars_a[i];							\
     b = chars_b[i];							\
 									\
-    if (((a & b) & 0xf0U) == 0)						\
+    /* Get 1's in the least significant bits of state sets that are	\
+     * non-empty after the intersection operation. */			\
+    m = a & b;								\
+    m |= (m >> 1);							\
+    m |= (m >> 1);							\
+    m |= (m >> 1);							\
+									\
+    /* Mask out garbage. */						\
+    m &= 0x11111111;							\
+									\
+    /* Count up changes. */						\
+    retval += bits_table[m & 0xff]					\
+	+ bits_table[(m >> 8) & 0xff]					\
+	+ bits_table[(m >> 16) & 0xff]					\
+	+ bits_table[(m >> 24) & 0xff];					\
+									\
+    if (retval > a_maxscore)						\
     {									\
-	retval++;							\
-	if (retval > a_maxscore)					\
-	{								\
-	    retval = UINT_MAX;						\
-	    break;							\
-	}								\
+	retval = UINT_MAX;						\
+	break;								\
     }									\
 									\
-    if (((a & b) & 0x0fU) == 0)						\
-    {									\
-	retval++;							\
-	if (retval > a_maxscore)					\
-	{								\
-	    retval = UINT_MAX;						\
-	    break;							\
-	}								\
-    }									\
     i++;
-    
+
     /* Calculate partial Fitch parsimony scores for each character. */
-    chars_a = a_a->chars;
-    chars_b = a_b->chars;
-    for (i = 0, nbytes = (a_a->nchars >> 1); i < nbytes;)
+    chars_a = (uint32_t *) a_a->chars;
+    chars_b = (uint32_t *) a_b->chars;
+    for (i = 0, nwords = (a_a->nchars >> 3); i < nwords;)
     {
-	MP_C_FSCORE_INNER();
-	MP_C_FSCORE_INNER();
-	MP_C_FSCORE_INNER();
-	MP_C_FSCORE_INNER();
-
-	MP_C_FSCORE_INNER();
-	MP_C_FSCORE_INNER();
-	MP_C_FSCORE_INNER();
-	MP_C_FSCORE_INNER();
-
-	MP_C_FSCORE_INNER();
-	MP_C_FSCORE_INNER();
-	MP_C_FSCORE_INNER();
-	MP_C_FSCORE_INNER();
-
 	MP_C_FSCORE_INNER();
 	MP_C_FSCORE_INNER();
 	MP_C_FSCORE_INNER();
