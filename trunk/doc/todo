@@ -5,15 +5,11 @@
 * Start using kargs for complex methods that have lots of optional arguments?
   Using optional positional args is kinda gnarly.
 
-* Collapse rendering code into single code paths, which are passed a callback
-  method (or something like that).  The current setup requires testing both
-  file and string rendering, and is a pain to update.
-
 ================================================================================
 
-* Use CTMatrix for MP.
-
 * Add basic MP and TBR tests.
+
+* Use CTMatrix for MP.
 
 * Add true tree holding, rather than just the limited form of holding that the
   tr code supports.

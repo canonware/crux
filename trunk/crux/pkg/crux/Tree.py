@@ -228,51 +228,18 @@ class Tree(C_Tree):
         else:
             return self._rfSequence(other)
 
+    # Render the tree in Newick format to a string or a file.
     def render(self, labels=False, lengths=False, lengthFormat="%.5e",
                outFile=None):
+        # Set up for sending output to either a string or a file.
         if outFile == None:
-            retval = self._stringRender(labels, lengths, lengthFormat)
+            callback = self._stringRenderCallback
+            self._string = ""
         else:
-            self._fileRender(labels, lengths, lengthFormat, outFile)
-            retval = None
+            callback = self._fileRenderCallback
+            self._outFile = outFile
 
-        return retval
-
-    def _stringRender(self, labels, lengths, lengthFormat):
-        n = self.baseGet()
-        if n != None:
-            if n.taxonNumGet() != None:
-                # Leaf node.  If this node's neighbor is an internal node, start
-                # rendering with it, in order to unroot the tree.
-                ring = n.ring()
-                if ring != None:
-                    neighbor = ring.other().node()
-                    if neighbor.taxonNumGet() == None:
-                        # Start with the internal node.
-                        retval = "%s;" % \
-                                 neighbor.rrender(None, self._map, labels,
-                                                  lengths, lengthFormat)
-                    else:
-                        # This tree only has two taxa; start with the tree base.
-                        retval = "(%s);" % \
-                             n.rrender(None, self._map, labels, lengths,
-                                       lengthFormat, twoTaxa=True)
-                else:
-                    # There is only one node in the tree.
-                    retval = "%s;" % \
-                             n.rrender(None, self._map, labels, lengths,
-                                       lengthFormat)
-            else:
-                # Internal node.
-                retval = "%s;" % \
-                         n.rrender(None, self._map, labels, lengths,
-                                   lengthFormat)
-        else:
-            retval = ";"
-
-        return retval
-
-    def _fileRender(self, labels, lengths, lengthFormat, outFile):
+        # Render.
         n = self.baseGet()
         if n != None:
             if n.taxonNumGet() != None:
@@ -284,25 +251,46 @@ class Tree(C_Tree):
                     if neighbor.taxonNumGet() == None:
                         # Start with the internal node.
                         neighbor.rrender(None, self._map, labels, lengths,
-                                         lengthFormat, outFile)
-                        outFile.write(";\n")
+                                         lengthFormat, callback)
+                        callback(";")
                     else:
                         # This tree only has two taxa; start with the tree base.
-                        outFile.write("(")
+                        callback("(")
                         n.rrender(None, self._map, labels, lengths,
-                                  lengthFormat, outFile, twoTaxa=True)
-                        outFile.write(");\n")
+                                  lengthFormat, callback, twoTaxa=True)
+                        callback(");")
                 else:
                     # There is only one node in the tree.
                     n.rrender(None, self._map, labels, lengths, lengthFormat,
-                              outFile)
-                    outFile.write(";\n")
+                              callback)
+                    callback(";")
             else:
                 # Internal node.
                 n.rrender(None, self._map, labels, lengths, lengthFormat,
-                          outFile)
-                outFile.write(";\n")
+                          callback)
+                callback(";")
         else:
-            outFile.write(";\n")
+            callback(";")
 
+        # Clean up and set retval according to where the output was sent.
+        if outFile == None:
+            retval = self._string
+            self._string = None
+        else:
+            callback("\n")
+            retval = None
+            self._outFile = None
+        return retval
+
+    # Callback method that is used by the render method for recursive rendering
+    # of the tree in Newick format.
+    def _stringRenderCallback(self, string):
+        # Append string to previous strings that were passed to this callback.
+        self._string = "%s%s" % (self._string, string)
+
+    # Callback method that is used by the render method for recursive rendering
+    # of the tree in Newick format.
+    def _fileRenderCallback(self, string):
+        # Print string to self._outFile.
+        self._outFile.write(string)
 #EOF
