@@ -108,7 +108,7 @@
 
 #include "../include/_cruxmodule.h"
 
-//#define CxmTreeNjVerbose
+#define CxmTreeNjVerbose
 //#define CxmTreeNjDump
 //#define CxmTreeNjCheckAdditiveAll
 
@@ -939,30 +939,6 @@ seed = random.randint(0, max)\n\
     return retval;
 }
 
-CxmpInline long
-CxpTreeNjRandGet(long max)
-{
-    long retval, val;
-
-    CxmAssert(max > 0);
-    
-    if (max == 1)
-    {
-	retval = 0;
-	goto RETURN;
-    }
-
-    do
-    {
-	// XXX Use a better PRNG.
-	val = rand();
-    } while (val >= INT_MAX - (INT_MAX / max));
-    retval = val % max;
-
-    RETURN:
-    return retval;
-}
-
 /* Iteratively try all clusterings of two rows in the matrix.  Do this in a
  * cache-friendly manner (keeping in mind that the matrix is stored in row-major
  * form).  This means:
@@ -994,6 +970,7 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 
     if (aRandom)
     {
+	CxtMt mt;
 	long seed, t;
 	float dist;
 
@@ -1007,11 +984,12 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 	    retval = true;
 	    goto RETURN;
 	}
+	CxMtNew(&mt);
+	CxMtUint32Seed(&mt, seed);
 
-	// XXX Use a better PRNG.
-	for (srand(seed), x = CxpTreeNjRandGet(aNleft - 1);
+	for (x = CxMtSint32RangeGet(&mt, aNleft - 1);
 	     aNleft > 2;
-	     x = CxpTreeNjRandGet(aNleft - 1))
+	     x = CxMtSint32RangeGet(&mt, aNleft - 1))
 	{
 	    /* Find the row that is closest to x. */
 	    y = CxpTreeNjRowAllMinFind(d, aRScaled, aNleft, x, &dist);
@@ -1039,6 +1017,8 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 		CxpTreeNjRScaledUpdate(aRScaled, aR, aNleft);
 	    }
 	}
+
+	CxMtDelete(&mt);
     }
     else
     {

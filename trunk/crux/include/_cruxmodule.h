@@ -113,6 +113,7 @@ extern PyObject *CxgException;
 #define CxmOffsetOf(aType, aField)					\
     ((uint32_t) &(((aType *)NULL)->aField))
 
+#include "CxMt.h"
 #include "CxQr.h"
 #include "CxMem.h"
 #include "CxXep.h"
