@@ -104,6 +104,36 @@ struct cw_tr_s
      * necessarily result in neighbors. */
     cw_trt_t *trt;
     cw_uint32_t trtlen;
+
+    /* Array of integers that is used for randomly iterating over all TBR
+     * neighbors (which are enumerated by trt).  The following algorithm is used
+     * for the random iteration:
+     *
+     *   1) memset(trr, 0xff, trt[nedges].offset * sizeof(cw_uint32_t)).
+     *
+     *   2) Initialize trri <-- 0.
+     * 
+     *   3) Choose a random slot r in [trri,trt[nedges].offset).
+     *
+     *   4) If trr[r] == 0xffffffff, set trr[r] <-- r.
+     *
+     *   5) If trr[trri] == 0xffffffff, set trr[trri] <-- trri.
+     *
+     *   6) Swap trr[trri] <--> trr[r].  trr[trri] contains the choice.
+     *
+     *   7) Increment trri.
+     *
+     *   8) If trri < trt[nedges].offset, go to step 3.
+     *
+     * trr can be re-initialized by iterating over the first trri elements and
+     * clearing the elements associated with the values stored, then clearing
+     * the first trri elements. */
+    cw_uint32_t *trr;
+    /* Number of elements in trr.  This is not necessarily the number of
+     * elements that are actually being used. */
+    cw_uint32_t trrlen;
+    /* Number of integers that have been chosen from trr. */
+    cw_uint32_t trri;
 };
 
 /* trn. */
@@ -223,6 +253,16 @@ void
 tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,
 		    cw_uint32_t *r_reconnect_b);
+
+/* Get the number of neighbors that have been randomly chosen via
+ * tr_tbr_rneighbor_get(). */
+cw_uint32_t
+tr_tbr_rneighbor_nchosen_get(cw_tr_t *a_tr);
+
+/* Get the next randomly chosen neighbor index, which can in turn be used as the
+ * a_neighbor argument to tr_tbr_neighbor_get(). */
+cw_uint32_t
+tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt);
 
 /* Create a canonical string representation of a_tr (which must be unrooted).
  * ar_string must point to a_len bytes of storage, which must in turn be

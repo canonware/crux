@@ -1088,11 +1088,11 @@ trn_p_bisection_edges_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trt_t *r_trt)
     }
 }
 
-static void
+CW_P_INLINE cw_bool_t
 tr_p_tbr_trt_init(cw_tr_t *a_tr)
 {
+    cw_bool_t retval = FALSE;
     cw_uint32_t i, j, n, offset, a, b;
-    cw_bool_t init = FALSE;
 
     if (a_tr->trt == NULL)
     {
@@ -1102,16 +1102,16 @@ tr_p_tbr_trt_init(cw_tr_t *a_tr)
 	    a_tr->trt = (cw_trt_t *) nxa_malloc(sizeof(cw_trt_t)
 						* (a_tr->nedges + 1));
 	}
-	init = TRUE;
+	retval = TRUE;
     }
     if (a_tr->tbr_undoable)
     {
 	/* Rebuild table to make neighbor iteration fast. */
 	a_tr->tbr_undoable = FALSE;
-	init = TRUE;
+	retval = TRUE;
     }
 
-    if (init)
+    if (retval)
     {
 	for (i = j = offset = 0; i < a_tr->nedges; i++)
 	{
@@ -1162,6 +1162,8 @@ tr_p_tbr_trt_init(cw_tr_t *a_tr)
 	 * neighbors). */
 	a_tr->trtlen = j;
     }
+
+    return retval;
 }
 
 static int
@@ -1185,6 +1187,92 @@ tr_p_trt_compare(const void *a_key, const void *a_val)
     }
 
     return retval;
+}
+
+/* This function initializes both trt and trr. */
+static void
+tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_trr)
+{
+    cw_bool_t init;
+
+    /* This function depends on knowing how many TBR neighbors there are, which
+     * is calculated by the trt machinery.  If the trt machinery has to
+     * initialize itself here, then the trr machinery also needs initialized. */
+    init = tr_p_tbr_trt_init(a_tr);
+
+    if (a_tr->trr == NULL)
+    {
+	/* Once trr has been used, it must always be kept up to date. */
+	if (a_use_trr)
+	{
+	    /* Allocate an array with one slot per TBR neighbor. */
+	    a_tr->trrlen = a_tr->trt[a_tr->nedges].offset;
+	    if (a_tr->nedges > 0)
+	    {
+		a_tr->trr = (cw_uint32_t *) nxa_malloc(sizeof(cw_uint32_t)
+						       * a_tr->trrlen);
+	    }
+
+	    /* Initialize the array. */
+	    memset(a_tr->trr, 0xff, sizeof(cw_uint32_t) * a_tr->trrlen);
+
+	    /* trri was already initialized to 0, so there is no need to do so
+	     * here. */
+	    cw_assert(a_tr->trri == 0);
+	    cw_check_ptr(a_tr->trr);
+	    cw_assert(a_tr->trrlen >= a_tr->trt[a_tr->nedges].offset);
+	}
+    }
+    else if (init)
+    {
+	cw_uint32_t i;
+
+	/* Undo damage to trr. */
+	for (i = 0; i < a_tr->trri; i++)
+	{
+	    cw_assert(i < a_tr->trrlen);
+	    cw_assert(a_tr->trr[i] < a_tr->trrlen);
+	    if (a_tr->trr[i] >= a_tr->trri)
+	    {
+		a_tr->trr[a_tr->trr[i]] = 0xffffffffLU;
+	    }
+	    a_tr->trr[i] = 0xffffffffLU;
+	}
+
+	/* Reset trri. */
+	a_tr->trri = 0;
+
+	/* Make sure that trr is big enough. */
+	if (a_tr->trrlen < a_tr->trt[a_tr->nedges].offset)
+	{
+	    /* This could result in lots of incrementally larger realloc's, but
+	     * it isn't reasonable to do iterative doubling here, unless we want
+	     * to potentially waste a lot of space.  Over the long run, the cost
+	     * of the realloc's should get lost in the noise. */
+	    a_tr->trr = nxa_realloc(a_tr->trr,
+				    sizeof(cw_uint32_t)
+				    * a_tr->trt[a_tr->nedges].offset,
+				    sizeof(cw_uint32_t) * a_tr->trrlen);
+
+	    /* Initialize the new trailing elements. */
+	    memset(&a_tr->trr[a_tr->trrlen], 0xff,
+		   sizeof(cw_uint32_t) * (a_tr->trt[a_tr->nedges].offset
+					  - a_tr->trrlen));
+
+	    /* Store the new trrlen. */
+	    a_tr->trrlen = a_tr->trt[a_tr->nedges].offset;
+	}
+
+	cw_check_ptr(a_tr->trr);
+	cw_assert(a_tr->trrlen >= a_tr->trt[a_tr->nedges].offset);
+    }
+    else if (a_tr->trri == a_tr->trt[a_tr->nedges].offset)
+    {
+	/* All neighbors have been iterated over.  Re-initialize. */
+	memset(a_tr->trr, 0xff, sizeof(cw_uint32_t) * a_tr->trri);
+	a_tr->trri = 0;
+    }
+    cw_assert(a_tr->trri < a_tr->trt[a_tr->nedges].offset);
 }
 
 /*           __         __
@@ -1317,8 +1405,9 @@ tr_p_string_validate(const cw_uint8_t *a_string)
 
 static void
 tr_p_string_new_recurse(cw_uint8_t *a_string, cw_uint32_t *a_bitind_paren,
-			cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn, cw_trn_t *a_prev,
-			cw_uint32_t *a_unchosen, cw_uint32_t *a_nunchosen)
+			cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn,
+			cw_trn_t *a_prev, cw_uint32_t *a_unchosen,
+			cw_uint32_t *a_nunchosen)
 {
     cw_uint32_t i;
 
@@ -1468,6 +1557,11 @@ tr_delete(cw_tr_t *a_tr, cw_bool_t a_delete_trns)
 	nxa_free(a_tr->trt, sizeof(cw_trt_t) * (a_tr->nedges + 1));
     }
 
+    if (a_tr->trr != NULL)
+    {
+	nxa_free(a_tr->trr, sizeof(cw_uint32_t) * (a_tr->trrlen));
+    }
+
 #ifdef CW_DBG
     memset(a_tr, 0x5a, sizeof(cw_tr_t));
 #endif
@@ -1613,6 +1707,7 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
        cw_uint32_t *r_reconnect_a, cw_uint32_t *r_reconnect_b)
 {
     cw_dassert(tr_p_validate(a_tr, TRUE));
+    cw_assert(a_tr->rooted == FALSE);
 
     /* Perform TBR. */
     tr_p_tbr(a_tr, a_bisect, a_reconnect_a, a_reconnect_b, r_bisect,
@@ -1632,6 +1727,7 @@ tr_tbr_undo(cw_tr_t *a_tr)
 
     cw_dassert(tr_p_validate(a_tr, TRUE));
     cw_assert(a_tr->tbr_undoable);
+    cw_assert(a_tr->rooted == FALSE);
 
     /* Perform TBR. */
     tr_p_tbr(a_tr, a_tr->tbr_undo_bisect, a_tr->tbr_undo_reconnect_a,
@@ -1646,9 +1742,9 @@ tr_tbr_nneighbors_get(cw_tr_t *a_tr)
 {
     cw_dassert(tr_p_validate(a_tr, TRUE));
 
-    tr_p_tbr_trt_init(a_tr);
+    tr_p_tbr_init(a_tr, FALSE);
 
-    return a_tr->trt[a_tr->trtlen].offset;
+    return a_tr->trt[a_tr->nedges].offset;
 }
 
 void
@@ -1661,7 +1757,8 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 
     cw_dassert(tr_p_validate(a_tr, TRUE));
 
-    tr_p_tbr_trt_init(a_tr);
+    tr_p_tbr_init(a_tr, FALSE);
+    cw_assert(a_neighbor < a_trt->[a_tr->nedges].offset);
 
     /* Get the bisection edge. */
     key.offset = a_neighbor;
@@ -1728,6 +1825,61 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 
     *r_reconnect_a = a;
     *r_reconnect_b = b;
+}
+
+cw_uint32_t
+tr_tbr_rneighbor_nchosen_get(cw_tr_t *a_tr)
+{
+    cw_dassert(tr_p_validate(a_tr, TRUE));
+
+    tr_p_tbr_init(a_tr, TRUE);
+
+    return a_tr->trri;
+}
+
+cw_uint32_t
+tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt)
+{
+    cw_uint32_t retval, r;
+
+    cw_dassert(tr_p_validate(a_tr, TRUE));
+
+    /* 1)
+     * 2) */
+    tr_p_tbr_init(a_tr, TRUE);
+
+    /* This algorithm is explained in tr.h. */
+
+    /* 3) */
+    r = a_tr->trri + mt_uint32_range_get(a_mt,
+					 a_tr->trt[a_tr->nedges].offset
+					 - a_tr->trri);
+    cw_assert(r >= a_tr->trri);
+    cw_assert(r < a_tr->trt[a_tr->nedges].offset);
+
+    /* 4) */
+    if (a_tr->trr[r] == 0xffffffffLU)
+    {
+	a_tr->trr[r] = r;
+    }
+
+    /* 5) */
+    cw_assert(a_tr->trri < a_tr->trt[a_tr->nedges].offset);
+    if (a_tr->trr[a_tr->trri] == 0xffffffffLU)
+    {
+	a_tr->trr[a_tr->trri] = a_tr->trri;
+    }
+
+    /* 6) */
+    retval = a_tr->trr[r];
+    a_tr->trr[r] = a_tr->trr[a_tr->trri];
+    a_tr->trr[a_tr->trri] = retval;
+
+    /* 7) */
+    a_tr->trri++;
+
+    cw_assert(retval < a_trt->[a_tr->nedges].offset);
+    return retval;
 }
 
 void
