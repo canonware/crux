@@ -11,7 +11,7 @@
 
 import sys
 
-class testclass(crux.newick):
+class testclass(crux.newick.newick):
     def vprint(self, str):
         print "--%s--: %r" % (str, self.token())
         sys.stdout.flush()

@@ -20,7 +20,7 @@ maps = [
     ]
 
 for map in maps:
-    m = crux.taxon_map(map)
+    m = crux.taxon_map.taxon_map(map)
     print
     sys.stdout.write("map: ")
     print m.taxa_get()
@@ -33,7 +33,7 @@ for map in maps:
 
         i += 1
 
-m = crux.taxon_map()
+m = crux.taxon_map.taxon_map()
 print
 sys.stdout.write("map: ")
 print m.taxa_get()

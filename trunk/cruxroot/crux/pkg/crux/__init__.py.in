@@ -18,5 +18,5 @@ from node import *
 from edge import *
 
 import dist_matrix
-from newick import *
-from taxon_map import *
+import newick
+import taxon_map
