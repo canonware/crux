@@ -58,6 +58,9 @@ struct cw_trn_s
      * leaf node. */
     cw_tr_node_t neighbors[CW_TR_NODE_MAX_NEIGHBORS];
 
+    /* Edge indices for the edges that correspond to neighbors. */
+    cw_uint32_t edges[CW_TR_NODE_MAX_NEIGHBORS];
+
     /* Used for Fitch parsimony scoring. */
     cw_tr_ps_t *ps;
 };
@@ -88,12 +91,9 @@ struct cw_trt_s
 /* Tree edge information. */
 struct cw_tre_s
 {
-    /* Node adjacent to this edge. */
-    cw_tr_node_t node;
-
-    /* Neighbor index of other node adjacent to this edge.  The other node is
-     * trns[trns[node].neighbors[neighbor]]. */
-    cw_tr_node_t neighbor;
+    /* Nodes adjacent to this edge. */
+    cw_tr_node_t node_a;
+    cw_tr_node_t node_b;
 
     /* Used for Fitch parsimony scoring. */
     cw_tr_ps_t *ps;
@@ -626,6 +626,40 @@ tr_p_update_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 }
 
 #ifdef CW_DBG
+/* Determine whether a_other is reachable from a_node.  This function helps to
+ * make sure that no cycles are introduced. */
+static cw_bool_t
+tr_p_reachable(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
+	       cw_tr_node_t a_other)
+{
+    cw_uint32_t retval, i;
+    cw_trn_t *trn;
+
+    trn = &a_tr->trns[a_node];
+
+    if (a_node == a_other)
+    {
+	retval = TRUE;
+	goto RETURN;
+    }
+
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    {
+	if (trn->neighbors[i] != CW_TR_NODE_NONE && trn->neighbors[i] != a_prev)
+	{
+	    if ((retval = tr_p_reachable(a_tr, trn->neighbors[i], a_node,
+					 a_other)))
+	    {
+		goto RETURN;
+	    }
+	}
+    }
+
+    retval = FALSE;
+    RETURN:
+    return retval;
+}
+
 /* Return the number of taxa with number a_taxon_num in the subtree rooted at
  * a_node. */
 static cw_uint32_t
@@ -1015,8 +1049,8 @@ static void
 tr_p_tre_update_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 			cw_uint32_t *ar_edge_count)
 {
-    cw_trn_t *trn;
-    cw_uint32_t i;
+    cw_trn_t *trn, *ttrn;
+    cw_uint32_t i, j;
 
     trn = &a_tr->trns[a_node];
 
@@ -1024,9 +1058,22 @@ tr_p_tre_update_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
     {
 	if (trn->neighbors[i] != CW_TR_NODE_NONE && trn->neighbors[i] != a_prev)
 	{
-	    /* Record edge information. */
-	    a_tr->tres[*ar_edge_count].node = a_node;
-	    a_tr->tres[*ar_edge_count].neighbor = i;
+	    /* Record trns edge information. */
+	    trn->edges[i] = *ar_edge_count;
+
+	    ttrn = &a_tr->trns[trn->neighbors[i]];
+	    for (j = 0; j < CW_TR_NODE_MAX_NEIGHBORS; j++)
+	    {
+		if (ttrn->neighbors[j] == a_node)
+		{
+		    ttrn->edges[j] = *ar_edge_count;
+		    break;
+		}
+	    }
+
+	    /* Record tres edge information. */
+	    a_tr->tres[*ar_edge_count].node_a = a_node;
+	    a_tr->tres[*ar_edge_count].node_b = trn->neighbors[i];
 
 	    /* Increment edge count before recursing. */
 	    (*ar_edge_count)++;
@@ -1112,7 +1159,8 @@ tr_p_tre_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
 	}
     }
 
-    /* Recursively traverse the tree, and initialize tres along the way. */
+    /* Recursively traverse the tree, and initialize tres and edges in trns
+     * along the way. */
     edge_count = 0;
     tr_p_tre_update_recurse(a_tr, a_tr->croot, CW_TR_NODE_NONE, &edge_count);
     cw_assert(edge_count == a_tr->nedges);
@@ -1138,58 +1186,6 @@ tr_p_update(cw_tr_t *a_tr)
 	tr_p_trt_update(a_tr, nedges_prev);
 	tr_p_tre_update(a_tr, nedges_prev);
     }
-}
-
-static cw_bool_t
-tr_p_edge_index_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
-			    cw_tr_node_t a_prev, cw_tr_node_t a_node_a,
-			    cw_tr_node_t a_node_b, cw_uint32_t *r_edge_count)
-{
-    cw_bool_t retval;
-    cw_trn_t *trn;
-    cw_uint32_t i;
-
-    trn = &a_tr->trns[a_node];
-
-    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
-    {
-	if (trn->neighbors[i] != CW_TR_NODE_NONE && trn->neighbors[i] != a_prev)
-	{
-	    /* If this is the desired edge, terminate recursion.  Increment edge
-	     * count before recursing. */
-	    if ((a_node == a_node_a && trn->neighbors[i] == a_node_b)
-		|| (a_node == a_node_b && trn->neighbors[i] == a_node_a))
-	    {
-		retval = TRUE;
-		goto RETURN;
-	    }
-	    (*r_edge_count)++;
-
-	    /* Recurse into neighbor subtree. */
-	    if (tr_p_edge_index_get_recurse(a_tr, trn->neighbors[i], a_node,
-					    a_node_a, a_node_b, r_edge_count))
-	    {
-		retval = TRUE;
-		goto RETURN;
-	    }
-	}
-    }
-
-    retval = FALSE;
-    RETURN:
-    return retval;
-}
-
-static cw_uint32_t
-tr_p_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_node_a,
-		    cw_tr_node_t a_node_b)
-{
-    cw_uint32_t retval = 0;
-
-    tr_p_edge_index_get_recurse(a_tr, a_node, CW_TR_NODE_NONE, a_node_a,
-				a_node_b, &retval);
-
-    return retval;
 }
 
 /* Convert a tree to canonical form by re-ordering the neighbors array such that
@@ -1268,6 +1264,177 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
     } while (swapped);
 
     return retval;
+}
+
+CW_P_INLINE void
+tr_p_bisection_patch(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t *r_node,
+		     cw_tr_node_t *r_spare)
+{
+    cw_trn_t *trn;
+
+    trn = &a_tr->trns[a_node];
+
+    /* Patch up the node adjacent to bisection.  There are two cases possible.
+     * It is either a leaf node or an internal node.  For a leaf node, do
+     * nothing.  For an internal node, join its neighbors together, and return
+     * the node as a spare. */
+    if (trn->taxon_num == CW_TR_NODE_TAXON_NONE)
+    {
+	cw_tr_node_t a, b;
+	cw_uint32_t i;
+
+	/* Get trn's neighbors. */
+	for (i = 0, a = b = CW_TR_NODE_NONE; b == CW_TR_NODE_NONE; i++)
+	{
+	    cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
+
+	    if (trn->neighbors[i] != CW_TR_NODE_NONE)
+	    {
+		if (a == CW_TR_NODE_NONE)
+		{
+		    a = trn->neighbors[i];
+		}
+		else
+		{
+		    b = trn->neighbors[i];
+		}
+	    }
+	}
+
+	/* Detach. */
+	tr_node_detach(a_tr, a_node, a);
+	tr_node_detach(a_tr, a_node, b);
+
+	/* Join. */
+	tr_node_join(a_tr, a, b);
+
+	*r_node = CW_TR_NODE_NONE;
+	*r_spare = a_node;
+    }
+    else
+    {
+	*r_node = a_node;
+	*r_spare = CW_TR_NODE_NONE;
+    }
+}
+
+/* Bisect a_tr at a_edge.  For subtrees with only one node, return pointers to
+ * that node.  There is no need to return a node for a larger subtree, since the
+ * reconnection edge can be used to get nodes in such cases.
+ *
+ * Also return pointers to spare nodes that were removed from the tree during
+ * bisection.  The second spare pointer must be NULL if the first one is.  These
+ * spares are always completely consumed by tr_p_connect(). */
+CW_P_INLINE void
+tr_p_bisect(cw_tr_t *a_tr, cw_uint32_t a_edge,
+	    cw_tr_node_t *r_node_a, cw_tr_node_t *r_node_b,
+	    cw_tr_node_t *r_spare_a, cw_tr_node_t *r_spare_b)
+{
+    cw_tr_node_t node_a, node_b;
+    cw_trn_t *trn_a, *trn_b;
+
+    cw_assert(a_edge < a_tr->nedges);
+
+    /* Get the nodes to either side of the edge where the bisection will be
+     * done. */
+    node_a = a_tr->tres[a_edge].node_a;
+    trn_a = &a_tr->trns[node_a];
+
+    node_b = a_tr->tres[a_edge].node_b;
+    trn_b = &a_tr->trns[node_b];
+
+#ifdef CW_DBG
+    /* Assert that nodes are directly connected.  Node validation makes sure
+     * that the connection is bi-directional, if it exists, so only bother
+     * checking in one direction. */
+    {
+	cw_uint32_t i;
+	cw_bool_t connected;
+
+	for (i = 0, connected = FALSE; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+	{
+	    if (trn_a->neighbors[i] == node_b)
+	    {
+		connected = TRUE;
+		break;
+	    }
+	}
+	cw_assert(connected);
+    }
+#endif
+    cw_dassert(tr_p_reachable(a_tr, node_a, CW_TR_NODE_NONE, node_b));
+
+    /* Detach the two nodes. */
+    tr_node_detach(a_tr, node_a, node_b);
+
+    /* Patch up the nodes adjacent to the bisection. */
+    tr_p_bisection_patch(a_tr, node_a, r_node_a, r_spare_a);
+    tr_p_bisection_patch(a_tr, node_b, r_node_b, r_spare_b);
+
+    /* Move *r_spare_b to *r_spare_a if *r_spare_a is NULL. */
+    if (*r_spare_a == NULL)
+    {
+	*r_spare_a = *r_spare_b;
+	*r_spare_b = NULL;
+    }
+}
+
+CW_INLINE cw_tr_node_t
+tr_p_connection_patch(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_edge,
+		      cw_tr_node_t *ar_spare)
+{
+    cw_tr_node_t retval;
+
+    /* There are two cases possible.  a_edge is either a non-edge (a lone leaf
+     * node has no connected edges), or an edge in a larger subtree.  For
+     * non-edge, do nothing.  For an edge in a larger subtree, splice in the
+     * spare. */
+    if (a_edge != CW_TR_NODE_EDGE_NONE)
+    {
+	cw_tr_node_t a, b;
+
+	cw_assert(*ar_spare != CW_TR_NODE_NONE);
+
+	retval = *ar_spare;
+	*ar_spare = NULL;
+
+	/* Detach nodes. */
+	tr_edge_get(a_tr, a_edge, &a, &b);
+	cw_assert(a_node == a || a_node == b);
+	tr_node_detach(a_tr, a, b);
+
+	/* Attach nodes to the spare. */
+	tr_node_join(a_tr, retval, a);
+	tr_node_join(a_tr, retval, b);
+    }
+    else
+    {
+	retval = a_node;
+    }
+
+    return retval;
+}
+
+CW_P_INLINE void
+tr_p_connect(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_uint32_t a_edge_a,
+	     cw_tr_node_t a_node_b, cw_uint32_t a_edge_b,
+	     cw_tr_node_t *ar_spare_a, cw_tr_node_t *ar_spare_b)
+{
+    cw_tr_node_t a, b;
+
+    /* Assert that nodes are not yet in the same subtree. */
+    cw_dassert(tr_p_reachable(a_tr, a, CW_TR_NODE_NONE, b) == FALSE);
+
+    /* Patch in internal nodes adjacent to where the connection will occur, if
+     * necessary. */
+    a = tr_p_connection_patch(a_tr, a_node_a, a_edge_a, ar_spare_a);
+    b = tr_p_connection_patch(a_tr, a_node_b, a_edge_b,
+			      ((*ar_spare_a != NULL)
+			       ? ar_spare_a
+			       : ar_spare_b));
+
+    /* Join a and b. */
+    tr_node_join(a_tr, a, b);
 }
 
 static void
@@ -1505,23 +1672,45 @@ tr_nedges_get(cw_tr_t *a_tr)
 }
 
 void
-tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node,
-	    cw_uint32_t *r_neighbor)
+tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node_a,
+	    cw_tr_node_t *r_node_b)
 {
     cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_check_ptr(r_node_a);
+    cw_check_ptr(r_node_b);
 
     tr_p_update(a_tr);
 
-    *r_node = a_tr->tres[a_edge].node;
-    *r_neighbor = a_tr->tres[a_edge].neighbor;
+    *r_node_a = a_tr->tres[a_edge].node_a;
+    *r_node_b = a_tr->tres[a_edge].node_b;
 }
 
 cw_uint32_t
 tr_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b)
 {
-    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_uint32_t retval, i;
+    cw_trn_t *trn;
 
-    return tr_p_edge_index_get(a_tr, a_tr->croot, a_node_a, a_node_b);
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_node_a));
+    cw_dassert(tr_p_node_validate(a_tr, a_node_b));
+
+    tr_p_update(a_tr);
+
+    trn = &a_tr->trns[a_node_a];
+
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    {
+	if (trn->neighbors[i] == a_node_b)
+	{
+	    retval = trn->edges[i];
+	    goto RETURN;
+	}
+    }
+
+    retval = CW_TR_NODE_EDGE_NONE;
+    RETURN:
+    return retval;
 }
 
 cw_tr_node_t
@@ -1559,14 +1748,24 @@ tr_canonize(cw_tr_t *a_tr)
 
 void
 tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
-       cw_uint32_t a_reconnect_b, cw_uint32_t *r_bisect,
-       cw_uint32_t *r_reconnect_a, cw_uint32_t *r_reconnect_b)
+       cw_uint32_t a_reconnect_b)
 {
+    cw_tr_node_t node_a, node_b, spare_a, spare_b;
+
     cw_dassert(tr_p_validate(a_tr, FALSE));
 
     tr_p_update(a_tr);
 
-    cw_error("XXX Not implemented");
+    /* Bisect. */
+    tr_p_bisect(a_tr, a_bisect, &node_a, &node_b, &spare_a, &spare_b);
+
+    /* Reconnect. */
+    tr_p_connect(a_tr,
+		 node_a, a_reconnect_a,
+		 node_b, a_reconnect_b,
+		 &spare_a, &spare_b);
+    cw_assert(spare_a == CW_TR_NODE_NONE);
+    cw_assert(spare_b == CW_TR_NODE_NONE);
 
     /* All changes since the last tr_p_update() call were related to TBR, and we
      * know that this does not impact croot, ntaxa, or nedges. */
@@ -1589,6 +1788,7 @@ tr_tbr_nneighbors_get(cw_tr_t *a_tr)
     return a_tr->trt[a_tr->trtused].offset;
 }
 
+// XXX Reconnection edge indices are completely bogus.
 void
 tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,

@@ -41,10 +41,9 @@ tr_nedges_get(cw_tr_t *a_tr);
 
 /* Get edge a_edge. */
 void
-tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node,
-	    cw_uint32_t *r_neighbor);
+tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node_a,
+	    cw_tr_node_t *r_node_b);
 
-// XXX Remove?
 /* Get the edge index of the edge between two nodes. */
 cw_uint32_t
 tr_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b);
@@ -61,8 +60,7 @@ tr_canonize(cw_tr_t *a_tr);
 /* Perform TBR. */
 void
 tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
-       cw_uint32_t a_reconnect_b, cw_uint32_t *r_bisect,
-       cw_uint32_t *r_reconnect_a, cw_uint32_t *r_reconnect_b);
+       cw_uint32_t a_reconnect_b);
 
 /* Get the number of neighboring trees reachable via TBR. */
 cw_uint32_t
