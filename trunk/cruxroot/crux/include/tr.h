@@ -93,16 +93,6 @@ struct cw_tr_s
      * worthwhile. */
     cw_uint32_t nedges;
 
-    /* Undo information for the most recent TBR. */
-    cw_bool_t tbr_undoable;
-    cw_uint32_t tbr_undo_bisect;
-    cw_uint32_t tbr_undo_reconnect_a;
-    cw_uint32_t tbr_undo_reconnect_b;
-#ifdef CW_DBG
-    cw_uint8_t *tbr_undo_canonical;
-    cw_uint8_t *tbr_undone_canonical;
-#endif
-
     /* Array of triplets that store per-edge information that is used for
      * TBR-related functions.  There is one more element in trt than there are
      * edges in the tree.  This is critical to the way binary searching on the
@@ -113,8 +103,6 @@ struct cw_tr_s
      * necessarily result in neighbors. */
     cw_trt_t *trt;
     cw_uint32_t trtused;
-
-    cw_ri_t *ri;
 };
 
 /* trn. */
@@ -220,11 +208,6 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
        cw_uint32_t a_reconnect_b, cw_uint32_t *r_bisect,
        cw_uint32_t *r_reconnect_a, cw_uint32_t *r_reconnect_b);
 
-/* Undo the previous TBR.  Using this rather than manually reversing the
- * previous TBR allows internal caching of neighbors to still be used. */
-void
-tr_tbr_undo(cw_tr_t *a_tr);
-
 /* Get the number of neighboring trees reachable via TBR. */
 cw_uint32_t
 tr_tbr_nneighbors_get(cw_tr_t *a_tr);
@@ -234,39 +217,6 @@ void
 tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,
 		    cw_uint32_t *r_reconnect_b);
-
-/* Get the number of neighbors that have been randomly chosen via
- * tr_tbr_rneighbor_get(). */
-cw_uint32_t
-tr_tbr_rneighbor_nchosen_get(cw_tr_t *a_tr);
-
-/* Get the next randomly chosen neighbor index, which can in turn be used as the
- * a_neighbor argument to tr_tbr_neighbor_get(). */
-cw_uint32_t
-tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt);
-
-/* Create a canonical string representation of a_tr (which must be unrooted).
- * ar_string must point to a_len bytes of storage, which must in turn be
- * tr_string_ntaxa2sizeof(tr_ntaxa_get(a_tr)). */
-void
-tr_string(cw_tr_t *a_tr, cw_uint8_t *ar_string, cw_uint32_t a_len);
-
-/* Get the number of taxa in the canonical tree represented by a_string. */
-cw_uint32_t
-tr_string_ntaxa(const cw_uint8_t *a_string);
-
-/* Return the number of bytes needed to store a canonical tree with a_ntaxa taxa
- * in string format. */
-cw_uint32_t
-tr_string_ntaxa2sizeof(cw_uint32_t a_ntaxa);
-
-/* Hash a string that represents a canonical tree. */
-cw_uint32_t
-tr_string_hash(const void *a_key);
-
-/* Compare two strings that represent canonical trees. */
-cw_bool_t
-tr_string_key_comp(const void *a_k1, const void *a_k2);
 
 /* Get the value of the auxiliary pointer associated with the tr. */
 void *
