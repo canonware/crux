@@ -170,12 +170,6 @@ if test "x$have_python" = "x0" ; then
 fi
 AC_SUBST([PYTHON])
 
-dnl 
-dnl Test configuration.
-dnl 
-VERIFY="$objroot/test/verify"
-AC_SUBST([VERIFY])
-
 AC_SUBST([bins])
 AC_SUBST([mods])
 
@@ -191,7 +185,7 @@ AC_SUBST([crux_version])
 
 dnl Packages.
 crux_packages=""
-for p in crux newick dist_matrix ; do
+for p in crux ; do
   crux_packages="${crux_packages} '${p}',"
 done
 crux_packages="[[${crux_packages}]]"
@@ -224,8 +218,8 @@ AC_SUBST([crux_scripts])
 
 dnl Crux tests.
 crux_tests=""
-for t in pkg/newick/newick_a.py pkg/dist_matrix/dist_matrix_a.py; do
-  crux_tests="${crux_tests} ${t}"
+for t in newick_a.py newick_b.py dist_matrix_a.py taxon_map_a.py; do
+  crux_tests="${crux_tests} test/${t}"
 done
 AC_SUBST([crux_tests])
 
@@ -237,11 +231,10 @@ dnl Process .in files.
 AC_SUBST([cfghdrs])
 AC_CONFIG_HEADER([$cfghdrs])
 
-dnl verify and crux are handled separately, since they must be executable.
-AC_CONFIG_FILES([$cfgoutputs], [chmod +x $objroot/test/verify])
-AC_CONFIG_FILES([test/verify], [chmod +x test/verify])
+dnl crux is handled separately, since it must be executable.
+AC_CONFIG_FILES([$cfgoutputs])
 AC_CONFIG_FILES([crux], [chmod +x crux])
-cfgoutputs="$cfgoutputs test/verify crux"
+cfgoutputs="$cfgoutputs crux"
 AC_SUBST([cfgoutputs])
 AC_OUTPUT
 

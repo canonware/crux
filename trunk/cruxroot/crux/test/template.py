@@ -9,12 +9,8 @@
 #
 ################################################################################
 
-from _crux import *
+print "Test begin"
 
-from tree import *
-from node import *
-from edge import *
 
-from dist_matrix import *
-from newick import *
-from taxon_map import *
+
+print "Test end"

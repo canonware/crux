@@ -1,4 +1,14 @@
-import dist_matrix
+################################################################################
+#
+# <Copyright = jasone>
+# <License>
+#
+################################################################################
+#
+# Version: Crux <Version = crux>
+#
+################################################################################
+
 import sys
 
 def matrix_print(matrix, ntaxa):
@@ -43,8 +53,12 @@ Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2 3.1
 """
 
+print "Test begin"
+
 for matrix in (matrix_0, matrix_1, matrix_2, matrix_3):
-    (labels, matrix) = dist_matrix.dist_matrix().parse(matrix)
+    (labels, matrix) = crux.dist_matrix().parse(matrix)
 
     print labels
     matrix_print(matrix, len(labels))
+
+print "Test end"

@@ -9,10 +9,9 @@
 #
 ################################################################################
 
-import newick
 import sys
 
-class testclass(newick.newick):
+class testclass(crux.newick):
     def vprint(self, str):
         print "--%s--: %r" % (str, self.token())
         sys.stdout.flush()
