@@ -1728,6 +1728,7 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 #endif
     {
 	cw_uint32_t i, nchars, ns, a, b, p, c, s;
+	cw_uint32_t *chars_p, *chars_a, *chars_b;
 
 #ifdef CW_TR_MP_PSCORE_VALIDATE
 	if (cached)
@@ -1766,15 +1767,18 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	/* Calculate partial Fitch parsimony scores for each character.  The
 	 * code inside the loop is written such that the compiler can optimize
 	 * out all branches (at least for ia32). */
+	chars_p = a_p->chars;
+	chars_a = a_a->chars;
+	chars_b = a_b->chars;
 	for (i = 0, nchars = a_p->nchars; i < nchars; i++)
 	{
-	    a = a_a->chars[i];
-	    b = a_b->chars[i];
+	    a = chars_a[i];
+	    b = chars_b[i];
 
 	    p = a & b;
 	    s = p ? 0 : 1;
 	    c = -s;
-	    a_p->chars[i] = (p | (c & (a | b)));
+	    chars_p[i] = (p | (c & (a | b)));
 	    ns += s;
 	}
 
