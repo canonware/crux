@@ -602,6 +602,11 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	/* Insert label into map. */
 	result = PyEval_CallMethod(self->map, "map", "s#i",
 				   self->buf, self->tokenLen, 1);
+	if (result == NULL)
+	{
+	    retval = true;
+	    goto RETURN;
+	}
 	Py_DECREF(result);
 
 	/* Get second row of distances. */
@@ -721,6 +726,11 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    /* Insert label into map. */
 	    result = PyEval_CallMethod(self->map, "map", "s#i", self->buf,
 				       self->tokenLen, 1);
+	    if (result == NULL)
+	    {
+		retval = true;
+		goto RETURN;
+	    }
 	    Py_DECREF(result);
 
 	    /* Get second row of distances. */
