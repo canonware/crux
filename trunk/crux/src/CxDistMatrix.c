@@ -1262,6 +1262,7 @@ CxpDistMatrixSample(CxtDistMatrixObject *self, PyObject *args)
 	goto RETURN;
     }
 
+    Py_DECREF(self->map);
     self->map = map;
     Py_INCREF(self->map);
 
