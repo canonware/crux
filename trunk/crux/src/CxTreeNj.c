@@ -143,6 +143,24 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	CxNodeTaxonNumSet(nodes[i], i);
     }
 
+    /* Calculate r (sum of distances to other nodes) for each node. */
+    for (i = 0; i < aNtaxa; i++)
+    {
+	r[i] = 0.0;
+    }
+
+    for (x = i = 0; x < aNtaxa; x++)
+    {
+	for (y = x + 1; y < aNtaxa; y++)
+	{
+	    dist = d[i];
+	    r[x] += dist;
+	    r[y] += dist;
+
+	    i++;
+	}
+    }
+
     /* Iteratitively join two nodes in the matrix, until only two are left. */
     for (nleft = aNtaxa; nleft > 2; nleft--)
     {
@@ -160,25 +178,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	fprintf(stderr, "Size: %ld\n", nleft);
 #endif
 
-	/* Calculate r (sum of distances to other nodes) and r/(nleft-2)
-	 * for each node. */
-	for (i = 0; i < nleft; i++)
-	{
-	    r[i] = 0.0;
-	}
-
-	for (x = i = 0; x < nleft; x++)
-	{
-	    for (y = x + 1; y < nleft; y++)
-	    {
-		dist = d[i];
-		r[x] += dist;
-		r[y] += dist;
-
-		i++;
-	    }
-	}
-
+	/* Calculate rScaled (r/(nleft-2)) for each node. */
 	for (i = 0; i < nleft; i++)
 	{
 	    rScaled[i] = r[i] / (nleft - 2);
@@ -292,37 +292,77 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	}
 #endif
 
+	/* Subtract old distances from r. */
+	for (x = 0; x < nleft; x++)
+	{
+	    if (x < xMin)
+	    {
+		dist = d[CxpTreeNjXy2i(nleft, x, xMin)];
+		r[x] -= dist;
+		r[xMin] -= dist;
+	    }
+	    else if (x > xMin)
+	    {
+		dist = d[CxpTreeNjXy2i(nleft, xMin, x)];
+		r[x] -= dist;
+		r[xMin] -= dist;
+	    }
+	}
+
+	for (x = 0; x < nleft; x++)
+	{
+	    if (x != xMin)
+	    {
+		if (x < yMin)
+		{
+		    dist = d[CxpTreeNjXy2i(nleft, x, yMin)];
+		    r[x] -= dist;
+		    r[yMin] -= dist;
+		}
+		else if (x > yMin)
+		{
+		    dist = d[CxpTreeNjXy2i(nleft, yMin, x)];
+		    r[x] -= dist;
+		    r[yMin] -= dist;
+		}
+	    }
+	}
+
 	/* Compact matrix. */
 
 	/* Insert the new node into r. */
 	nodes[xMin] = node;
 
-	/* Calculate distances to the new node.  This clobbers old distances,
-	 * just after the last time they are needed. */
+	/* Calculate distances to the new node, and add them to r.  This
+	 * clobbers old distances, just after the last time they are needed. */
+	// XXX
 	for (x = 0; x < nleft; x++)
 	{
 	    if (x < xMin)
 	    {
-		d[CxpTreeNjXy2i(nleft, x, xMin)]
-		    = ((d[CxpTreeNjXy2i(nleft, x, xMin)] - distX)
-		       + (d[CxpTreeNjXy2i(nleft, x, yMin)] - distY)
-		       ) / 2;
+		dist = ((d[CxpTreeNjXy2i(nleft, x, xMin)] - distX)
+			+ (d[CxpTreeNjXy2i(nleft, x, yMin)] - distY)) / 2;
+		d[CxpTreeNjXy2i(nleft, x, xMin)] = dist;
+		r[x] += dist;
+		r[xMin] += dist;
 	    }
 	    else if (x > xMin)
 	    {
 		if (x < yMin)
 		{
-		    d[CxpTreeNjXy2i(nleft, xMin, x)]
-			= ((d[CxpTreeNjXy2i(nleft, xMin, x)] - distX)
-			   + (d[CxpTreeNjXy2i(nleft, x, yMin)] - distY)
-			   ) / 2;
+		    dist = ((d[CxpTreeNjXy2i(nleft, xMin, x)] - distX)
+			    + (d[CxpTreeNjXy2i(nleft, x, yMin)] - distY)) / 2;
+		    d[CxpTreeNjXy2i(nleft, xMin, x)] = dist;
+		    r[x] += dist;
+		    r[xMin] += dist;
 		}
 		else if (x > yMin)
 		{
-		    d[CxpTreeNjXy2i(nleft, xMin, x)]
-			= ((d[CxpTreeNjXy2i(nleft, xMin, x)] - distX)
-			   + (d[CxpTreeNjXy2i(nleft, yMin, x)] - distY)
-			   ) / 2;
+		    dist = ((d[CxpTreeNjXy2i(nleft, xMin, x)] - distX)
+			    + (d[CxpTreeNjXy2i(nleft, yMin, x)] - distY)) / 2;
+		    d[CxpTreeNjXy2i(nleft, xMin, x)] = dist;
+		    r[x] += dist;
+		    r[xMin] += dist;
 		}
 	    }
 	}
@@ -348,7 +388,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	r[yMin] = r[0];
 	rScaled[yMin] = rScaled[0];
 	nodes[yMin] = nodes[0];
-	
+
 	/* Move pointers forward, which removes the first row. */
 	d = &d[nleft - 1];
 	r = &r[1];
