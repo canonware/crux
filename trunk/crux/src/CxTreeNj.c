@@ -467,6 +467,112 @@ CxpTreeNjFinalJoin(float *aD, CxtNodeObject **aNodes, CxtTreeObject *aTree)
 }
 
 CxmpInline long
+CxpTreeNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
+		       long aX, float *rDist)
+{
+    long retval;
+    float *dElm, dist, minDist;
+    long y;
+
+    minDist = HUGE_VAL;
+
+    /* Find the minimum distance from the node on row aX to any other node that
+     * comes before it in the matrix. */
+    if (aX != 0)
+    {
+	for (y = 0,
+		 dElm = &d[CxpTreeNjXy2i(aNleft, y, aX)];
+	     y < aX;
+	     y++)
+	{
+	    dist = *dElm - (aRScaled[y] + aRScaled[aX]);
+	    dElm += (aNleft - 2 - y);
+
+	    if (dist < minDist)
+	    {
+		minDist = dist;
+		retval = y;
+	    }
+	}
+	CxmAssert(minDist != HUGE_VAL);
+    }
+
+    /* Find the minimum distance from the node on row aX to any other node that
+     * comes after it in the matrix. */
+    for (y = aX + 1,
+	     dElm = &d[CxpTreeNjXy2i(aNleft, aX, y)];
+	 y < aNleft;
+	 y++)
+    {
+	dist = *dElm - (aRScaled[aX] + aRScaled[y]);
+	dElm++;
+
+	if (dist < minDist)
+	{
+	    minDist = dist;
+	    retval = y;
+	}
+    }
+    CxmAssert(minDist != HUGE_VAL);
+
+    *rDist = minDist;
+    return retval;
+}
+
+CxmpInline bool
+CxpTreeNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
+		     float aDist)
+{
+    bool retval;
+    float *dElm, dist;
+    long y;
+
+    /* Make sure that aDist is <= any transformed distance in the row portion of
+     * row aX. */
+    if (aX + 1 < aNleft)
+    {
+	for (y = aX + 1,
+		 dElm = &d[CxpTreeNjXy2i(aNleft, aX, y)];
+	     y < aNleft;
+	     y++)
+	{
+	    dist = *dElm - (aRScaled[aX] + aRScaled[y]);
+	    dElm++;
+
+	    if (dist < aDist)
+	    {
+		retval = false;
+		goto RETURN;
+	    }
+	}
+    }
+
+    /* Make sure that aDist is <= any transformed distance in the column portion
+     * of row aX. */
+    if (aX != 0)
+    {
+	for (y = 0,
+		 dElm = &d[CxpTreeNjXy2i(aNleft, y, aX)];
+	     y < aX;
+	     y++)
+	{
+	    dist = *dElm - (aRScaled[y] + aRScaled[aX]);
+	    dElm += (aNleft - 2 - y);
+
+	    if (dist < aDist)
+	    {
+		retval = false;
+		goto RETURN;
+	    }
+	}
+    }
+
+    retval = true;
+    RETURN:
+    return retval;
+}
+
+CxmpInline long
 CxpTreeNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 {
     long retval
@@ -478,8 +584,7 @@ CxpTreeNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
     float *dElm, dist, minDist;
 
     /* Find the minimum distance from the node on row x to any other node that
-     * comes after it in the matrix.  This has the effect of trying each node
-     * pairing only once. */
+     * comes after it in the matrix. */
     for (y = x + 1,
 	     dElm = &d[CxpTreeNjXy2i(aNleft, x, y)],
 	     minDist = HUGE_VAL;
@@ -776,6 +881,88 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     return retval;
 }
 
+/* Get a seed for the C-based PRNG from Python's PRNG. */
+static bool
+CxpTreeNjSeedGet(long *rSeed)
+{
+    bool retval;
+    PyObject *globals, *locals, *result, *seedCode;
+
+    globals = PyEval_GetGlobals();
+    if (globals == NULL)
+    {
+	retval = true;
+	goto RETURN;
+    }
+
+    locals = Py_BuildValue("{sl}", "max", LONG_MAX);
+    if (locals == NULL)
+    {
+	retval = true;
+	goto RETURN;
+    }
+	
+    seedCode = Py_CompileString("\
+import random\n\
+seed = random.randint(0, max)\n\
+",
+				"<string>",
+				Py_file_input);
+    if (seedCode == NULL)
+    {
+	Py_DECREF(locals);
+	retval = true;
+	goto RETURN;
+    }
+
+    result = PyEval_EvalCode((PyCodeObject *) seedCode, globals, locals);
+    if (result == NULL)
+    {
+	Py_DECREF(locals);
+	retval = true;
+	goto RETURN;
+    }
+    Py_DECREF(result);
+
+    result = PyDict_GetItemString(locals, "seed");
+    if (result == NULL)
+    {
+	Py_DECREF(locals);
+	retval = true;
+	goto RETURN;
+    }
+    *rSeed = PyInt_AsLong(result);
+    Py_DECREF(locals);
+
+    retval = false;
+    RETURN:
+    return retval;
+}
+
+CxmpInline long
+CxpTreeNjRandGet(long max)
+{
+    long retval, val;
+
+    CxmAssert(max > 0);
+    
+    if (max == 1)
+    {
+	retval = 0;
+	goto RETURN;
+    }
+
+    do
+    {
+	// XXX Use a better PRNG.
+	val = rand();
+    } while (val >= INT_MAX - (INT_MAX / max));
+    retval = val % max;
+
+    RETURN:
+    return retval;
+}
+
 /* Iteratively try all clusterings of two rows in the matrix.  Do this in a
  * cache-friendly manner (keeping in mind that the matrix is stored in row-major
  * form).  This means:
@@ -793,35 +980,52 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
  *
  * 3) If x and y can be clustered, do so, then immediately try to cluster with
  *    x again (as long as collapsing the matrix didn't move row x). */
-static void
+static bool
 CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 		 CxtNodeObject ***arNodes, long aNleft, CxtTreeObject *aTree,
-		 bool aAdditive)
+		 bool aAdditive, bool aRandom)
 {
+    bool retval;
     long x, y;
     float distX, distY;
     float *d = *arD;
     CxtNodeObject *node;
     CxtNodeObject **nodes = *arNodes;
-    bool clustered;
 
-    clustered = true;
-    while (true)
+    if (aRandom)
     {
-	if (clustered == false)
-	{
-	    aAdditive = false;
-	}
-	clustered = false;
-	for (x = 0; x < aNleft - 1;) /* y indexes one past x. */
-	{
-	    y = CxpTreeNjRowMinFind(d, aRScaled, aNleft, x);
+	long seed, t;
+	float dist;
 
-	    if ((aAdditive == false
-		 || CxpTreeNjPairClusterAdditive(d, aRScaled, aNleft, x, y))
-		&& CxpTreeNjPairClusterOk(d, aRScaled, aNleft, x, y))
+	/* Random join mode.
+	 *
+	 * Random mode isn't capable of recognizing that a matrix isn't
+	 * additive, so don't even try to support additivity. */
+
+	if (CxpTreeNjSeedGet(&seed))
+	{
+	    retval = true;
+	    goto RETURN;
+	}
+
+	// XXX Use a better PRNG.
+	for (srand(seed), x = CxpTreeNjRandGet(aNleft - 1);
+	     aNleft > 2;
+	     x = CxpTreeNjRandGet(aNleft - 1))
+	{
+	    /* Find the row that is closest to x. */
+	    y = CxpTreeNjRowAllMinFind(d, aRScaled, aNleft, x, &dist);
+
+	    /* Make sure that no row is closer to y than x is. */
+	    if (CxpTreeNjRowAllMinOk(d, aRScaled, aNleft, y, dist))
 	    {
-		clustered = true;
+		if (x > y)
+		{
+		    t = x;
+		    x = y;
+		    y = t;
+		}
+
 #ifdef CxmTreeNjDump
 		CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
 #endif
@@ -833,30 +1037,68 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 		CxpTreeNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
 		aNleft--;
 		CxpTreeNjRScaledUpdate(aRScaled, aR, aNleft);
-
-		/* Shrinking the matrix may have reduced it to the point that
-		 * the enclosing loop will no longer function correctly.  Check
-		 * this condition here, in order to reduce branch overhead for
-		 * the case where no join is done. */
-		if (aNleft == 2)
-		{
-		    goto OUT;
-		}
-
-		/* The indexing of the matrix is shifted as a result of having
-		 * removed the first row.  Set x such that joining with this row
-		 * is immediately tried again.
-		 *
-		 * Note that if x is 0, then the row is now at (y - 1); in
-		 * that case, stay on row 0. */
-		if (x > 0)
-		{
-		    x--;
-		}
 	    }
-	    else
+	}
+    }
+    else
+    {
+	bool clustered;
+
+	/* Deterministic join mode. */
+
+	clustered = true;
+	while (true)
+	{
+	    if (clustered == false)
 	    {
-		x++;
+		aAdditive = false;
+	    }
+	    clustered = false;
+	    for (x = 0; x < aNleft - 1;) /* y indexes one past x. */
+	    {
+		y = CxpTreeNjRowMinFind(d, aRScaled, aNleft, x);
+
+		if ((aAdditive == false
+		     || CxpTreeNjPairClusterAdditive(d, aRScaled, aNleft, x, y))
+		    && CxpTreeNjPairClusterOk(d, aRScaled, aNleft, x, y))
+		{
+		    clustered = true;
+#ifdef CxmTreeNjDump
+		    CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
+#endif
+		    CxpTreeNjNodesJoin(d, aRScaled, nodes, aTree, aNleft, x, y,
+				       &node, &distX, &distY);
+		    CxpTreeNjRSubtract(d, aR, aNleft, x, y);
+		    CxpTreeNjCompact(d, aR, nodes, aNleft, x, y, node,
+				     distX, distY);
+		    CxpTreeNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
+		    aNleft--;
+		    CxpTreeNjRScaledUpdate(aRScaled, aR, aNleft);
+
+		    /* Shrinking the matrix may have reduced it to the point
+		     * that the enclosing loop will no longer function
+		     * correctly.  Check this condition here, in order to reduce
+		     * branch overhead for the case where no join is done. */
+		    if (aNleft == 2)
+		    {
+			goto OUT;
+		    }
+
+		    /* The indexing of the matrix is shifted as a result of
+		     * having removed the first row.  Set x such that joining
+		     * with this row is immediately tried again.
+		     *
+		     * Note that if x is 0, then the row is now at (y - 1); in
+		     * that case, stay on row 0. */
+		    if (x > 0)
+		    {
+			x--;
+		    }
+		}
+		else
+		{
+		    x++;
+		}
 	    }
 	}
     }
@@ -864,6 +1106,10 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 
     *arD = d;
     *arNodes = nodes;
+
+    retval = false;
+    RETURN:
+    return retval;
 }
 
 /* Create a tree from a pairwise distance matrix, using the neighbor-joining
@@ -910,9 +1156,11 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
  *   |  A   |  B   |  C   |  D   |  E   |
  *   \------+------+------+------+------/
  */
-static void
-CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive)
+static bool
+CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
+	  bool aRandom)
 {
+    bool retval;
     float *rOrig, *r; /* Distance sums. */
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
@@ -937,7 +1185,12 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive)
     nodesOrig = nodes = CxpTreeNjNodesInit(aTree, aNtaxa);
 
     /* Iteratively try all clusterings, until only two rows are left. */
-    CxpTreeNjCluster(&aD, r, rScaled, &nodes, aNtaxa, aTree, aAdditive);
+    if (CxpTreeNjCluster(&aD, r, rScaled, &nodes, aNtaxa, aTree, aAdditive,
+			 aRandom))
+    {
+	retval = true;
+	goto RETURN;
+    }
 
     /* Join last two nodes. */
     node = CxpTreeNjFinalJoin(aD, nodes, aTree);
@@ -954,10 +1207,13 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive)
 	    (int)(t - starttime), (t - starttime) == 1 ? "" : "s");
 #endif
 
+    retval = false;
+    RETURN:
     /* Clean up. */
     CxmFree(nodesOrig);
     CxmFree(rScaledOrig);
     CxmFree(rOrig);
+    return retval;
 }
 
 PyObject *
@@ -966,9 +1222,9 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
     PyObject *retval, *distMatrix;
     float *d;
     long ntaxa;
-    int additive;
+    int additive, random;
 
-    if (PyArg_ParseTuple(args, "Oi", &distMatrix, &additive) == 0)
+    if (PyArg_ParseTuple(args, "Oii", &distMatrix, &additive, &random) == 0)
     {
 	retval = NULL;
 	goto RETURN;
@@ -985,7 +1241,11 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
 	if (ntaxa > 1)
 	{
 	    /* Neighbor-join. */
-	    CxpTreeNj(self, d, ntaxa, (bool) additive);
+	    if (CxpTreeNj(self, d, ntaxa, (bool) additive, (bool) random))
+	    {
+		Py_DECREF(retval);
+		retval = NULL;
+	    }
 	    CxmFree(d);
 	}
     }

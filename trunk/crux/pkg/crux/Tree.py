@@ -154,7 +154,7 @@ class _NewickParser(NewickParser.NewickParser):
 
 class Tree(C_Tree):
     def __init__(self, with=None, map=None, autoMap=False,
-                 maxLength=10, tryAdditive=True):
+                 maxLength=10, tryAdditive=True, joinRandom=False):
 
         if type(with) == int:
             if map == None:
@@ -168,7 +168,7 @@ class Tree(C_Tree):
             self._newickNew(with, autoMap)
         elif type(with) == DistMatrix.DistMatrix:
             self._map = with.taxonMapGet()
-            self._nj(with, tryAdditive)
+            self._nj(with, tryAdditive, joinRandom)
 
     def _randomNew(self, ntaxa, maxLength):
         # Create a stack of leaf nodes.
