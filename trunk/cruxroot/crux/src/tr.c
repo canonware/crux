@@ -669,7 +669,7 @@ void
 tr_edge_attach(cw_tr_t *a_tr, cw_tr_edge_t a_edge, cw_tr_node_t a_node_a,
 	       cw_tr_node_t a_node_b)
 {
-    cw_trn_t *trn_a, *trn_b;
+    cw_trn_t *trn;
     cw_tr_ring_t ring;
 
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
@@ -680,17 +680,16 @@ tr_edge_attach(cw_tr_t *a_tr, cw_tr_edge_t a_edge, cw_tr_node_t a_node_a,
     cw_assert(a_node_a != a_node_b);
     cw_assert(tr_node_distance(a_tr, a_node_a, a_node_b) == 0);
 
-    trn_a = &a_tr->trns[a_node_a];
-    trn_b = &a_tr->trns[a_node_b];
-
     /* First end. */
     ring = tr_p_edge_ring_get(a_tr, a_edge, 0);
-    qli_tail_insert(&trn_a->rings, a_tr->trrs, ring, link);
+    trn = &a_tr->trns[a_node_a];
+    qli_tail_insert(&trn->rings, a_tr->trrs, ring, link);
     a_tr->trrs[ring].node = a_node_a;
 
     /* Second end. */
     ring = tr_p_edge_ring_get(a_tr, a_edge, 1);
-    qli_tail_insert(&trn_b->rings, a_tr->trrs, ring, link);
+    trn = &a_tr->trns[a_node_b];
+    qli_tail_insert(&trn->rings, a_tr->trrs, ring, link);
     a_tr->trrs[ring].node = a_node_b;
 
     /* Mark tree as modified. */
@@ -1699,43 +1698,85 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 	}
 	case 2:
 	{
-	    cw_tr_ring_t ring;
-	    cw_tr_edge_t edge_lose, edge_keep;
-	    cw_tr_node_t tnode_a, tnode_b;
+	    cw_tr_ring_t ring_a, ring_b;
+	    cw_tr_ring_t ring_a_other, ring_b_other;
+	    cw_tr_edge_t edge_a, edge_b;
+	    cw_tr_node_t node_a, node_b;
+	    cw_tr_ps_t *tps;
 
-	    /* Get the edges connected to a_node. */
-	    ring = qli_first(&a_tr->trns[a_node].rings);
-	    edge_lose = tr_p_ring_edge_get(a_tr, ring);
-	    tnode_a = tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring));
+	    /* Get all variables that are necessary for careful extraction of
+	     * a_node, and proper rematching of rings with nodes.  The
+	     * rematching is critical to the maintenance of the character state
+	     * sets in leaf nodes (which node_[ab] may or may not be). */
+	    ring_a = qli_first(&a_tr->trns[a_node].rings);
+	    edge_a = tr_p_ring_edge_get(a_tr, ring_a);
+	    ring_a_other = tr_p_ring_other_get(a_tr, ring_a);
+	    node_a = tr_p_ring_node_get(a_tr, ring_a_other);
 
-	    ring = qri_next(a_tr->trrs, ring, link);
-	    edge_keep = tr_p_ring_edge_get(a_tr, ring);
-	    tnode_b = tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring));
-
-	    if (edge_lose == a_reconnect_a || edge_lose == a_reconnect_b)
-	    {
-		cw_tr_edge_t tedge;
-
-		/* This edge is a reconnection edge; lose the other edge. */
-		tedge = edge_keep;
-		edge_keep = edge_lose;
-		edge_lose = tedge;
-	    }
-	    cw_assert(edge_lose != a_reconnect_a && edge_lose != a_reconnect_b);
+	    ring_b = qri_next(a_tr->trrs, ring_a, link);
+	    edge_b = tr_p_ring_edge_get(a_tr, ring_b);
+	    ring_b_other = tr_p_ring_other_get(a_tr, ring_b);
+	    node_b = tr_p_ring_node_get(a_tr, ring_b_other);
 
 	    /* Detach. */
-	    tr_edge_detach(a_tr, edge_keep);
-	    tr_edge_detach(a_tr, edge_lose);
+	    tr_edge_detach(a_tr, edge_a);
+	    tr_edge_detach(a_tr, edge_b);
 
-	    /* Reattach. */
-	    tr_edge_attach(a_tr, edge_keep, tnode_a, tnode_b);
-
-	    /* Store spares. */
-	    ar_tedges[*ar_ntedges] = edge_lose;
-	    (*ar_ntedges)++;
+	    /* Store a_node as a spare. */
 	    ar_tnodes[*ar_ntnodes] = a_node;
 	    (*ar_ntnodes)++;
-	    cw_assert(a_tr->trns[a_node].taxon_num == CW_TR_NODE_TAXON_NONE);
+
+	    /* Be careful to preserve reconnection edges, which either edge_a or
+	     * edge_b may be. */
+	    if (edge_b != a_reconnect_a && edge_b != a_reconnect_b)
+	    {
+		/* Use edge_a when splicing node_[ab] back together. */
+
+		/* Swap data in ring_a and ring_b_other. */
+		tps = a_tr->trrs[ring_a].ps;
+		a_tr->trrs[ring_a].ps = a_tr->trrs[ring_b_other].ps;
+		a_tr->trrs[ring_b_other].ps = tps;
+
+		/* Attach node_[ab].  Take care to keep the proper ends of
+		 * edge_a associated with node_[ab]. */
+		if (ring_a_other < ring_a)
+		{
+		    tr_edge_attach(a_tr, edge_a, node_a, node_b);
+		}
+		else
+		{
+		    tr_edge_attach(a_tr, edge_a, node_b, node_a);
+		}
+
+		/* Store edge_b as a spare. */
+		ar_tedges[*ar_ntedges] = edge_b;
+		(*ar_ntedges)++;
+	    }
+	    else
+	    {
+		/* Use edge_b when splicing node_[ab] back together. */
+		cw_assert(edge_a != a_reconnect_a && edge_a != a_reconnect_b);
+
+		/* Swap data in ring_b and ring_a_other. */
+		tps = a_tr->trrs[ring_b].ps;
+		a_tr->trrs[ring_b].ps = a_tr->trrs[ring_a_other].ps;
+		a_tr->trrs[ring_a_other].ps = tps;
+
+		/* Attach node_[ab].  Take care to keep the proper ends of
+		 * edge_b associated with node_[ab]. */
+		if (ring_b < ring_b_other)
+		{
+		    tr_edge_attach(a_tr, edge_b, node_a, node_b);
+		}
+		else
+		{
+		    tr_edge_attach(a_tr, edge_b, node_b, node_a);
+		}
+
+		/* Store edge_a as a spare. */
+		ar_tedges[*ar_ntedges] = edge_a;
+		(*ar_ntedges)++;
+	    }
 
 	    retval = CW_TR_NODE_NONE;
 	    break;
@@ -1761,12 +1802,19 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
 		     void *a_arg)
 {
     cw_tr_node_t retval, node_a, node_b;
+    cw_tr_ring_t ring_a, ring_b, ring;
     cw_tr_edge_t edge;
+    cw_tr_ps_t *tps;
 
-    node_a = tr_edge_node_get(a_tr, a_edge, 0);
-    cw_assert(node_a != CW_TR_NODE_NONE);
-    node_b = tr_edge_node_get(a_tr, a_edge, 1);
-    cw_assert(node_b != CW_TR_NODE_NONE);
+    /* Get all variables that are necessary for careful splicing of a node into
+     * a_edge, and proper rematching of rings with nodes.  The rematching is
+     * critical to the maintenance of the character state sets in leaf nodes
+     * (which node_[ab] may or may not be). */
+    ring_a = tr_p_edge_ring_get(a_tr, a_edge, 0);
+    node_a = tr_p_ring_node_get(a_tr, ring_a);
+
+    ring_b = tr_p_edge_ring_get(a_tr, a_edge, 1);
+    node_b = tr_p_ring_node_get(a_tr, ring_b);
 
     /* Get an edge. */
     if (*ar_ntedges > 0)
@@ -1778,6 +1826,7 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
     {
 	edge = a_edge_alloc_callback(a_tr, a_arg);
     }
+    ring = tr_p_edge_ring_get(a_tr, edge, 0);
 
     /* Get a node. */
     if (*ar_ntnodes > 0)
@@ -1793,10 +1842,15 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
     /* Detach. */
     tr_edge_detach(a_tr, a_edge);
 
+    /* Swap data in ring_b and ring. */
+    tps = a_tr->trrs[ring_b].ps;
+    a_tr->trrs[ring_b].ps = a_tr->trrs[ring].ps;
+    a_tr->trrs[ring].ps = tps;
+
     /* Reattach. */
-    tr_edge_attach(a_tr, a_edge, retval, node_a);
-    tr_edge_attach(a_tr, edge, retval, node_b);
-    
+    tr_edge_attach(a_tr, a_edge, node_a, retval);
+    tr_edge_attach(a_tr, edge, node_b, retval);
+
     return retval;
 }
 
@@ -2241,8 +2295,8 @@ CW_P_INLINE void
 tr_p_mp_cache_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		     cw_tr_ps_t *a_b)
 {
-//#define CW_TR_MP_PSCORE_VALIDATE
-#ifdef CW_TR_MP_PSCORE_VALIDATE
+//#define CW_TR_MP_CACHE_PSCORE_VALIDATE
+#ifdef CW_TR_MP_CACHE_PSCORE_VALIDATE
     bool cached;
     uint32_t cached_node_score;
 #endif
@@ -2253,7 +2307,7 @@ tr_p_mp_cache_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
     /* Only calculate the parent's node score if the cached value is invalid. */
     if (a_a->parent != a_p || a_b->parent != a_p)
-#ifdef CW_TR_MP_PSCORE_VALIDATE
+#ifdef CW_TR_MP_CACHE_PSCORE_VALIDATE
     {
 	cached = false;
     }
@@ -2286,7 +2340,7 @@ tr_p_mp_cache_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	tr_p_no_inline_mp_pscore(a_tr, a_p, a_a, a_b);
     }
 
-#ifdef CW_TR_MP_PSCORE_VALIDATE
+#ifdef CW_TR_MP_CACHE_PSCORE_VALIDATE
     if (cached)
     {
 	if (cached_node_score != a_p->node_score)
@@ -2556,7 +2610,6 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 			+ a_tr->tres[a_edges[i]].ps->node_score,
 			a_tr->tres[a_edges[i]].ps->subtrees_score,
 			a_tr->tres[a_edges[i]].ps->node_score);
-		fprintf(stderr, "iter %u\n", i);
 		abort();
 	    }
 #endif
@@ -2966,11 +3019,10 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
        void *a_arg)
 {
     cw_tr_node_t node_a, node_b, nodes[4];
-    cw_tr_edge_t edge, tedges[3];
+    cw_tr_edge_t tedges[3];
     uint32_t ntedges = 0;
     cw_tr_node_t tnodes[2];
     uint32_t ntnodes = 0;
-    uint32_t i, j;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
@@ -2980,11 +3032,9 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
     node_a = tr_edge_node_get(a_tr, a_bisect, 0);
     node_b = tr_edge_node_get(a_tr, a_bisect, 1);
 
-    /* Bisect and save edge as a spare. */
+    /* Bisect.  a_bisect will be used below for reconnection. */
     tr_edge_detach(a_tr, a_bisect);
-    tedges[ntedges] = a_bisect;
-    ntedges++;
-
+    
     /* For nodes_[ab], extract the node if it has only two neighbors.
      *
      * nodes_[0..1] are CW_TR_NODE_NONE, unless they refer to the only node in a
@@ -3025,39 +3075,41 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
 	nodes[3] = CW_TR_NODE_NONE;
     }
 
-    /* Only two of nodes[0..3] refer to valid nodes.  Collapse those two into
-     * nodes[0..1]. */
-    for (i = 0; i < 2; i++)
+    /* If either subtree has only a single node, special care must be taken
+     * during reconnection to re-associate the proper end of the bisection edge
+     * with the single node.  This is because character state information for
+     * leaf nodes is actually stored in the rings that attach them to the tree,
+     * and breaking this association would require re-initializing the character
+     * state set vectors. */
+    if (nodes[0] != CW_TR_NODE_NONE)
     {
-	if (nodes[i] == CW_TR_NODE_NONE)
-	{
-	    for (j = i + 1; j < 4; j++)
-	    {
-		if (nodes[j] != CW_TR_NODE_NONE)
-		{
-		    nodes[i] = nodes[j];
-		    nodes[j] = CW_TR_NODE_NONE;
-		    break;
-		}
-	    }
-	}
-    }
-    cw_assert(nodes[0] != CW_TR_NODE_NONE);
-    cw_assert(nodes[1] != CW_TR_NODE_NONE);
-    cw_assert(nodes[2] == CW_TR_NODE_NONE);
-    cw_assert(nodes[3] == CW_TR_NODE_NONE);
+	/* nodes[0] (same as node_a) is a single node. */
+	cw_assert(nodes[0] == node_a);
+	cw_assert(nodes[1] == CW_TR_NODE_NONE);
 
-    /* Attach the two spliced-in nodes. */
-    if (ntedges > 0)
+	if (nodes[2] == CW_TR_EDGE_NONE)
+	{
+	    nodes[2] = nodes[3];
+	}
+	tr_edge_attach(a_tr, a_bisect, nodes[0], nodes[2]);
+    }
+    else if (nodes[1] != CW_TR_NODE_NONE)
     {
-	edge = tedges[ntedges - 1];
-	ntedges--;
+	/* nodes[1] (same as node_b) is a single node. */
+	cw_assert(nodes[1] == node_b);
+
+	if (nodes[2] == CW_TR_EDGE_NONE)
+	{
+	    nodes[2] = nodes[3];
+	}
+	tr_edge_attach(a_tr, a_bisect, nodes[2], nodes[1]);
     }
     else
     {
-	edge = a_edge_alloc_callback(a_tr, a_arg);
+	/* Bisection was not done adjacent to a leaf node.  Attach the two
+	 * spliced-in nodes. */
+	tr_edge_attach(a_tr, a_bisect, nodes[2], nodes[3]);
     }
-    tr_edge_attach(a_tr, edge, nodes[0], nodes[1]);
 
     /* Update. */
     tr_p_update(a_tr);
