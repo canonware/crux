@@ -415,15 +415,17 @@ trn_p_edge_get_recurse(cw_trn_t *a_trn, cw_uint32_t a_edge,
     return retval;
 }
 
-static cw_uint32_t
+static void
 trn_p_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
 	       cw_uint32_t *r_neighbor)
 {
-    cw_uint32_t retval, edge_count = 0;
-
-    trn_p_edge_get_recurse(a_trn, a_edge, NULL, &edge_count, r_trn, r_neighbor);
-
-    return retval;
+    cw_uint32_t edge_count = 0;
+#ifdef CW_DBG
+    cw_bool_t found =
+#endif
+	trn_p_edge_get_recurse(a_trn, a_edge, NULL, &edge_count, r_trn,
+			       r_neighbor);
+    cw_dassert(found);
 }
 
 static cw_bool_t
@@ -548,7 +550,58 @@ trn_p_canonize(cw_trn_t *a_trn, cw_trn_t *a_prev)
     return retval;
 }
 
-static void
+CW_P_INLINE void
+trn_p_bisection_patch(cw_trn_t *a_trn, cw_trn_t **r_trn, cw_uint32_t *r_edge,
+		      cw_trn_t **r_spare)
+{
+    /* Patch up the node adjacent to bisection.  There are two cases possible.
+     * It is either a leaf node or an internal node.  For a leaf node, do
+     * nothing.  For an internal node, join its neighbors together, and return
+     * the node as a spare. */
+    if (a_trn->taxon_num == CW_TRN_TAXON_NONE)
+    {
+	cw_trn_t *a, *b;
+	cw_uint32_t i;
+
+	/* Get a_trn's neighbors. */
+	for (i = 0, a = b = NULL; b == NULL; i++)
+	{
+	    cw_assert(i < CW_TRN_MAX_NEIGHBORS);
+
+	    if (a_trn->neighbors[i] != NULL)
+	    {
+		if (a == NULL)
+		{
+		    a = a_trn->neighbors[i];
+		}
+		else
+		{
+		    b = a_trn->neighbors[i];
+		}
+	    }
+	}
+
+	/* Detach. */
+	trn_detach(a_trn, a);
+	trn_detach(a_trn, b);
+
+	/* Join. */
+	trn_join(a, b);
+
+	*r_trn = trn_p_root_get(a, NULL, NULL);
+	trn_p_canonize(*r_trn, NULL);
+	*r_edge = trn_p_edge_index_get(*r_trn, a, b);
+	*r_spare = a_trn;
+    }
+    else
+    {
+	*r_trn = a_trn;
+	*r_edge = CW_TRN_EDGE_NONE;
+	*r_spare = NULL;
+    }
+}
+
+CW_P_INLINE void
 trn_p_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
 	     cw_uint32_t *r_edge_a, cw_trn_t **r_trn_b,
 	     cw_uint32_t *r_edge_b, cw_trn_t **r_spare_a,
@@ -568,96 +621,9 @@ trn_p_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
     /* Detach the two nodes. */
     trn_detach(trn_a, trn_b);
 
-    /* There are two cases possible for each of the nodes.  Each is either a
-     * leaf node or an internal node.  For a leaf node, do nothing.  For an
-     * internal node, join its neighbors together, and return the node as a
-     * spare. */
-
-    /* trn_a. */
-    if (trn_a->taxon_num == CW_TRN_TAXON_NONE)
-    {
-	cw_trn_t *a, *b;
-	cw_uint32_t i;
-
-	/* Get trn_a's neighbors. */
-	for (i = 0, a = b = NULL; b == NULL; i++)
-	{
-	    cw_assert(i < CW_TRN_MAX_NEIGHBORS);
-
-	    if (trn_a->neighbors[i] != NULL)
-	    {
-		if (a == NULL)
-		{
-		    a = trn_a->neighbors[i];
-		}
-		else
-		{
-		    b = trn_a->neighbors[i];
-		}
-	    }
-	}
-
-	/* Detach. */
-	trn_detach(trn_a, a);
-	trn_detach(trn_a, b);
-
-	/* Join. */
-	trn_join(a, b);
-
-	*r_trn_a = trn_p_root_get(a, NULL, NULL);
-	trn_p_canonize(*r_trn_a, NULL);
-	*r_edge_a = trn_p_edge_index_get(*r_trn_a, a, b);
-	*r_spare_a = trn_a;
-    }
-    else
-    {
-	*r_trn_a = trn_a;
-	*r_edge_a = CW_TRN_EDGE_NONE;
-	*r_spare_a = NULL;
-    }
-
-    /* trn_b. */
-    if (trn_b->taxon_num == CW_TRN_TAXON_NONE)
-    {
-	cw_trn_t *a, *b;
-	cw_uint32_t i;
-
-	/* Get trn_b's neighbors. */
-	for (i = 0, a = b = NULL; b == NULL; i++)
-	{
-	    cw_assert(i < CW_TRN_MAX_NEIGHBORS);
-
-	    if (trn_b->neighbors[i] != NULL)
-	    {
-		if (a == NULL)
-		{
-		    a = trn_b->neighbors[i];
-		}
-		else
-		{
-		    b = trn_b->neighbors[i];
-		}
-	    }
-	}
-
-	/* Detach. */
-	trn_detach(trn_b, a);
-	trn_detach(trn_b, b);
-
-	/* Join. */
-	trn_join(a, b);
-
-	*r_trn_b = trn_p_root_get(a, NULL, NULL);
-	trn_p_canonize(*r_trn_b, NULL);
-	*r_edge_b = trn_p_edge_index_get(*r_trn_b, a, b);
-	*r_spare_b = trn_b;
-    }
-    else
-    {
-	*r_trn_b = trn_b;
-	*r_edge_b = CW_TRN_EDGE_NONE;
-	*r_spare_b = NULL;
-    }
+    /* Patch up the nodes adjacent to bisection. */
+    trn_p_bisection_patch(trn_a, r_trn_a, r_edge_a, r_spare_a);
+    trn_p_bisection_patch(trn_b, r_trn_b, r_edge_b, r_spare_b);
 
     /* Move *r_spare_b to *r_spare_a if *r_spare_a is NULL. */
     if (*r_spare_a == NULL)
@@ -667,7 +633,43 @@ trn_p_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
     }
 }
 
-static void
+CW_INLINE cw_trn_t *
+trn_p_connection_patch(cw_trn_t *a_trn, cw_uint32_t a_edge,
+		       cw_trn_t **ar_spare)
+{
+    cw_trn_t *retval;
+
+    /* There are two cases possible.  a_trn is either a single leaf node, or a
+     * larger subtree.  For a leaf node, do nothing.  For a larger subtree,
+     * splice in the spare. */
+    if (a_edge != CW_TRN_EDGE_NONE)
+    {
+	cw_trn_t *a, *b;
+	cw_uint32_t edge;
+
+	cw_check_ptr(*ar_spare);
+	retval = *ar_spare;
+	*ar_spare = NULL;
+
+	trn_p_edge_get(retval, a_edge, &a, &edge);
+	b = a->neighbors[edge];
+
+	/* Detach a and b. */
+	trn_detach(a, b);
+
+	/* Join a and b to retval. */
+	trn_join(retval, a);
+	trn_join(retval, b);
+    }
+    else
+    {
+	retval = a_trn;
+    }
+
+    return retval;
+}
+
+CW_P_INLINE void
 trn_p_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
 	      cw_trn_t *a_trn_b, cw_uint32_t a_edge_b,
 	      cw_trn_t **ar_spare_a, cw_trn_t **ar_spare_b,
@@ -684,59 +686,13 @@ trn_p_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
 		&& trn_p_ntaxa_get_recurse(a_trn_b, NULL) == 1)
 	       || (a_edge_b < trn_p_nedges_get(a_trn_b)));
 
-    /* There are two cases possible for each subtree.  Each is either a single
-     * leaf node, or a larger subtree.  For a leaf node, do nothing (recognize
-     * this case by checking for an edge number of CW_TRN_EDGE_NONE).  For a
-     * subtree, splice in one of the spares.  Then join the two subtrees. */
-
-    if (a_edge_a != CW_TRN_EDGE_NONE)
-    {
-	cw_trn_t *a, *b;
-	cw_uint32_t edge;
-
-	cw_check_ptr(*ar_spare_a);
-	trn_a = *ar_spare_a;
-	*ar_spare_a = *ar_spare_b;
-	*ar_spare_b = NULL;
-
-	trn_p_edge_get(a_trn_a, a_edge_a, &a, &edge);
-	b = a->neighbors[edge];
-
-	/* Detach a and b. */
-	trn_detach(a, b);
-
-	/* Join a and b to trn_a. */
-	trn_join(trn_a, a);
-	trn_join(trn_a, b);
-    }
-    else
-    {
-	trn_a = a_trn_a;
-    }
-
-    if (a_edge_b != CW_TRN_EDGE_NONE)
-    {
-	cw_trn_t *a, *b;
-	cw_uint32_t edge;
-
-	cw_check_ptr(*ar_spare_a);
-	trn_b = *ar_spare_a;
-	*ar_spare_a = NULL;
-
-	trn_p_edge_get(a_trn_b, a_edge_b, &a, &edge);
-	b = a->neighbors[edge];
-
-	/* Detach a and b. */
-	trn_detach(a, b);
-
-	/* Join a and b to trn_b. */
-	trn_join(trn_b, a);
-	trn_join(trn_b, b);
-    }
-    else
-    {
-	trn_b = a_trn_b;
-    }
+    /* Patch in internal nodes adjacent to where the connection will occur,
+     * if necessary. */
+    trn_a = trn_p_connection_patch(a_trn_a, a_edge_a, ar_spare_a);
+    trn_b = trn_p_connection_patch(a_trn_b, a_edge_b,
+				   ((*ar_spare_a != NULL)
+				    ? ar_spare_a
+				    : ar_spare_b));
 
     /* Join trn_a and trn_b. */
     trn_join(trn_a, trn_b);
@@ -1010,6 +966,8 @@ tr_p_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
 		  &spare_a, &spare_b,
 		  &trn, r_bisect);
     cw_assert(trn == a_tr->croot);
+    cw_assert(spare_a == NULL);
+    cw_assert(spare_b == NULL);
 
     cw_dassert(tr_p_validate(a_tr, TRUE));
 }
