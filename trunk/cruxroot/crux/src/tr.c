@@ -33,7 +33,7 @@ struct cw_tr_ps_s
      * records the node on the other end of the bisection edge.  This is used
      * when deciding whether to push the value of parent down to the child when
      * recursively scoring. */
-    cw_tr_node_t other;
+    cw_trn_t *other;
 
     /* Sum of the subtree scores, and this node's score, given particular
      * children.  In order for this to be useful, both childrens' parent
@@ -311,7 +311,7 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_uint32_t a_nchars)
 	{
 	    /* All modern systems guarantee at least 8 byte alignment, so assume
 	     * that offsetting by 8 bytes is correct. */
-	    cw_assert(a_ps->chars
+	    cw_assert(&a_ps->achars[8]
 		      == &a_ps->achars[16 - (((unsigned) a_ps->achars)
 					     & 0xfU)]);
 	    a_ps->chars = &a_ps->achars[8];
@@ -1698,7 +1698,7 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
     /* Recurse into subtrees. */
     for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
-	node = tr_node_neighbor_get(a_tr, a_node, i);
+	node = trn->neighbors[i];
 	if (node != CW_TR_NODE_NONE && node != a_prev)
 	{
 	    tr_p_mp_prepare_recurse(a_tr, node, a_node, a_taxa, a_ntaxa,
@@ -1725,7 +1725,7 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
     /* Recurse into subtrees. */
     for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
-	node = tr_node_neighbor_get(a_tr, a_node, i);
+	node = trn->neighbors[i];
 	if (node != CW_TR_NODE_NONE && node != a_prev)
 	{
 	    tr_p_mp_finish_recurse(a_tr, node, a_node);
@@ -2020,41 +2020,40 @@ tr_p_mp_passpscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a)
 }
 
 static void
-tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
-		      cw_tr_node_t a_other, cw_uint32_t a_maxscore,
+tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_trn_t *a_node, cw_trn_t *a_prev,
+		      cw_trn_t *a_other, cw_uint32_t a_maxscore,
 		      cw_bool_t *ar_maxed)
 {
     cw_uint32_t i;
-    cw_tr_node_t node, a, b, o;
-    cw_trn_t *trn;
+    cw_trn_t *trn, *a, *b, *o;
+    cw_tr_node_t node;
 
-    trn = &a_tr->trns[a_node];
-
-    a = CW_TR_NODE_NONE;
-    b = CW_TR_NODE_NONE;
-    o = CW_TR_NODE_NONE;
+    a = NULL;
+    b = NULL;
+    o = NULL;
 
     /* Set a, b, and o, according to which neighbors are subtrees or on the
      * other side of the bisection. */
     for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
-	node = tr_node_neighbor_get(a_tr, a_node, i);
+	node = a_node->neighbors[i];
 	if (node != CW_TR_NODE_NONE)
 	{
-	    if (node == a_other)
+	    trn = &a_tr->trns[node];
+	    if (trn == a_other)
 	    {
-		o = node;
+		o = trn;
 	    }
-	    else if (node != a_prev)
+	    else if (trn != a_prev)
 	    {
-		if (a == CW_TR_NODE_NONE)
+		if (a == NULL)
 		{
-		    a = node;
+		    a = trn;
 		}
 		else
 		{
-		    cw_assert(b == CW_TR_NODE_NONE);
-		    b = node;
+		    cw_assert(b == NULL);
+		    b = trn;
 		}
 	    }
 	}
@@ -2062,24 +2061,22 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 
     /* Recursively calculate partial scores for the subtrees, then calculate the
      * partial score for this node. */
-    if (b != CW_TR_NODE_NONE)
+    if (b != NULL)
     {
 	/* Recurse into subtrees. */
 	tr_p_mp_score_recurse(a_tr, a, a_node, a_other, a_maxscore, ar_maxed);
 	tr_p_mp_score_recurse(a_tr, b, a_node, a_other, a_maxscore, ar_maxed);
 
 	/* Clear cached other value. */
-	trn->ps->other = o;
+	a_node->ps->other = o;
 
 	/* Calculate this node's partial score. */
 
-	cw_assert(a != CW_TR_NODE_NONE);
+	cw_check_ptr(a);
 	if (*ar_maxed == FALSE)
 	{
 	    /* Calculate the partial score for this node. */
-	    if (tr_p_mp_pscore(a_tr, a_tr->trns[a_node].ps,
-			       a_tr->trns[a].ps, a_tr->trns[b].ps)
-		>= a_maxscore)
+	    if (tr_p_mp_pscore(a_tr, a_node->ps, a->ps, b->ps) >= a_maxscore)
 	    {
 		/* Maximum score met or exceeded; prevent further score
 		 * calculations. */
@@ -2090,26 +2087,25 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 	{
 	    /* Clear invalid cached parial score if necessary, but do not
 	     * calculate the partial score. */
-	    tr_p_mp_nopscore(a_tr, a_tr->trns[a_node].ps, a_tr->trns[a].ps,
-			     a_tr->trns[b].ps);
+	    tr_p_mp_nopscore(a_tr, a_node->ps, a->ps, b->ps);
 	}
     }
-    else if (o != CW_TR_NODE_NONE)
+    else if (o != NULL)
     {
-	cw_assert(a != CW_TR_NODE_NONE);
-	cw_assert(b == CW_TR_NODE_NONE);
+	cw_check_ptr(a);
+	cw_assert(b == NULL);
 
 	/* Recurse into subtree, and pass down cached parent value, if the last
 	 * time this node was recursed through, o was the same. */
-	if (trn->ps->other == o)
+	if (a_node->ps->other == o)
 	{
 	    /* Pass cached parent value to the child. */
-	    a_tr->trns[a].ps->parent = trn->ps->parent;
+	    a->ps->parent = a_node->ps->parent;
 	}
 	else
 	{
 	    /* Clear cached other value. */
-	    trn->ps->other = o;
+	    a_node->ps->other = o;
 	}
 
 	/* Recurse into subtree. */
@@ -2118,9 +2114,9 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 	/* Copy a's scores to this node, rather than calculating a partial
 	 * score.  This node is merely a filler node, as far as scoring is
 	 * concerned. */
-	if (a != CW_TR_NODE_NONE)
+	if (a != NULL)
 	{
-	    tr_p_mp_passpscore(a_tr, a_tr->trns[a_node].ps, a_tr->trns[a].ps);
+	    tr_p_mp_passpscore(a_tr, a_node->ps, a->ps);
 	}
     }
 }
@@ -2134,16 +2130,16 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
     cw_bool_t maxed;
 
     maxed = FALSE;
-    tr_p_mp_score_recurse(a_tr, a_node_a, a_node_b, a_other, a_maxscore,
-			  &maxed);
+    tr_p_mp_score_recurse(a_tr, &a_tr->trns[a_node_a], &a_tr->trns[a_node_b],
+			  &a_tr->trns[a_other], a_maxscore, &maxed);
     if (maxed)
     {
 	retval = CW_TR_MAXSCORE_NONE;
 	goto RETURN;
     }
 
-    tr_p_mp_score_recurse(a_tr, a_node_b, a_node_a, a_other, a_maxscore,
-			  &maxed);
+    tr_p_mp_score_recurse(a_tr, &a_tr->trns[a_node_b], &a_tr->trns[a_node_a],
+			  &a_tr->trns[a_other], a_maxscore, &maxed);
     if (maxed)
     {
 	retval = CW_TR_MAXSCORE_NONE;
