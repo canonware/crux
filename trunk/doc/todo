@@ -1,3 +1,10 @@
+* Somehow return whether a NJ tree is additive?
+
+* Use the random sampling without replacement algorithm from the old random hill
+  climbing code to be able to bound the runtime of the random NJ code.  Also,
+  add support for additivity, since it becomes possible after adding sampling
+  without replacement.
+
 * Implement the Robinson-Foulds distance measure.
 
 * Add isSymmetric(), symmetricize(), and unsymmetricize() methods to DistMatrix
