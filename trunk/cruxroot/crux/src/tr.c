@@ -126,8 +126,6 @@ tr_p_log2ceil(cw_uint32_t a_val);
 static cw_uint32_t
 tr_p_ntaxa2nbits(cw_uint32_t a_ntaxa);
 static cw_uint32_t
-tr_p_ntaxa(const cw_tr_t *a_tr);
-static cw_uint32_t
 tr_p_sizeof(const cw_tr_t *a_tr);
 static void
 tr_p_trn2parens_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
@@ -200,10 +198,7 @@ tr_p_log2ceil(cw_uint32_t a_val)
     /* Find the most significant 1 bit. */
     for (retval = ones = 0; a_val != 0; retval++, a_val >>= 1)
     {
-	if (a_val & 0x1)
-	{
-	    ones++;
-	}
+	ones += (a_val & 0x1);
     }
 
     if (ones > 1)
@@ -237,52 +232,12 @@ tr_p_ntaxa2nbits(cw_uint32_t a_ntaxa)
     return retval;
 }
 
-/* Determine the number of taxa in a_tr. */
-static cw_uint32_t
-tr_p_ntaxa(const cw_tr_t *a_tr)
-{
-    cw_uint32_t retval;
-    cw_uint32_t i, npairs, curdepth;
-
-    /* Determine how many pairs of parentheses there are in the bit vector. */
-    for (i = 0, npairs = curdepth = 1; curdepth > 0; i++)
-    {
-	if (TR_BIT_GET(a_tr, i))
-	{
-	    curdepth--;
-	}
-	else
-	{
-	    npairs++;
-	    curdepth++;
-	}
-    }
-
-    /* Using the first term of the formula at the top of the file (+1 for the
-     * implied leading `('), we know that:
-     *
-     *   npairs == 2(n-2)
-     *
-     *   npairs
-     *   ------ == n - 2
-     *      2
-     *
-     *        npairs
-     *   n == ------ + 2
-     *           2
-     *
-     * Solve for n (retval). */
-    retval = npairs / 2 + 2;
-
-    return retval;
-}
-
 /* Calculate bit vector byte count, using the bit representation of the encoded
  * tree. */
 static cw_uint32_t
 tr_p_sizeof(const cw_tr_t *a_tr)
 {
-    return tr_ntaxa2sizeof(tr_p_ntaxa(a_tr));
+    return tr_ntaxa2sizeof(tr_ntaxa(a_tr));
 }
 
 static void
@@ -456,7 +411,7 @@ tr_p_validate(const cw_tr_t *a_tr)
 
     cw_check_ptr(a_tr);
 
-    ntaxa = tr_p_ntaxa(a_tr);
+    ntaxa = tr_ntaxa(a_tr);
     nbytes = tr_ntaxa2sizeof(ntaxa);
     nbits = tr_p_ntaxa2nbits(ntaxa);
 
@@ -533,6 +488,46 @@ tr_delete(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
 		      a_tr, tr_ntaxa2sizeof(a_ntaxa));
 }
 
+/* Determine the number of taxa in a_tr. */
+cw_uint32_t
+tr_ntaxa(const cw_tr_t *a_tr)
+{
+    cw_uint32_t retval;
+    cw_uint32_t i, npairs, curdepth;
+
+    /* Determine how many pairs of parentheses there are in the bit vector. */
+    for (i = 0, npairs = curdepth = 1; curdepth > 0; i++)
+    {
+	if (TR_BIT_GET(a_tr, i))
+	{
+	    curdepth--;
+	}
+	else
+	{
+	    npairs++;
+	    curdepth++;
+	}
+    }
+
+    /* Using the first term of the formula at the top of the file (+1 for the
+     * implied leading `('), we know that:
+     *
+     *   npairs == 2(n-2)
+     *
+     *   npairs
+     *   ------ == n - 2
+     *      2
+     *
+     *        npairs
+     *   n == ------ + 2
+     *           2
+     *
+     * Solve for n (retval). */
+    retval = npairs / 2 + 2;
+
+    return retval;
+}
+
 /* Calculate bit vector byte count, given the number of taxa in the tree. */
 cw_uint32_t
 tr_ntaxa2sizeof(cw_uint32_t a_ntaxa)
@@ -559,7 +554,7 @@ cw_trn_t *
 tr_trn(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
 {
     cw_dassert(tr_p_validate(a_tr));
-    cw_assert(tr_p_sizeof(a_tr) == tr_ntaxa2sizeof(a_ntaxa));
+    cw_assert(tr_ntaxa(a_tr) == a_ntaxa);
 
     cw_error("XXX Not implemented");
     return NULL; /* XXX */

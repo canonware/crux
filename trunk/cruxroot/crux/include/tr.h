@@ -47,6 +47,9 @@ void
 tr_delete(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa);
 
 cw_uint32_t
+tr_ntaxa(const cw_tr_t *a_tr);
+
+cw_uint32_t
 tr_ntaxa2sizeof(cw_uint32_t a_ntaxa);
 
 cw_trn_t *
