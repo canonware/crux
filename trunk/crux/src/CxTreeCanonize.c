@@ -53,7 +53,8 @@ CxpTreeCanonize(CxtTreeObject *aTree, CxtRingObject *aRing)
 
     if (degree > 1)
     {
-	unsigned i, minTaxon;
+	unsigned minTaxon;
+	int i;
 	CxtNodeObject *nodeOther;
 	CxtEdgeObject *edge;
 	CxtRingObject *ring;
@@ -82,16 +83,10 @@ CxpTreeCanonize(CxtTreeObject *aTree, CxtRingObject *aRing)
 	qsort(canonize, degree - 1, sizeof(struct CxsTreeCanonize),
 	      CxpTreeCanonizeCompare);
 
-	// Set the beginning of the ring to aRing.  This makes it easier for
-	// external code to traverse a tree in canonical order.
-	CxNodeRingSet(node, aRing);
-
-	// Detach and re-attach all edges, in order.  This code assumes that
-	// attaching inserts the edge at the end of the ring.  The first element
-	// can be skipped, since the removal/re-insertion of all other elements
-	// eventually leaves the first element in the proper location.
+	// Detach and re-attach all edges, in reverse order.  This code assumes
+	// that attaching inserts the edge at the head of the ring.
 	Py_INCREF(node);
-	for (i = 1; i < (degree - 1); i++)
+	for (i = degree - 2; i >= 0; i--)
 	{
 	    nodeOther = CxRingNode(CxRingOther(canonize[i].ring));
 	    edge = CxRingEdge(canonize[i].ring);
@@ -104,6 +99,10 @@ CxpTreeCanonize(CxtTreeObject *aTree, CxtRingObject *aRing)
 	    Py_DECREF(edge);
 	}
 	Py_DECREF(node);
+
+	// Set the beginning of the ring to aRing.  This makes it easier for
+	// external code to traverse a tree in canonical order.
+	CxNodeRingSet(node, aRing);
     }
 
     return rVal;
@@ -126,10 +125,9 @@ CxpTreeCanonizeNodeCallback(CxtNodeObject *aNode, CxtTreeIteratorStage aStage,
     // Don't bother looking at nodes twice.
     if (aStage == CxTreeIteratorStagePre)
     {
-	if ((context->minNode == NULL)
-	    || ((taxonNum = CxNodeTaxonNumGet(aNode)) != CxmTrNodeTaxonNone
-		&& (taxonNum < context->taxonNum
-		    || context->taxonNum == CxmTrNodeTaxonNone)))
+	taxonNum = CxNodeTaxonNumGet(aNode);
+	if (taxonNum < context->taxonNum
+	    || context->taxonNum == CxmTrNodeTaxonNone)
 	{
 	    context->minNode = aNode;
 	    context->taxonNum = taxonNum;

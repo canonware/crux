@@ -450,13 +450,13 @@ CxTrEdgeAttach(CxtTr *aTr, CxtTrEdge aEdge, CxtTrNode aNodeA,
     // First end.
     ring = CxTrEdgeRingGet(aTr, aEdge, 0);
     trn = &aTr->trns[aNodeA];
-    CxmQliTailInsert(&trn->rings, aTr->trrs, ring, link);
+    CxmQliHeadInsert(&trn->rings, aTr->trrs, ring, link);
     aTr->trrs[ring].node = aNodeA;
 
     // Second end.
     ring = CxTrEdgeRingGet(aTr, aEdge, 1);
     trn = &aTr->trns[aNodeB];
-    CxmQliTailInsert(&trn->rings, aTr->trrs, ring, link);
+    CxmQliHeadInsert(&trn->rings, aTr->trrs, ring, link);
     aTr->trrs[ring].node = aNodeB;
 
     // Mark tree as modified.
@@ -728,6 +728,8 @@ CxTrNodeDegree(CxtTr *aTr, CxtTrNode aNode)
 void
 CxTrNodeRingSet(CxtTr *aTr, CxtTrNode aNode, CxtTrRing aRing)
 {
+    CxmAssert(CxTrRingNodeGet(aTr, aRing) == aNode);
+
     CxmQliFirst(&aTr->trns[aNode].rings) = aRing;
 }
 
