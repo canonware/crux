@@ -31,11 +31,6 @@ tr_new(cw_mema_t *a_mema);
 void
 tr_delete(cw_tr_t *a_tr);
 
-/* Iterate over nodes.  Pass CW_TR_NODE_NONE the first time, and stop when
- * CW_TR_NODE_NONE is returned. */
-cw_tr_node_t
-tr_nodes_iterate(cw_tr_t *a_tr, cw_tr_node_t a_prev);
-
 /* Get the number of taxa in the tree. */
 cw_uint32_t
 tr_ntaxa_get(cw_tr_t *a_tr);

@@ -140,7 +140,7 @@ struct cw_tr_s
 
     /* Pointer to an array of trn's.  ntrns is the total number of trn's, not
      * all of which are necessarily in use. */
-    cw_trn_t **trns;
+    cw_trn_t *trns;
     cw_uint32_t ntrns;
 
     /* Index of first spare trn in the spares stack.  trns[spares].neighbors[0]
@@ -158,12 +158,34 @@ struct cw_tr_s
 
 /* tr. */
 
+#ifdef CW_DBG
+// XXX Remove a_validate_contiguous?
 static cw_bool_t
 tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
 {
     cw_error("XXX Not implemented");
 
     return TRUE;
+}
+
+static cw_bool_t
+tr_p_node_validate(cw_tr_t *a_tr, cw_tr_node_t a_node)
+{
+    cw_error("XXX Not implemented");
+
+    return TRUE;
+}
+#endif
+
+CW_P_INLINE void
+tr_p_update(cw_tr_t *a_tr)
+{
+    if (a_tr->modified)
+    {
+	// XXX Update various portions of internal state in separate, non-inline
+	// functions.
+	cw_error("XXX Not implemented");
+    }
 }
 
 cw_tr_t *
@@ -227,39 +249,43 @@ tr_delete(cw_tr_t *a_tr)
     cw_opaque_dealloc(dealloc, arg, a_tr, sizeof(cw_tr_t));
 }
 
-cw_tr_node_t
-tr_nodes_iterate(cw_tr_t *a_tr, cw_tr_node_t a_prev)
-{
-//    tr_p_update(a_tr);//XXX
-
-    cw_error("XXX Not implemented");
-    return 0; // XXX
-}
-
 cw_uint32_t
 tr_ntaxa_get(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
-    return 0; // XXX
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    tr_p_update(a_tr);
+
+    return a_tr->ntaxa;
 }
 
 cw_uint32_t
 tr_nedges_get(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
-    return 0; // XXX
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    tr_p_update(a_tr);
+
+    return a_tr->nedges;
 }
 
 void
 tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node,
 	    cw_uint32_t *r_neighbor)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    tr_p_update(a_tr);
+
+    *r_node = a_tr->tre[a_edge].node;
+    *r_neighbor = a_tr->tre[a_edge].neighbor;
 }
 
 cw_uint32_t
 tr_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b)
 {
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
     cw_error("XXX Not implemented");
     return 0; // XXX
 }
@@ -267,13 +293,20 @@ tr_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b)
 cw_tr_node_t
 tr_croot_get(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
-    return 0; // XXX
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    tr_p_update(a_tr);
+
+    return a_tr->croot;
 }
 
 void
 tr_canonize(cw_tr_t *a_tr)
 {
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    tr_p_update(a_tr);
+
     cw_error("XXX Not implemented");
 }
 
@@ -282,14 +315,21 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
        cw_uint32_t a_reconnect_b, cw_uint32_t *r_bisect,
        cw_uint32_t *r_reconnect_a, cw_uint32_t *r_reconnect_b)
 {
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    tr_p_update(a_tr);
+
     cw_error("XXX Not implemented");
 }
 
 cw_uint32_t
 tr_tbr_nneighbors_get(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
-    return 0; // XXX
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    tr_p_update(a_tr);
+
+    return a_tr->trt[a_tr->trtused].offset;
 }
 
 void
@@ -297,26 +337,33 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,
 		    cw_uint32_t *r_reconnect_b)
 {
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
     cw_error("XXX Not implemented");
 }
 
 void *
 tr_aux_get(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
-    return NULL; // XXX
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    return a_tr->aux;
 }
 
 void
 tr_aux_set(cw_tr_t *a_tr, void *a_aux)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    a_tr->aux = a_aux;
 }
 
 void
 tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
 	      cw_uint32_t a_nchars)
 {
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
     cw_error("XXX Not implemented");
 }
 
@@ -329,68 +376,210 @@ tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore)
 
 /******************************************************************************/
 
+/* tr_trps. */
+
+CW_P_INLINE void
+tr_p_trps_new(cw_tr_t *a_tr, cw_trps_t *a_trps)
+{
+    cw_error("XXX Not implemented");
+}
+
+CW_P_INLINE void
+tr_p_trps_delete(cw_tr_t *a_tr, cw_trps_t *a_trps)
+{
+    cw_error("XXX Not implemented");
+}
+
 /* tr_node. */
+
+CW_P_INLINE cw_tr_node_t
+tr_p_node_alloc(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+}
+
+CW_P_INLINE void
+tr_p_node_dealloc(cw_tr_t *a_tr, cw_tr_node_t a_node)
+{
+    cw_error("XXX Not implemented");
+}
 
 cw_tr_node_t
 tr_node_new(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
+    cw_tr_node_t retval;
+    cw_trn_t *trn;
+    cw_uint32_t i;
+
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    retval = tr_p_node_alloc(a_tr);
+    trn = &a_tr->trns[retval];
+
+    trn->aux = NULL;
+    trn->taxon_num = CW_TR_NODE_TAXON_NONE;
+
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    {
+	trn->neighbors[i] = CW_TR_NODE_NONE;
+    }
+
+    tr_p_trps_new(a_tr, &trn->trps);
+
+#ifdef CW_DBG
+    trn->magic = CW_TRN_MAGIC;
+#endif
+
+    return retval;
 }
 
 void
 tr_node_delete(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_node));
+
+    tr_p_trps_delete(a_tr, &a_tr->trns[a_node].trps);
+
+    tr_p_node_dealloc(a_tr, a_node);
 }
 
 cw_uint32_t
 tr_node_taxon_num_get(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_node));
+
+    return a_tr->trns[a_node].taxon_num;
 }
 
 void
 tr_node_taxon_num_set(cw_tr_t *a_tr, cw_tr_node_t a_node,
 		      cw_uint32_t a_taxon_num)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_node));
+
+    a_tr->trns[a_node].taxon_num = a_taxon_num;
 }
 
 cw_tr_node_t
 tr_node_neighbor_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_node));
+
+    return a_tr->trns[a_node].neighbors[a_i];
 }
 
 void
 tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i,
 		       cw_uint32_t a_j)
 {
-    cw_error("XXX Not implemented");
+    cw_tr_node_t t_node;
+
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_node));
+    cw_assert(a_i < CW_TR_NODE_MAX_NEIGHBORS);
+    cw_assert(a_j < CW_TR_NODE_MAX_NEIGHBORS);
+    cw_assert(a_i != a_j);
+
+    t_node = a_tr->trns[a_node].neighbors[a_i];
+    a_tr->trns[a_node].neighbors[a_i] = a_tr->trns[a_node].neighbors[a_j];
+    a_tr->trns[a_node].neighbors[a_j] = t_node;
 }
 
 void
 tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
 {
-    cw_error("XXX Not implemented");
+    cw_trn_t *trn_a, *trn_b;
+    cw_uint32_t i, j;
+
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_a));
+    cw_dassert(tr_p_node_validate(a_tr, a_b));
+    cw_assert(a_a != a_b);
+
+    trn_a = &a_tr->trns[a_a];
+    trn_b = &a_tr->trns[a_b];
+
+#ifdef CW_DBG
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    {
+	cw_assert(trn_a->neighbors[i] != a_b);
+	cw_assert(trn_b->neighbors[i] != a_a);
+    }
+#endif
+
+    /* Find an empty slot in a_a. */
+    for (i = 0; trn_a->neighbors[i] != CW_TR_NODE_NONE; i++)
+    {
+	cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
+    }
+    
+    /* Find an empty slot in a_b. */
+    for (j = 0; trn_b->neighbors[j] != CW_TR_NODE_NONE; j++)
+    {
+	cw_assert(j < CW_TR_NODE_MAX_NEIGHBORS);
+    }
+
+    /* Join the two nodes. */
+    trn_a->neighbors[i] = a_b;
+    trn_b->neighbors[j] = a_a;
+
+    cw_dassert(tr_p_node_validate(a_tr, a_a));
+    cw_dassert(tr_p_node_validate(a_tr, a_b));
 }
 
 void
 tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
 {
-    cw_error("XXX Not implemented");
+    cw_trn_t *trn_a, *trn_b;
+    cw_uint32_t i, j;
+
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_a));
+    cw_dassert(tr_p_node_validate(a_tr, a_b));
+
+    trn_a = &a_tr->trns[a_a];
+    trn_b = &a_tr->trns[a_b];
+
+    /* Find the slot in a_a that points to a_b. */
+    for (i = 0; trn_a->neighbors[i] != a_b; i++)
+    {
+	cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
+    }
+
+    /* Find the slot in a_b that points to a_a. */
+    for (j = 0; trn_b->neighbors[j] != a_a; j++)
+    {
+	cw_assert(j < CW_TR_NODE_MAX_NEIGHBORS);
+    }
+
+    /* Detach the two nodes. */
+    trn_a->neighbors[i] = CW_TR_NODE_NONE;
+    trn_b->neighbors[j] = CW_TR_NODE_NONE;
+
+    cw_dassert(tr_p_node_validate(a_tr, a_a));
+    cw_dassert(tr_p_node_validate(a_tr, a_b));
 }
 
 void *
 tr_node_aux_get(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_node));
+
+    return a_tr->trns[a_node].aux;
 }
 
 void
 tr_node_aux_set(cw_tr_t *a_tr, cw_tr_node_t a_node, void *a_aux)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+    cw_dassert(tr_p_node_validate(a_tr, a_node));
+
+    a_tr->trns[a_node].aux = a_aux;
 }
 
 /******************************************************************************/
