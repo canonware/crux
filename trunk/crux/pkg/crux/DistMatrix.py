@@ -81,8 +81,8 @@ class DistMatrix(C_DistMatrix):
             C_DistMatrix._parse(self, None, input, symmetric)
         elif type(input) == DistMatrix:
             if sample == None:
-                map = TaxonMap.TaxonMap(input.taxonMapGet().taxaGet())
-                C_DistMatrix._dup(self, input, map)
+                taxonMap = TaxonMap.TaxonMap(input.taxonMapGet().taxaGet())
+                C_DistMatrix._dup(self, input, taxonMap)
             else:
                 if sample < 2 or sample > input.ntaxaGet():
                     raise crux.DistMatrix\
@@ -97,11 +97,11 @@ class DistMatrix(C_DistMatrix):
 
                 # Construct a TaxonMap for the new DistMatrix.
                 inputMap = input.taxonMapGet()
-                map = TaxonMap.TaxonMap()
+                taxonMap = TaxonMap.TaxonMap()
                 for row in rows:
-                    map.map(inputMap.labelGet(row), map.ntaxaGet())
+                    taxonMap.map(inputMap.labelGet(row), taxonMap.ntaxaGet())
 
-                C_DistMatrix._sample(self, input, map, rows)
+                C_DistMatrix._sample(self, input, taxonMap, rows)
         else:
             raise crux.DistMatrix\
                   .ValueError(
@@ -117,14 +117,14 @@ class DistMatrix(C_DistMatrix):
         self._matrixShuffle(order)
 
         # Shuffle the TaxonMap.
-        map = self.taxonMapGet()
-        labels = map.taxaGet()
+        taxonMap = self.taxonMapGet()
+        labels = taxonMap.taxaGet()
         for i in forints(self.ntaxaGet()):
-            map.map(labels[order[i]], i, replace=True)
+            taxonMap.map(labels[order[i]], i, replace=True)
 
     # Construct a neighbor joining (NJ) tree from the distance matrix.
     def nj(self, joinRandom=False, destructive=False):
-        rVal = Tree.Tree(map=self.taxonMapGet())
+        rVal = Tree.Tree(taxonMap=self.taxonMapGet())
         if (destructive):
             self._nj(rVal, joinRandom)
         else:
@@ -134,7 +134,7 @@ class DistMatrix(C_DistMatrix):
 
     # Construct a relaxed neighbor joining (RNJ) tree from the distance matrix.
     def rnj(self, joinRandom=False, tryAdditive=True, destructive=False):
-        rVal = Tree.Tree(map=self.taxonMapGet())
+        rVal = Tree.Tree(taxonMap=self.taxonMapGet())
         if (destructive):
             self._rnj(rVal, joinRandom, tryAdditive)
         else:

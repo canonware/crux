@@ -41,7 +41,7 @@ for testMatrix in testMatrices:
     matrix = crux.DistMatrix.DistMatrix(testMatrix)
     #matrix.render(distFormat="%2.0f", outFile=sys.stdout)
     t = matrix.rnj()
-    map = t.taxonMapGet()
+    taxonMap = t.taxonMapGet()
     t.canonize()
     t.render(labels=True, lengths=True, lengthFormat="%.0f", outFile=sys.stdout)
 
@@ -51,7 +51,7 @@ for testMatrix in testMatrices:
         t = matrix.rnj()
 
         treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
-        t = crux.Tree.Tree(treeStr, map=map)
+        t = crux.Tree.Tree(treeStr, taxonMap=taxonMap)
         t.canonize()
         t.render(labels=True, lengths=True, lengthFormat="%.0f",
                  outFile=sys.stdout)
@@ -61,7 +61,7 @@ for testMatrix in testMatrices:
         t = matrix.rnj(joinRandom=True, tryAdditive=True)
 
         treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
-        t = crux.Tree.Tree(treeStr, map=map)
+        t = crux.Tree.Tree(treeStr, taxonMap=taxonMap)
         t.canonize()
         t.render(labels=True, lengths=True, lengthFormat="%.0f",
                  outFile=sys.stdout)

@@ -17,7 +17,7 @@ class Node(C_Node):
     def __init__(self, tree):
         pass
 
-    def rrender(self, prev, map, labels, lengths, lengthFormat, callback,
+    def rrender(self, prev, taxonMap, labels, lengths, lengthFormat, callback,
                 twoTaxa=False):
         did_something = False
         did_paren = False
@@ -26,7 +26,7 @@ class Node(C_Node):
             # Leaf node.
             if labels:
                 # Protect special characters, if necessary.
-                taxonLabel = map.labelGet(self.taxonNumGet())
+                taxonLabel = taxonMap.labelGet(self.taxonNumGet())
                 m = re.compile("[^ ()[\]':;,]*[ ()[\]':;,]").match(taxonLabel)
                 if m:
                     taxonLabel = re.compile("'").sub("''", taxonLabel)
@@ -64,8 +64,8 @@ class Node(C_Node):
                         did_paren = True
                         did_something = True
 
-                    neighbor.rrender(self, map, labels, lengths, lengthFormat,
-                                     callback, twoTaxa)
+                    neighbor.rrender(self, taxonMap, labels, lengths,
+                                     lengthFormat, callback, twoTaxa)
 
                     if lengths:
                         if neighbor.taxonNumGet() == None:

@@ -22,9 +22,9 @@ import __builtin__
 import random
 
 class _NewickParser(NewickParser.NewickParser):
-    def __init__(self, tree, map, newickAutoMap=False):
+    def __init__(self, tree, taxonMap, newickAutoMap=False):
         self._tree = tree
-        self._map = map
+        self._taxonMap = taxonMap
         self._taxonStack = []
         self._newickAutoMap = newickAutoMap
 
@@ -80,20 +80,20 @@ class _NewickParser(NewickParser.NewickParser):
 
     # Helper method, called by {root,leaf}LabelAccept().
     def _labelAccept(self):
-        if self._map.indGet(self.token()) != None:
+        if self._taxonMap.indGet(self.token()) != None:
             # Taxon mapping defined.
-            val = self._map.indGet(self.token())
+            val = self._taxonMap.indGet(self.token())
         else:
             # No taxon mapping defined; try to convert the label to an
             # integer.
             try:
                 val = int(self.token())
-                self._map.map(self.token(), val)
+                self._taxonMap.map(self.token(), val)
             except __builtin__.ValueError:
                 if self._newickAutoMap:
                     # Create a new mapping.
-                    val = self._map.ntaxaGet()
-                    self._map.map(self.token(), val)
+                    val = self._taxonMap.ntaxaGet()
+                    self._taxonMap.map(self.token(), val)
                 else:
                     # Failed conversion.
                     raise crux.Tree.ValueError, "No mapping for '%s'" \
@@ -152,25 +152,25 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, nodeA)
 
 class Tree(C_Tree):
-    def __init__(self, with=None, map=None, newickAutoMap=False,
+    def __init__(self, with=None, taxonMap=None, newickAutoMap=False,
                  randomBranchCallback=None):
         if type(with) == int:
-            self._randomNew(with, map, randomBranchCallback)
+            self._randomNew(with, taxonMap, randomBranchCallback)
         elif type(with) == str or type(with) == file:
-            if map == None:
-                map = TaxonMap.TaxonMap()
-            self._map = map
+            if taxonMap == None:
+                taxonMap = TaxonMap.TaxonMap()
+            self._taxonMap = taxonMap
             self._newickNew(with, newickAutoMap)
         else:
-            if map == None:
-                map = TaxonMap.TaxonMap()
-            self._map = map
+            if taxonMap == None:
+                taxonMap = TaxonMap.TaxonMap()
+            self._taxonMap = taxonMap
 
-    def _randomNew(self, ntaxa, map, randomBranchCallback):
-        if map == None:
-            self._map = TaxonMap.TaxonMap()
+    def _randomNew(self, ntaxa, taxonMap, randomBranchCallback):
+        if taxonMap == None:
+            self._taxonMap = TaxonMap.TaxonMap()
         else:
-            self._map = map
+            self._taxonMap = taxonMap
 
         # By default, generate branches of length 1.0.
         if randomBranchCallback == None:
@@ -182,8 +182,8 @@ class Tree(C_Tree):
             nnode = Node.Node(self)
             nnode.taxonNumSet(i)
             subtrees.append(nnode)
-            if map == None:
-                self._map.map("T%d" % i, i)
+            if taxonMap == None:
+                self._taxonMap.map("T%d" % i, i)
 
         # Iteratively randomly remove two items from the stack, join them, and
         # push the result back onto the stack.  Stop when there are two subtrees
@@ -212,11 +212,11 @@ class Tree(C_Tree):
         self.baseSet(subtreeA)
 
     def _newickNew(self, input, newickAutoMap):
-        parser = _NewickParser(self, self._map, newickAutoMap)
+        parser = _NewickParser(self, self._taxonMap, newickAutoMap)
         return parser.parse(input)
 
     def taxonMapGet(self):
-        return self._map
+        return self._taxonMap
 
     def rf(self, other):
         if type(other) == Tree:
@@ -246,23 +246,23 @@ class Tree(C_Tree):
                     neighbor = ring.other().node()
                     if neighbor.taxonNumGet() == None:
                         # Start with the internal node.
-                        neighbor.rrender(None, self._map, labels, lengths,
+                        neighbor.rrender(None, self._taxonMap, labels, lengths,
                                          lengthFormat, callback)
                         callback(";")
                     else:
                         # This tree only has two taxa; start with the tree base.
                         callback("(")
-                        n.rrender(None, self._map, labels, lengths,
+                        n.rrender(None, self._taxonMap, labels, lengths,
                                   lengthFormat, callback, twoTaxa=True)
                         callback(");")
                 else:
                     # There is only one node in the tree.
-                    n.rrender(None, self._map, labels, lengths, lengthFormat,
-                              callback)
+                    n.rrender(None, self._taxonMap, labels, lengths,
+                              lengthFormat, callback)
                     callback(";")
             else:
                 # Internal node.
-                n.rrender(None, self._map, labels, lengths, lengthFormat,
+                n.rrender(None, self._taxonMap, labels, lengths, lengthFormat,
                           callback)
                 callback(";")
         else:

@@ -26,9 +26,9 @@ class ValueError(Exception, ValueError):
         return self._str
 
 class _FastaParser(FastaParser.FastaParser):
-    def __init__(self, matrix, map):
+    def __init__(self, matrix, taxonMap):
         self._matrix = matrix
-        self._map = map
+        self._taxonMap = taxonMap
         self._lastLabel = None
 
     # Overridden method.
@@ -47,21 +47,21 @@ class _FastaParser(FastaParser.FastaParser):
                                          * len(self.token()))
 
         # Define a taxon mapping for this label.
-        self._map.map(self._lastLabel, self._map.ntaxaGet())
+        self._taxonMap.map(self._lastLabel, self._taxonMap.ntaxaGet())
 
         # Set the character data for this taxon.
         self._matrix.dataSet(self._lastLabel, self.token())
 
 class CTMatrix(object):
-    def __init__(self, map=None):
+    def __init__(self, taxonMap=None):
         # This is an array of CharacterType objects, and stores the character
         # types for the columns in _taxonData.
         self._chars = []
 
         # This is used to manage the rows of the data matrix (_taxonData).
-        if map == None:
-            map = TaxonMap.TaxonMap()
-        self._taxonMap = map
+        if taxonMap == None:
+            taxonMap = TaxonMap.TaxonMap()
+        self._taxonMap = taxonMap
 
         # Row-major character data.  Each element in _taxonData is a string of
         # characters that belong to the corresponding taxon in _taxonMap.  The
