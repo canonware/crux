@@ -1,5 +1,3 @@
-* Fix crashes due to not catching eval errors in the tree wrapper code.
-
 * Modify DistMatrix so that the token and distance accept methods are
   over-ridable, then subclass it inside of the NJ code, and add the ability to
   do NJ given a file or string, rather than just a pre-constructed distance
@@ -12,6 +10,11 @@
   is known, thus making it possible to always insert that distances into the
   correct locations.
 
+* Implement optional randomization of the input matrix for NJ.
+
+* Consider making exact mode for NJ optional.  This would potentially be useful
+  if wanting to avoid any bias for bootstrap replicates.
+
 * Write regression tests for DistMatrix.distance[GS]et().
 
 * Use CTMatrix for MP.
@@ -23,7 +26,7 @@
 
 ================================================================================
 
-* Add aux-like facilities to tree.c.  I think the way to go is have 
+* Add aux-like facilities to CxTree.c.  I think the way to go is have 
   {tree,node,edge}_aux_[gs]et(obj, a_ind, ...), where a_ind is in the range
   [0..AUX_MAX], and AUX_MAX is a compile-time constant.  This means that each
   tree/node/edge will have a built-in array of aux pointers, which can be
@@ -33,20 +36,20 @@
   down the road that there are too many aux pointer users to keep the whole
   array around all the time, then I can switch to dynamic aux table management.
 
-* Move TBR code out of tr.c, into tree_tbr.c.  This will remove some scary
+* Move TBR code out of CxTr.c, into CxTreeTbr.c.  This will remove some scary
   constraints on how nodes/edges are rearranged (constraints imposed by the MP
   code).
 
-* Move canonization code to tree_canonize.c.
+* Move canonization code to CxTreeCanonize.c.
 
-* Move MP code from tr.c to tree_mp.c.
+* Move MP code from CxTr.c to CxTreeMp.c.
 
-* Move tree holding code out of tr.c.  It belongs with the MP code (in
-  tree_mp.c).
+* Move tree holding code out of CxTr.c.  It belongs with the MP code (in
+  CxTreeMp.c).
 
 ================================================================================
 
-* Implement Lewis crossover (in tree_crossover.c).
+* Implement Lewis crossover (in CxTreeCrossover.c).
 
   + Try iterative hill climbing, where iteration is repeated crossovers between
     the current best tree and another one in hand.
@@ -64,7 +67,7 @@
 * Collapse unsupported (zero-change) branches when storing trees, in order to
   avoid storing equivalent trees.
 
-* Write tree comparison code that deals with collapsed trees (tree_equal.c)
+* Write tree comparison code that deals with collapsed trees (CxTreeEqual.c)
 
 ================================================================================
 
@@ -72,7 +75,8 @@
 
 * Generalize character types to handle protein, as well as arbitrary characters.
 
-* Add code for calculating pairwise distances.
+* Add code for calculating pairwise distances.  Consider making it MPI-aware
+  (Jack seemed to think this would be useful.)
 
 ================================================================================
 
