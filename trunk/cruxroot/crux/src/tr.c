@@ -94,10 +94,6 @@ struct cw_trn_s
 
     /* Ring of trr's, which are associated with tre's. */
     qli_head rings;
-
-    /* Used for Fitch parsimony scoring (preliminary and final state sets). */
-    cw_tr_ps_t *ps_p;
-    cw_tr_ps_t *ps_f;
 };
 
 /* Tree node edge ring element. */
@@ -108,6 +104,9 @@ struct cw_trr_s
 
     /* Node whose ring this trr is a part of. */
     cw_tr_node_t node;
+
+    /* Used for Fitch parsimony scoring. */
+    cw_tr_ps_t *ps;
 };
 
 /* Tree edge information. */
@@ -264,6 +263,7 @@ tr_p_ring_init(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 
     qri_new(a_tr->trrs, a_ring, link);
     trr->node = CW_TR_NODE_NONE;
+    trr->ps = NULL;
 }
 
 CW_P_INLINE cw_tr_edge_t
@@ -559,9 +559,7 @@ CW_P_INLINE void
 tr_p_edge_dealloc(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
     cw_tre_t *tre;
-#ifdef CW_DBG
     cw_trr_t *trr;
-#endif
 
     tre = &a_tr->tres[a_edge];
     if (tre->ps != NULL)
@@ -570,11 +568,23 @@ tr_p_edge_dealloc(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
     }
 #ifdef CW_DBG
     memset(tre, 0x5a, sizeof(cw_tre_t));
+#endif
 
     trr = &a_tr->trrs[a_edge << 1];
+    if (trr->ps != NULL)
+    {
+	tr_p_ps_delete(a_tr, trr->ps);
+    }
+#ifdef CW_DBG
     memset(trr, 0x5a, sizeof(cw_trr_t));
+#endif
 
     trr = &a_tr->trrs[(a_edge << 1) + 1];
+    if (trr->ps != NULL)
+    {
+	tr_p_ps_delete(a_tr, trr->ps);
+    }
+#ifdef CW_DBG
     memset(trr, 0x5a, sizeof(cw_trr_t));
 #endif
 
@@ -757,8 +767,6 @@ tr_p_node_init(cw_tr_t *a_tr, cw_tr_node_t a_node)
     trn->u.aux = NULL;
     trn->taxon_num = CW_TR_NODE_TAXON_NONE;
     qli_new(&trn->rings);
-    trn->ps_p = NULL;
-    trn->ps_f = NULL;
 
 #ifdef CW_DBG
     trn->magic = CW_TRN_MAGIC;
@@ -826,16 +834,7 @@ tr_p_node_dealloc(cw_tr_t *a_tr, cw_tr_node_t a_node)
     cw_trn_t *trn;
 
     trn = &a_tr->trns[a_node];
-
-    if (trn->ps_p != NULL)
-    {
-	tr_p_ps_delete(a_tr, trn->ps_p);
-    }
-    if (trn->ps_f != NULL)
-    {
-	tr_p_ps_delete(a_tr, trn->ps_f);
-    }
-
+    
 #ifdef CW_DBG
     memset(trn, 0x5a, sizeof(cw_trn_t));
 #endif
@@ -1722,20 +1721,24 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 	case 2:
 	{
 	    cw_tr_ring_t ring_a, ring_b;
+	    cw_tr_ring_t ring_a_other, ring_b_other;
 	    cw_tr_edge_t edge_a, edge_b;
 	    cw_tr_node_t node_a, node_b;
+	    cw_tr_ps_t *tps;
 
-	    /* Get all variables that are necessary for extraction of
-	     * a_node.. */
+	    /* Get all variables that are necessary for careful extraction of
+	     * a_node, and proper rematching of rings with nodes.  The
+	     * rematching is critical to the maintenance of the character state
+	     * sets in leaf nodes (which node_[ab] may or may not be). */
 	    ring_a = qli_first(&a_tr->trns[a_node].rings);
 	    edge_a = tr_p_ring_edge_get(a_tr, ring_a);
-	    node_a = tr_p_ring_node_get(a_tr,
-					tr_p_ring_other_get(a_tr, ring_a));
+	    ring_a_other = tr_p_ring_other_get(a_tr, ring_a);
+	    node_a = tr_p_ring_node_get(a_tr, ring_a_other);
 
 	    ring_b = qri_next(a_tr->trrs, ring_a, link);
 	    edge_b = tr_p_ring_edge_get(a_tr, ring_b);
-	    node_b = tr_p_ring_node_get(a_tr,
-					tr_p_ring_other_get(a_tr, ring_b));
+	    ring_b_other = tr_p_ring_other_get(a_tr, ring_b);
+	    node_b = tr_p_ring_node_get(a_tr, ring_b_other);
 
 	    /* Detach. */
 	    tr_edge_detach(a_tr, edge_a);
@@ -1751,8 +1754,21 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 	    {
 		/* Use edge_a when splicing node_[ab] back together. */
 
-		/* Attach node_[ab]. */
-		tr_edge_attach(a_tr, edge_a, node_a, node_b);
+		/* Swap data in ring_a and ring_b_other. */
+		tps = a_tr->trrs[ring_a].ps;
+		a_tr->trrs[ring_a].ps = a_tr->trrs[ring_b_other].ps;
+		a_tr->trrs[ring_b_other].ps = tps;
+
+		/* Attach node_[ab].  Take care to keep the proper ends of
+		 * edge_a associated with node_[ab]. */
+		if (ring_a_other < ring_a)
+		{
+		    tr_edge_attach(a_tr, edge_a, node_a, node_b);
+		}
+		else
+		{
+		    tr_edge_attach(a_tr, edge_a, node_b, node_a);
+		}
 
 		/* Store edge_b as a spare. */
 		ar_tedges[*ar_ntedges] = edge_b;
@@ -1763,8 +1779,21 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 		/* Use edge_b when splicing node_[ab] back together. */
 		cw_assert(edge_a != a_reconnect_a && edge_a != a_reconnect_b);
 
-		/* Attach node_[ab]. */
-		tr_edge_attach(a_tr, edge_b, node_a, node_b);
+		/* Swap data in ring_b and ring_a_other. */
+		tps = a_tr->trrs[ring_b].ps;
+		a_tr->trrs[ring_b].ps = a_tr->trrs[ring_a_other].ps;
+		a_tr->trrs[ring_a_other].ps = tps;
+
+		/* Attach node_[ab].  Take care to keep the proper ends of
+		 * edge_b associated with node_[ab]. */
+		if (ring_b < ring_b_other)
+		{
+		    tr_edge_attach(a_tr, edge_b, node_a, node_b);
+		}
+		else
+		{
+		    tr_edge_attach(a_tr, edge_b, node_b, node_a);
+		}
 
 		/* Store edge_a as a spare. */
 		ar_tedges[*ar_ntedges] = edge_a;
@@ -1795,13 +1824,19 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
 		     void *a_arg)
 {
     cw_tr_node_t retval, node_a, node_b;
-    cw_tr_ring_t ring;
+    cw_tr_ring_t ring_a, ring_b, ring;
     cw_tr_edge_t edge;
+    cw_tr_ps_t *tps;
 
-    /* Get all variables that are necessary for splicing of a node into
-     * a_edge. */
-    node_a = tr_p_ring_node_get(a_tr, tr_p_edge_ring_get(a_tr, a_edge, 0));
-    node_b = tr_p_ring_node_get(a_tr, tr_p_edge_ring_get(a_tr, a_edge, 1));
+    /* Get all variables that are necessary for careful splicing of a node into
+     * a_edge, and proper rematching of rings with nodes.  The rematching is
+     * critical to the maintenance of the character state sets in leaf nodes
+     * (which node_[ab] may or may not be). */
+    ring_a = tr_p_edge_ring_get(a_tr, a_edge, 0);
+    node_a = tr_p_ring_node_get(a_tr, ring_a);
+
+    ring_b = tr_p_edge_ring_get(a_tr, a_edge, 1);
+    node_b = tr_p_ring_node_get(a_tr, ring_b);
 
     /* Get an edge. */
     if (*ar_ntedges > 0)
@@ -1829,6 +1864,11 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
     /* Detach. */
     tr_edge_detach(a_tr, a_edge);
 
+    /* Swap data in ring_b and ring. */
+    tps = a_tr->trrs[ring_b].ps;
+    a_tr->trrs[ring_b].ps = a_tr->trrs[ring].ps;
+    a_tr->trrs[ring].ps = tps;
+
     /* Reattach. */
     tr_edge_attach(a_tr, a_edge, node_a, retval);
     tr_edge_attach(a_tr, edge, node_b, retval);
@@ -1837,34 +1877,33 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
 }
 
 static void
-tr_p_mp_node_prepare(cw_tr_t *a_tr, cw_tr_node_t a_node, char *a_taxa[],
+tr_p_mp_ring_prepare(cw_tr_t *a_tr, cw_tr_ring_t a_ring, char *a_taxa[],
 		     uint32_t a_ntaxa, uint32_t a_nchars,
 		     bool *a_chars_mask, uint32_t a_ninformative)
 {
-    cw_trn_t *trn;
+    cw_trr_t *trr;
+    uint32_t taxon_num;
 
-    trn = &a_tr->trns[a_node];
+    trr = &a_tr->trrs[a_ring];
 
-    /* Prepare final state set vector, which is used, regardless of whether this
-     * is an internal or leaf node. */
-    if (trn->ps_f == NULL)
+    if (trr->ps == NULL)
     {
-	trn->ps_f = tr_p_ps_new(a_tr);
+	trr->ps = tr_p_ps_new(a_tr);
     }
-    tr_p_ps_prepare(a_tr, trn->ps_f, a_ninformative);
+    tr_p_ps_prepare(a_tr, trr->ps, a_ninformative);
 
-    if (trn->taxon_num != CW_TR_NODE_TAXON_NONE)
+    /* If this is a leaf node, initialize the character state sets and
+     * scores. */
+    taxon_num = a_tr->trns[trr->node].taxon_num;
+    if (taxon_num != CW_TR_NODE_TAXON_NONE)
     {
 	uint32_t i, j;
 	char *chars;
 
-	/* This is a leaf node.  Initialize the character state sets and
-	 * scores. */
+	trr->ps->subtrees_score = 0;
+	trr->ps->node_score = 0;
 
-	trn->ps_f->subtrees_score = 0;
-	trn->ps_f->node_score = 0;
-
-	chars = a_taxa[trn->taxon_num];
+	chars = a_taxa[taxon_num];
 	for (i = j = 0; i < a_nchars; i++)
 	{
 	    /* Ignore uninformative characters. */
@@ -1883,91 +1922,91 @@ tr_p_mp_node_prepare(cw_tr_t *a_tr, cw_tr_node_t a_node, char *a_taxa[],
 		 * things, and may need to be made configurable. */
 		case '-':
 		{
-		    trn->ps_f->chars[j] = 0xf;
+		    trr->ps->chars[j] = 0xf;
 		    break;
 		}
 		case 'V':
 		case 'v':
 		{
-		    trn->ps_f->chars[j] = 0xe;
+		    trr->ps->chars[j] = 0xe;
 		    break;
 		}
 		case 'H':
 		case 'h':
 		{
-		    trn->ps_f->chars[j] = 0xd;
+		    trr->ps->chars[j] = 0xd;
 		    break;
 		}
 		case 'M':
 		case 'm':
 		{
-		    trn->ps_f->chars[j] = 0xc;
+		    trr->ps->chars[j] = 0xc;
 		    break;
 		}
 		case 'D':
 		case 'd':
 		{
-		    trn->ps_f->chars[j] = 0xb;
+		    trr->ps->chars[j] = 0xb;
 		    break;
 		}
 		case 'R':
 		case 'r':
 		{
-		    trn->ps_f->chars[j] = 0xa;
+		    trr->ps->chars[j] = 0xa;
 		    break;
 		}
 		case 'W':
 		case 'w':
 		{
-		    trn->ps_f->chars[j] = 0x9;
+		    trr->ps->chars[j] = 0x9;
 		    break;
 		}
 		case 'A':
 		case 'a':
 		{
-		    trn->ps_f->chars[j] = 0x8;
+		    trr->ps->chars[j] = 0x8;
 		    break;
 		}
 		case 'B':
 		case 'b':
 		{
-		    trn->ps_f->chars[j] = 0x7;
+		    trr->ps->chars[j] = 0x7;
 		    break;
 		}
 		case 'S':
 		case 's':
 		{
-		    trn->ps_f->chars[j] = 0x6;
+		    trr->ps->chars[j] = 0x6;
 		    break;
 		}
 		case 'Y':
 		case 'y':
 		{
-		    trn->ps_f->chars[j] = 0x5;
+		    trr->ps->chars[j] = 0x5;
 		    break;
 		}
 		case 'C':
 		case 'c':
 		{
-		    trn->ps_f->chars[j] = 0x4;
+		    trr->ps->chars[j] = 0x4;
 		    break;
 		}
 		case 'K':
 		case 'k':
 		{
-		    trn->ps_f->chars[j] = 0x3;
+		    trr->ps->chars[j] = 0x3;
 		    break;
 		}
 		case 'G':
 		case 'g':
 		{
-		    trn->ps_f->chars[j] = 0x2;
+		    trr->ps->chars[j] = 0x2;
 		    break;
 		}
 		case 'T':
 		case 't':
 		{
-		    trn->ps_f->chars[j] = 0x1;
+		    trr->ps->chars[j] = 0x1;
 		    break;
 		}
 		default:
@@ -1977,16 +2016,6 @@ tr_p_mp_node_prepare(cw_tr_t *a_tr, cw_tr_node_t a_node, char *a_taxa[],
 	    }
 	    j++;
 	}
-    }
-    else
-    {
-	/* This is an internal node.  Prepare the preliminary state set vector,
-	 * which is only used for internal nodes. */
-	if (trn->ps_p == NULL)
-	{
-	    trn->ps_p = tr_p_ps_new(a_tr);
-	}
-	tr_p_ps_prepare(a_tr, trn->ps_p, a_ninformative);
     }
 }
 
@@ -1998,9 +2027,8 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
     cw_tr_ring_t ring;
     cw_tre_t *tre;
 
-    /* Prepare the node. */
-    tr_p_mp_node_prepare(a_tr, tr_p_ring_node_get(a_tr, a_ring),
-			 a_taxa, a_ntaxa, a_nchars,
+    /* Prepare a_ring. */
+    tr_p_mp_ring_prepare(a_tr, a_ring, a_taxa, a_ntaxa, a_nchars,
 			 a_chars_mask, a_ninformative);
 
     /* Recurse into subtrees. */
@@ -2014,6 +2042,10 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 	}
 	tr_p_ps_prepare(a_tr, tre->ps, a_ninformative);
 
+	/* Prepare ring. */
+	tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars,
+			     a_chars_mask, a_ninformative);
+
 	/* Recurse. */
 	tr_p_mp_prepare_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
 				a_taxa, a_ntaxa, a_nchars,
@@ -2022,22 +2054,16 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 }
 
 static void
-tr_p_mp_node_finish(cw_tr_t *a_tr, cw_tr_node_t a_node)
+tr_p_mp_ring_finish(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 {
-    cw_trn_t *trn;
+    cw_trr_t *trr;
 
-    trn = &a_tr->trns[a_node];
+    trr = &a_tr->trrs[a_ring];
 
-    if (trn->ps_p != NULL)
+    if (trr->ps != NULL)
     {
-	tr_p_ps_delete(a_tr, trn->ps_p);
-	trn->ps_p = NULL;
-    }
-
-    if (trn->ps_f != NULL)
-    {
-	tr_p_ps_delete(a_tr, trn->ps_f);
-	trn->ps_f = NULL;
+	tr_p_ps_delete(a_tr, trr->ps);
+	trr->ps = NULL;
     }
 }
 
@@ -2047,8 +2073,8 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
     cw_tr_ring_t ring;
     cw_tre_t *tre;
 
-    /* Clean up the node. */
-    tr_p_mp_node_finish(a_tr, tr_p_ring_node_get(a_tr, a_ring));
+    /* Clean up a_ring. */
+    tr_p_mp_ring_finish(a_tr, a_ring);
 
     /* Recurse into subtrees. */
     qri_others_foreach(ring, a_tr->trrs, a_ring, link)
@@ -2060,6 +2086,9 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 	    tr_p_ps_delete(a_tr, tre->ps);
 	    tre->ps = NULL;
 	}
+
+	/* Clean up ring. */
+	tr_p_mp_ring_finish(a_tr, ring);
 
 	/* Recurse. */
 	tr_p_mp_finish_recurse(a_tr, tr_p_ring_other_get(a_tr, ring));
@@ -2140,7 +2169,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		 *
 		 * c = p ? 0x00 : 0xff;
 		 * e = (c & d);
-		 * s = p ? 0 : 1;
+		 * s = c ? 0 : 1;
 		 */
 		"pxor %%xmm2, %%xmm2;"
 		"pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
@@ -2350,6 +2379,177 @@ tr_p_mp_cache_invalidate(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
     a_ps->parent = NULL;
 }
 
+#ifdef CW_CPU_IA32
+CW_P_INLINE uint32_t
+tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
+{
+    uint32_t retval, curlimit, i, nchars;
+    cw_trc_t *chars_a, *chars_b;
+
+    /* Calculate sum of subtree scores. */
+    retval
+	= a_a->subtrees_score + a_a->node_score
+	+ a_b->subtrees_score + a_b->node_score;
+
+    /* Calculate partial Fitch parsimony scores for each character. */
+    chars_a = a_a->chars;
+    chars_b = a_b->chars;
+
+    nchars = a_a->nchars;
+
+    /* Initialize SSE2 registers. */
+    {
+	static const unsigned char ones[] =
+	    "\x01\x01\x01\x01\x01\x01\x01\x01"
+	    "\x01\x01\x01\x01\x01\x01\x01\x01";
+
+	asm volatile (
+	    /* Fill xmm7 with 16 1's. */
+	    "movdqu %[ones], %%xmm7;"
+
+	    /* Clear pns. */
+	    "pxor %%xmm5, %%xmm5;"
+	    :
+	    : [ones] "m" (*ones)
+	    : "%xmm5", "%xmm7"
+	    );
+    }
+
+    /* The inner loop can be run a maximum of 255 times before the partial node
+     * score results (stored in %xmm5) are added to retval (otherwise, overflow
+     * could occur).  Therefore, the outer loop calculates the upper bound for
+     * the inner loop, thereby avoiding extra computation in the inner loop. */
+    curlimit = 255 * 16;
+    if (curlimit > nchars)
+    {
+	curlimit = nchars;
+    }
+    for (;;)
+    {
+	/* Use SSE2 to evaluate as many of the characters as possible.  This
+	 * loop handles 16 characters per iteration. */
+	for (i = 0; i < curlimit; i += 16)
+	{
+	    asm volatile (
+		/* Read character data, and'ing and or'ing them together.
+		 *
+		 * a = *chars_a;
+		 * b = *chars_b;
+		 * p = a & b;
+		 */
+		"movdqa %[a], %%xmm1;"
+		"pand %[b], %%xmm1;" /* xmm1 contains p. */
+
+		/* Create bitmasks according to whether the character state sets
+		 * are empty.
+		 *
+		 * c = p ? 0x00 : 0xff;
+		 * s = c ? 0 : 1;
+		 */
+		"pxor %%xmm2, %%xmm2;"
+		"pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
+		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
+
+		/* Update node score.  Each byte in %xmm5 is only capable of
+		 * holding up to 255, which is why the outer loop is necessary.
+		 *
+		 * retval += s;
+		 */
+		"paddusb %%xmm2, %%xmm5;"
+		:
+		: [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
+		: "memory"
+		);
+	}
+
+	/* Update retval and reset pns. */
+	{
+	    uint32_t j;
+	    unsigned char pns[16];
+
+	    asm volatile (
+		"movdqu %%xmm5, %[pns];"
+		"pxor %%xmm5, %%xmm5;"
+		: [pns] "=m" (*pns)
+		:
+		: "memory"
+		);
+
+	    for (j = 0; j < 16; j++)
+	    {
+		retval += pns[j];
+	    }
+	}
+
+	/* Break out of the loop if the bound for the inner loop was the maximum
+	 * possible. */
+	if (curlimit == nchars)
+	{
+	    break;
+	}
+	/* Update the bound for the inner loop, taking care not to exceed the
+	 * maximum possible bound. */
+	curlimit += 255 * 16;
+	if (curlimit > nchars)
+	{
+	    curlimit = nchars;
+	}
+    }
+
+    return retval;
+}
+#endif
+
+static uint32_t
+tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
+{
+    uint32_t retval, i, nchars, a, b, p, s;
+    cw_trc_t *chars_a, *chars_b;
+
+    /* Calculate sum of subtree scores. */
+    retval
+	= a_a->subtrees_score + a_a->node_score
+	+ a_b->subtrees_score + a_b->node_score;
+
+    /* Calculate partial Fitch parsimony scores for each character.  The code
+     * inside the loop is written such that the compiler can optimize out all
+     * branches (at least for ia32). */
+    chars_a = a_a->chars;
+    chars_b = a_b->chars;
+    for (i = 0, nchars = a_a->nchars; i < nchars; i++)
+    {
+	a = chars_a[i];
+	b = chars_b[i];
+
+	p = a & b;
+	s = p ? 0 : 1;
+	retval += s;
+    }
+
+    return retval;
+}
+
+/* Unconditionally calculate the final score of a tree, using a_a and a_b as
+ * children. */
+CW_P_INLINE uint32_t
+tr_p_mp_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
+{
+    uint32_t retval;
+
+#ifdef CW_CPU_IA32
+    if (modcrux_ia32_use_sse2)
+    {
+	retval = tr_p_mp_ia32_fscore(a_tr, a_a, a_b);
+    }
+    else
+#endif
+    {
+	retval = tr_p_mp_c_fscore(a_tr, a_a, a_b);
+    }
+
+    return retval;
+}
+
 static cw_tr_ps_t *
 tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 {
@@ -2379,7 +2579,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	case 1:
 	{
 	    /* Leaf node.  Do nothing. */
-	    retval = a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)].ps_f;
+	    retval = a_tr->trrs[a_ring].ps;
 	    break;
 	}
 	case 2:
@@ -2393,9 +2593,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	     * critical to correctness of the caching machinery, since each view
 	     * should never be claimed as the parent of more than two other
 	     * views. */
-	    tr_p_mp_cache_invalidate(a_tr,
-				     a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)
-				     ].ps_p);
+	    tr_p_mp_cache_invalidate(a_tr, a_tr->trrs[a_ring].ps);
 
 	    /* Get the ring element that connects to the other portion of the
 	     * subtree on this side of the bisection. */
@@ -2434,7 +2632,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 					     a_bisect);
 
 		/* Calculate the partial score for this node. */
-		retval = a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)].ps_p;
+		retval = a_tr->trrs[a_ring].ps;
 		tr_p_mp_cache_pscore(a_tr, retval, ps_a, ps_b);
 
 		break;
@@ -2451,7 +2649,6 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
     return retval;
 }
 
-#if (0) // XXX
 static void
 tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 		      cw_tr_edge_t a_bisect)
@@ -2538,10 +2735,10 @@ tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 		ps_b_other = a_tr->trrs[ring_b_other].ps;
 
 		/* Calculate views and recurse. */
-		tr_p_mp_cache_pscore(a_tr, ps_a, a_ps, ps_b_other);
+		tr_p_mp_pscore(a_tr, ps_a, a_ps, ps_b_other);
 		tr_p_mp_views_recurse(a_tr, ring_a_other, ps_a, a_bisect);
 
-		tr_p_mp_cache_pscore(a_tr, ps_b, a_ps, ps_a_other);
+		tr_p_mp_pscore(a_tr, ps_b, a_ps, ps_a_other);
 		tr_p_mp_views_recurse(a_tr, ring_b_other, ps_b, a_bisect);
 
 		break;
@@ -2555,7 +2752,6 @@ tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 	}
     }
 }
-#endif
 
 /* Calculate the partial score for each edge in a_edges.  a_edges[0] must either
  * be CW_TR_EDGE_NONE, or the edge connected to the node that is in turn
@@ -2591,24 +2787,18 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 	/* Perform the pre-order traversal, calculating the remaining views that
 	 * were not calculated by the above post-order traversal.  Take care to
 	 * pass the appropriate ps's. */
-//XXX	tr_p_mp_views_recurse(a_tr, ring_a, ps_b, a_bisect);
-//XXX	tr_p_mp_views_recurse(a_tr, ring_b, ps_a, a_bisect);
+	tr_p_mp_views_recurse(a_tr, ring_a, ps_b, a_bisect);
+	tr_p_mp_views_recurse(a_tr, ring_b, ps_a, a_bisect);
 
 	/* Calculate per-edge partial scores. */
 	for (i = 1; i < a_nedges; i++)
 	{
 	    tr_p_mp_pscore(a_tr,
 			   a_tr->tres[a_edges[i]].ps,
-			   a_tr->trns[
-			       tr_p_ring_node_get(a_tr,
-						  tr_p_edge_ring_get(a_tr,
-								     a_edges[i],
-								     0))].ps_f,
-			   a_tr->trns[
-			       tr_p_ring_node_get(a_tr,
-						  tr_p_edge_ring_get(a_tr,
-								     a_edges[i],
-								     1))].ps_f);
+			   a_tr->trrs[tr_p_edge_ring_get(a_tr, a_edges[i],
+							 0)].ps,
+			   a_tr->trrs[tr_p_edge_ring_get(a_tr, a_edges[i],
+							 1)].ps);
 #ifdef CW_DBG
 	    /* All edge partial scores should have the same value, since the
 	     * location of the root is irrelevant to the score. */
@@ -2690,7 +2880,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
     uint32_t score;
     cw_tr_edge_t bisect, edge_a, edge_b;
     cw_tr_node_t node_a, node_b;
-    cw_tr_ps_t *ps, *ps_a, *ps_b;
+    cw_tr_ps_t *ps_a, *ps_b;
 
     cw_dassert(tr_p_validate(a_tr));
 
@@ -2702,7 +2892,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
     for (i = 0; i < a_tr->nedges; i++)
     {
 	bisect = a_tr->trti[i];
-	ps = a_tr->tres[bisect].ps;
+//	ps = a_tr->tres[bisect].ps;//XXX Remove ps.
 
 	/* Determine which edges are in each subtree. */
 	tr_p_bedges_gen(a_tr, bisect, &node_a, &node_b);
@@ -2724,7 +2914,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 	    }
 	    else
 	    {
-		ps_a = a_tr->trns[node_a].ps_f;
+		ps_a = a_tr->trrs[qli_first(&a_tr->trns[node_a].rings)].ps;
 	    }
 
 	    for (k = 0; k < a_tr->nbedges_b; k++)
@@ -2743,12 +2933,11 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 		}
 		else
 		{
-		    ps_b = a_tr->trns[node_b].ps_f;
+		    ps_b = a_tr->trrs[qli_first(&a_tr->trns[node_b].rings)].ps;
 		}
 
 		/* Calculate the final parsimony score for this reconnection. */
-		tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
-		score = (ps->subtrees_score + ps->node_score);
+		score = tr_p_mp_fscore(a_tr, ps_a, ps_b);
 
 		/* Hold the tree, if appropriate. */
 		switch (a_how)
@@ -2856,8 +3045,6 @@ tr_dup(cw_tr_t *a_tr)
 	for (i = 0; i < retval->ntrns; i++)
 	{
 	    a_tr->trns[i].u.aux = NULL;
-	    a_tr->trns[i].ps_p = NULL;
-	    a_tr->trns[i].ps_f = NULL;
 	}
 
 	/* The spare trns list is the same as for a_tr. */
@@ -2892,6 +3079,11 @@ tr_dup(cw_tr_t *a_tr)
 	    = (cw_trr_t *) cw_opaque_alloc(alloc, arg,
 					   sizeof(cw_trr_t) * a_tr->ntres * 2);
 	memcpy(retval->trrs, a_tr->trrs, sizeof(cw_trr_t *) * a_tr->ntres * 2);
+
+	for (i = 0; i < retval->ntres * 2; i++)
+	{
+	    a_tr->trrs[i].ps = NULL;
+	}
     }
 
     return retval;
@@ -3090,7 +3282,12 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
 	nodes[3] = CW_TR_NODE_NONE;
     }
 
-    /* Attach the two subtrees. */
+    /* If either subtree has only a single node, special care must be taken
+     * during reconnection to re-associate the proper end of the bisection edge
+     * with the single node.  This is because character state information for
+     * leaf nodes is actually stored in the rings that attach them to the tree,
+     * and breaking this association would require re-initializing the character
+     * state set vectors. */
     if (nodes[0] != CW_TR_NODE_NONE)
     {
 	/* nodes[0] (same as node_a) is a single node. */
@@ -3372,10 +3569,6 @@ tr_mp_prepare(cw_tr_t *a_tr, bool a_uninformative_eliminate,
 	    }
 	}
 
-	/* Prepare the base node. */
-	tr_p_mp_node_prepare(a_tr, a_tr->base,
-			 a_taxa, a_ntaxa, a_nchars,
-			 chars_mask, ninformative);
 	/* Prepare the tree. */
 	trn = &a_tr->trns[a_tr->base];
 	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
@@ -3387,6 +3580,10 @@ tr_mp_prepare(cw_tr_t *a_tr, bool a_uninformative_eliminate,
 		tre->ps = tr_p_ps_new(a_tr);
 	    }
 	    tr_p_ps_prepare(a_tr, tre->ps, ninformative);
+
+	    /* Prepare ring. */
+	    tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars,
+				 chars_mask, ninformative);
 
 	    /* Recurse. */
 	    tr_p_mp_prepare_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
@@ -3409,8 +3606,6 @@ tr_mp_finish(cw_tr_t *a_tr)
 	cw_tr_ring_t ring;
 	cw_tre_t *tre;
 
-	/* Clean up the base node. */
-	tr_p_mp_node_finish(a_tr, a_tr->base);
 	/* Clean up the tree. */
 	trn = &a_tr->trns[a_tr->base];
 	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
@@ -3422,6 +3617,9 @@ tr_mp_finish(cw_tr_t *a_tr)
 		tr_p_ps_delete(a_tr, tre->ps);
 		tre->ps = NULL;
 	    }
+
+	    /* Clean up ring. */
+	    tr_p_mp_ring_finish(a_tr, ring);
 
 	    /* Recurse. */
 	    tr_p_mp_finish_recurse(a_tr, tr_p_ring_other_get(a_tr, ring));
@@ -3441,7 +3639,7 @@ tr_mp_score(cw_tr_t *a_tr)
 	&& (ring = qli_first(&a_tr->trns[a_tr->base].rings)) != CW_TR_RING_NONE)
     {
 	cw_tr_edge_t edge;
-	cw_tr_ps_t *ps, *ps_a, *ps_b;
+	cw_tr_ps_t *ps_a, *ps_b;
 
 	edge = tr_p_ring_edge_get(a_tr, ring);
 
@@ -3454,10 +3652,7 @@ tr_mp_score(cw_tr_t *a_tr)
 				     CW_TR_EDGE_NONE);
 
 	/* Calculate the final score. */
-	ps = a_tr->tres[edge].ps;
-	tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
-
-	retval = ps->subtrees_score + ps->node_score;
+	retval = tr_p_mp_fscore(a_tr, ps_a, ps_b);
     }
     else
     {
