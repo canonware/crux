@@ -400,10 +400,10 @@ static PyMethodDef CxpTreeMethods[] =
 	"_nj"
     },
     {
-	"_rfTuple",
-	(PyCFunction) CxTreeRfTuple,
+	"_rfSequence",
+	(PyCFunction) CxTreeRfSequence,
 	METH_VARARGS,
-	"_rfTuple"
+	"_rfSequence"
     },
     {
 	"_rfPair",

@@ -345,35 +345,40 @@ CxpTreeRfBipartitionsCleanup(CxtTreeObject *self, CxtTreeRfTree *aRfTree)
 
 /******************************************************************************/
 
-/* Calculate the RF distances between self and other trees, and return a tuple
+/* Calculate the RF distances between self and other trees, and return a sequence
  * of the corresponding distances. */
 PyObject *
-CxTreeRfTuple(CxtTreeObject *self, PyObject *args)
+CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
 	;
-    PyObject *tuple, *other;
+    PyObject *sequence, *other;
     CxtTreeRfTree *rfTreeSelf, *rfTreeOther;
     unsigned i, size;
     float distance;
 
-    if (PyArg_ParseTuple(args, "O!", &PyTuple_Type, &tuple) == 0)
+    if (PyArg_ParseTuple(args, "O", &sequence) == 0)
     {
 	rVal = NULL;
 	goto RETURN;
+    }
+    if (PySequence_Check(sequence) == 0)
+    {
+	CxError(CxgTreeTypeError, "Sequence expected");
+	goto ERROR;
     }
 
     CxmXepBegin();
     CxmXepTry
     {
-	/* Make sure that all elements of the tuple are Trees. */
-	size = PyTuple_Size(tuple);
+	/* Make sure that all elements of the sequence are Trees. */
+	size = PySequence_Size(sequence);
 	for (i = 0; i < size; i++)
 	{
-	    if (PyObject_IsInstance(PyTuple_GetItem(tuple, i),
+	    if (PyObject_IsInstance(PySequence_GetItem(sequence, i),
 				    (PyObject *) &CxtTree)
 		== 0)
 	    {
@@ -388,7 +393,7 @@ CxTreeRfTuple(CxtTreeObject *self, PyObject *args)
 	rVal = PyTuple_New(size);
 	for (i = 0; i < size; i++)
 	{
-	    other = PyTuple_GetItem(tuple, i);
+	    other = PySequence_GetItem(sequence, i);
 
 	    if ((CxtTreeObject *) other == self)
 	    {

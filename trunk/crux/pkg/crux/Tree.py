@@ -220,10 +220,10 @@ class Tree(C_Tree):
         return self._map
 
     def rf(self, other):
-        if type(other) == tuple:
-            return self._rfTuple(other)
-        else:
+        if type(other) == Tree:
             return self._rfPair(other)
+        else:
+            return self._rfSequence(other)
 
     def render(self, labels=False, lengths=False, lengthFormat="%.5e",
                outFile=None):

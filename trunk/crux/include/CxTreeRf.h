@@ -10,6 +10,6 @@
  ******************************************************************************/
 
 PyObject *
-CxTreeRfTuple(CxtTreeObject *self, PyObject *args);
+CxTreeRfSequence(CxtTreeObject *self, PyObject *args);
 PyObject *
 CxTreeRfPair(CxtTreeObject *self, PyObject *args);
