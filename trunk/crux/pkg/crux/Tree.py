@@ -96,8 +96,9 @@ class _NewickParser(NewickParser.NewickParser):
                     self._taxonMap.map(self.token(), val)
                 else:
                     # Failed conversion.
-                    raise crux.Tree.ValueError, "No mapping for '%s'" \
-                          % self.token()
+                    raise crux.Tree.ValueError, \
+                          "At offset %d: No mapping for '%s'" \
+                          % (self.offset(), self.token())
 
         # Create a new node and push it onto the stack.
         nnode = Node.Node(self._tree)

@@ -254,7 +254,7 @@ CxTreeNew(void)
     if (globals == NULL)
     {
 	rVal = NULL;
-	goto RETURN;
+	goto RETURN1;
     }
     locals = Py_BuildValue("{}");
     if (locals == NULL)
@@ -282,6 +282,7 @@ CxTreeNew(void)
 
     RETURN:
     Py_DECREF(locals);
+    RETURN1:
     return rVal;
 }
 
@@ -1428,7 +1429,7 @@ CxNodeNew(CxtTreeObject *aTree)
     if (globals == NULL)
     {
 	rVal = NULL;
-	goto RETURN;
+	goto RETURN1;
     }
     locals = Py_BuildValue("{sO}", "tree", (PyObject *) aTree);
     if (locals == NULL)
@@ -1456,6 +1457,7 @@ CxNodeNew(CxtTreeObject *aTree)
 
     RETURN:
     Py_DECREF(locals);
+    RETURN1:
     return rVal;
 }
 
@@ -1981,7 +1983,7 @@ CxEdgeNew(CxtTreeObject *aTree)
     if (globals == NULL)
     {
 	rVal = NULL;
-	goto RETURN;
+	goto RETURN1;
     }
     locals = Py_BuildValue("{sO}", "tree", (PyObject *) aTree);
     if (locals == NULL)
@@ -2009,6 +2011,7 @@ CxEdgeNew(CxtTreeObject *aTree)
 
     RETURN:
     Py_DECREF(locals);
+    RETURN1:
     return rVal;
 }
 
@@ -2617,7 +2620,7 @@ CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd)
     if (globals == NULL)
     {
 	rVal = NULL;
-	goto RETURN;
+	goto RETURN1;
     }
     locals = Py_BuildValue("{sOsi}",
 			   "edge", (PyObject *) aEdge,
@@ -2647,6 +2650,7 @@ CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd)
 
     RETURN:
     Py_DECREF(locals);
+    RETURN1:
     return rVal;
 }
 

@@ -140,7 +140,11 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, long *rLine,
 PyObject *
 CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 {
-    PyObject *rVal;
+    PyObject *rVal
+#ifdef CxmCcSilence
+	= NULL
+#endif
+	;
     PyObject *input;
     char *charType;
     bool dnaChars;

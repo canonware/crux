@@ -696,23 +696,32 @@ CxpNewickParserProdQuotedLabelChar(CxtNewickParserObject *self, bool *rAccepted)
 	goto RETURN;
     }
 
-    if (self->c == '\'')
+    switch (self->c)
     {
-	if (CxpNewickParserGetC(self))
+	case '\'':
 	{
-	    rVal = true;
-	    goto RETURN;
-	}
+	    if (CxpNewickParserGetC(self))
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
 
-	if (self->c == '\'')
+	    if (self->c == '\'')
+	    {
+		*rAccepted = true;
+	    }
+	    else
+	    {
+		CxpNewickParserUngetC(self);
+
+		*rAccepted = false;
+	    }
+
+	    break;
+	}
+	default:
 	{
 	    *rAccepted = true;
-	}
-	else
-	{
-	    CxpNewickParserUngetC(self);
-
-	    *rAccepted = false;
 	}
     }
 
@@ -1155,7 +1164,11 @@ CxpNewickParserProdTree(CxtNewickParserObject *self)
 PyObject *
 CxNewickParserParse(CxtNewickParserObject *self, PyObject *args)
 {
-    PyObject *rVal;
+    PyObject *rVal
+#ifdef CxmCcSilence
+	= NULL
+#endif
+	;
     PyObject *input;
 
     if (PyArg_ParseTuple(args, "O", &input) == 0)

@@ -663,9 +663,17 @@ CxmpInline long
 CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 			     long aX, CxtMt *aMt, float *rDist)
 {
-    long rVal;
+    long rVal
+#ifdef CxmCcSilence
+	= 0
+#endif
+	;
     float *dElm, dist, minDist;
-    long y, nmins;
+    long y, nMins
+#ifdef CxmCcSilence
+	= 0
+#endif
+	;
 
     minDist = HUGE_VAL;
 
@@ -685,7 +693,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 	    {
 		case -1:
 		{
-		    nmins = 1;
+		    nMins = 1;
 		    minDist = dist;
 		    rVal = y;
 		    break;
@@ -694,8 +702,8 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 		{
 		    // Choose y such that all tied distances have an equal
 		    // probability of being chosen.
-		    nmins++;
-		    if (CxMtSint32RangeGet(aMt, nmins) == 0)
+		    nMins++;
+		    if (CxMtSint32RangeGet(aMt, nMins) == 0)
 		    {
 			rVal = y;
 		    }
@@ -730,7 +738,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 	    {
 		case -1:
 		{
-		    nmins = 1;
+		    nMins = 1;
 		    minDist = dist;
 		    rVal = y;
 		    break;
@@ -739,8 +747,8 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 		{
 		    // Choose y such that all tied distances have an equal
 		    // probability of being chosen.
-		    nmins++;
-		    if (CxMtSint32RangeGet(aMt, nmins) == 0)
+		    nMins++;
+		    if (CxMtSint32RangeGet(aMt, nMins) == 0)
 		    {
 			rVal = y;
 		    }
