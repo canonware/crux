@@ -165,7 +165,7 @@ class Tree(C_Tree):
             self._newickNew(with, autoMap)
         elif type(with) == DistMatrix.DistMatrix:
             self._map = with.taxonMapGet()
-            self._nj(with, tryAdditive, joinRandom)
+            self._rnj(with, tryAdditive, joinRandom)
         else:
             if map == None:
                 map = TaxonMap.TaxonMap()

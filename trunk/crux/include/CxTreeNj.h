@@ -10,6 +10,6 @@
  ******************************************************************************/
 
 /* Create a tree from a symmetric pair-wise distance matrix, using the
- * neighbor-joining algorithm. */
+ * relaxed neighbor-joining algorithm. */
 PyObject *
-CxTreeNj(CxtTreeObject *self, PyObject *args);
+CxTreeRnj(CxtTreeObject *self, PyObject *args);

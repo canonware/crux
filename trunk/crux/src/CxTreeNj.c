@@ -1360,7 +1360,7 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
 }
 
 PyObject *
-CxTreeNj(CxtTreeObject *self, PyObject *args)
+CxTreeRnj(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval, *distMatrix;
     float *d;
