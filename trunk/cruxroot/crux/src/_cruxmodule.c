@@ -10,6 +10,9 @@
  ******************************************************************************/
 
 #include "../include/_cruxmodule.h"
+#ifndef HAVE_ASPRINTF
+#include "asprintf_c"
+#endif
 
 static PyMethodDef cruxFuncs[] =
 {

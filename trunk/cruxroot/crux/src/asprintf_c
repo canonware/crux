@@ -1,0 +1,58 @@
+/* -*- mode: c ; c-file-style: "canonware-c-style" -*-
+ ******************************************************************************
+ *
+ * <Copyright = jasone>
+ * <License>
+ *
+ ******************************************************************************
+ *
+ * Version: Crux <Version = crux>
+ *
+ * Emulate asprintf().
+ *
+ ******************************************************************************/
+
+#include <stdio.h>
+
+static int
+asprintf(char **rResult, const char *aFormat, ...)
+{
+    int retval;
+    char *result;
+    va_list ap;
+#define CxmAsprintfStartLen 16
+
+    result = (char *) malloc(CxmAsprintfStartLen);
+    if (result == NULL)
+    {
+	retval = -1;
+	goto RETURN;
+    }
+
+    va_start(ap, aFormat);
+    retval = vsnprintf(result, CxmAsprintfStartLen, aFormat, ap);
+    va_end(ap);
+
+    if (retval == -1)
+    {
+	goto RETURN;
+    }
+    else if (retval >= CxmAsprintfStartLen)
+    {
+	free(result);
+	result = (char *) malloc(retval + 1);
+	if (result == NULL)
+	{
+	    retval = -1;
+	    goto RETURN;
+	}
+
+	va_start(ap, aFormat);
+	retval = vsnprintf(result, retval + 1, aFormat, ap);
+	va_end(ap);
+    }
+
+    *rResult = result;
+    RETURN:
+    return retval;
+}

@@ -231,6 +231,9 @@ dnl Check for typedefs, structures, and compiler characteristics.
 AC_C_BIGENDIAN
 AC_HEADER_STDBOOL
 
+dnl Check for library functions.
+AC_CHECK_FUNCS([asprintf])
+
 dnl Process .in files.
 AC_SUBST([cfghdrs])
 AC_CONFIG_HEADER([$cfghdrs])

@@ -34,3 +34,4 @@
 #undef CxmCpuPpc
 
 #undef HAVE_STDBOOL_H
+#undef HAVE_ASPRINTF
