@@ -1556,7 +1556,7 @@ tr_p_reconnect_prepare(cw_tr_t *a_tr, cw_tr_node_t a_node,
 
 static void
 tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
-			uint8_t *a_taxa[], uint32_t a_ntaxa,
+			char *a_taxa[], uint32_t a_ntaxa,
 			uint32_t a_nchars)
 {
     cw_trn_t *trn;
@@ -1576,7 +1576,7 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
     if ((taxon_num = tr_node_taxon_num_get(a_tr, a_node))
 	!= CW_TR_NODE_TAXON_NONE)
     {
-	uint8_t *chars;
+	char *chars;
 
 	cw_assert(taxon_num < a_ntaxa);
 
@@ -2762,7 +2762,7 @@ tr_aux_set(cw_tr_t *a_tr, void *a_aux)
 }
 
 void
-tr_mp_prepare(cw_tr_t *a_tr, uint8_t *a_taxa[], uint32_t a_ntaxa,
+tr_mp_prepare(cw_tr_t *a_tr, char *a_taxa[], uint32_t a_ntaxa,
 	      uint32_t a_nchars)
 {
     uint32_t i;

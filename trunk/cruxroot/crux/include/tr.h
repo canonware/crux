@@ -92,7 +92,7 @@ tr_aux_set(cw_tr_t *a_tr, void *a_aux);
  * character array pointers, where the index into a_taxa corresponds to taxon
  * number.  The character arrays need not be nil-terminated. */
 void
-tr_mp_prepare(cw_tr_t *a_tr, uint8_t *a_taxa[], uint32_t a_ntaxa,
+tr_mp_prepare(cw_tr_t *a_tr, char *a_taxa[], uint32_t a_ntaxa,
 	      uint32_t a_nchars);
 
 /* Clear the data structures used for calculating Fitch parsimony scores. */
