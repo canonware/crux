@@ -771,7 +771,17 @@ trn_new(cw_trn_t *a_trn)
 void
 trn_delete(cw_trn_t *a_trn)
 {
+    cw_uint32_t i;
+
     cw_dassert(trn_p_validate(a_trn));
+
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_trn->neighbors[i] != NULL)
+	{
+	    trn_detach(a_trn, a_trn->neighbors[i]);
+	}
+    }
 
 #ifdef CW_DBG
     memset(a_trn, 0x5a, sizeof(cw_trn_t));
