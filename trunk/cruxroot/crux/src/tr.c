@@ -1247,7 +1247,7 @@ trn_p_tree_edge_get_recurse(cw_trn_t *a_trn, cw_uint32_t a_edge,
 	    /* Increment edge count before recursing.  If the edge count has
 	     * reached the desired value, return this trn and neighbor index,
 	     * and terminate recursion. */
-	    *r_edge_count++;
+	    (*r_edge_count)++;
 	    if (*r_edge_count > a_edge)
 	    {
 		cw_assert(*r_edge_count == a_edge + 1);
@@ -1319,7 +1319,7 @@ trn_p_tree_edge_index_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
 		retval = TRUE;
 		goto RETURN;
 	    }
-	    *r_edge_count++;
+	    (*r_edge_count)++;
 
 	    /* Recurse into neighbor subtree. */
 	    if (trn_p_tree_edge_index_get_recurse(a_trn->neighbors[i], a_trn,
@@ -1344,7 +1344,16 @@ trn_p_tree_edge_index_get(cw_trn_t *a_trn, cw_trn_t *a_trn_a, cw_trn_t *a_trn_b)
 
     trn_p_tree_edge_index_get_recurse(a_trn, NULL, a_trn_a, a_trn_b, &retval);
 
-    return retval - 1;
+    return retval;
+}
+
+void
+trn_tree_canonize(cw_trn_t *a_trn)
+{
+    cw_dassert(trn_p_tree_validate(a_trn));
+    cw_assert(trn_p_tree_root_get(a_trn, NULL, NULL) == a_trn);
+
+    trn_p_tree_canonize(a_trn, NULL);
 }
 
 void
@@ -1403,7 +1412,7 @@ trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
 	/* Join. */
 	trn_join(a, b);
 
-	*r_trn_a = trn_p_tree_root_get(trn_a, NULL, NULL);
+	*r_trn_a = trn_p_tree_root_get(a, NULL, NULL);
 	trn_p_tree_canonize(*r_trn_a, NULL);
 	*r_edge_a = trn_p_tree_edge_index_get(*r_trn_a, a, b);
 	*r_spare_a = trn_a;
@@ -1446,7 +1455,7 @@ trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
 	/* Join. */
 	trn_join(a, b);
 
-	*r_trn_b = trn_p_tree_root_get(trn_b, NULL, NULL);
+	*r_trn_b = trn_p_tree_root_get(a, NULL, NULL);
 	trn_p_tree_canonize(*r_trn_b, NULL);
 	*r_edge_b = trn_p_tree_edge_index_get(*r_trn_b, a, b);
 	*r_spare_b = trn_b;
@@ -1477,12 +1486,12 @@ trn_tree_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
     cw_assert(trn_p_tree_root_get(a_trn_a, NULL, NULL) == a_trn_a);
     cw_dassert(trn_p_tree_validate(a_trn_a));
     cw_assert((a_edge_a == CW_TRN_EDGE_NONE
-	       && trn_p_tree_ntaxa_get(a_trn_a, NULL) == 0)
+	       && trn_p_tree_ntaxa_get(a_trn_a, NULL) == 1)
 	      || (a_edge_a < trn_tree_nedges_get(a_trn_a)));
     cw_assert(trn_p_tree_root_get(a_trn_b, NULL, NULL) == a_trn_b);
     cw_dassert(trn_p_tree_validate(a_trn_b));
     cw_assert((a_edge_b == CW_TRN_EDGE_NONE
-	       && trn_p_tree_ntaxa_get(a_trn_b, NULL) == 0)
+	       && trn_p_tree_ntaxa_get(a_trn_b, NULL) == 1)
 	      || (a_edge_b < trn_tree_nedges_get(a_trn_b)));
 
     /* There are two cases possible for each subtree.  Each is either a single
@@ -1500,7 +1509,7 @@ trn_tree_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
 	*ar_spare_a = *ar_spare_b;
 	*ar_spare_b = NULL;
 
-	trn_p_tree_edge_get(trn_a, a_edge_a, &a, &edge);
+	trn_p_tree_edge_get(a_trn_a, a_edge_a, &a, &edge);
 	b = a->neighbors[edge];
 
 	/* Detach a and b. */
@@ -1524,7 +1533,7 @@ trn_tree_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
 	trn_b = *ar_spare_a;
 	*ar_spare_a = NULL;
 
-	trn_p_tree_edge_get(trn_b, a_edge_b, &a, &edge);
+	trn_p_tree_edge_get(a_trn_b, a_edge_b, &a, &edge);
 	b = a->neighbors[edge];
 
 	/* Detach a and b. */
