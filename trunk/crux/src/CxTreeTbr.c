@@ -21,11 +21,6 @@ struct CxsTreeTbrBisection
 
     // Number of TBR neighbors that come before those for this bisection edge.
     unsigned offset;
-
-    // setElm is used to store an edge in the set of edges on each side of a
-    // bisection.  This is only incidentally stored in this structure; it's
-    // merely convenient to do so.
-    CxtEdgeObject *setElm;
 };
 
 struct CxsTreeTbrData
@@ -250,7 +245,7 @@ CxpTreeTbrBEdgeSetsGen(CxtTreeObject *self, CxtTreeTbrData *aData,
 
     CxpTreeTbrBEdgeSetGen(self, aRingA, aData->edgeSets, &aData->nSetA);
     CxpTreeTbrBEdgeSetGen(self, aRingB, &aData->edgeSets[aData->nSetA],
-			  &aData->nSetA);
+			  &aData->nSetB);
 
     rVal = false;
     RETURN:
@@ -315,10 +310,7 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
 	// Iteratively fill in per-edge data.
 	for (i = j = offset = 0; i < data->nBisections; i++)
 	{
-	    // Record offset.
-	    data->bisections[i].offset = offset;
-
-	    // Update offset.
+	    // Calculate number of neighbors reachable from this bisection.
 	    CxEdgeRingsGet(data->bisections[i].edge, &ringA, &ringB);
 	    if (CxpTreeTbrBEdgeSetsGen(self, data, ringA, ringB))
 	    {
@@ -340,13 +332,20 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
 	    if (n != 0)
 	    {
 		data->bisections[j].edge = data->bisections[i].edge;
+		data->bisections[j].offset = offset;
 		offset += n;
 		j++;
 	    }
 	}
 	// Store total number of neighbors in element past the end of the
 	// bisection edge list.
-	data->bisections[i].offset = offset;
+	data->bisections[j].offset = offset;
+
+	// It may be that not all bisections result in neighbors, so the table
+	// may not be full.  Keep track of the number of valid elements (not
+	// counting the trailing one that stores the total number of TBR
+	// neighbors).
+	data->nBisections = j;
 
 	data->seq = CxTreeSeq(self);
     }
@@ -354,6 +353,207 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
     *rData = data;
     rVal = false;
     RETURN:
+    return rVal;
+}
+
+// As part of TBR, extract a node that has only two neighbors.  Take care to
+// leave reconnection edges in the tree.  Return NULL, unless there is only one
+// node in the subtree; in that case, return the node so that it can be used
+// directly during reconnection.
+CxmpInline CxtNodeObject *
+CxpTreeTbrNodeExtract(CxtTreeObject *self, CxtNodeObject *aNode,
+		      CxtEdgeObject *aReconnectA, CxtEdgeObject *aReconnectB,
+		      CxtEdgeObject **arTEdges, unsigned *arNTEdges,
+		      CxtNodeObject **arTNodes, unsigned *arNTNodes)
+{
+    CxtNodeObject *rVal;
+
+    switch (CxNodeDegree(aNode))
+    {
+	case 0:
+	{
+	    // This node is the only node remaining in the subtree.  It must be
+	    // directly reconnected to, so return it.
+	    rVal = aNode;
+	    break;
+	}
+	case 1:
+	{
+	    CxmNotReached();
+	}
+	case 2:
+	{
+	    CxtRingObject *ringA, *ringB;
+	    CxtRingObject *ringAOther, *ringBOther;
+	    CxtEdgeObject *edgeA, *edgeB;
+	    CxtNodeObject *nodeA, *nodeB;
+	    CxtRingObject *tRingA, *tRingB;
+
+	    // Get all variables that are necessary for careful extraction of
+	    // aNode, and proper rematching of rings with nodes.  The
+	    // rematching is critical to the maintenance of the character state
+	    // sets in leaf nodes (which node[AB] may or may not be).
+	    ringA = CxNodeRing(aNode);
+	    edgeA = CxRingEdge(ringA);
+	    ringAOther = CxRingOther(ringA);
+	    nodeA = CxRingNode(ringAOther);
+
+	    ringB = CxRingNext(ringA);
+	    edgeB = CxRingEdge(ringB);
+	    ringBOther = CxRingOther(ringB);
+	    nodeB = CxRingNode(ringBOther);
+
+	    // Detach.
+	    Py_INCREF(edgeA); // +1
+	    Py_INCREF(nodeA); // +1
+	    CxEdgeDetach(edgeA);
+	    Py_INCREF(nodeB); // +1
+	    Py_INCREF(edgeB); // +1
+	    CxEdgeDetach(edgeB);
+
+	    // Store aNode as a spare.  We already have a python ref to it.
+	    arTNodes[*arNTNodes] = aNode;
+	    (*arNTNodes)++;
+
+	    // Be careful to preserve reconnection edges, which either edgeA or
+	    // edgeB may be.
+	    if (edgeB != aReconnectA && edgeB != aReconnectB)
+	    {
+		// Use edgeA when splicing node[AB] back together.
+
+		// Swap data in ringA and ringBOther.
+		CxRingAuxSwap(ringA, ringBOther);
+
+		// Attach node[AB].  Take care to keep the proper ends of edgeA
+		// associated with node[AB].
+		CxEdgeRingsGet(edgeA, &tRingA, &tRingB);
+		if (ringAOther == tRingA)
+		{
+		    CxEdgeAttach(edgeA, nodeA, nodeB);
+		}
+		else
+		{
+		    CxEdgeAttach(edgeA, nodeB, nodeA);
+		}
+		Py_DECREF(edgeA); // -1
+
+		// Store edgeB as a spare.
+		arTEdges[*arNTEdges] = edgeB;
+		(*arNTEdges)++;
+	    }
+	    else
+	    {
+		// Use edgeB when splicing node[AB] back together.
+		CxmAssert(edgeA != aReconnectA && edgeA != aReconnectB);
+
+		// Swap data in ringB and ringAOther.
+		CxRingAuxSwap(ringB, ringAOther);
+
+		// Attach node[AB].  Take care to keep the proper ends of
+		// edgeB associated with node[AB].
+		CxEdgeRingsGet(edgeB, &tRingA, &tRingB);
+		if (ringB == tRingA)
+		{
+		    CxEdgeAttach(edgeB, nodeA, nodeB);
+		}
+		else
+		{
+		    CxEdgeAttach(edgeB, nodeB, nodeA);
+		}
+		Py_DECREF(edgeB); // -1
+
+		// Store edgeA as a spare.
+		arTEdges[*arNTEdges] = edgeA;
+		(*arNTEdges)++;
+	    }
+
+	    Py_DECREF(nodeB); // -1
+	    Py_DECREF(nodeA); // -1
+
+	    rVal = NULL;
+	    break;
+	}
+	default:
+	{
+	    // Do nothing, since this node has enough neighbors to remain
+	    // relevant (3 or more).
+	    rVal = NULL;
+	}
+    }
+
+    return rVal;
+}
+
+// Splice a node into the middle of aEdge, and return the node.
+CxmpInline CxtNodeObject *
+CxpTreeTbrNodeSplice(CxtTreeObject *self, CxtEdgeObject *aEdge,
+		     CxtEdgeObject **arTEdges, unsigned *arNTEdges,
+		     CxtNodeObject **arTNodes, unsigned *arNTNodes)
+{
+    CxtNodeObject *rVal;
+    CxtNodeObject *nodeA, *nodeB;
+    CxtRingObject *ringA, *ringB;
+    CxtEdgeObject *spliceEdge;
+    CxtRingObject *spliceRingA, *spliceRingB;
+
+    // Get all variables that are necessary for careful splicing of a node into
+    // aEdge, and proper rematching of rings with nodes.  The rematching is
+    // critical to the MP code (maintenance of the character state sets in leaf
+    // nodes, which node[AB] may or may not be).
+    CxEdgeRingsGet(aEdge, &ringA, &ringB);
+    nodeA = CxRingNode(ringA);
+    nodeB = CxRingNode(ringB);
+
+    // Get an edge.
+    CxmAssert(*arNTEdges > 0);
+    (*arNTEdges)--;
+    spliceEdge = arTEdges[*arNTEdges];
+    CxEdgeRingsGet(spliceEdge, &spliceRingA, &spliceRingB);
+
+    // Get a node.
+    CxmAssert(*arNTNodes > 0);
+    (*arNTNodes)--;
+    rVal = arTNodes[*arNTNodes];
+
+    // Detach.
+    Py_INCREF(nodeA); // +1
+    Py_INCREF(nodeB); // +1
+    CxEdgeDetach(aEdge);
+
+    // Swap data in ringB and spliceRingA.
+    CxRingAuxSwap(ringB, spliceRingA);
+
+    // Reattach.
+    CxEdgeAttach(aEdge, nodeA, rVal);
+    CxEdgeAttach(spliceEdge, nodeB, rVal);
+    Py_DECREF(nodeB); // -1
+    Py_DECREF(nodeA); // -1
+    Py_DECREF(spliceEdge); // -1
+
+    return rVal;
+}
+
+// Comparison function that is passed to bsearch(3).
+static int
+CxpTreeTbrBisectionCompare(const void *aKey, const void *aVal)
+{
+    int rVal;
+    const CxtTreeTbrBisection *key = (const CxtTreeTbrBisection *) aKey;
+    const CxtTreeTbrBisection *val = (const CxtTreeTbrBisection *) aVal;
+
+    if (key->offset < val->offset)
+    {
+	rVal = -1;
+    }
+    else if (key->offset < (&val[1])->offset)
+    {
+	rVal = 0;
+    }
+    else
+    {
+	rVal = 1;
+    }
+
     return rVal;
 }
 
@@ -405,6 +605,12 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
 {
     bool rVal;
     CxtTreeTbrData *data;
+    CxtRingObject *ringA, *ringB;
+    CxtNodeObject *nodeA, *nodeB, *nodes[4];
+    CxtEdgeObject *tEdges[2];
+    unsigned nTEdges = 0;
+    CxtNodeObject *tNodes[2];
+    unsigned nTNodes = 0;
 
     if (CxpTreeTbrUpdate(self, &data))
     {
@@ -412,7 +618,159 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
 	goto RETURN;
     }
 
-//     CxTrTbr(self->tr, aBisect, aReconnectA, aReconnectB);
+    // Get the nodes to either side of the edge where the bisection will be
+    // done.
+    CxEdgeRingsGet(aBisect, &ringA, &ringB);
+    nodeA = CxRingNode(ringA);
+    nodeB = CxRingNode(ringB);
+
+    // Determine whether additional edges and nodes will be needed for
+    // reconnection.  If so, allocate them here, so that if there is an OOM
+    // error, recovery is simpler.
+    if (CxNodeDegree(nodeA) > 3)
+    {
+	tEdges[nTEdges] = CxEdgeNew(self); // +1
+	if (tEdges[nTEdges] == NULL)
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+	nTEdges++;
+
+	tNodes[nTNodes] = CxNodeNew(self); // +1
+	if (tNodes[nTNodes] == NULL)
+	{
+	    Py_DECREF(tEdges[0]); // -1
+	    rVal = true;
+	    goto RETURN;
+	}
+	nTNodes++;
+    }
+
+    if (CxNodeDegree(nodeB) > 3)
+    {
+	tEdges[nTEdges] = CxEdgeNew(self); // +1
+	if (tEdges[nTEdges] == NULL)
+	{
+	    Py_DECREF(tNodes[0]); // -1
+	    Py_DECREF(tEdges[0]); // -1
+	    rVal = true;
+	    goto RETURN;
+	}
+	nTEdges++;
+
+	tNodes[nTNodes] = CxNodeNew(self); // +1
+	if (tNodes[nTNodes] == NULL)
+	{
+	    Py_DECREF(tEdges[1]); // -1
+	    Py_DECREF(tNodes[0]); // -1
+	    Py_DECREF(tEdges[0]); // -1
+	    rVal = true;
+	    goto RETURN;
+	}
+	nTNodes++;
+    }
+
+    // Bisect.  aBisect will be used below for reconnection.
+    Py_INCREF(nodeA); // +1
+    Py_INCREF(nodeB); // +1
+    Py_INCREF(aBisect); // +1
+    CxEdgeDetach(aBisect);
+
+    // For node[AB], extract the node if it has only two neighbors.
+    //
+    // nodes[0..1] are CxmTrNodeNone, unless they refer to the only node in a
+    // subtree.
+    nodes[0] = CxpTreeTbrNodeExtract(self, nodeA, aReconnectA, aReconnectB,
+				     tEdges, &nTEdges, tNodes, &nTNodes);
+    // +1? tEdges[nTEdges - 1]
+    CxmAssert(nTEdges <= 2);
+    CxmAssert(nTNodes <= 2);
+
+    nodes[1] = CxpTreeTbrNodeExtract(self, nodeB, aReconnectA, aReconnectB,
+				     tEdges, &nTEdges, tNodes, &nTNodes);
+    // +1? tEdges[nTEdges - 1]
+    // +1? tNodes[nTNodes - 1]
+    CxmAssert(nTEdges <= 2);
+    CxmAssert(nTNodes <= 2);
+
+    // For each reconnection edge, splice a node into the edge (if the subtree
+    // has more than one node).
+    //
+    // nodes[2..3] are set to NULL if no reconnection edge is specified.
+    if (aReconnectA != NULL)
+    {
+	nodes[2] = CxpTreeTbrNodeSplice(self, aReconnectA,
+					tEdges, &nTEdges, tNodes, &nTNodes);
+	// +1 nodes[2] === -1 tNodes[nTNodes]
+	// -1 tEdges[nTEdges]
+    }
+    else
+    {
+	nodes[2] = NULL;
+    }
+
+    if (aReconnectB != NULL)
+    {
+	nodes[3] = CxpTreeTbrNodeSplice(self, aReconnectB,
+					tEdges, &nTEdges, tNodes, &nTNodes);
+	// +1 nodes[3]
+	// -1 tEdges[nTEdges]
+	// -1? tNodes[nTNodes]
+    }
+    else
+    {
+	nodes[3] = NULL;
+    }
+
+    CxmAssert(nTEdges == 0);
+    CxmAssert(nTNodes == 0);
+
+    // If either subtree has only a single node, special care must be taken
+    // during reconnection to re-associate the proper end of the bisection edge
+    // with the single node.  This is primarily because for MP character state
+    // information for leaf nodes is actually stored in the rings that attach
+    // them to the tree, and breaking this association would require
+    // re-initializing the character state set vectors.
+    if (nodes[0] != NULL)
+    {
+	// nodes[0] (same as nodeA) is a single node.
+	CxmAssert(nodes[0] == nodeA);
+	CxmAssert(nodes[1] == NULL);
+
+	if (nodes[2] == NULL)
+	{
+	    nodes[2] = nodes[3];
+	    nodes[3] = NULL;
+	}
+	CxEdgeAttach(aBisect, nodes[0], nodes[2]);
+    }
+    else if (nodes[1] != NULL)
+    {
+	// nodes[1] (same as nodeB) is a single node.
+	CxmAssert(nodes[1] == nodeB);
+
+	if (nodes[2] == NULL)
+	{
+	    nodes[2] = nodes[3];
+	    nodes[3] = NULL;
+	}
+	CxEdgeAttach(aBisect, nodes[2], nodes[1]);
+    }
+    else
+    {
+	// Bisection was not done adjacent to a leaf node.  Attach the two
+	// spliced-in nodes.
+	CxEdgeAttach(aBisect, nodes[2], nodes[3]);
+    }
+
+    // Clean up references.
+    Py_XDECREF(nodes[3]); // -1?
+    Py_XDECREF(nodes[2]); // -1?
+
+    Py_DECREF(aBisect); // -1
+    Py_DECREF(nodeB); // -1
+    Py_DECREF(nodeA); // -1
 
     rVal = false;
     RETURN:
@@ -429,14 +787,44 @@ CxTreeTbrPargs(CxtTreeObject *self, PyObject *args)
 	;
     CxtEdgeObject *bisect, *reconnectA, *reconnectB;
 
-    if (PyArg_ParseTuple(args, "(O!O!O!)",
+    if (PyArg_ParseTuple(args, "(O!OO)",
 			 &CxtEdge, &bisect,
-			 &CxtEdge, &reconnectA,
-			 &CxtEdge, &reconnectB)
+			 &reconnectA,
+			 &reconnectB)
 	== 0)
     {
 	rVal = NULL;
 	goto RETURN;
+    }
+
+    // Convert None reconnection edges to NULL, if necessary.  Otherwise, make
+    // sure that the arguments are edge objects.
+    if (reconnectA != (CxtEdgeObject *) Py_None)
+    {
+	if (PyObject_TypeCheck(reconnectA, &CxtEdge) == 0)
+	{
+	    CxError(CxgTreeTypeError, "reconnectA: Edge or None expected");
+	    rVal = NULL;
+	    goto RETURN;
+	}
+    }
+    else
+    {
+	reconnectA = NULL;
+    }
+
+    if (reconnectB != (CxtEdgeObject *) Py_None)
+    {
+	if (PyObject_TypeCheck(reconnectB, &CxtEdge) == 0)
+	{
+	    CxError(CxgTreeTypeError, "reconnectB: Edge or None expected");
+	    rVal = NULL;
+	    goto RETURN;
+	}
+    }
+    else
+    {
+	reconnectB = NULL;
     }
 
     if (CxTreeTbr(self, bisect, reconnectA, reconnectB))
@@ -493,7 +881,7 @@ CxTreeTbrNneighborsGetPargs(CxtTreeObject *self)
 	goto RETURN;
     }
 
-    rVal = Py_BuildValue("I", nneighbors);
+    rVal = Py_BuildValue("i", nneighbors);
     RETURN:
     return rVal;
 }
@@ -505,6 +893,9 @@ CxTreeTbrNeighborGet(CxtTreeObject *self, unsigned aNeighbor,
 {
     bool rVal;
     CxtTreeTbrData *data;
+    CxtTreeTbrBisection key, *bisection;
+    CxtRingObject *ringA, *ringB;
+    unsigned rem, degreeA, degreeB;
 
     if (CxpTreeTbrUpdate(self, &data))
     {
@@ -512,8 +903,57 @@ CxTreeTbrNeighborGet(CxtTreeObject *self, unsigned aNeighbor,
 	goto RETURN;
     }
 
-//     CxTrTbrNeighborGet(self->tr, neighbor,
-// 		       &bisect, &reconnectA, &reconnectB);
+    // Get the bisection edge.
+    CxmAssert(aNeighbor < data->bisections[data->nBisections].offset);
+    key.offset = aNeighbor;
+    bisection = bsearch(&key, data->bisections, data->nBisections,
+			sizeof(CxtTreeTbrBisection),
+			CxpTreeTbrBisectionCompare);
+    CxmCheckPtr(bisection);
+    *rBisect = bisection->edge;
+
+    // Get the reconnection edges.  The indices for a and b are mapped onto the
+    // edges of each subtree, in a peculiar fashion.  The actual ordering isn't
+    // important, as long as it is consistent (repeatable) and correct (all TBR
+    // neighbors are enumerated).  The edge index mapping can be summarized as
+    // follows:
+    //
+    // 1) Start with a full tree.
+    //
+    // 2) (Pretend to) bisect the tree at the appropriate edge.
+    //
+    // 3) For each subtree, do a recursive in-order traversal and build a list
+    //    of edges, not including one of the edges adjacent to the bisection (in
+    //    the case of an internal bifurcating node adjacent to the bisection).
+    //
+    // 4) Use a nested loop to iterate over neighbors, where each iteration is a
+    //    combination of edges in the two subtrees.  The first combination is
+    //    skipped, if it would reverse the bisection (if the neighboring nodes
+    //    are both of degree 1 or 3).
+
+    // Generate the edge lists.
+    CxEdgeRingsGet(bisection->edge, &ringA, &ringB);
+    if (CxpTreeTbrBEdgeSetsGen(self, data, ringA, ringB))
+    {
+	rVal = true;
+	goto RETURN;
+    }
+
+    // Calculate the offset of the neighbor from the beginning of this edge's
+    // reconnection combination enumeration.
+    rem = aNeighbor - bisection->offset;
+
+    // Avoid the first combination, if it would reverse the bisection.
+    degreeA = CxNodeDegree(CxRingNode(ringA));
+    degreeB = CxNodeDegree(CxRingNode(ringB));
+    if ((degreeA == 1 || degreeA == 3) && (degreeB == 1 || degreeB == 3))
+    {
+	rem++;
+    }
+
+    *rReconnectA = data->edgeSets[rem / data->nSetB];
+    *rReconnectB = data->edgeSets[data->nSetA + (rem % data->nSetB)];
+    CxmAssert(*rReconnectA != NULL || *rReconnectB != NULL);
 
     rVal = false;
     RETURN:
@@ -531,7 +971,7 @@ CxTreeTbrNeighborGetPargs(CxtTreeObject *self, PyObject *args)
     unsigned nneighbors, neighbor;
     CxtEdgeObject *bisect, *reconnectA, *reconnectB;
 
-    if (PyArg_ParseTuple(args, "I", &neighbor) == 0)
+    if (PyArg_ParseTuple(args, "i", &neighbor) == 0)
     {
 	rVal = NULL;
 	goto RETURN;
@@ -558,10 +998,22 @@ CxTreeTbrNeighborGetPargs(CxtTreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    rVal = Py_BuildValue("(O!O!O!)",
-			 &CxtEdge, bisect,
-			 &CxtEdge, reconnectA,
-			 &CxtEdge, reconnectB);
+    // reconnect[AB] may be NULL, which must be translated to None.
+    if (reconnectA == NULL)
+    {
+	Py_INCREF(Py_None);
+	reconnectA = (CxtEdgeObject *) Py_None;
+    }
+    else if (reconnectB == NULL)
+    {
+	Py_INCREF(Py_None);
+	reconnectB = (CxtEdgeObject *) Py_None;
+    }
+
+    rVal = Py_BuildValue("(OOO)",
+			 (PyObject *) bisect,
+			 (PyObject *) reconnectA,
+			 (PyObject *) reconnectB);
     RETURN:
     return rVal;
 }
