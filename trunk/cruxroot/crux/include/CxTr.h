@@ -411,10 +411,6 @@ CxTrEdgeNew(CxtTr *aTr);
 void
 CxTrEdgeDelete(CxtTr *aTr, CxtTrEdge aEdge);
 
-/* Get node aI of the edge (aI must be 0 or 1). */
-CxtTrNode
-CxTrEdgeNodeGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aI);
-
 /* Get the edge length. */
 double
 CxTrEdgeLengthGet(CxtTr *aTr, CxtTrEdge aEdge);

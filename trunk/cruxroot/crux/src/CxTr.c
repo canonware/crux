@@ -392,16 +392,6 @@ CxTrEdgeDelete(CxtTr *aTr, CxtTrEdge aEdge)
     CxpTrEdgeDealloc(aTr, aEdge);
 }
 
-// XXX Make private, or remove?
-CxtTrNode
-CxTrEdgeNodeGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd)
-{
-    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    CxmAssert(aEnd == 0 || aEnd == 1);
-
-    return CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, aEnd));
-}
-
 double
 CxTrEdgeLengthGet(CxtTr *aTr, CxtTrEdge aEdge)
 {
@@ -442,8 +432,10 @@ CxTrEdgeAttach(CxtTr *aTr, CxtTrEdge aEdge, CxtTrNode aNodeA,
     CxtTrRing ring;
 
     CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    CxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 0) == CxmTrNodeNone);
-    CxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 1) == CxmTrNodeNone);
+    CxmDassert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 0))
+	       == CxmTrNodeNone);
+    CxmDassert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 1))
+	       == CxmTrNodeNone);
     CxmDassert(CxpTrNodeValidate(aTr, aNodeA));
     CxmDassert(CxpTrNodeValidate(aTr, aNodeB));
     CxmAssert(aNodeA != aNodeB);
@@ -477,10 +469,15 @@ CxTrEdgeDetach(CxtTr *aTr, CxtTrEdge aEdge)
     CxtTrn *trn;
 
     CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    CxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 0) != CxmTrNodeNone);
-    CxmDassert(CxTrEdgeNodeGet(aTr, aEdge, 1) != CxmTrNodeNone);
-    CxmAssert(CxTrNodeDistance(aTr, CxTrEdgeNodeGet(aTr, aEdge, 0),
-			       CxTrEdgeNodeGet(aTr, aEdge, 1)) == 1);
+    CxmDassert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 0))
+	       == CxmTrNodeNone);
+    CxmDassert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 1))
+	       == CxmTrNodeNone);
+    CxmAssert(CxTrNodeDistance(aTr,
+			       CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge,
+								    0)),
+			       CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge,
+								    1))) == 1);
 
     /* Detach from neighboring nodes.  Use CxmQliRemove() to make sure that the
      * nodes still point to their rings. */
@@ -2925,8 +2922,8 @@ CxTrTbr(CxtTr *aTr, CxtTrEdge aBisect, CxtTrEdge aReconnectA,
 
     /* Get the nodes to either side of the edge where the bisection will be
      * done. */
-    nodeA = CxTrEdgeNodeGet(aTr, aBisect, 0);
-    nodeB = CxTrEdgeNodeGet(aTr, aBisect, 1);
+    nodeA = CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aBisect, 0));
+    nodeB = CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aBisect, 1));
 
     /* Bisect.  aBisect will be used below for reconnection. */
     CxTrEdgeDetach(aTr, aBisect);
