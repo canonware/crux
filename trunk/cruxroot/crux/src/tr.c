@@ -205,16 +205,22 @@ trn_delete(cw_trn_t *a_trn)
     /* XXX */
 }
 
-cw_tx_t *
-trn_tx_get(cw_trn_t *a_trn)
+cw_uint32_t
+trn_taxon_num_get(cw_trn_t *a_trn)
 {
-    return NULL; /* XXX */
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+
+    return a_trn->taxon_num;
 }
 
 void
-trn_tx_set(cw_trn_t *a_trn, cw_tx_t *a_tx)
+trn_taxon_num_set(cw_trn_t *a_trn, cw_uint32_t a_taxon_num)
 {
-    /* XXX */
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+
+    a_trn->taxon_num = a_taxon_num;
 }
 
 cw_trn_t *

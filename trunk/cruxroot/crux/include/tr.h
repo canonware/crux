@@ -25,8 +25,8 @@ struct cw_trn_s
     /* If non-NULL, then the node was dynamically allocated. */
     cw_mema_t *mema;
 
-    /* If NULL, then the node is not a leaf node. */
-    cw_tx_t *tx;
+    /* If 0xffffffff, then the node is not a leaf node. */
+    cw_uint32_t taxon_num;
 
     /* Pointers to neighbors.  Only the first two elements are used if the node
      * is a leaf node. */
@@ -56,11 +56,11 @@ trn_new(cw_trn_t *a_trn, cw_mema_t *a_mema);
 void
 trn_delete(cw_trn_t *a_trn);
 
-cw_tx_t *
-trn_tx_get(cw_trn_t *a_trn);
+cw_uint32_t
+trn_taxon_num_get(cw_trn_t *a_trn);
 
 void
-trn_tx_set(cw_trn_t *a_trn, cw_tx_t *a_tx);
+trn_taxon_num_set(cw_trn_t *a_trn, cw_uint32_t a_taxon_num);
 
 cw_trn_t *
 trn_neighbor_get(cw_trn_t *a_trn, cw_uint32_t a_i);
