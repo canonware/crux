@@ -14,7 +14,7 @@
 #undef CxmCcSilence
 
 #ifndef CxmAssertions
-#undef CxmAssert
+#undef CxmAssertions
 #endif
 
 #undef WORDS_BIGENDIAN
