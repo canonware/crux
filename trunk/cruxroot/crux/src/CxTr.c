@@ -2617,8 +2617,7 @@ CxpTrBisectionEdgeListMp(CxtTr *aTr, CxtTrEdge *aEdges,
  * this an unbiased process, but there is no need for that functionality at the
  * moment. */
 CxmpInline bool
-CxpTrHold(CxtTr *aTr, uint32_t aMaxHold, uint32_t aNeighbor,
-	  uint32_t aScore)
+CxpTrHold(CxtTr *aTr, uint32_t aMaxHold, uint32_t aNeighbor, uint32_t aScore)
 {
     bool retval;
 
@@ -2641,7 +2640,7 @@ CxpTrHold(CxtTr *aTr, uint32_t aMaxHold, uint32_t aNeighbor,
 					      * aTr->heldlen * 2);
 	    aTr->heldlen *= 2;
 	}
-	
+
 	/* Hold this tree. */
 	trh = &aTr->held[aTr->nheld];
 	trh->neighbor = aNeighbor;
@@ -2662,17 +2661,17 @@ CxpTrHold(CxtTr *aTr, uint32_t aMaxHold, uint32_t aNeighbor,
 /* Calculate the Fitch parsimony scores for all TBR neighbors of aTr, and hold
  * results according to the function parameters. */
 CxmpInline void
-CxpTrTbrNeighborsMp(CxtTr *aTr, uint32_t aMaxHold,
-		    uint32_t aMaxscore, CxtTrHoldHow aHow)
+CxpTrTbrNeighborsMp(CxtTr *aTr, uint32_t aMaxHold, uint32_t aMaxscore,
+		    CxtTrHoldHow aHow)
 {
-    uint32_t neighbor, i, j, k, curmax, score;
+    uint32_t neighbor, i, j, k, curMax, score;
     CxtTrEdge bisect, edgeA, edgeB;
     CxtTrNode nodeA, nodeB;
     CxtTrPs *psA, *psB;
 
     CxmDassert(CxpTrValidate(aTr));
 
-    curmax = aMaxscore;
+    curMax = aMaxscore;
 
     /* Set up tree holding data structures. */
     aTr->nheld = 0;
@@ -2689,9 +2688,9 @@ CxpTrTbrNeighborsMp(CxtTr *aTr, uint32_t aMaxHold,
 	/* Calculate the partial score for each edge in the edge lists.  Don't
 	 * bother scoring the trees if either subtree exceeds the max score. */
 	if (CxpTrBisectionEdgeListMp(aTr, aTr->bedges,
-				     aTr->nbedgesA, bisect, curmax)
+				     aTr->nbedgesA, bisect, curMax)
 	    || CxpTrBisectionEdgeListMp(aTr, &aTr->bedges[aTr->nbedgesA],
-					aTr->nbedgesB, bisect, curmax))
+					aTr->nbedgesB, bisect, curMax))
 	{
 	    neighbor += (aTr->trt[i + 1].offset - aTr->trt[i].offset);
 	    continue;
@@ -2731,43 +2730,37 @@ CxpTrTbrNeighborsMp(CxtTr *aTr, uint32_t aMaxHold,
 		}
 
 		/* Calculate the final parsimony score for this reconnection. */
-		score = CxpTrMpFscore(aTr, psA, psB, curmax);
+		score = CxpTrMpFscore(aTr, psA, psB, curMax);
 
 		/* Hold the tree, if appropriate. */
 		switch (aHow)
 		{
 		    case CxeTrHoldBest:
 		    {
-			if (score < curmax)
+			if (score == curMax)
 			{
-			    aTr->nheld = 0;
+			    /* This tree is as good as those currently held. */
+			    CxpTrHold(aTr, aMaxHold, neighbor, score);
 			}
-
-			if (score <= curmax || aTr->nheld == 0)
+			else if (score < curMax)
 			{
-			    /* No trees held, or this tree is as good as those
-			     * currently held. */
-			    if (CxpTrHold(aTr, aMaxHold, neighbor, score))
-			    {
-				/* No more room for trees. */
-				curmax = score - 1;
-			    }
-			    else
-			    {
-				curmax = score;
-			    }
+			    /* No trees held, or this tree is better than those
+			     * currently held.  Throw away previously held trees
+			     * and hold this one. */
+			    aTr->nheld = 0;
+			    CxpTrHold(aTr, aMaxHold, neighbor, score);
+			    curMax = score;
 			}
 			break;
 		    }
 		    case CxeTrHoldBetter:
 		    {
-			if (score <= curmax)
+			if (score <= curMax)
 			{
 			    /* No trees held, or this (neighboring) tree is
 			     * better than the tree whose neighbors are being
 			     * evaluated. */
 			    CxpTrHold(aTr, aMaxHold, neighbor, score);
-			    curmax = score - 1;
 			}
 			break;
 		    }
