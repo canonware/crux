@@ -14,8 +14,7 @@
  * manipulated via the tr_edge_*() APIs.
  *
  * Nodes and edges are allocated from per-tr internal arrays.  This allows array
- * indices to be used for links between nodes and edges.  The primary benefit,
- * however, is that tr_dup() does not need to traverse the tree.
+ * indices to be used for links between nodes and edges.
  *
  * Each edge has two ring objects associated with it, one for each end of the
  * edge.  These ring objects are also allocated from an internal array that has
@@ -1512,73 +1511,6 @@ tr_p_update(cw_tr_t *a_tr)
 
 	/* Clear held trees. */
 	a_tr->nheld = 0;
-    }
-}
-
-CW_P_INLINE void
-tr_p_dup(cw_tr_t *a_tr, cw_tr_t *a_orig)
-{
-    uint32_t i;
-
-    tr_p_update(a_orig);
-    cw_dassert(tr_p_validate(a_orig));
-
-    a_tr->base = a_orig->base;
-    a_tr->ntaxa = a_orig->ntaxa;
-    a_tr->nedges = a_orig->nedges;
-
-    /*
-     * Copy trn-related data structures.
-     */
-
-    /* Allocate trns the same size as a_orig's, then copy. */
-    if (a_orig->trns != NULL)
-    {
-	a_tr->trns = (cw_trn_t *) cw_malloc(sizeof(cw_trn_t) * a_orig->ntrns);
-	memcpy(a_tr->trns, a_orig->trns, sizeof(cw_trn_t) * a_orig->ntrns);
-	a_tr->ntrns = a_orig->ntrns;
-
-	/* Clean up the copied trn's. */
-	for (i = 0; i < a_tr->ntrns; i++)
-	{
-	    a_orig->trns[i].u.aux = NULL;
-	}
-
-	/* The spare trns list is the same as for a_orig. */
-	a_tr->sparetrns = a_orig->sparetrns;
-    }
-
-    /*
-     * Copy tre-related data structures.
-     */
-
-    if (a_orig->tres != NULL)
-    {
-	/* Allocate tres the same size as a_orig's, then copy. */
-	a_tr->tres = (cw_tre_t *) cw_malloc(sizeof(cw_tre_t) * a_orig->ntres);
-	memcpy(a_tr->tres, a_orig->tres, sizeof(cw_tre_t) * a_orig->ntres);
-	a_tr->ntres = a_orig->ntres;
-
-	/* Clean up the copied tre's. */
-	for (i = 0; i < a_tr->ntres; i++)
-	{
-	    a_orig->tres[i].u.aux = NULL;
-	    a_orig->tres[i].ps = NULL;
-	}
-
-	/* The spare tres list is the same as for a_orig. */
-	a_tr->sparetres = a_orig->sparetres;
-
-	/* Alocate trrs the same size as a_orig's, then copy. */
-	a_tr->trrs = (cw_trr_t *) cw_malloc(sizeof(cw_trr_t)
-					      * a_orig->ntres * 2);
-	memcpy(a_tr->trrs, a_orig->trrs,
-	       sizeof(cw_trr_t *) * a_orig->ntres * 2);
-
-	for (i = 0; i < a_tr->ntres * 2; i++)
-	{
-	    a_orig->trrs[i].ps = NULL;
-	}
     }
 }
 
@@ -3130,18 +3062,6 @@ tr_new(void)
 
     retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
     tr_p_new(retval);
-
-    return retval;
-}
-
-cw_tr_t *
-tr_dup(cw_tr_t *a_tr)
-{
-    cw_tr_t *retval;
-
-    retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
-    tr_p_new(retval);
-    tr_p_dup(retval, a_tr);
 
     return retval;
 }

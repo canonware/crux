@@ -32,10 +32,6 @@ tr_new(void);
 void
 tr_delete(cw_tr_t *a_tr);
 
-/* Create a duplicate copy of a tree. */
-cw_tr_t *
-tr_dup(cw_tr_t *a_tr);
-
 /* Get the number of taxa in the tree. */
 uint32_t
 tr_ntaxa_get(cw_tr_t *a_tr);
