@@ -134,10 +134,12 @@ tr_p_trn2parens_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
 			cw_trn_t *a_prev);
 static void
 tr_p_trn2parens(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn);
+static int
+tr_p_taxon_num_compar(const void *a_a, const void *a_b);
 static void
 tr_p_trn2perm_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
 		      cw_trn_t *a_prev, cw_uint32_t *a_unchosen,
-		      cw_uint32_t a_nunchosen);
+		      cw_uint32_t *a_nunchosen);
 static void
 tr_p_trn2perm(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_mema_t *a_mema,
 	      cw_trn_t *a_trn, cw_uint32_t a_ntaxa);
@@ -312,6 +314,8 @@ tr_p_trn2parens_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
     }
 }
 
+/* Convert a_trn to parenthetical form, and store the results in a_tr, starting
+ * at a_bitind. */
 static void
 tr_p_trn2parens(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn)
 {
@@ -330,20 +334,98 @@ tr_p_trn2parens(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn)
     *a_bitind++;
 }
 
+     void *
+     bsearch(const void *key, const void *base, size_t nmemb, size_t size,
+             int (*compar) (const void *, const void *));
+
+/* Comparison function passed to bsearch(3) when searching for a taxon to build
+ * a taxa permutation. */
+static int
+tr_p_taxon_num_compar(const void *a_a, const void *a_b)
+{
+    int retval;
+    cw_uint32_t *a = (cw_uint32_t *) a_a;
+    cw_uint32_t *b = (cw_uint32_t *) a_b;
+
+    if (a < b)
+    {
+	retval = -1;
+    }
+    else if (a > b)
+    {
+	retval = 1;
+    }
+    else
+    {
+	retval = 0;
+    }
+
+    return retval;
+}
+
 static void
 tr_p_trn2perm_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
 		      cw_trn_t *a_prev, cw_uint32_t *a_unchosen,
 		      cw_uint32_t *a_nunchosen)
 {
-    cw_error("XXX Not implemented");
+    cw_uint32_t i;
+
+    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    {
+	cw_uint32_t *taxon, offset, nbits;
+
+	/* Leaf node. */
+
+	/* Get the offset of this taxon within the array of unchosen taxa. */
+	taxon = (cw_uint32_t *) bsearch(&a_trn->taxon_num,
+					a_unchosen, *a_nunchosen,
+					sizeof(cw_uint32_t),
+					tr_p_taxon_num_compar);
+	cw_check_ptr(taxon);
+	offset = (cw_uint32_t) (taxon - a_unchosen);
+
+	/* Determine how many bits to use in storing this choice. */
+	nbits = tr_p_log2ceil(*a_nunchosen);
+
+	/* Remove the taxon from the array of unchosen taxa. */
+	if (offset < *a_nunchosen - 1)
+	{
+	    memmove(&a_unchosen[offset], &a_unchosen[offset + 1],
+		    (*a_nunchosen - offset - 1) * sizeof(cw_uint32_t));
+	}
+	*a_nunchosen--;
+
+	/* Store this choice. */
+	for (i = 0; i < nbits; i++)
+	{
+	    TR_BIT_SET(a_tr, *a_bitind, ((offset >> (nbits - i - 1) & 0x1)));
+	    *a_bitind++;
+	}
+    }
+    else
+    {
+	/* Internal node. */
+	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	{
+	    if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
+	    {
+		tr_p_trn2perm_recurse(a_tr, a_bitind, a_trn->neighbors[i],
+				      a_trn, a_unchosen, a_nunchosen);
+	    }
+	}
+    }
 }
 
+/* Convert the ordering of taxa in a_trn to a taxa permutation, and store the
+ * results in a_tr, starting at a_bitind. */
 static void
 tr_p_trn2perm(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_mema_t *a_mema,
 	      cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 {
     cw_uint32_t i;
     cw_uint32_t *unchosen, nunchosen;
+
+    cw_assert(a_trn->taxon_num == 0);
 
     /* Create a taxon permutation from a_trn.  This requires maintaining a list
      * of the taxa that remain to be chosen from.  An array of taxon numbers is
