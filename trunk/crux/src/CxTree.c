@@ -2917,7 +2917,7 @@ PyTypeObject CxtRing =
     0,			// setattrofunc tp_setattro
     0,			// PyBufferProcs *tp_as_buffer
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // long tp_flags
-    "Ring(): Create the C portion of an ring.",	// char *tp_doc
+    "Ring(): Create the C portion of a ring.",	// char *tp_doc
     (traverseproc) CxpRingTraverse,	// traverseproc tp_traverse
     (inquiry) CxpRingClear,	// inquiry tp_clear
     0,			// richcmpfunc tp_richcompare

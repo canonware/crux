@@ -177,7 +177,7 @@ class Tree(C_Tree):
         if randomBranchCallback == None:
             randomBranchCallback = _defaultRandomBranchCallback
 
-        # Create a stack of leaf nodes.
+        # Create a list of leaf nodes.
         subtrees = []
         for i in forints(ntaxa):
             nnode = Node.Node(self)
@@ -186,9 +186,9 @@ class Tree(C_Tree):
             if taxonMap == None:
                 self._taxonMap.map("T%d" % i, i)
 
-        # Iteratively randomly remove two items from the stack, join them, and
-        # push the result back onto the stack.  Stop when there are two subtrees
-        # left.
+        # Iteratively randomly remove two items from the list, join them, and
+        # insert the result back into the list.  Stop when there are two
+        # subtrees left.
         while len(subtrees) > 2:
             subtreeA = subtrees.pop(random.randint(0, len(subtrees) - 1))
             subtreeB = subtrees.pop(random.randint(0, len(subtrees) - 1))
