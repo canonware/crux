@@ -11,21 +11,21 @@
 
 #include "../include/_cruxmodule.h"
 
-typedef struct cw_tree_njd_s cw_tree_njd_t;
-typedef struct cw_tree_njr_s cw_tree_njr_t;
+typedef struct CxsTreeNjd CxtTreeNjd;
+typedef struct CxsTreeNjr CxtTreeNjr;
 
-/* Used by CxTree_nj() to represent a distance matrix cell. */
-struct cw_tree_njd_s
+/* Used by CxTreeNj() to represent a distance matrix cell. */
+struct CxsTreeNjd
 {
     double dist;  /* Distance. */
     double trans; /* Transformed distance. */
 };
 
-/* Used by CxTree_nj(). */
-struct cw_tree_njr_s
+/* Used by CxTreeNj(). */
+struct CxsTreeNjr
 {
     double r;
-    double r_scaled;   /* r/(m-2)). */
+    double rScaled;   /* r/(m-2)). */
     CxtCxtNodeObject *node; /* Associated node. */
 };
 
@@ -38,18 +38,18 @@ struct cw_tree_njr_s
  *                          2
  */
 CxmpInline uint32_t
-tr_p_nj_xy2i(uint32_t a_n, uint32_t a_x, uint32_t a_y)
+CxpTreeNjXy2i(uint32_t aN, uint32_t aX, uint32_t aY)
 {
-    if (a_x > a_y)
+    if (aX > aY)
     {
 	uint32_t t;
 
-	t = a_x;
-	a_x = a_y;
-	a_y = t;
+	t = aX;
+	aX = aY;
+	aY = t;
     }
 
-    return a_n * a_x + a_y - (((a_x + 3) * a_x) / 2) - 1;
+    return aN * aX + aY - (((aX + 3) * aX) / 2) - 1;
 }
 
 /*
@@ -99,59 +99,59 @@ tr_p_nj_xy2i(uint32_t a_n, uint32_t a_x, uint32_t a_y)
  *   |   2.0 |   5.0 |   6.7 |   7.7 |   8.7 |	
  *   \-------+-------+-------+-------+-------/
  */
-//#define XXX_NJ_VERBOSE
+//#define CxmTreeNjVerbose
 static void
-tree_p_nj(CxtCxtTreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
+CxpTreeNj(CxtCxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
 {
-    cw_tree_njd_t *d, *d_prev, *t_d; /* Distance matrix. */
-    cw_tree_njr_t *r; /* Distance sums. */
-    uint32_t nleft, i, x, y, i_min, x_min, y_min, x_new, y_new;
-    double dist_x, dist_y;
+    CxtTreeNjd *d, *dPrev, *tD; /* Distance matrix. */
+    CxtTreeNjr *r; /* Distance sums. */
+    uint32_t nleft, i, x, y, iMin, xMin, yMin, xNew, yNew;
+    double distX, distY;
     CxtCxtNodeObject *node;
-    CxtCxtEdgeObject *edge_x, *edge_y, *edge;
+    CxtCxtEdgeObject *edgeX, *edgeY, *edge;
 
-    cxmCheckPtr(a_distances);
-    cxmAssert(a_ntaxa > 1);
+    cxmCheckPtr(aDistances);
+    cxmAssert(aNtaxa > 1);
 
     /* Allocate an array that is large enough to hold the distances. */
-    d = (cw_tree_njd_t *) CxmMalloc(sizeof(cw_tree_njd_t)
-				    * (tr_p_nj_xy2i(a_ntaxa,
-						    a_ntaxa - 2,
-						    a_ntaxa - 1)
+    d = (CxtTreeNjd *) CxmMalloc(sizeof(CxtTreeNjd)
+				    * (CxpTreeNjXy2i(aNtaxa,
+						    aNtaxa - 2,
+						    aNtaxa - 1)
 				       + 1));
-    /* d_prev can be smaller, since it won't be used until the matrix is shrunk
+    /* dPrev can be smaller, since it won't be used until the matrix is shrunk
      * once. */
-    d_prev = (cw_tree_njd_t *) CxmMalloc(sizeof(cw_tree_njd_t)
-					 * (tr_p_nj_xy2i(a_ntaxa,
-							 a_ntaxa - 3,
-							 a_ntaxa - 2)
+    dPrev = (CxtTreeNjd *) CxmMalloc(sizeof(CxtTreeNjd)
+					 * (CxpTreeNjXy2i(aNtaxa,
+							 aNtaxa - 3,
+							 aNtaxa - 2)
 					    + 1));
 
     /* Initialize untransformed distances. */
-    for (x = i = 0; x < a_ntaxa; x++)
+    for (x = i = 0; x < aNtaxa; x++)
     {
-	for (y = x + 1; y < a_ntaxa; y++)
+	for (y = x + 1; y < aNtaxa; y++)
 	{
-	    d[i].dist = a_distances[x * a_ntaxa + y];
+	    d[i].dist = aDistances[x * aNtaxa + y];
 
 	    i++;
 	}
     }
 
     /* Allocate an array that is large enough to hold all the distance sums. */
-    r = (cw_tree_njr_t *) CxmMalloc(sizeof(cw_tree_njr_t) * a_ntaxa);
+    r = (CxtTreeNjr *) CxmMalloc(sizeof(CxtTreeNjr) * aNtaxa);
 
     /* Create a node for each taxon in the matrix. */
-    for (i = 0; i < a_ntaxa; i++)
+    for (i = 0; i < aNtaxa; i++)
     {
-	r[i].node = CxNodeNew(a_tree);
+	r[i].node = CxNodeNew(aTree);
 	CxNodeTaxonNumSetCargs(r[i].node, i);
     }
 
     /* Iteratitively join two nodes in the matrix, until only two are left. */
-    for (nleft = a_ntaxa; nleft > 2; nleft--)
+    for (nleft = aNtaxa; nleft > 2; nleft--)
     {
-#ifdef XXX_NJ_VERBOSE
+#ifdef CxmTreeNjVerbose
 	fprintf(stderr, "Size: %u\n", nleft);
 #endif
 
@@ -175,31 +175,31 @@ tree_p_nj(CxtCxtTreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
 
 	for (i = 0; i < nleft; i++)
 	{
-	    r[i].r_scaled = r[i].r / (nleft - 2);
+	    r[i].rScaled = r[i].r / (nleft - 2);
 	}
 
 	/* Calculate trans (transformed distance) for each pairwise distance.
 	 * Keep track of the minimum trans, so that the corresponding nodes can
 	 * be joined.  Ties are broken arbitrarily (the first minimum found is
 	 * used). */
-	for (x = i = 0, i_min = x_min = 0, y_min = 1; x < nleft; x++)
+	for (x = i = 0, iMin = xMin = 0, yMin = 1; x < nleft; x++)
 	{
 	    for (y = x + 1; y < nleft; y++)
 	    {
-		d[i].trans = d[i].dist - ((r[x].r_scaled + r[y].r_scaled));
+		d[i].trans = d[i].dist - ((r[x].rScaled + r[y].rScaled));
 
-		if (d[i].trans < d[i_min].trans)
+		if (d[i].trans < d[iMin].trans)
 		{
-		    i_min = i;
-		    x_min = x;
-		    y_min = y;
+		    iMin = i;
+		    xMin = x;
+		    yMin = y;
 		}
 
 		i++;
 	    }
 	}
 
-#ifdef XXX_NJ_VERBOSE
+#ifdef CxmTreeNjVerbose
 	fprintf(stderr,
 		"----------------------------------------"
 		"----------------------------------------\n");
@@ -222,7 +222,7 @@ tree_p_nj(CxtCxtTreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
 
 		i++;
 	    }
-	    fprintf(stderr, " || %8.4f\n", r[x].r_scaled);
+	    fprintf(stderr, " || %8.4f\n", r[x].rScaled);
 
 	    fprintf(stderr, "\n");
 	}
@@ -230,55 +230,55 @@ tree_p_nj(CxtCxtTreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
 	
 
 	/* Join the nodes with the minimum transformed distance. */
-	node = CxNodeNew(a_tree);
-#ifdef XXX_NJ_VERBOSE
+	node = CxNodeNew(aTree);
+#ifdef CxmTreeNjVerbose
 	fprintf(stderr, "New node %ld %p\n",
 		PyInt_AsLong(CxNodeTaxonNumGet(node)), node);
 #endif
-	edge_x = CxEdgeNew(a_tree);
-	CxEdgeAttachCargs(edge_x, node, r[x_min].node);
-	dist_x = (d[i_min].dist + r[x_min].r_scaled - r[y_min].r_scaled) / 2;
-	CxEdgeLengthSetCargs(edge_x, dist_x);
-#ifdef XXX_NJ_VERBOSE
+	edgeX = CxEdgeNew(aTree);
+	CxEdgeAttachCargs(edgeX, node, r[xMin].node);
+	distX = (d[iMin].dist + r[xMin].rScaled - r[yMin].rScaled) / 2;
+	CxEdgeLengthSetCargs(edgeX, distX);
+#ifdef CxmTreeNjVerbose
 	fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
-		PyInt_AsLong(CxNodeTaxonNumGet(r[x_min].node)), r[x_min].node,
-		dist_x);
+		PyInt_AsLong(CxNodeTaxonNumGet(r[xMin].node)), r[xMin].node,
+		distX);
 #endif
 
-	edge_y = CxEdgeNew(a_tree);
-	CxEdgeAttachCargs(edge_y, node, r[y_min].node);
-	dist_y = d[i_min].dist - dist_x;
-	CxEdgeLengthSetCargs(edge_y, dist_y);
-#ifdef XXX_NJ_VERBOSE
+	edgeY = CxEdgeNew(aTree);
+	CxEdgeAttachCargs(edgeY, node, r[yMin].node);
+	distY = d[iMin].dist - distX;
+	CxEdgeLengthSetCargs(edgeY, distY);
+#ifdef CxmTreeNjVerbose
 	fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
-		PyInt_AsLong(CxNodeTaxonNumGet(r[y_min].node)), r[y_min].node,
-		dist_y);
+		PyInt_AsLong(CxNodeTaxonNumGet(r[yMin].node)), r[yMin].node,
+		distY);
 #endif
 
 	/* Swap to new matrix. */
-	t_d = d;
-	d = d_prev;
-	d_prev = t_d;
+	tD = d;
+	d = dPrev;
+	dPrev = tD;
 
 	/* Create compacted matrix. */
-	for (x = i = 0, x_new = 0; x < nleft; x++)
+	for (x = i = 0, xNew = 0; x < nleft; x++)
 	{
-	    if (x != x_min && x != y_min)
+	    if (x != xMin && x != yMin)
 	    {
-		for (y = x + 1, y_new = x_new + 1; y < nleft; y++)
+		for (y = x + 1, yNew = xNew + 1; y < nleft; y++)
 		{
-		    if (y != x_min && y != y_min)
+		    if (y != xMin && y != yMin)
 		    {
-			d[tr_p_nj_xy2i(nleft - 1, x_new, y_new)].dist
-			    = d_prev[i].dist;
+			d[CxpTreeNjXy2i(nleft - 1, xNew, yNew)].dist
+			    = dPrev[i].dist;
 
-			y_new++;
+			yNew++;
 		    }
 
 		    i++;
 		}
 
-		x_new++;
+		xNew++;
 	    }
 	    else
 	    {
@@ -287,62 +287,62 @@ tree_p_nj(CxtCxtTreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
 	}
 
 	/* Calculate distances to new node. */
-	for (x = 0, x_new = 0; x < nleft; x++)
+	for (x = 0, xNew = 0; x < nleft; x++)
 	{
-	    if (x != x_min && x != y_min)
+	    if (x != xMin && x != yMin)
 	    {
-		d[tr_p_nj_xy2i(nleft - 1, x_new, nleft - 2)].dist
-		    = ((d_prev[tr_p_nj_xy2i(nleft, x, x_min)].dist - dist_x)
-		       + (d_prev[tr_p_nj_xy2i(nleft, x, y_min)].dist - dist_y)
+		d[CxpTreeNjXy2i(nleft - 1, xNew, nleft - 2)].dist
+		    = ((dPrev[CxpTreeNjXy2i(nleft, x, xMin)].dist - distX)
+		       + (dPrev[CxpTreeNjXy2i(nleft, x, yMin)].dist - distY)
 		       ) / 2;
 
-		x_new++;
+		xNew++;
 	    }
 	}
 
 	/* Compact and update r. */
 	// XXX Do this in a single pass?
-	memmove(&r[y_min], &r[y_min + 1],
-		sizeof(cw_tree_njr_t) * (nleft - y_min - 1));
-	memmove(&r[x_min], &r[x_min + 1],
-		sizeof(cw_tree_njr_t) * (nleft - x_min - 1));
+	memmove(&r[yMin], &r[yMin + 1],
+		sizeof(CxtTreeNjr) * (nleft - yMin - 1));
+	memmove(&r[xMin], &r[xMin + 1],
+		sizeof(CxtTreeNjr) * (nleft - xMin - 1));
 	r[nleft - 2].node = node;
     }
 
     /* Join the remaining two nodes. */
-#ifdef XXX_NJ_VERBOSE
+#ifdef CxmTreeNjVerbose
     fprintf(stderr, "Join last two nodes: %ld %p and %ld %p\n",
 	    PyInt_AsLong(CxNodeTaxonNumGet(r[0].node)), r[0].node,
 	    PyInt_AsLong(CxNodeTaxonNumGet(r[1].node)), r[1].node);
 #endif
-    edge = CxEdgeNew(a_tree);
+    edge = CxEdgeNew(aTree);
     CxEdgeAttachCargs(edge, r[0].node, r[1].node);
     CxEdgeLengthSetCargs(edge, d[0].dist);
 
     /* Set the tree base. */
-    CxTreeBaseSetCargs(a_tree, r[0].node);
+    CxTreeBaseSetCargs(aTree, r[0].node);
 
     /* Clean up. */
     CxmFree(d);
-    CxmFree(d_prev);
+    CxmFree(dPrev);
     CxmFree(r);
 }
 
 PyObject *
-CxTree_nj(CxtCxtTreeObject *self, PyObject *args)
+CxTreeNj(CxtCxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval, *dist_list, *tobj;
+    PyObject *retval, *distList, *tobj;
     double *distances;
     uint32_t ntaxa, nelms, i;
     bool okay;
 
-    if (PyArg_ParseTuple(args, "O!", &PyList_Type, &dist_list) == 0)
+    if (PyArg_ParseTuple(args, "O!", &PyList_Type, &distList) == 0)
     {
 	retval = NULL;
 	goto RETURN;
     }
 
-    nelms = PyList_Size(dist_list);
+    nelms = PyList_Size(distList);
     ntaxa = sqrt(nelms);
     if (ntaxa * ntaxa != nelms)
     {
@@ -359,7 +359,7 @@ CxTree_nj(CxtCxtTreeObject *self, PyObject *args)
 	okay = true;
 	for (i = 0; i < nelms; i++)
 	{
-	    tobj = PyList_GetItem(dist_list, i);
+	    tobj = PyList_GetItem(distList, i);
 	    if (PyFloat_Check(tobj))
 	    {
 		distances[i] = PyFloat_AsDouble(tobj);
@@ -378,26 +378,26 @@ CxTree_nj(CxtCxtTreeObject *self, PyObject *args)
 
 	if (okay)
 	{
-	    CxtTrNode old_tr_node, tr_node;
+	    CxtTrNode oldTrNode, trNode;
 	    CxtCxtNodeObject *node;
 
-	    old_tr_node = CxTrBaseGet(self->tr);
+	    oldTrNode = CxTrBaseGet(self->tr);
 
 	    /* Neighbor-join. */
-	    tree_p_nj(self, distances, ntaxa);
+	    CxpTreeNj(self, distances, ntaxa);
 
 	    /* Reference new base. */
-	    tr_node = CxTrBaseGet(self->tr);
-	    if (tr_node != CxmTrNodeNone)
+	    trNode = CxTrBaseGet(self->tr);
+	    if (trNode != CxmTrNodeNone)
 	    {
-		node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, tr_node);
+		node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, trNode);
 		Py_INCREF(node);
 	    }
 
 	    /* Decref old base. */
-	    if (old_tr_node != CxmTrNodeNone)
+	    if (oldTrNode != CxmTrNodeNone)
 	    {
-		node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, old_tr_node);
+		node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
 		Py_DECREF(node);
 	    }
 	}

@@ -277,7 +277,7 @@ static PyMethodDef tree_p_methods[] =
     },
     {
 	"_nj",
-	(PyCFunction) CxTree_nj,
+	(PyCFunction) CxTreeNj,
 	METH_VARARGS,
 	"_nj"
     },

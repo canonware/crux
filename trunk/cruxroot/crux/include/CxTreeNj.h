@@ -12,4 +12,4 @@
 /* Create a tree from a symmetric pair-wise distance matrix, using the
  * neighbor-joining algorithm. */
 PyObject *
-CxTree_nj(CxtCxtTreeObject *self, PyObject *args);
+CxTreeNj(CxtCxtTreeObject *self, PyObject *args);
