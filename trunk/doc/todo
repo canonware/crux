@@ -1,3 +1,8 @@
+* Add validation code in the DistMatrix parser that detects duplicate taxon
+  labels and raises an exception.
+
+* Fix crashes due to not catching eval errors in the tree wrapper code.
+
 * Modify DistMatrix so that the token and distance accept methods are
   over-ridable, then subclass it inside of the NJ code, and add the ability to
   do NJ given a file or string, rather than just a pre-constructed distance
@@ -20,7 +25,7 @@
   tr code supports.
 
 * Fix edge length printing for trees (one edge length is printed in two places
-  sometimes).
+  sometimes).  Fix this by unrooting the tree during printing.
 
 ================================================================================
 
