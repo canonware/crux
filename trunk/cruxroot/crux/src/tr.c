@@ -1089,9 +1089,21 @@ trn_tree_ntaxa_get(cw_trn_t *a_trn)
 cw_uint32_t
 trn_tree_nedges_get(cw_trn_t *a_trn)
 {
+    cw_uint32_t retval, ntaxa;
+
     cw_dassert(trn_p_tree_validate(a_trn));
 
-    return ((trn_p_tree_ntaxa_get(a_trn, NULL) * 2) - 3);
+    ntaxa = trn_p_tree_ntaxa_get(a_trn, NULL);
+    if (ntaxa > 1)
+    {
+	retval = (ntaxa * 2) - 3;
+    }
+    else
+    {
+	retval = 0;
+    }
+
+    return retval;
 }
 
 /* Recursively traverse the tree and find the lowest numbered taxon. */
@@ -1258,6 +1270,8 @@ trn_p_tree_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
 		    cw_uint32_t *r_neighbor)
 {
     cw_uint32_t edge_count = 0;
+
+    cw_assert(trn_tree_ntaxa_get(a_trn) > 1);
 
     trn_p_tree_edge_get_recurse(a_trn, a_edge, NULL, &edge_count,
 				r_trn, r_neighbor);
