@@ -158,26 +158,24 @@ void
 tr_node_taxon_num_set(cw_tr_t *a_tr, cw_tr_node_t a_node,
 		      uint32_t a_taxon_num);
 
-/* Get neighbor a_i of the node. */
-cw_tr_node_t
-tr_node_neighbor_get(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i);
+/* Get the first edge in a_node's edge ring. */
+void
+tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node,
+		 cw_tr_edge_t *r_edge, uint32_t *r_i);
 
 /* Swap two neighbors of a node. */
 void
-tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i,
-		       uint32_t a_j);
+tr_node_edges_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_edge_t a_a,
+		   uint32_t a_a_i, cw_tr_edge_t a_b, uint32_t a_b_i);
 
 /* Join two nodes. */
 void
-tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b);
+tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b,
+	     cw_tr_edge_t a_edge);
 
 /* Detatch two nodes. */
-void
-tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b);
-
-/* Get edge a_i of the node. */
 cw_tr_edge_t
-tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i);
+tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b);
 
 /* Get the value of the auxiliary pointer associated with the node. */
 void *
@@ -188,12 +186,30 @@ void
 tr_node_aux_set(cw_tr_t *a_tr, cw_tr_node_t a_node, void *a_aux);
 
 /******************************************************************************/
-//XXX
+
 /* tr_edge. */
+
+/* Constructor. */
+cw_tr_edge_t
+tr_edge_new(cw_tr_t *a_tr);
+
+/* Destructor. */
+void
+tr_edge_delete(cw_tr_t *a_tr, cw_tr_edge_t a_edge);
 
 /* Get node a_i of the edge (a_i must be 0 or 1). */
 cw_tr_node_t
 tr_edge_node_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i);
+
+/* Get the next edge in the edge ring at the a_i end of a_edge. */
+void
+tr_edge_next_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
+		 cw_tr_edge_t *r_next, uint32_t *r_i);
+
+/* Get the previous edge in the edge ring at the a_i end of a_edge. */
+void
+tr_edge_prev_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
+		 cw_tr_edge_t *r_prev, uint32_t *r_i);
 
 /* Get the edge length. */
 double
@@ -202,3 +218,11 @@ tr_edge_length_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge);
 /* Set the edge length. */
 void
 tr_edge_length_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, double a_length);
+
+/* Get the value of the auxiliary pointer associated with the edge. */
+void *
+tr_edge_aux_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge);
+
+/* Set the value of the auxiliary pointer associated with the edge. */
+void
+tr_edge_aux_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, void *a_aux);

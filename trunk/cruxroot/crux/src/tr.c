@@ -81,6 +81,14 @@ struct cw_trnr_s
     /* Edge this trnr is embedded in. */
     cw_tr_edge_t edge;
 
+    /* Which element of the nodes field in cw_tre_t that this structure is
+     * embedded in (either 0 or 1).  Toggling the index back and forth is
+     * achieved by:
+     *
+     *   (trnr->end ~ 1)
+     */
+    uint32_t end;
+
     /* Node whose ring this trnr is a part of. */
     cw_tr_node_t node;
 
@@ -352,8 +360,37 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 
 /* tr_edge. */
 
+cw_tr_edge_t
+tr_edge_new(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_edge_delete(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
+{
+    cw_error("XXX Not implemented");
+}
+
 cw_tr_node_t
 tr_edge_node_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i)
+{
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+    cw_assert(a_i == 0 || a_i == 1);
+
+    return a_tr->tres[a_edge].nodes[a_i].node;
+}
+
+void
+tr_edge_next_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
+		 cw_tr_edge_t *r_next, uint32_t *r_i)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_edge_prev_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
+		 cw_tr_edge_t *r_prev, uint32_t *r_i)
 {
     cw_error("XXX Not implemented");
 }
@@ -361,11 +398,27 @@ tr_edge_node_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i)
 double
 tr_edge_length_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge);
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+
+    return a_tr->tres[a_edge].length;
 }
 
 void
 tr_edge_length_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, double a_length);
+{
+    cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+
+    a_tr->tres[a_edge].length = a_length;
+}
+
+void *
+tr_edge_aux_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_edge_aux_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, void *a_aux)
 {
     cw_error("XXX Not implemented");
 }
@@ -494,17 +547,18 @@ tr_node_taxon_num_set(cw_tr_t *a_tr, cw_tr_node_t a_node,
     a_tr->modified = true;
 }
 
-cw_tr_node_t
-tr_node_neighbor_get(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i)
+void
+tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node,
+		 cw_tr_edge_t *r_edge, uint32_t *r_i)
 {
     cw_dassert(tr_p_node_validate(a_tr, a_node));
 
-    return a_tr->trns[a_node].neighbors[a_i];
+    cw_error("XXX Not implemented");
 }
 
 void
-tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i,
-		       uint32_t a_j)
+tr_node_edges_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_edge_t a_a,
+		   uint32_t a_a_i, cw_tr_edge_t a_b, uint32_t a_b_i)
 {
     cw_tr_node_t t_node;
 
@@ -520,8 +574,10 @@ tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i,
     a_tr->modified = true;
 }
 
+// XXX Use a_edge.
 void
-tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
+tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b,
+	     cw_tr_edge_t a_edge)
 {
     cw_trn_t *trn_a, *trn_b;
     uint32_t i, j;
@@ -563,7 +619,8 @@ tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
     cw_dassert(tr_p_node_validate(a_tr, a_b));
 }
 
-void
+// XXX Return edge.
+cw_tr_edge_t
 tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
 {
     cw_trn_t *trn_a, *trn_b;
@@ -595,12 +652,6 @@ tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
 
     cw_dassert(tr_p_node_validate(a_tr, a_a));
     cw_dassert(tr_p_node_validate(a_tr, a_b));
-}
-
-cw_tr_edge_t
-tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i)
-{
-    cw_error("XXX Not implemented");
 }
 
 void *
