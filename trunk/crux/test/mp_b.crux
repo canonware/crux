@@ -25,7 +25,7 @@ A
 G
 """)
 
-taxonMap = crux.TaxonMap.TaxonMap(['a', 'b', 'c', 'd', 'e'])
+taxonMap = ctm.taxonMapGet()
 t = crux.Tree.Tree('((a,b),(c,(d,e)));', taxonMap=taxonMap)
 
 t.mpPrepare(ctm)
