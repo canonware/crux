@@ -21,4 +21,14 @@ Anyway, I don't know that it's worthwhile implementing randomization, but it
 probably is worth mentioning in the paper about this algorithm.
 
 --------------------------------------------------------------------------------
+26 September 2004
+--------------------------------------------------------------------------------
+
+It may make sense to argue that Crux's NJ implementation is better for tree
+sampling, since it potentially generates more trees, without breaking the
+constraints of the NJ algorithm.  Exact ties seldom show up when using IEEE
+floating point math, so unless an approximate equality test is used, the
+standard NJ algorithm is especially limiting with regard to tree sampling.
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------

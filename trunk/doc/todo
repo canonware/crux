@@ -1,3 +1,5 @@
+* Implement the Robinson-Foulds distance measure.
+
 * Add isSymmetric(), symmetricize(), and unsymmetricize() methods to DistMatrix
   class.
 
