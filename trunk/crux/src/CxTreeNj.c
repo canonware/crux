@@ -398,6 +398,8 @@ CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
     /* Insert the new node into r. */
     aNodes[aXMin] = aNode;
 
+    // XXX Use dElm in this function and others that do not.
+
     /* Calculate distances to the new node, and add them to r.  This clobbers
      * old distances, just after the last time they are needed. */
     for (x = 0,
@@ -590,22 +592,152 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     }
 
     retval = true;
-    // XXX Move randomization to matrix initialization, and expose it as an
-    // option.
-#ifdef CxmTreeNjRandomize
-    {
-	static bool inited = false;
+    RETURN:
+    return retval;
+}
 
-	if (inited == false)
-	{
-	    time_t t;
-	    time(&t);
-	    srand(t);
-	    inited = true;
-	}
-	retval = rand() & 1;
+/* Compare two distances, and consider them equal if they are close enough. */
+CxmpInline bool
+CxpTreeNjDistEq(float aA, float aB)
+{
+    bool retval;
+    float diff;
+    // XXX What is a reasonable value for this?
+#define CxmTreeNjMaxRound 0.0000001
+
+    diff = aA - aB;
+    if (diff > CxmTreeNjMaxRound || diff < -CxmTreeNjMaxRound)
+    {
+	retval = false;
+	goto RETURN;
     }
-#endif
+
+    retval = true;
+    RETURN:
+    return retval;
+}
+
+/* Make sure that clustering aA and aB would not change the distances between
+ * nodes.  This must be done in order to make sure that we get the true tree, in
+ * the case that the distance matrix corresponds to precisely one tree.
+ * If the distance matrix is inconsistent though, there is no need to do this
+ * check. */
+CxmpInline bool
+CxpTreeNjPairClusterExact(float *aD, float *aRScaled, long aNleft,
+			  long aA, long aB)
+{
+    bool retval;
+    long iAB, x, iA, iB;
+    float distA, distB, dist;
+
+    /* Calculate distances from {aA,aB} to the new node. */
+    iAB = CxpTreeNjXy2i(aNleft, aA, aB);
+    distA = (aD[iAB] + aRScaled[aA] - aRScaled[aB]) / 2;
+    distB = aD[iAB] - distA;
+
+    // XXX Reverse order of following three loops, for improved cache
+    // performance.
+
+    /* Calculate distances to the new node, and make sure that they are
+     * consistent with the current distances. */
+    for (x = 0,
+	     iA = aA - 1,
+	     iB = aB - 1;
+	 x < aA;
+	 x++)
+    {
+	dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
+	iA += aNleft - 2 - x;
+	iB += aNleft - 2 - x;
+
+	if (CxpTreeNjDistEq(dist + distA, aD[CxpTreeNjXy2i(aNleft, x, aA)])
+	    == false)
+	{
+	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
+		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, x, aA)],
+		    x, aA);
+	    retval = false;
+	    goto RETURN;
+	}
+
+	if (CxpTreeNjDistEq(dist + distB, aD[CxpTreeNjXy2i(aNleft, x, aB)])
+	    == false)
+	{
+	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
+		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, x, aB)],
+		    x, aB);
+	    retval = false;
+	    goto RETURN;
+	}
+    }
+
+    /* (x == aA) */
+    iB += aNleft - 2 - x;
+    x++;
+
+    for (;
+	 x < aB;
+	 x++)
+    {
+	iA++;
+	dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
+	iB += aNleft - 2 - x;
+
+	if (CxpTreeNjDistEq(dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)])
+	    == false)
+	{
+	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
+		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)],
+		    aA, x);
+	    retval = false;
+	    goto RETURN;
+	}
+
+	if (CxpTreeNjDistEq(dist + distB, aD[CxpTreeNjXy2i(aNleft, x, aB)])
+	    == false)
+	{
+	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
+		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, x, aB)],
+		    x, aB);
+	    retval = false;
+	    goto RETURN;
+	}
+    }
+
+    /* (x == aB) */
+    iA++;
+    x++;
+
+    for (;
+	 x < aNleft;
+	 x++)
+    {
+	iA++;
+	iB++;
+	dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
+
+	if (CxpTreeNjDistEq(dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)])
+	    == false)
+	{
+	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
+		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)],
+		    aA, x);
+	    retval = false;
+	    goto RETURN;
+	}
+
+	if (CxpTreeNjDistEq(dist + distB, aD[CxpTreeNjXy2i(aNleft, aB, x)])
+	    == false)
+	{
+	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
+		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, aB, x)],
+		    x, aA);
+	    retval = false;
+	    goto RETURN;
+	}
+    }
+
+    retval = true;
     RETURN:
     return retval;
 }
@@ -623,10 +755,13 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
  *
  * 3) If x and min can be clustered, do so, then immediately try to cluster with
  *    x again (as long as collapsing the matrix didn't move row x). */
-static void
+static bool
 CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
-		 CxtNodeObject ***arNodes, long *arNleft, CxtTreeObject *aTree)
+		 CxtNodeObject ***arNodes, long *arNleft, CxtTreeObject *aTree,
+		 bool aExact)
 {
+    bool retval = false;
+    bool exact = aExact;
     long x, y, min;
     float *dElm;
     float dist, minDist, distX, distY;
@@ -666,8 +801,33 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 	    min = x + 1;
 	}
 
-	if (CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min))
+	if (CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min)
+	    && (exact == false ||
+		(exact = CxpTreeNjPairClusterExact(d, rScaled, nleft, x,
+						    min))))
 	{
+	    retval = true;
+	    // XXX Move randomization to matrix initialization, and expose it as
+	    // an option.
+#ifdef CxmTreeNjRandomize
+	    {
+		static bool inited = false;
+
+		if (inited == false)
+		{
+		    time_t t;
+		    time(&t);
+		    srand(t);
+		    inited = true;
+		}
+
+		if (rand() & 1)
+		{
+		    x++;
+		    continue;
+		}
+	    }
+#endif
 #ifdef CxmTreeNjDump
 	    CxpTreeNjDump(d, r, rScaled, nodes, nleft);
 #endif
@@ -706,6 +866,20 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
     *arRScaled = rScaled;
     *arNodes = nodes;
     *arNleft = nleft;
+    if (aExact == false)
+    {
+	retval = false;
+    }
+    // XXX Remove.
+    if (retval == false)
+    {
+	fprintf(stderr, "Next round will be in non-exact mode\n");
+    }
+    else
+    {
+	fprintf(stderr, "Next round will be in exact mode\n");
+    }
+    return retval;
 }
 
 /* Create a tree from a pairwise distance matrix, using the neighbor-joining
@@ -762,6 +936,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
     long nleft;
     CxtNodeObject *node;
+    bool exact;
 #ifdef CxmTreeNjVerbose
     time_t t;
     struct tm *tm;
@@ -789,10 +964,12 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     nleft = aNtaxa;
 
     /* Iteratively try all clusterings, until only two rows are left. */
+    exact = true;
     CxpTreeNjRScaledUpdate(rScaled, r, nleft);
     while (nleft > 2)
     {
-	CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree);
+	exact = CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree,
+				 exact);
     }
 
     node = CxpTreeNjFinalJoin(d, nodes, aTree);
