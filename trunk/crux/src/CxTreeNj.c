@@ -161,6 +161,7 @@ CxpTreeNjDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 	{
 	    fprintf(stderr, " || i %p\n", aNodes[x]);
 	}
+	Py_DECREF(result);
     }
 }
 #endif
@@ -561,7 +562,7 @@ CxpTreeNjDistEq(float aA, float aB)
     bool retval;
     float ratio;
     // XXX What is a reasonable value for this?  Rounding error appears to start
-    // showing up at 1.0e-7.
+    // showing up at 1.0e-7, when using the x87 FPU.
 #define CxmTreeNjMaxDiff 1.0e-6
 
     ratio = aA / aB;
