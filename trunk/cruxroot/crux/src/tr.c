@@ -1183,6 +1183,8 @@ tr_p_ntaxa_nedges_update(cw_tr_t *a_tr)
 	tr_p_lowest(a_tr, a_tr->base, &ntaxa, CW_TR_NODE_NONE);
     }
 
+    // XXX This doesn't work for multifurcating trees.  Actually count the
+    // edges in tr_p_lowest() recursion.
     a_tr->ntaxa = ntaxa;
     if (ntaxa > 1)
     {
@@ -1677,43 +1679,6 @@ tr_p_bisection_patch(cw_tr_t *a_tr, cw_tr_node_t a_node)
 
     /* Join. */
     tr_node_join(a_tr, a, b);
-}
-
-/* Bisect a_tr at a_edge, and return the nodes adjacent to the bisection. */
-CW_P_INLINE void
-tr_p_bisect(cw_tr_t *a_tr, uint32_t a_edge,
-	    cw_tr_node_t *r_node_a, cw_tr_node_t *r_node_b)
-{
-    cw_assert(a_edge < a_tr->nedges);
-
-    /* Get the nodes to either side of the edge where the bisection will be
-     * done. */
-    *r_node_a = a_tr->tresXXX[a_edge].node_a;
-    *r_node_b = a_tr->tresXXX[a_edge].node_b;
-
-#ifdef CW_DBG
-    /* Assert that nodes are directly connected.  Node validation makes sure
-     * that the connection is bi-directional, if it exists, so only bother
-     * checking in one direction. */
-    {
-	uint32_t i;
-	bool connected;
-
-	for (i = 0, connected = false; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
-	{
-	    if (a_tr->trns[*r_node_a].neighbors[i] == *r_node_b)
-	    {
-		connected = true;
-		break;
-	    }
-	}
-	cw_assert(connected);
-    }
-#endif
-    cw_dassert(tr_p_reachable(a_tr, *r_node_a, CW_TR_NODE_NONE, *r_node_b));
-
-    /* Detach the two nodes. */
-    tr_node_detach(a_tr, *r_node_a, *r_node_b);
 }
 
 /* Determine whether the subtree of a tree bisection is ready for
@@ -2799,9 +2764,34 @@ tr_canonize(cw_tr_t *a_tr)
     cw_dassert(tr_p_validate(a_tr));
 }
 
+// XXX TBR can change the number of nodes and edges in a multifurcating tree.
+// This throws a monkey wrench in things, since nodes and edges need to be
+// allocated in Onyx code.
+//
+// One partial solution would be to pass spares in.  However, what do we do with
+// unused or discarded nodes/edges?  We can't deallocate them (that's the
+// GC's job), but leaving them laying around makes this code unsuitable for use
+// outside the context of GC.  (Well, there is never a case where discarding
+// nodes/edges is necessary.  Additionally, it's possible to return whether
+// spares were actually used.)
+//
+// Another solution is to provide a C-level TBR API that returns pointers to any
+// newly allocated nodes/edges.  These can then be wrapped by the glue code
+// after the fact.  The main disadvantage I see for this is that there are GC
+// races; a GC must not occur while there are nodes/edges without corresponding
+// Onyx objects, since reference iteration becomes *much* harder to get right.
+//
+// Is there a reasonable way to provide an allocation callback function?  Yes,
+// this can be done.  This is the cleanest solution, from an Onyx-level
+// perspective.  It also avoids extra work in the common case (trifurcating
+// trees).  It's rather gross (and slow) though.  A C function will have to call
+// (assuming tree is on ostack):
+//
+//   cw_onyx_code(a_thread, "dup treenode:new");
+//
 void
-tr_tbr(cw_tr_t *a_tr, uint32_t a_bisect, uint32_t a_reconnect_a,
-       uint32_t a_reconnect_b)
+tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
+       cw_tr_edge_t a_reconnect_b)
 {
     cw_tr_node_t node_a, node_b;
     uint32_t ready_a, ready_b;
@@ -2809,9 +2799,47 @@ tr_tbr(cw_tr_t *a_tr, uint32_t a_bisect, uint32_t a_reconnect_a,
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
 
-    /* Bisect. */
-    tr_p_bisect(a_tr, a_bisect, &node_a, &node_b);
+    /* Get the nodes to either side of the edge where the bisection will be
+     * done. */
+    node_a = tr_edge_node_get(a_tr, a_edge, 0);
+    node_b = tr_edge_node_get(a_tr, a_edge, 1);
 
+    /* Bisect. */
+    tr_edge_detach(a_tr, a_edge);
+    
+
+    /* For node_[ab], extract the node if it has only two neighbors.  If one of
+     * the adjacent edges happens to be a reconnection edge, preserve it and
+     * discard the other edge, so that reconnection to the edge works. */
+    tr_p_node_extract(a_tr, node_a, a_reconnect_a, a_reconnect_b)
+
+    /* node_a. */
+    trn_a = &a_tr->trns[node_a];
+    degree = 0;
+    qli_foreach(ring, &trn_a->rings, a_tr->trrs, link)
+    {
+	degree++;
+    }
+    if (degree == 2)
+    {
+	ring = qli_first(&trn_a->rings);
+	if (tr_p_ring_edge_get(a_tr, ring) == a_reconnect_a
+	    || tr_p_ring_edge_get(a_tr, ring) == a_reconnect_b)
+	{
+	    /* This edge is a reconnection edge; remove the other edge
+	    ring = qri_next(a_tr->trrs, ring, link);
+	}
+    }
+    
+    // XXX
+
+    /* For each reconnection edge, splice a node into the edge. */
+    // XXX
+
+    /* Attach the two spliced-in nodes. */
+    // XXX
+
+#if (0)//XXX
     /* For each subtree, move the node adjacent to the bisection to the
      * reconnection edge.  However, there are three case for which no changes to
      * a subtree are necessary:
@@ -2866,9 +2894,11 @@ tr_tbr(cw_tr_t *a_tr, uint32_t a_bisect, uint32_t a_reconnect_a,
 
     /* Reconnect. */
     tr_node_join(a_tr, node_a, node_b);
+#endif//XXX
 
     /* All changes since the last tr_p_update() call were related to TBR, and we
      * know that this does not impact ntaxa or nedges. */
+    // XXX Not true re: nedges!
     a_tr->modified = false;
 
     /* Update trt. */

@@ -59,8 +59,8 @@ tr_canonize(cw_tr_t *a_tr);
 
 /* Perform TBR. */
 void
-tr_tbr(cw_tr_t *a_tr, uint32_t a_bisect, uint32_t a_reconnect_a,
-       uint32_t a_reconnect_b);
+tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
+       cw_tr_edge_t a_reconnect_b);
 
 /* Get the number of neighboring trees reachable via TBR. */
 uint32_t
