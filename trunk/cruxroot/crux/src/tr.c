@@ -44,8 +44,12 @@ struct cw_tr_ps_s
     /* chars points to an array of Fitch parsimony state sets.  Each element in
      * the array contains a bitmap representation of a subset of {ACGT} in the 4
      * least significant bits.  T is the least significant bit.  1 means that a
-     * nucleotide is in the set. */
+     * nucleotide is in the set.
+     *
+     * achars is the actual allocation, which is padded by 15 bytes in order to
+     * be able to guarantee that chars is 16 byte-aligned. */
     cw_trc_t *chars;
+    cw_trc_t *achars;
     cw_uint32_t nchars;
 };
 
@@ -266,7 +270,8 @@ tr_p_ps_delete(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
     {
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
-			  a_ps->chars, sizeof(cw_trc_t) * a_ps->nchars);
+			  a_ps->achars,
+			  sizeof(cw_trc_t) * (a_ps->nchars + 15));
     }
 
     cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
@@ -283,17 +288,31 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_uint32_t a_nchars)
     {
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
-			  a_ps->chars, sizeof(cw_trc_t) * a_ps->nchars);
+			  a_ps->achars,
+			  sizeof(cw_trc_t) * (a_ps->nchars + 15));
 	a_ps->chars = NULL;
     }
 
     /* Allocate character vector if necessary. */
     if (a_ps->chars == NULL)
     {
-	a_ps->chars
+	a_ps->achars
 	    = (cw_trc_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
 					   mema_arg_get(a_tr->mema),
-					   sizeof(cw_trc_t) * a_nchars);
+					   sizeof(cw_trc_t)
+					   * (a_nchars + 15));
+
+	/* Make sure that chars is 16 byte-allocated. */
+	if ((((unsigned) a_ps->achars) & 0xfU) == 0)
+	{
+	    a_ps->chars = a_ps->achars;
+	}
+	else
+	{
+	    a_ps->chars
+		= &a_ps->achars[16 - (((unsigned) a_ps->achars) & 0xfU)];
+	}
+
 	a_ps->nchars = a_nchars;
     }
 }
@@ -1711,7 +1730,9 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
 }
 
 #ifdef CW_CPU_IA32
-CW_P_INLINE cw_uint32_t
+//XXX
+//CW_P_INLINE cw_uint32_t
+static cw_uint32_t
 tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		    cw_tr_ps_t *a_b)
 {
@@ -1719,8 +1740,8 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     /* Only calculate the parent's node score if the cached value is invalid. */
     if (a_a->parent != a_p || a_b->parent != a_p)
     {
-	cw_uint32_t i, ngroups, nchars, ns, a, b, p, c, s;
-	cw_trc_t *chars_p, *chars_a, *chars_b;
+	cw_uint32_t nchars, ns;
+	cw_trc_t *chars_p, *chars_a, *chars_b, *pend;
 
 	/* Calculate sum of subtree scores. */
 	a_p->subtrees_score
@@ -1748,198 +1769,132 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 	/* Use SSE2 to evaluate as many of the characters as possible.  This
 	 * loop handles 16 characters per iteration. */
-	for (i = 0, ngroups = a_p->nchars ^ (a_p->nchars & 0xf); i < ngroups;)
+
+	/* Fill xmm6 with 16 255's.
+	 * Fill xmm7 with 16 1's. */
 	{
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
+	    static const unsigned char ones[] =
+		"\x01\x01\x01\x01\x01\x01\x01\x01"
+		"\x01\x01\x01\x01\x01\x01\x01\x01";
+	    static const unsigned char max[] =
+		"\xff\xff\xff\xff\xff\xff\xff\xff"
+		"\xff\xff\xff\xff\xff\xff\xff\xff";
 
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
+	    asm volatile (
+		"movdqu %[ones], %%xmm6;" /* xmm6 contains 16 1's. */
+		"movdqu %[max], %%xmm7;" /* xmm7 contains 16 255's. */
+		:
+		: [ones] "m" (*ones), [max] "m" (*max)
+		: "%xmm6", "%xmm7"
+		);
+	}
 
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
+	/* Clear pns. */
+	asm ("pxor %xmm5, %xmm5;");
 
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
+	// XXX Use prefetch?
+	for (pend = &chars_p[nchars ^ (nchars & 0xf)];
+	     chars_p < pend;
+	     chars_p += 16, chars_a += 16, chars_b += 16)
+	{
+	    asm volatile (
+		/* Read character data, and'ing and or'ing them together.
+		 *
+		 * a = *chars_a;
+		 * b = *chars_b;
+		 * p = a & b;
+		 * d = a | b;
+		 */
+		"movdqa %[a], %%xmm0;" /* xmm0 contains a. */
+		"movdqa %[b], %%xmm2;" /* xmm2 contains b. */
+		"movdqa %%xmm2, %%xmm1;"
+		"pand %%xmm0, %%xmm1;" /* xmm1 contains p. */
+		"por %%xmm1, %%xmm0;" /* xmm0 contains d. */
 
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
+		/* Create bitmasks according to whether the character state sets
+		 * are empty.
+		 *
+		 * s = p ? 0 : 1;
+		 */
+		"movdqa %%xmm1, %%xmm2;"
+		"pminub %%xmm6, %%xmm2;"
+		"pxor %%xmm6, %%xmm2;" /* xmm2 contains s. */
 
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
+		/* Update node score.
+		 *
+		 * ns += s;
+		 */
+		// XXX In the worst case, this only works 255 times.
+		"paddusb %%xmm2, %%xmm5;"
 
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
+		/* c = -s; */
+		"paddusb %%xmm7, %%xmm2;" /* xmm2 contains c. */
 
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
+		/* p = (p | (c & d)); */
+		"pand %%xmm2, %%xmm0;"
+		"por %%xmm1, %%xmm0;" /* xmm0 contains p. */
 
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
+		/* Store results.
+		 *
+		 * *chars_p = p;
+		 */
+		"movdqa %%xmm0, %[p];"
+		: [p] "=m" (*chars_p)
+		: [a] "m" (*chars_a), [b] "m" (*chars_b)
+		: "memory"
+		);
 
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
+#if (0) // XXX
+	    {
+		unsigned char bytes[16];
 
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
+		asm volatile (
+		    "movdqa %%xmm0, %[bytes];"
+		    : [bytes] "=m" (*bytes)
+		    );
 
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
+		fprintf(stderr,
+			"bytes: %p, %02x %02x %02x %02x %02x %02x %02x %02x"
+			" %02x %02x %02x %02x %02x %02x %02x %02x \n", bytes,
+			bytes[0], bytes[1], bytes[2], bytes[3],
+			bytes[4], bytes[5], bytes[6], bytes[7],
+			bytes[8], bytes[9], bytes[10], bytes[11],
+			bytes[12], bytes[13], bytes[14], bytes[15]);
+		exit(1);
+	    }
+#endif
+	}
 
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
+	/* Update ns. */
+	{
+	    unsigned char pns[16];
 
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
-	    /***************************/
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
-
-	    i++;
+	    asm volatile (
+		"movdqu %%xmm5, %[pns];"
+		: [pns] "=m" (*pns)
+		:
+		: "memory"
+	    );
 	}
 
 	/* Evaluate the last 0-15 characters that weren't evaluated in the above
 	 * loop. */
-	for (; i < nchars; i++)
 	{
-	    a = chars_a[i];
-	    b = chars_b[i];
+	    cw_uint32_t a, b, p, c, s;
 
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
+	    for (pend += (nchars & 0xf);
+		 chars_p < pend;
+		 chars_p++, chars_a++, chars_b++)
+	    {
+		a = *chars_a;
+		b = *chars_b;
+
+		p = a & b;
+		s = p ? 0 : 1;
+		c = -s;
+		*chars_p = (p | (c & (a | b)));
+		ns += s;
+	    }
 	}
 
 	a_p->node_score = ns;
