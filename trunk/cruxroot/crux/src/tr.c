@@ -81,12 +81,6 @@ struct cw_tre_s
     /* Used for Fitch parsimony scoring. */
     cw_tr_ps_t *ps;
     cw_uint32_t pscore;
-
-    /* Used to make sure that irrelevant edges are not used for Fitch parsimony
-     * scoring. */
-#ifdef CW_DBG
-    cw_bool_t tbr_mp_avoid;
-#endif
 };
 
 /* TBR neighbor. */
@@ -2047,9 +2041,6 @@ tr_p_bisection_edge_list_gen(cw_tr_t *a_tr, cw_tr_node_t a_node,
     {
 	/* Do not add edge to list, since logically, this edge and the one next
 	 * to a are the same for the purposes of TBR. */
-#ifdef CW_DBG
-	a_tr->tres[trn->edges[i_b]].tbr_mp_avoid = TRUE;
-#endif
 
 	tr_p_bisection_edge_list_gen_recurse(a_tr, b, a_node, ar_edges,
 					     ar_nedges);
@@ -2102,13 +2093,6 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 //		__FILE__, __LINE__, __FUNCTION__, i);
 	/* Determine which edges are in each subtree.  Make sure that
 	 * tre->node_[ab] and edges_[ab] correspond. */
-#ifdef CW_DBG
-	for (j = 0; j < a_tr->nedges; j++)
-	{
-	    a_tr->tres[j].tbr_mp_avoid = FALSE;
-	}
-	a_tr->tres[i].tbr_mp_avoid = TRUE;
-#endif
 	tr_p_bisection_edge_list_gen(a_tr, tre->node_a, tre->node_b,
 				     edges_a, &nedges_a);
 	edges_b = &edges_a[nedges_a];
@@ -2139,7 +2123,6 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 	    if (edge_a != CW_TR_NODE_EDGE_NONE)
 	    {
 		tre_a = &a_tr->tres[edge_a];
-		cw_dassert(tre_a->tbr_mp_avoid == FALSE);
 		ps_a = a_tr->tres[edge_a].ps;
 	    }
 	    else
@@ -2161,7 +2144,6 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 		if (edge_b != CW_TR_NODE_EDGE_NONE)
 		{
 		    tre_b = &a_tr->tres[edge_b];
-		    cw_dassert(tre_b->tbr_mp_avoid == FALSE);
 		    ps_b = a_tr->tres[edge_b].ps;
 		}
 		else
