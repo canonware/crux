@@ -11,109 +11,141 @@
 
 #include "../include/_cruxmodule.h"
 
+bool
+CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
+	  CxtEdgeObject *aReconnectA, CxtEdgeObject *aReconnectB)
+{
+    bool rVal;
+
+//     CxTrTbr(self->tr, aBisect, aReconnectA, aReconnectB);
+
+    rVal = false;
+    //RETURN:
+    return rVal;
+}
+
 PyObject *
-CxTreeTbr(CxtTreeObject *self, PyObject *args)
+CxTreeTbrPargs(CxtTreeObject *self, PyObject *args)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
 	;
-    uint32_t bisect, reconnectA, reconnectB;
+    CxtEdgeObject *bisect, *reconnectA, *reconnectB;
 
-    if (PyArg_ParseTuple(args, "(iii)", &bisect, &reconnectA, &reconnectB)
+    if (PyArg_ParseTuple(args, "(O!O!O!)",
+			 &CxtEdge, &bisect,
+			 &CxtEdge, &reconnectA,
+			 &CxtEdge, &reconnectB)
 	== 0)
     {
 	rVal = NULL;
 	goto RETURN;
     }
 
-    CxmXepBegin();
-    CxmXepTry
+    if (CxTreeTbr(self, bisect, reconnectA, reconnectB))
     {
-	CxTrTbr(self->tr, bisect, reconnectA, reconnectB);
-
-	Py_INCREF(Py_None);
-	rVal = Py_None;
-    }
-    CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
 	rVal = PyErr_NoMemory();
+	goto RETURN;
     }
-    CxmXepEnd();
 
+    Py_INCREF(Py_None);
+    rVal = Py_None;
     RETURN:
     return rVal;
 }
 
-PyObject *
-CxTreeTbrNneighborsGet(CxtTreeObject *self)
+bool
+CxTreeTbrNneighborsGet(CxtTreeObject *self, unsigned *rNneighbors)
 {
-    PyObject *rVal
-#ifdef CxmCcSilence
-	= NULL
-#endif
-	;
+    bool rVal;
 
-    CxmXepBegin();
-    CxmXepTry
-    {
-	rVal = Py_BuildValue("i", CxTrTbrNneighborsGet(self->tr));
-    }
-    CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	rVal = PyErr_NoMemory();
-    }
-    CxmXepEnd();
+    *rNneighbors = CxTrTbrNneighborsGet(self->tr);
 
+    rVal = false;
+    //RETURN:
     return rVal;
 }
 
 PyObject *
-CxTreeTbrNeighborGet(CxtTreeObject *self, PyObject *args)
+CxTreeTbrNneighborsGetPargs(CxtTreeObject *self)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
 	;
-    uint32_t neighbor, bisect, reconnectA, reconnectB;
+    unsigned nneighbors;
 
-    if (PyArg_ParseTuple(args, "i", &neighbor) == 0)
+    if (CxTreeTbrNneighborsGet(self, &nneighbors))
+    {
+	rVal = PyErr_NoMemory();
+	goto RETURN;
+    }
+
+    rVal = Py_BuildValue("I", nneighbors);
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeTbrNeighborGet(CxtTreeObject *self, unsigned aNeighbor,
+		     CxtEdgeObject **rBisect, CxtEdgeObject **rReconnectA,
+		     CxtEdgeObject **rReconnectB)
+{
+    bool rVal;
+
+//     CxTrTbrNeighborGet(self->tr, neighbor,
+// 		       &bisect, &reconnectA, &reconnectB);
+
+    rVal = false;
+    //RETURN:
+    return rVal;
+}
+
+PyObject *
+CxTreeTbrNeighborGetPargs(CxtTreeObject *self, PyObject *args)
+{
+    PyObject *rVal
+#ifdef CxmCcSilence
+	= NULL
+#endif
+	;
+    unsigned nneighbors, neighbor;
+    CxtEdgeObject *bisect, *reconnectA, *reconnectB;
+
+    if (PyArg_ParseTuple(args, "I", &neighbor) == 0)
     {
 	rVal = NULL;
 	goto RETURN;
     }
 
-    CxmXepBegin();
-    CxmXepTry
+    if (CxTreeTbrNneighborsGet(self, &nneighbors))
     {
-	if (neighbor >= CxTrTbrNneighborsGet(self->tr))
-	{
-	    CxError(CxgTreeValueError,
-		    "neighbor: %u is out of range [0..%u]",
-		    neighbor, CxTrTbrNneighborsGet(self->tr));
-	    rVal = NULL;
-	    Py_INCREF(PyExc_ValueError);
-	    rVal = PyExc_ValueError;
-	}
-	else
-	{
-	    CxTrTbrNeighborGet(self->tr, neighbor,
-				&bisect, &reconnectA, &reconnectB);
-
-	    rVal = Py_BuildValue("(iii)", bisect, reconnectA, reconnectB);
-	}
-    }
-    CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
 	rVal = PyErr_NoMemory();
+	goto RETURN;
     }
-    CxmXepEnd();
 
+    if (neighbor >= nneighbors)
+    {
+	CxError(CxgTreeValueError,
+		"neighbor: %u is out of range [0..%u]",
+		neighbor, nneighbors);
+	rVal = NULL;
+	goto RETURN;
+    }
+
+    if (CxTreeTbrNeighborGet(self, neighbor, &bisect, &reconnectA, &reconnectB))
+    {
+	rVal = PyErr_NoMemory();
+	goto RETURN;
+    }
+
+    rVal = Py_BuildValue("(O!O!O!)",
+			 &CxtEdge, bisect,
+			 &CxtEdge, reconnectA,
+			 &CxtEdge, reconnectB);
     RETURN:
     return rVal;
 }

@@ -9,11 +9,20 @@
 //
 //==============================================================================
 
+bool
+CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
+	  CxtEdgeObject *aReconnectA, CxtEdgeObject *aReconnectB);
 PyObject *
-CxTreeTbr(CxtTreeObject *self, PyObject *args);
+CxTreeTbrPargs(CxtTreeObject *self, PyObject *args);
 
+bool
+CxTreeTbrNneighborsGet(CxtTreeObject *self, unsigned *rNneighbors);
 PyObject *
-CxTreeTbrNneighborsGet(CxtTreeObject *self);
+CxTreeTbrNneighborsGetPargs(CxtTreeObject *self);
 
+bool
+CxTreeTbrNeighborGet(CxtTreeObject *self, unsigned aNeighbor,
+		     CxtEdgeObject **rBisect, CxtEdgeObject **rReconnectA,
+		     CxtEdgeObject **rReconnectB);
 PyObject *
-CxTreeTbrNeighborGet(CxtTreeObject *self, PyObject *args);
+CxTreeTbrNeighborGetPargs(CxtTreeObject *self, PyObject *args);
