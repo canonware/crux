@@ -82,7 +82,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     float *rOrig, *r; /* Distance sums. */
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
-    long nleft, i, x, y, iMin, xMin, yMin;
+    long nleft, i, x, y, iX, iY, iMin, xMin, yMin;
     float transMin, transCur;
     float distX, distY;
     CxtNodeObject *node;
@@ -293,38 +293,46 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 #endif
 
 	/* Subtract old distances from r. */
-	for (x = 0; x < nleft; x++)
+	for (x = 0, iX = CxpTreeNjXy2i(nleft, x, xMin); x < nleft; x++)
 	{
 	    if (x < xMin)
 	    {
-		dist = d[CxpTreeNjXy2i(nleft, x, xMin)];
+		dist = d[iX];
+		iX += nleft - 2 - x;
 		r[x] -= dist;
 		r[xMin] -= dist;
 	    }
 	    else if (x > xMin)
 	    {
-		dist = d[CxpTreeNjXy2i(nleft, xMin, x)];
+		iX++;
+		dist = d[iX];
 		r[x] -= dist;
 		r[xMin] -= dist;
 	    }
 	}
 
-	for (x = 0; x < nleft; x++)
+	for (x = 0, iY = CxpTreeNjXy2i(nleft, x, yMin); x < nleft; x++)
 	{
 	    if (x != xMin)
 	    {
 		if (x < yMin)
 		{
-		    dist = d[CxpTreeNjXy2i(nleft, x, yMin)];
+		    dist = d[iY];
+		    iY += nleft - 2 - x;
 		    r[x] -= dist;
 		    r[yMin] -= dist;
 		}
 		else if (x > yMin)
 		{
-		    dist = d[CxpTreeNjXy2i(nleft, yMin, x)];
+		    iY++;
+		    dist = d[iY];
 		    r[x] -= dist;
 		    r[yMin] -= dist;
 		}
+	    }
+	    else // (x == xMin)
+	    {
+		iY += nleft - 2 - x;
 	    }
 	}
 
@@ -335,13 +343,18 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 
 	/* Calculate distances to the new node, and add them to r.  This
 	 * clobbers old distances, just after the last time they are needed. */
-	for (x = 0; x < nleft; x++)
+	for (x = 0,
+		 iX = CxpTreeNjXy2i(nleft, x, xMin),
+		 iY = CxpTreeNjXy2i(nleft, x, yMin);
+	     x < nleft;
+	     x++)
 	{
 	    if (x < xMin)
 	    {
-		dist = ((d[CxpTreeNjXy2i(nleft, x, xMin)] - distX)
-			+ (d[CxpTreeNjXy2i(nleft, x, yMin)] - distY)) / 2;
-		d[CxpTreeNjXy2i(nleft, x, xMin)] = dist;
+		dist = ((d[iX] - distX) + (d[iY] - distY)) / 2;
+		d[iX] = dist;
+		iX += nleft - 2 - x;
+		iY += nleft - 2 - x;
 		r[x] += dist;
 		r[xMin] += dist;
 	    }
@@ -349,20 +362,30 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	    {
 		if (x < yMin)
 		{
-		    dist = ((d[CxpTreeNjXy2i(nleft, xMin, x)] - distX)
-			    + (d[CxpTreeNjXy2i(nleft, x, yMin)] - distY)) / 2;
-		    d[CxpTreeNjXy2i(nleft, xMin, x)] = dist;
+		    iX++;
+		    dist = ((d[iX] - distX) + (d[iY] - distY)) / 2;
+		    d[iX] = dist;
+		    iY += nleft - 2 - x;
 		    r[x] += dist;
 		    r[xMin] += dist;
 		}
 		else if (x > yMin)
 		{
-		    dist = ((d[CxpTreeNjXy2i(nleft, xMin, x)] - distX)
-			    + (d[CxpTreeNjXy2i(nleft, yMin, x)] - distY)) / 2;
-		    d[CxpTreeNjXy2i(nleft, xMin, x)] = dist;
+		    iX++;
+		    iY++;
+		    dist = ((d[iX] - distX) + (d[iY] - distY)) / 2;
+		    d[iX] = dist;
 		    r[x] += dist;
 		    r[xMin] += dist;
 		}
+		else // if (x == yMin)
+		{
+		    iX++;
+		}
+	    }
+	    else // if (x == xMin)
+	    {
+		iY += nleft - 2 - x;
 	    }
 	}
 
@@ -371,18 +394,23 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	 * constant time, whereas collapsing the gap directly would require a
 	 * series of memmove() calls, and leaving the gap would result in
 	 * increased cache misses. */
-	for (x = 1; x < nleft; x++)
+	for (x = 1,
+		 iX = CxpTreeNjXy2i(nleft, 0, x),
+		 iY = CxpTreeNjXy2i(nleft, x, yMin);
+	     x < nleft;
+	     x++)
 	{
 	    if (x < yMin)
 	    {
-		d[CxpTreeNjXy2i(nleft, x, yMin)]
-		    = d[CxpTreeNjXy2i(nleft, 0, x)];
+		d[iY] = d[iX];
+		iY += nleft - 2 - x;
 	    }
 	    else if (x > yMin)
 	    {
-		d[CxpTreeNjXy2i(nleft, yMin, x)]
-		    = d[CxpTreeNjXy2i(nleft, 0, x)];
+		iY++;
+		d[iY] = d[iX];
 	    }
+	    iX++;
 	}
 	/* Fill in the gap in r, rScaled, and nodes. */
 	r[yMin] = r[0];
