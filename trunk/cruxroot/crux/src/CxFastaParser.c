@@ -60,7 +60,6 @@ CxpFastaParserDelete(CxtFastaParserObject *self)
     {
 	free(self->buf);
     }
-    // XXX Delete i.s.string, if allocated?
     self->ob_type->tp_free((PyObject*) self);
 }
 
