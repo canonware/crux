@@ -2207,6 +2207,10 @@ tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 CW_P_INLINE void
 tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
+    /* Reset this node's parent pointer, to keep the parent from using an
+     * invalid cached value. */
+    a_p->parent = NULL;
+
 #ifdef CW_CPU_IA32
     if (modcrux_ia32_use_sse2)
     {
@@ -2273,10 +2277,6 @@ tr_p_mp_cache_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     }
 #endif
     {
-	/* Reset this node's parent pointer, to keep the parent from using an
-	 * invalid cached value. */
-	a_p->parent = NULL;
-
 	/* Set parent pointers, so that cached values may be used in future
 	 * runs. */
 	a_a->parent = a_p;
@@ -2337,6 +2337,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	    /* This is a trifurcating node that is adjacent to the bisection.
 	     * Return the child node's ps, since this node's ps is
 	     * irrelevant. */
+	    cw_assert(adjacent);
 
 	    /* Get the ring element that connects to the other portion of the
 	     * subtree on this side of the bisection. */
@@ -2344,7 +2345,6 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	    {
 		if (tr_p_ring_edge_get(a_tr, ring) != a_bisect)
 		{
-		    /* Recurse. */
 		    retval
 			= tr_p_mp_score_recurse(a_tr,
 						tr_p_ring_other_get(a_tr, ring),
@@ -2393,6 +2393,104 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
     return retval;
 }
 
+static void
+tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
+		      cw_tr_edge_t a_bisect)
+{
+    uint32_t degree;
+    bool adjacent;
+    cw_tr_ring_t ring;
+
+    /* Get the degree of the node.  Don't count the bisection edge (only an
+     * issue if this node is adjacent to the bisection). */
+    degree = 1;
+    adjacent = false;
+    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
+    {
+	if (tr_p_ring_edge_get(a_tr, ring) != a_bisect)
+	{
+	    degree++;
+	}
+	else
+	{
+	    adjacent = true;
+	}
+    }
+
+    switch (degree)
+    {
+	case 1:
+	{
+	    /* Leaf node.  Do nothing. */
+	    break;
+	}
+	case 2:
+	{
+	    /* This is a trifurcating node that is adjacent to the bisection.
+	     * Pass the parent's ps when recursing, since this node's ps is
+	     * irrelevant. */
+	    cw_assert(adjacent);
+
+	    /* Get the ring element that connects to the other portion of the
+	     * subtree on this side of the bisection. */
+	    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
+	    {
+		if (tr_p_ring_edge_get(a_tr, ring) != a_bisect)
+		{
+		    /* Recurse. */
+		    tr_p_mp_views_recurse(a_tr,
+					  tr_p_ring_other_get(a_tr, ring),
+					  a_ps,
+					  a_bisect);
+		    break;
+		}
+	    }
+	    break;
+	}
+	case 3:
+	{
+	    if (adjacent == false)
+	    {
+		cw_tr_ring_t ring_a, ring_b;
+		cw_tr_ring_t ring_a_other, ring_b_other;
+		cw_tr_ps_t *ps_a, *ps_b;
+		cw_tr_ps_t *ps_a_other, *ps_b_other;
+
+		/* This is a normal trifurcating node.  This is the common case,
+		 * and is handled separately from the code below for performance
+		 * reasons. */
+
+		/* Get all variables that are necessary for view calculation and
+		 * recursion. */
+		ring_a = qri_next(a_tr->trrs, a_ring, link);
+		ps_a = a_tr->trrs[ring_a].ps;
+		ring_a_other = tr_p_ring_other_get(a_tr, ring_a);
+		ps_a_other = a_tr->trrs[ring_a_other].ps;
+
+		ring_b = qri_next(a_tr->trrs, ring_a, link);
+		ps_b = a_tr->trrs[ring_b].ps;
+		ring_b_other = tr_p_ring_other_get(a_tr, ring_b);
+		ps_b_other = a_tr->trrs[ring_b_other].ps;
+
+		/* Calculate views and recurse. */
+		tr_p_mp_cache_pscore(a_tr, ps_a, a_ps, ps_b_other);
+		tr_p_mp_views_recurse(a_tr, ring_a_other, ps_a, a_bisect);
+
+		tr_p_mp_cache_pscore(a_tr, ps_b, a_ps, ps_a_other);
+		tr_p_mp_views_recurse(a_tr, ring_b_other, ps_b, a_bisect);
+
+		break;
+	    }
+	    /* Fall through if this node is adjacent to the bisection. */
+	}
+	default:
+	{
+	    /* This is a multifurcating node. */
+	    cw_error("XXX Not implemented");
+	}
+    }
+}
+
 /* Calculate the the score of a tree (or subtree, if a_bisect is set), and store
  * the result in a_root. */
 CW_P_INLINE void
@@ -2412,45 +2510,73 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_edge_t a_root, cw_tr_edge_t a_bisect)
     tr_p_mp_cache_pscore(a_tr, a_tr->tres[a_root].ps, ps_a, ps_b);
 }
 
-/* Calculate the partial score for each edge in a_edges. */
+/* Calculate the partial score for each edge in a_edges.  a_edges[0] must either
+ * be CW_TR_EDGE_NONE, or the edge connected to the node that is in turn
+ * connected to the bisection edge. */
 CW_P_INLINE void
 tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 			    uint32_t a_nedges, cw_tr_edge_t a_bisect)
 {
-    uint32_t i;
-#ifdef CW_DBG
-    uint32_t score = UINT_MAX;
-#endif
-
-    for (i = 0; i < a_nedges; i++)
+    if (a_edges[0] != CW_TR_EDGE_NONE)
     {
-	if (a_edges[i] != CW_TR_EDGE_NONE)
+	cw_tr_ring_t ring_a, ring_b;
+	cw_tr_ps_t *ps_a, *ps_b;
+	uint32_t i;
+
+	ring_a = tr_p_edge_ring_get(a_tr, a_edges[0], 0);
+	ring_b = tr_p_edge_ring_get(a_tr, a_edges[0], 1);
+
+	/* Recursively (post-order traversal) calculate the partial score at
+	 * each node, as viewed from the first edge in a_edges.  This leaves one
+	 * valid view at each node, which then makes it possible to calculate
+	 * the rest of the views during a pre-order traversal of the tree. */
+	ps_a = tr_p_mp_score_recurse(a_tr, ring_a, a_bisect);
+	ps_b = tr_p_mp_score_recurse(a_tr, ring_b, a_bisect);
+
+	/* The first edge must be calculated using ps_a and ps_b as children,
+	 * rather than using the ps's at the ends of the edge.  This is because
+	 * one of the connected nodes is in turn connected to the bisection
+	 * edge, which means that the node does not have a useful ps.  The first
+	 * edge is the only one for which this is an issue, so it is handled
+	 * here. */
+	tr_p_mp_pscore(a_tr, a_tr->tres[a_edges[0]].ps, ps_a, ps_b);
+
+	/* Perform the pre-order traversal, calculating the remaining views that
+	 * were not calculated by the above post-order traversal.  Take care to
+	 * pass the appropriate ps's. */
+	tr_p_mp_views_recurse(a_tr, ring_a, ps_b, a_bisect);
+	tr_p_mp_views_recurse(a_tr, ring_b, ps_a, a_bisect);
+
+	/* Calculate per-edge partial scores. */
+	for (i = 1; i < a_nedges; i++)
 	{
-	    tr_p_mp_score(a_tr, a_edges[i], a_bisect);
+	    tr_p_mp_pscore(a_tr,
+			   a_tr->tres[a_edges[i]].ps,
+			   a_tr->trrs[tr_p_edge_ring_get(a_tr, a_edges[i],
+							 0)].ps,
+			   a_tr->trrs[tr_p_edge_ring_get(a_tr, a_edges[i],
+							 1)].ps);
 #ifdef CW_DBG
 	    /* All edge partial scores should have the same value, since the
 	     * location of the root is irrelevant to the score. */
-	    if (score == UINT_MAX)
+	    if (a_tr->tres[a_edges[i]].ps->subtrees_score
+		+ a_tr->tres[a_edges[i]].ps->node_score
+		!= a_tr->tres[a_edges[0]].ps->subtrees_score
+		+ a_tr->tres[a_edges[0]].ps->node_score)
 	    {
-		score = a_tr->tres[a_edges[i]].ps->subtrees_score
-		    + a_tr->tres[a_edges[i]].ps->node_score;
-	    }
-	    else
-	    {
-		if (a_tr->tres[a_edges[i]].ps->subtrees_score
-		    + a_tr->tres[a_edges[i]].ps->node_score
-		    != score)
-		{
-		    fprintf(stderr,
-			    "%s:%d:%s(): Expected %u, got %u (%u + %u)\n",
-			    __FILE__, __LINE__, __func__,
-			    score,
-			    a_tr->tres[a_edges[i]].ps->subtrees_score
-			    + a_tr->tres[a_edges[i]].ps->node_score,
-			    a_tr->tres[a_edges[i]].ps->subtrees_score,
-			    a_tr->tres[a_edges[i]].ps->node_score);
-		    abort();
-		}
+		fprintf(stderr,
+			"%s:%d:%s(): Expected %u (%u + %u), got %u (%u + %u)\n",
+			__FILE__, __LINE__, __func__,
+			a_tr->tres[a_edges[0]].ps->subtrees_score
+			+ a_tr->tres[a_edges[0]].ps->node_score,
+			a_tr->tres[a_edges[0]].ps->subtrees_score,
+			+ a_tr->tres[a_edges[0]].ps->node_score,
+			a_tr->tres[a_edges[i]].ps->subtrees_score
+			+ a_tr->tres[a_edges[i]].ps->node_score,
+			a_tr->tres[a_edges[i]].ps->subtrees_score,
+			a_tr->tres[a_edges[i]].ps->node_score);
+		fprintf(stderr, "iter %u\n", i);
+		abort();
 	    }
 #endif
 	}
