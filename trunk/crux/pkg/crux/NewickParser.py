@@ -82,9 +82,10 @@
 #
 # qlabel_char ::= /[^']|('')/
 #
-# branch_length ::= <int>[.<int>]
-#                 | +<int>[.<int>]
-#                 | -<int>[.<int>]
+# branch_length ::= <int>[.<int>][<exp>]
+#                 | /[-+]/<int>[.<int>][<exp>]
+#
+# exp ::= /[eE]/[/[-+]/]<int>
 #
 # int ::= <digit>[<int>]
 #
@@ -433,6 +434,15 @@ class NewickParser(object):
             self._intProduction()
         else:
             self._ungetc()
+
+        exp = re.compile(r'[eE]')
+        if not exp.match(self._getc()):
+            self._ungetc()
+        else:
+            if not sign.match(self._getc()):
+                self._ungetc()
+
+            self._intProduction()
 
         self._tokenAccept(self.lengthAccept)
 
