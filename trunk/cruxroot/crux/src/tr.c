@@ -1490,7 +1490,7 @@ tr_p_trt_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
 	a_tr->trt[j].bisect_edge = a_tr->trti[i];
 
 	/* Update offset. */
-	tr_p_bedges_gen(a_tr, i, NULL, NULL);
+	tr_p_bedges_gen(a_tr, a_tr->trti[i], NULL, NULL);
 	n = (a_tr->nbedges_a * a_tr->nbedges_b) - 1;
 	if (n != 0)
 	{
@@ -2030,240 +2030,153 @@ CW_P_INLINE void
 tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		    cw_tr_ps_t *a_b)
 {
-    /* Only calculate the parent's node score if the cached value is invalid. */
-    if (a_a->parent != a_p || a_b->parent != a_p)
+    uint32_t endlimit, curlimit, i, nchars, ns;
+    cw_trc_t *chars_p, *chars_a, *chars_b;
+
+    /* Calculate sum of subtree scores. */
+    a_p->subtrees_score
+	= a_a->subtrees_score + a_a->node_score
+	+ a_b->subtrees_score + a_b->node_score;
+
+    /* (Re-)calculate node score. */
+    ns = 0;
+
+    /* Reset this node's parent pointer, to keep the parent from using an
+     * invalid cached value. */
+    a_p->parent = NULL;
+
+    /* Set parent pointers, so that cached values may be used in future
+     * runs. */
+    a_a->parent = a_p;
+    a_b->parent = a_p;
+
+    /* Calculate partial Fitch parsimony scores for each character. */
+    chars_p = a_p->chars;
+    chars_a = a_a->chars;
+    chars_b = a_b->chars;
+
+    nchars = a_p->nchars;
+
+    /* Initialize SSE2 registers. */
     {
-	uint32_t endlimit, curlimit, i, nchars, ns;
-	cw_trc_t *chars_p, *chars_a, *chars_b;
+	static const unsigned char ones[] =
+	    "\x01\x01\x01\x01\x01\x01\x01\x01"
+	    "\x01\x01\x01\x01\x01\x01\x01\x01";
 
-	/* Calculate sum of subtree scores. */
-	a_p->subtrees_score
-	    = a_a->subtrees_score + a_a->node_score
-	    + a_b->subtrees_score + a_b->node_score;
+	asm volatile (
+	    /* Fill xmm7 with 16 1's. */
+	    "movdqu %[ones], %%xmm7;"
 
-	/* (Re-)calculate node score. */
-	ns = 0;
+	    /* Clear pns. */
+	    "pxor %%xmm5, %%xmm5;"
+	    :
+	    : [ones] "m" (*ones)
+	    : "%xmm5", "%xmm7"
+	    );
+    }
 
-	/* Reset this node's parent pointer, to keep the parent from using an
-	 * invalid cached value. */
-	a_p->parent = NULL;
-
-	/* Set parent pointers, so that cached values may be used in future
-	 * runs. */
-	a_a->parent = a_p;
-	a_b->parent = a_p;
-
-	/* Calculate partial Fitch parsimony scores for each character. */
-	chars_p = a_p->chars;
-	chars_a = a_a->chars;
-	chars_b = a_b->chars;
-
-	nchars = a_p->nchars;
-
-	/* Initialize SSE2 registers. */
+    /* The inner loop can be run a maximum of 255 times before the partial node
+     * score results (stored in %xmm5) are added to ns (otherwise, overflow
+     * could occur).  Therefore, the outer loop calculates the upper bound for
+     * the inner loop, thereby avoiding extra computation in the inner loop. */
+    endlimit = nchars ^ (nchars & 0xf);
+    curlimit = 255 * 16;
+    if (curlimit > endlimit)
+    {
+	curlimit = endlimit;
+    }
+    for (;;)
+    {
+	/* Use SSE2 to evaluate as many of the characters as possible.  This
+	 * loop handles 16 characters per iteration. */
+	for (i = 0; i < curlimit; i += 16)
 	{
-	    static const unsigned char ones[] =
-		"\x01\x01\x01\x01\x01\x01\x01\x01"
-		"\x01\x01\x01\x01\x01\x01\x01\x01";
-
 	    asm volatile (
-		/* Fill xmm7 with 16 1's. */
-		"movdqu %[ones], %%xmm7;"
+		/* Read character data, and'ing and or'ing them together.
+		 *
+		 * a = *chars_a;
+		 * b = *chars_b;
+		 * p = a & b;
+		 * d = a | b;
+		 */
+		"movdqa %[a], %%xmm0;"
+		"movdqa %%xmm0, %%xmm1;"
+		"por %[b], %%xmm0;" /* xmm0 contains d. */
+		"pand %[b], %%xmm1;" /* xmm1 contains p. */
 
-		/* Clear pns. */
-		"pxor %%xmm5, %%xmm5;"
-		:
-		: [ones] "m" (*ones)
-		: "%xmm5", "%xmm7"
+		/* Create bitmasks according to whether the character state sets
+		 * are empty.
+		 *
+		 * c = p ? 0x00 : 0xff;
+		 * e = (c & d);
+		 * s = p ? 0 : 1;
+		 */
+		"pxor %%xmm2, %%xmm2;"
+		"pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
+		"pand %%xmm2, %%xmm0;" /* xmm0 contains e. */
+		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
+
+		/* Update node score.  Each byte in %xmm5 is only capable of
+		 * holding up to 255, which is why the outer loop is necessary.
+		 *
+		 * ns += s;
+		 */
+		"paddusb %%xmm2, %%xmm5;"
+
+		/* p = (p | e); */
+		"por %%xmm1, %%xmm0;" /* xmm0 contains p. */
+
+		/* Store results.
+		 *
+		 * *chars_p = p;
+		 */
+		"movdqa %%xmm0, %[p];"
+		: [p] "=m" (chars_p[i])
+		: [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
+		: "memory"
 		);
 	}
 
-	/* The inner loop can be run a maximum of 255 times before the partial
-	 * node score results (stored in %xmm5) are added to ns (otherwise,
-	 * overflow could occur).  Therefore, the outer loop calculates the
-	 * upper bound for the inner loop, thereby avoiding extra computation in
-	 * the inner loop. */
-	endlimit = nchars ^ (nchars & 0xf);
-	curlimit = 255 * 16;
+	/* Update ns and reset pns. */
+	{
+	    uint32_t j;
+	    unsigned char pns[16];
+
+	    asm volatile (
+		"movdqu %%xmm5, %[pns];"
+		"pxor %%xmm5, %%xmm5;"
+		: [pns] "=m" (*pns)
+		:
+		: "memory"
+		);
+
+	    for (j = 0; j < 16; j++)
+	    {
+		ns += pns[j];
+	    }
+	}
+
+	/* Break out of the loop if the bound for the inner loop was the maximum
+	 * possible. */
+	if (curlimit == endlimit)
+	{
+	    break;
+	}
+	/* Update the bound for the inner loop, taking care not to exceed the
+	 * maximum possible bound. */
+	curlimit += 255 * 16;
 	if (curlimit > endlimit)
 	{
 	    curlimit = endlimit;
 	}
-	for (;;)
-	{
-	    /* Use SSE2 to evaluate as many of the characters as possible.  This
-	     * loop handles 16 characters per iteration. */
-	    for (i = 0; i < curlimit; i += 16)
-	    {
-		asm volatile (
-		    /* Read character data, and'ing and or'ing them together.
-		     *
-		     * a = *chars_a;
-		     * b = *chars_b;
-		     * p = a & b;
-		     * d = a | b;
-		     */
-		    "movdqa %[a], %%xmm0;"
-		    "movdqa %%xmm0, %%xmm1;"
-		    "por %[b], %%xmm0;" /* xmm0 contains d. */
-		    "pand %[b], %%xmm1;" /* xmm1 contains p. */
-
-		    /* Create bitmasks according to whether the character state
-		     * sets are empty.
-		     *
-		     * c = p ? 0x00 : 0xff;
-		     * e = (c & d);
-		     * s = p ? 0 : 1;
-		     */
-		    "pxor %%xmm2, %%xmm2;"
-		    "pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
-		    "pand %%xmm2, %%xmm0;" /* xmm0 contains e. */
-		    "pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
-
-		    /* Update node score.  Each byte in %xmm5 is only capable of
-		     * holding up to 255, which is why the outer loop is
-		     * necessary.
-		     *
-		     * ns += s;
-		     */
-		    "paddusb %%xmm2, %%xmm5;"
-
-		    /* p = (p | e); */
-		    "por %%xmm1, %%xmm0;" /* xmm0 contains p. */
-
-		    /* Store results.
-		     *
-		     * *chars_p = p;
-		     */
-		    "movdqa %%xmm0, %[p];"
-		    : [p] "=m" (chars_p[i])
-		    : [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
-		    : "memory"
-		    );
-	    }
-
-	    /* Update ns and reset pns. */
-	    {
-		uint32_t j;
-		unsigned char pns[16];
-
-		asm volatile (
-		    "movdqu %%xmm5, %[pns];"
-		    "pxor %%xmm5, %%xmm5;"
-		    : [pns] "=m" (*pns)
-		    :
-		    : "memory"
-		    );
-
-		for (j = 0; j < 16; j++)
-		{
-		    ns += pns[j];
-		}
-	    }
-
-	    /* Break out of the loop if the bound for the inner loop was the
-	     * maximum possible. */
-	    if (curlimit == endlimit)
-	    {
-		break;
-	    }
-	    /* Update the bound for the inner loop, taking care not to exceed
-	     * the maximum possible bound. */
-	    curlimit += 255 * 16;
-	    if (curlimit > endlimit)
-	    {
-		curlimit = endlimit;
-	    }
-	}
-
-	/* Evaluate the last 0-15 characters that weren't evaluated in the above
-	 * loop. */
-	{
-	    uint32_t a, b, p, c, s;
-
-	    for (; i < nchars; i++)
-	    {
-		a = chars_a[i];
-		b = chars_b[i];
-
-		p = a & b;
-		s = p ? 0 : 1;
-		c = -s;
-		chars_p[i] = (p | (c & (a | b)));
-		ns += s;
-	    }
-	}
-
-	a_p->node_score = ns;
     }
-}
-#endif
 
-static void
-tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
-		 cw_tr_ps_t *a_b)
-{
-//#define CW_TR_MP_PSCORE_VALIDATE
-#ifdef CW_TR_MP_PSCORE_VALIDATE
-    bool cached;
-#endif
-
-    /* Only calculate the parent's node score if the cached value is invalid. */
-    if (a_a->parent != a_p || a_b->parent != a_p)
-#ifdef CW_TR_MP_PSCORE_VALIDATE
+    /* Evaluate the last 0-15 characters that weren't evaluated in the above
+     * loop. */
     {
-	cached = false;
-    }
-    else
-    {
-	cached = true;
-    }
-#endif
-    {
-	uint32_t i, nchars, ns, a, b, p, c, s;
-	cw_trc_t *chars_p, *chars_a, *chars_b;
+	uint32_t a, b, p, c, s;
 
-#ifdef CW_TR_MP_PSCORE_VALIDATE
-	if (cached)
-	{
-	    if (a_p->subtrees_score
-		!= (a_a->subtrees_score + a_a->node_score
-		    + a_b->subtrees_score + a_b->node_score))
-	    {
-		fprintf(stderr,
-			"%s:%d:%s(): subtrees_score %u (should be %u)\n",
-			__FILE__, __LINE__, __FUNCTION__,
-			a_p->subtrees_score,
-			a_a->subtrees_score + a_a->node_score
-			+ a_b->subtrees_score + a_b->node_score);
-		abort();
-	    }
-	}
-#endif
-	/* Calculate sum of subtree scores. */
-	a_p->subtrees_score
-	    = a_a->subtrees_score + a_a->node_score
-	    + a_b->subtrees_score + a_b->node_score;
-
-	/* (Re-)calculate node score. */
-	ns = 0;
-
-	/* Reset this node's parent pointer, to keep the parent from using an
-	 * invalid cached value. */
-	a_p->parent = NULL;
-
-	/* Set parent pointers, so that cached values may be used in future
-	 * runs. */
-	a_a->parent = a_p;
-	a_b->parent = a_p;
-
-	/* Calculate partial Fitch parsimony scores for each character.  The
-	 * code inside the loop is written such that the compiler can optimize
-	 * out all branches (at least for ia32). */
-	chars_p = a_p->chars;
-	chars_a = a_a->chars;
-	chars_b = a_b->chars;
-	for (i = 0, nchars = a_p->nchars; i < nchars; i++)
+	for (; i < nchars; i++)
 	{
 	    a = chars_a[i];
 	    b = chars_b[i];
@@ -2274,40 +2187,119 @@ tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	    chars_p[i] = (p | (c & (a | b)));
 	    ns += s;
 	}
-
-#ifdef CW_TR_MP_PSCORE_VALIDATE
-	if (cached)
-	{
-	    if (ns != a_p->node_score)
-	    {
-		fprintf(stderr, "%s:%d:%s(): node_score %u (should be %u)\n",
-			__FILE__, __LINE__, __FUNCTION__,
-			ns, a_p->node_score);
-		abort();
-	    }
-	}
-#endif
-	a_p->node_score = ns;
     }
+
+    a_p->node_score = ns;
+}
+#endif
+
+static void
+tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
+		 cw_tr_ps_t *a_b)
+{
+    uint32_t i, nchars, ns, a, b, p, c, s;
+    cw_trc_t *chars_p, *chars_a, *chars_b;
+
+    /* Calculate sum of subtree scores. */
+    a_p->subtrees_score
+	= a_a->subtrees_score + a_a->node_score
+	+ a_b->subtrees_score + a_b->node_score;
+
+    /* (Re-)calculate node score. */
+    ns = 0;
+
+    /* Reset this node's parent pointer, to keep the parent from using an
+     * invalid cached value. */
+    a_p->parent = NULL;
+
+    /* Set parent pointers, so that cached values may be used in future runs. */
+    a_a->parent = a_p;
+    a_b->parent = a_p;
+
+    /* Calculate partial Fitch parsimony scores for each character.  The code
+     * inside the loop is written such that the compiler can optimize out all
+     * branches (at least for ia32). */
+    chars_p = a_p->chars;
+    chars_a = a_a->chars;
+    chars_b = a_b->chars;
+    for (i = 0, nchars = a_p->nchars; i < nchars; i++)
+    {
+	a = chars_a[i];
+	b = chars_b[i];
+
+	p = a & b;
+	s = p ? 0 : 1;
+	c = -s;
+	chars_p[i] = (p | (c & (a | b)));
+	ns += s;
+    }
+
+    a_p->node_score = ns;
 }
 
 CW_P_INLINE void
 tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
+#define CW_TR_MP_PSCORE_VALIDATE// XXX Turn off.
+#ifdef CW_TR_MP_PSCORE_VALIDATE
+    bool cached;
+    uint32_t cached_node_score;
+#endif
+
     cw_check_ptr(a_p);
     cw_check_ptr(a_a);
     cw_check_ptr(a_b);
 
-#ifdef CW_CPU_IA32
-    if (modcrux_ia32_use_sse2)
+    /* Only calculate the parent's node score if the cached value is invalid. */
+    if (a_a->parent != a_p || a_b->parent != a_p)
+#ifdef CW_TR_MP_PSCORE_VALIDATE
     {
-	tr_p_mp_ia32_pscore(a_tr, a_p, a_a, a_b);
+	cached = false;
     }
     else
+    {
+	cached = true;
+	cached_node_score = a_p->node_score;
+
+	if (a_p->subtrees_score
+	    != (a_a->subtrees_score + a_a->node_score
+		+ a_b->subtrees_score + a_b->node_score))
+	{
+	    fprintf(stderr,
+		    "%s:%d:%s(): subtrees_score %u (should be %u)\n",
+		    __FILE__, __LINE__, __FUNCTION__,
+		    a_p->subtrees_score,
+		    a_a->subtrees_score + a_a->node_score
+		    + a_b->subtrees_score + a_b->node_score);
+	    abort();
+	}
+    }
 #endif
     {
-	tr_p_mp_c_pscore(a_tr, a_p, a_a, a_b);
+#ifdef CW_CPU_IA32
+	if (modcrux_ia32_use_sse2)
+	{
+	    tr_p_mp_ia32_pscore(a_tr, a_p, a_a, a_b);
+	}
+	else
+#endif
+	{
+	    tr_p_mp_c_pscore(a_tr, a_p, a_a, a_b);
+	}
     }
+
+#ifdef CW_TR_MP_PSCORE_VALIDATE
+    if (cached)
+    {
+	if (cached_node_score != a_p->node_score)
+	{
+	    fprintf(stderr, "%s:%d:%s(): node_score %u (should be %u)\n",
+		    __FILE__, __LINE__, __FUNCTION__,
+		    cached_node_score, a_p->node_score);
+	    abort();
+	}
+    }
+#endif
 }
 
 CW_P_INLINE void
@@ -2445,18 +2437,25 @@ CW_P_INLINE void
 tr_p_mp_score(cw_tr_t *a_tr, cw_tr_edge_t a_root, cw_tr_edge_t a_bisect)
 {
     cw_tr_ring_t ring_a, ring_b;
+    cw_tr_ps_t *ps_a, *ps_b;
 
-    /* Calculate partial scores for the subtrees on each end of a_root. */
+    /* Calculate partial scores for the subtrees on each end of a_root.  Clear
+     * the cached parent pointers before recursively scoring, so that things
+     * work correctly if a_root is connected to a node that is also connected to
+     * the bisection edge. */
     ring_a = tr_p_edge_ring_get(a_tr, a_root, 0);
+    ps_a = a_tr->trns[tr_p_ring_node_get(a_tr, ring_a)].ps;
+    ps_a->parent = NULL;
     tr_p_mp_score_recurse(a_tr, ring_a, a_bisect);
 
     ring_b = tr_p_edge_ring_get(a_tr, a_root, 1);
+    ps_b = a_tr->trns[tr_p_ring_node_get(a_tr, ring_b)].ps;
+    ps_b->parent = NULL;
     tr_p_mp_score_recurse(a_tr, ring_b, a_bisect);
 
-    /* Calculate the final score. */
-    tr_p_mp_pscore(a_tr, a_tr->tres[a_root].ps,
-		   a_tr->trns[tr_p_ring_node_get(a_tr, ring_a)].ps,
-		   a_tr->trns[tr_p_ring_node_get(a_tr, ring_b)].ps);
+    /* Calculate the final score.  Clear the cached parent pointers for the
+     * subtrees, in order to make sure that the score is actually calculated. */
+    tr_p_mp_pscore(a_tr, a_tr->tres[a_root].ps, ps_a, ps_b);
 }
 
 /* Calculate the partial score for each edge in a_edges. */
@@ -2465,12 +2464,41 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_tr_edge_t *a_edges,
 			    uint32_t a_nedges, cw_tr_edge_t a_bisect)
 {
     uint32_t i;
+#ifdef CW_DBG
+    uint32_t score = UINT_MAX;
+#endif
 
     for (i = 0; i < a_nedges; i++)
     {
 	if (a_edges[i] != CW_TR_EDGE_NONE)
 	{
 	    tr_p_mp_score(a_tr, a_edges[i], a_bisect);
+#ifdef CW_DBG
+	    /* All edge partial scores should have the same value, since the
+	     * location of the root is irrelevant to the score. */
+	    if (score == UINT_MAX)
+	    {
+		score = a_tr->tres[a_edges[i]].ps->subtrees_score
+		    + a_tr->tres[a_edges[i]].ps->node_score;
+	    }
+	    else
+	    {
+		if (a_tr->tres[a_edges[i]].ps->subtrees_score
+		    + a_tr->tres[a_edges[i]].ps->node_score
+		    != score)
+		{
+		    fprintf(stderr,
+			    "%s:%d:%s(): Expected %u, got %u (%u + %u)\n",
+			    __FILE__, __LINE__, __func__,
+			    score,
+			    a_tr->tres[a_edges[i]].ps->subtrees_score
+			    + a_tr->tres[a_edges[i]].ps->node_score,
+			    a_tr->tres[a_edges[i]].ps->subtrees_score,
+			    a_tr->tres[a_edges[i]].ps->node_score);
+		    abort();
+		}
+	    }
+#endif
 	}
     }
 }
@@ -2545,7 +2573,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 	ps = a_tr->tres[bisect].ps;
 
 	/* Determine which edges are in each subtree. */
-	tr_p_bedges_gen(a_tr, a_tr->trti[i], &node_a, &node_b);
+	tr_p_bedges_gen(a_tr, bisect, &node_a, &node_b);
 
 	/* Calculate the partial score for each edge in the edge lists. */
 	tr_p_bisection_edge_list_mp(a_tr, a_tr->bedges,
@@ -2586,7 +2614,11 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 		    ps_b = a_tr->trns[node_b].ps;
 		}
 
-		/* Calculate the final parsimony score for this reconnection. */
+		/* Calculate the final parsimony score for this reconnection.
+		 * Clear the subtrees' cached parent pointers, in order to make
+		 * sure that the score is actually calculated. */
+		ps_a->parent = NULL;
+		ps_b->parent = NULL;
 		tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
 		score = (ps->subtrees_score + ps->node_score);
 
@@ -2595,7 +2627,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 		{
 		    case TR_HOLD_BEST:
 		    {
-			if (a_tr->held == NULL || score == a_tr->held[0].score)
+			if (a_tr->nheld == 0 || score == a_tr->held[0].score)
 			{
 			    /* No trees held, or this tree is as good as those
 			     * currently held. */
