@@ -23,6 +23,7 @@ typedef struct
 typedef struct
 {
     CxtTreeRfVec treeVec;
+    CxtTreeRfVec leafVec;
     CxtTreeRfVec *edgeVecs;
     unsigned nEdgeVecs;
 } CxtTreeRfTree;
@@ -43,6 +44,12 @@ CxpTreeRfVecNew(CxtTreeRfVec *aVec, unsigned aNBits)
 
     aVec->nBits = aNBits;
     aVec->bits = (unsigned char *) CxmCalloc(1, nBytes);
+}
+
+static void
+CxpTreeRfVecReset(CxtTreeRfVec *aVec)
+{
+    memset(aVec->bits, 0x0, aVec->nBits >> 3);
 }
 
 static void
@@ -154,13 +161,14 @@ CxpTreeRfBipartitionsInitRecurse(CxtTreeObject *self,
     uint32_t taxonNum;
 
     ntaxa = CxTreeNtaxaGet(self);
-    rVal = &aRfTree->edgeVecs[aRfTree->nEdgeVecs];
-    aRfTree->nEdgeVecs++;
-    CxpTreeRfVecNew(rVal, ntaxa);
 
     if ((taxonNum = CxNodeTaxonNumGet(curNode)) != CxmTrNodeTaxonNone)
     {
 	// Leaf node.
+
+	// Use the special temp vector for this edge.
+	rVal = &aRfTree->leafVec;
+	CxpTreeRfVecReset(rVal);
 
 	// Note that this taxon exists in the tree.
 	CxpTreeRfVecSet(&aRfTree->treeVec, taxonNum, true);
@@ -170,6 +178,11 @@ CxpTreeRfBipartitionsInitRecurse(CxtTreeObject *self,
     }
     else
     {
+	// Create a vector for this edge.
+	rVal = &aRfTree->edgeVecs[aRfTree->nEdgeVecs];
+	aRfTree->nEdgeVecs++;
+	CxpTreeRfVecNew(rVal, ntaxa);
+
 	// Recurse.
 	firstRing = CxNodeRing(curNode);
 	if (firstRing != NULL)
@@ -207,11 +220,12 @@ CxpTreeRfBipartitionsInit(CxtTreeObject *self)
     // Initialize rVal.
     rVal = (CxtTreeRfTree *) CxmMalloc(sizeof(CxtTreeRfTree));
     CxpTreeRfVecNew(&rVal->treeVec, ntaxa);
-    // Allocate ((2 * ntaxa) - 3) slots in edgeVecs, unless the tree has one or
-    // no taxa.
-    if (ntaxa > 1)
+    CxpTreeRfVecNew(&rVal->leafVec, ntaxa);
+    // Allocate (ntaxa - 3) slots in edgeVecs (one for each internal edge),
+    // unless the tree has no internal edges.
+    if (ntaxa >= 4)
     {
-	rVal->edgeVecs = (CxtTreeRfVec *) CxmCalloc((ntaxa * 2) - 3,
+	rVal->edgeVecs = (CxtTreeRfVec *) CxmCalloc(ntaxa - 3,
 						    sizeof(CxtTreeRfVec));
     }
     else
@@ -231,7 +245,6 @@ CxpTreeRfBipartitionsInit(CxtTreeObject *self)
 	    // Note that this taxon exists in the tree.
 	    CxpTreeRfVecSet(&rVal->treeVec, taxonNum, true);
 	}
-
 
 	firstRing = CxNodeRing(baseNode);
 	if (firstRing != NULL)
@@ -270,7 +283,7 @@ CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
 		      CxtTreeObject *aTreeB, CxtTreeRfTree *aTreeBRfVec)
 {
     float rVal;
-    unsigned iA, iB, nUniqueA, nUniqueB;
+    unsigned iA, iB, nUniqueA, nUniqueB, nedges;
     int relation;
 
     // If the trees don't have precisely the same taxa, treat them as being
@@ -333,10 +346,13 @@ CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
 	nUniqueB += aTreeBRfVec->nEdgeVecs - iB;
     }
 
-    // Convert counts to the Robinson-Foulds distance.
-    rVal = ((((float) nUniqueA / (float) aTreeARfVec->nEdgeVecs)
-	     + ((float) nUniqueB / (float) aTreeBRfVec->nEdgeVecs))
-	    / 2.0);
+    // Convert counts to the Robinson-Foulds distance.  The leaf edges were left
+    // out of the edge vectors, so they must be added back in to the total edge
+    // count here.
+    nedges = (aTreeARfVec->nEdgeVecs * 2) + 3;
+    rVal = ((((float) nUniqueA / (float) nedges)
+	      + ((float) nUniqueB / (float) nedges))
+	     / 2.0);
 
     RETURN:
     return rVal;
@@ -348,6 +364,8 @@ CxpTreeRfBipartitionsCleanup(CxtTreeObject *self, CxtTreeRfTree *aRfTree)
     unsigned i;
 
     CxpTreeRfVecDelete(&aRfTree->treeVec);
+
+    CxpTreeRfVecDelete(&aRfTree->leafVec);
 
     for (i = 0; i < aRfTree->nEdgeVecs; i++)
     {

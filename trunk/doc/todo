@@ -1,32 +1,13 @@
-* Rewrite Newick parser in C.
-
-* Try to change the random NJ code to avoid having to look at columns when
-  deciding on row pairs.
-
-* Gracefully raise an exception (or just complain and keep going?) when parsing
-  Newick files that have extra parens (as do ROSE outputs).
-
-  The NewickParser code shouldn't ever allow this to happen; the grammar that is
-  enforced should require multiple objects inside parens.
-
-* Figure out how to use command line parsing module on crux.opts, and write some
-  canned scripts for inclusion in crux releases.
-
-  Save sys.argv, redefine sys.argv, call option parser, restore sys.argv.
-
-* Do not bother calculating bit vectors for leaf edges in the RF distance
-  calculation code.
-
-* Add programmatic tree validation, so that it's possible to detect and recover
-  from malformed trees.  Right now, the tree validation code is only useful for
-  Crux debugging.
-
-* Clean up Tree constructor.  Consider making distance-based tree constructors
-  into methods of DistMatrix.  This may make more sense, and it reduces
-  constructor clutter.
+* Clean up the Tree constructor.  Consider making distance-based tree
+  constructors into methods of DistMatrix.  This may make more sense, and it
+  reduces constructor clutter.
 
 * Start using kargs for complex methods that have lots of optional arguments?
   Using optional positional args is kinda gnarly.
+
+* Collapse rendering code into single code paths, which are passed a callback
+  method (or something like that).  The current setup requires testing both
+  file and string rendering, and is a pain to update.
 
 ================================================================================
 
@@ -36,10 +17,6 @@
 
 * Add true tree holding, rather than just the limited form of holding that the
   tr code supports.
-
-* Collapse rendering code into single code paths, which are passed a callback
-  method (or something like that).  The current setup requires testing both
-  file and string rendering, and is a pain to update.
 
 ================================================================================
 
@@ -56,6 +33,22 @@
 
 * Get rid of CxTr.c entirely.  Move functionality to either be merged with the
   Python glue, or into separate files.
+
+  Add programmatic tree validation, so that it's possible to detect and recover
+  from malformed trees.  Right now, the tree validation code is only useful for
+  Crux debugging.
+
+* Use tree validation API to make sure that the CxTreeRf.c code doesn't blow up
+  on trees with non-contiguous taxon numbers.
+
+* Add a tree method that collapses zero-length (and negative-length) branches.
+
+* Rewrite Newick parser in C.
+
+  Gracefully raise an exception (or just complain and keep going?) when parsing
+  Newick files that have extra parens (as do ROSE outputs).  The NewickParser
+  code shouldn't ever allow this to happen; the grammar that is enforced should
+  require multiple objects inside parens.
 
 ================================================================================
 
@@ -111,6 +104,9 @@ simultaneous alignment of an arbitrary number of sequences.
 * Either come up with a simple command line syntax (sorta like PAUP's), or
   provide a number of crux scripts that provide similar ease of use for typical
   operations.
+
+  In order to use Python's argv parser on the script arguments, save sys.argv,
+  redefine sys.argv, call the option parser, then restore sys.argv.
 
 * Add interactive help.
 
