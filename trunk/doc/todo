@@ -2,11 +2,6 @@
 
 * Somehow return whether a RNJ tree is additive?
 
-* Add isSymmetric(), symmetricize(), and unsymmetricize() methods to DistMatrix
-  class.
-
-* Render symmetric matrices in lower triangle format by default.
-
 * Write regression tests for DistMatrix.distance[GS]et().
 
 * Figure out how to use command line parsing module on crux.opts, and write some
