@@ -91,3 +91,10 @@ trn_aux_get(cw_trn_t *a_trn);
 
 void
 trn_aux_set(cw_trn_t *a_trn, void *a_aux);
+
+/* Functions that operate on trn-based trees. */
+cw_uint32_t
+trn_tree_ntaxa_get(cw_trn_t *a_trn);
+
+cw_trn_t *
+trn_tree_root_get(cw_trn_t *a_trn);

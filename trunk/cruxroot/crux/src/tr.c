@@ -518,3 +518,84 @@ trn_aux_set(cw_trn_t *a_trn, void *a_aux)
 
     a_trn->aux = a_aux;
 }
+
+/* Recursively traverse the tree and count the number of taxa. */
+static cw_uint32_t
+trn_p_tree_ntaxa_get(cw_trn_t *a_trn, cw_trn_t *a_prev)
+{
+    cw_uint32_t retval;
+    cw_uint32_t i;
+
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+
+    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    {
+	retval = 1;
+    }
+    else
+    {
+	retval = 0;
+    }
+
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
+	{
+	    retval += trn_p_tree_ntaxa_get(a_trn->neighbors[i], a_trn);
+	}
+    }
+
+    return retval;
+}
+
+cw_uint32_t
+trn_tree_ntaxa_get(cw_trn_t *a_trn)
+{
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+
+    return trn_p_tree_ntaxa_get(a_trn, NULL);
+}
+
+/* Recursively traverse the tree and find taxon 0. */
+static cw_trn_t *
+trn_p_tree_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev)
+{
+    cw_trn_t *retval = NULL;
+
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+
+    if (a_trn->taxon_num == 0)
+    {
+	retval = a_trn;
+    }
+    else
+    {
+	cw_uint32_t i;
+
+	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	{
+	    if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
+	    {
+		retval = trn_p_tree_root_get(a_trn->neighbors[i], a_trn);
+		if (retval != NULL)
+		{
+		    break;
+		}
+	    }
+	}
+    }
+
+    return retval;
+}
+
+cw_trn_t *
+trn_tree_root_get(cw_trn_t *a_trn)
+{
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+
+    return trn_p_tree_root_get(a_trn, NULL);
+}
