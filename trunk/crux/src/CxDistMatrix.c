@@ -1343,6 +1343,12 @@ CxDistMatrixNtaxaGet(CxtDistMatrixObject *self)
 }
 
 PyObject *
+CxDistMatrixIsSymmetric(CxtDistMatrixObject *self)
+{
+    return Py_BuildValue("i", self->symmetric);
+}
+
+PyObject *
 CxDistMatrixTaxonMapGet(CxtDistMatrixObject *self)
 {
     Py_INCREF(self->map);
@@ -1753,6 +1759,12 @@ static PyMethodDef CxpDistMatrixMethods[] =
 	(PyCFunction) CxDistMatrixNtaxaGet,
 	METH_NOARGS,
 	"ntaxaGet"
+    },
+    {
+	"isSymmetric",
+	(PyCFunction) CxDistMatrixIsSymmetric,
+	METH_NOARGS,
+	"isSymmetric"
     },
     {
 	"_dup",

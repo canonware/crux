@@ -67,6 +67,8 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args);
 PyObject *
 CxDistMatrixNtaxaGet(CxtDistMatrixObject *self);
 PyObject *
+CxDistMatrixIsSymmetric(CxtDistMatrixObject *self);
+PyObject *
 CxDistMatrixTaxonMapGet(CxtDistMatrixObject *self);
 float
 CxDistMatrixDistanceGet(CxtDistMatrixObject *self, long x, long y);

@@ -128,7 +128,13 @@ class DistMatrix(C_DistMatrix):
             map.map(labels[order[i]], i, replace=True)
 
     # Print the matrix to a string in 'full', 'upper', or 'lower' format.
-    def render(self, format='full', distFormat="%.5e", outFile=None):
+    def render(self, format=None, distFormat="%.5e", outFile=None):
+        if format == None:
+            if self.isSymmetric():
+                format = 'lower'
+            else:
+                format = 'full'
+
         if outFile == None:
             retval = self._stringRender(format, distFormat)
         else:

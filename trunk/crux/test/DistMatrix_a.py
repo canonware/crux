@@ -203,7 +203,8 @@ for matrix in matrices:
         f.write(matrix)
         f.seek(0, 0)
         distMatrix = crux.DistMatrix.DistMatrix(f)
-        print distMatrix.render('full', '%.5f')
+        print distMatrix.render(format='full', distFormat='%.5f')
+        print distMatrix.render(distFormat='%.5f')
     except:
         import sys
 
