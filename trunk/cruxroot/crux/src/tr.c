@@ -542,6 +542,32 @@ tr_node_aux_set(cw_tr_t *a_tr, cw_tr_node_t a_node, void *a_aux)
 
 /* tr. */
 
+/* Initialize everything except trns and spares. */
+CW_P_INLINE void
+tr_p_new(cw_tr_t *a_tr, cw_mema_t *a_mema)
+{
+    a_tr->mema = a_mema;
+    a_tr->aux = NULL;
+    a_tr->modified = FALSE;
+    a_tr->base = CW_TR_NODE_NONE;
+    a_tr->ntaxa = 0;
+    a_tr->nedges = 0;
+    a_tr->tres = NULL;
+    a_tr->bedges = NULL;
+    a_tr->nbedges_a = 0;
+    a_tr->nbedges_b = 0;
+    a_tr->trt = NULL;
+    a_tr->trtused = 0;
+    a_tr->held = NULL;
+    a_tr->heldlen = 0;
+    a_tr->nheld = 1;
+
+#ifdef CW_DBG
+    a_tr->magic = CW_TR_MAGIC;
+#endif
+
+}
+
 /* Recursively traverse the tree and find the lowest numbered taxon. */
 static cw_tr_node_t
 tr_p_root_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
@@ -2166,18 +2192,7 @@ tr_new(cw_mema_t *a_mema)
 
     retval = (cw_tr_t *) cw_opaque_alloc(alloc, arg, sizeof(cw_tr_t));
 
-    retval->mema = a_mema;
-    retval->aux = NULL;
-    retval->modified = FALSE;
-    retval->base = CW_TR_NODE_NONE;
-    retval->ntaxa = 0;
-    retval->nedges = 0;
-    retval->tres = NULL;
-    retval->bedges = NULL;
-    retval->nbedges_a = 0;
-    retval->nbedges_b = 0;
-    retval->trt = NULL;
-    retval->trtused = 0;
+    tr_p_new(retval, a_mema);
 
     /* Allocate trns with one node.  This is the spare node, which gets used in
      * tr_p_mp_score(). */
@@ -2189,21 +2204,44 @@ tr_new(cw_mema_t *a_mema)
 
     retval->spares = CW_TR_NODE_NONE;
 
-    retval->held = NULL;
-    retval->heldlen = 0;
-    retval->nheld = 1;
-
-#ifdef CW_DBG
-    retval->magic = CW_TR_MAGIC;
-#endif
-
     return retval;
 }
 
 cw_tr_t *
 tr_dup(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
+    cw_tr_t *retval;
+    cw_opaque_alloc_t *alloc;
+    void *arg;
+    cw_uint32_t i;
+
+    tr_p_update(a_tr);
+    cw_dassert(tr_p_validate(a_tr));
+
+    alloc = mema_alloc_get(a_tr->mema);
+    arg = mema_arg_get(a_tr->mema);
+
+    retval = (cw_tr_t *) cw_opaque_alloc(alloc, arg, sizeof(cw_tr_t));
+
+    tr_p_new(retval, a_tr->mema);
+
+    /* Allocate trns the same size as a_tr's, then copy. */
+    retval->trns = (cw_trn_t *) cw_opaque_alloc(alloc, arg,
+						sizeof(cw_trn_t) * a_tr->ntrns);
+    memcpy(retval->trns, a_tr->trns, sizeof(cw_trn_t) * a_tr->ntrns);
+    retval->ntrns = a_tr->ntrns;
+
+    /* Clean up the copied trn's. */
+    for (i = 0; i < retval->ntrns; i++)
+    {
+	a_tr->trns[i].aux = NULL;
+	a_tr->trns[i].ps = NULL;
+    }
+
+    /* The spares list is the same as for a_tr. */
+    retval->spares = a_tr->spares;
+
+    return retval;
 }
 
 void
