@@ -654,6 +654,7 @@ CxTreeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 	self->treeAux = (CxtTreeAux *) malloc(sizeof(CxtTreeAux));
 	if (self->treeAux == NULL)
 	{
+	    PyErr_NoMemory();
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -667,6 +668,7 @@ CxTreeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 					  * (self->nTreeAux + 1));
 	if (self->treeAux == NULL)
 	{
+	    PyErr_NoMemory();
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -733,6 +735,7 @@ CxTreeNodeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 	self->nodeAux = (CxtNodeAux *) malloc(sizeof(CxtNodeAux));
 	if (self->nodeAux == NULL)
 	{
+	    PyErr_NoMemory();
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -746,6 +749,7 @@ CxTreeNodeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 					  * (self->nNodeAux + 1));
 	if (self->nodeAux == NULL)
 	{
+	    PyErr_NoMemory();
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -814,6 +818,7 @@ CxTreeEdgeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 	self->edgeAux = (CxtEdgeAux *) malloc(sizeof(CxtEdgeAux));
 	if (self->edgeAux == NULL)
 	{
+	    PyErr_NoMemory();
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -827,6 +832,7 @@ CxTreeEdgeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 					  * (self->nEdgeAux + 1));
 	if (self->edgeAux == NULL)
 	{
+	    PyErr_NoMemory();
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -895,6 +901,7 @@ CxTreeRingAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 	self->ringAux = (CxtRingAux *) malloc(sizeof(CxtRingAux));
 	if (self->ringAux == NULL)
 	{
+	    PyErr_NoMemory();
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -908,6 +915,7 @@ CxTreeRingAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 					  * (self->nRingAux + 1));
 	if (self->ringAux == NULL)
 	{
+	    PyErr_NoMemory();
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -965,6 +973,7 @@ CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux)
 	    self->aux = (void **) calloc(aInd + 1, sizeof(void *));
 	    if (self->aux == NULL)
 	    {
+		PyErr_NoMemory();
 		rVal = true;
 		goto RETURN;
 	    }
@@ -977,6 +986,7 @@ CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux)
 	    tAux = (void **) realloc(self->aux, (aInd + 1) * sizeof(void *));
 	    if (tAux == NULL)
 	    {
+		PyErr_NoMemory();
 		rVal = true;
 		goto RETURN;
 	    }
@@ -1610,6 +1620,7 @@ CxNodeAuxSet(CxtNodeObject *self, unsigned aInd, void *aAux)
 	    self->aux = (void **) calloc(aInd + 1, sizeof(void *));
 	    if (self->aux == NULL)
 	    {
+		PyErr_NoMemory();
 		rVal = true;
 		goto RETURN;
 	    }
@@ -1622,6 +1633,7 @@ CxNodeAuxSet(CxtNodeObject *self, unsigned aInd, void *aAux)
 	    tAux = (void **) realloc(self->aux, (aInd + 1) * sizeof(void *));
 	    if (tAux == NULL)
 	    {
+		PyErr_NoMemory();
 		rVal = true;
 		goto RETURN;
 	    }
@@ -2026,8 +2038,14 @@ CxEdgeNew(CxtTreeObject *aTree)
     return rVal;
 }
 
-PyObject *
+CxtTreeObject *
 CxEdgeTree(CxtEdgeObject *self)
+{
+    return self->tree;
+}
+
+PyObject *
+CxEdgeTreePargs(CxtEdgeObject *self)
 {
     return Py_BuildValue("O", self->tree);
 }
@@ -2221,6 +2239,7 @@ CxEdgeAuxSet(CxtEdgeObject *self, unsigned aInd, void *aAux)
 	    self->aux = (void **) calloc(aInd + 1, sizeof(void *));
 	    if (self->aux == NULL)
 	    {
+		PyErr_NoMemory();
 		rVal = true;
 		goto RETURN;
 	    }
@@ -2233,6 +2252,7 @@ CxEdgeAuxSet(CxtEdgeObject *self, unsigned aInd, void *aAux)
 	    tAux = (void **) realloc(self->aux, (aInd + 1) * sizeof(void *));
 	    if (tAux == NULL)
 	    {
+		PyErr_NoMemory();
 		rVal = true;
 		goto RETURN;
 	    }
@@ -2257,7 +2277,7 @@ static PyMethodDef CxpEdgeMethods[] =
 {
     {
 	"tree",
-	(PyCFunction) CxEdgeTree,
+	(PyCFunction) CxEdgeTreePargs,
 	METH_NOARGS,
 	"tree"
     },
@@ -2832,6 +2852,7 @@ CxRingAuxSet(CxtRingObject *self, unsigned aInd, void *aAux)
 	    self->aux = (void **) calloc(aInd + 1, sizeof(void *));
 	    if (self->aux == NULL)
 	    {
+		PyErr_NoMemory();
 		rVal = true;
 		goto RETURN;
 	    }
@@ -2844,6 +2865,7 @@ CxRingAuxSet(CxtRingObject *self, unsigned aInd, void *aAux)
 	    tAux = (void **) realloc(self->aux, (aInd + 1) * sizeof(void *));
 	    if (tAux == NULL)
 	    {
+		PyErr_NoMemory();
 		rVal = true;
 		goto RETURN;
 	    }

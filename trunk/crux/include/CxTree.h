@@ -438,8 +438,11 @@ CxNodeAuxSet(CxtNodeObject *self, unsigned aInd, void *aAux);
 // Edge.
 CxtEdgeObject *
 CxEdgeNew(CxtTreeObject *aTree);
-PyObject *
+
+CxtTreeObject *
 CxEdgeTree(CxtEdgeObject *self);
+PyObject *
+CxEdgeTreePargs(CxtEdgeObject *self);
 
 void
 CxEdgeRingsGet(CxtEdgeObject *self, CxtRingObject **rRingA,
