@@ -2140,7 +2140,7 @@ CW_P_INLINE void
 tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		    cw_tr_ps_t *a_b)
 {
-    uint32_t curlimit, i, nchars, ns;
+    uint32_t curlimit, i, nbytes, ns;
     cw_trc_t *chars_p, *chars_a, *chars_b;
 
     /* Calculate node score. */
@@ -2151,7 +2151,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     chars_a = a_a->chars;
     chars_b = a_b->chars;
 
-    nchars = a_p->nchars;
+    nbytes = (a_p->nchars >> 1);
 
     /* Initialize SSE2 registers. */
     {
@@ -2190,16 +2190,16 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
      * score results (stored in %xmm4) are added to ns (otherwise, overflow
      * could occur).  Therefore, the outer loop calculates the upper bound for
      * the inner loop, thereby avoiding extra computation in the inner loop. */
-    curlimit = 127 * 32;
-    if (curlimit > nchars)
+    curlimit = 127 * 16;
+    if (curlimit > nbytes)
     {
-	curlimit = nchars;
+	curlimit = nbytes;
     }
     for (;;)
     {
 	/* Use SSE2 to evaluate as many of the characters as possible.  This
 	 * loop handles 32 characters per iteration. */
-	for (i = 0; i < curlimit; i += 32)
+	for (i = 0; i < curlimit; i += 16)
 	{
 	    asm volatile (
 		/* Read character data, and'ing and or'ing them together.
@@ -2291,16 +2291,16 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 	/* Break out of the loop if the bound for the inner loop was the maximum
 	 * possible. */
-	if (curlimit == nchars)
+	if (curlimit == nbytes)
 	{
 	    break;
 	}
 	/* Update the bound for the inner loop, taking care not to exceed the
 	 * maximum possible bound. */
 	curlimit += 127 * 32;
-	if (curlimit > nchars)
+	if (curlimit > nbytes)
 	{
-	    curlimit = nchars;
+	    curlimit = nbytes;
 	}
     }
 
@@ -2470,7 +2470,7 @@ tr_p_mp_cache_invalidate(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
 CW_P_INLINE uint32_t
 tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
-    uint32_t retval, curlimit, i, nchars;
+    uint32_t retval, curlimit, i, nbytes;
     cw_trc_t *chars_p, *chars_a, *chars_b;
 
     /* Calculate node score. */
@@ -2480,7 +2480,7 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
     chars_a = a_a->chars;
     chars_b = a_b->chars;
 
-    nchars = a_a->nchars;
+    nbytes = (a_a->nchars >> 1);
 
     /* Initialize SSE2 registers. */
     {
@@ -2519,16 +2519,16 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
      * score results (stored in %xmm4) are added to ns (otherwise, overflow
      * could occur).  Therefore, the outer loop calculates the upper bound for
      * the inner loop, thereby avoiding extra computation in the inner loop. */
-    curlimit = 127 * 32;
-    if (curlimit > nchars)
+    curlimit = 127 * 16;
+    if (curlimit > nbytes)
     {
-	curlimit = nchars;
+	curlimit = nbytes;
     }
     for (;;)
     {
 	/* Use SSE2 to evaluate as many of the characters as possible.  This
 	 * loop handles 32 characters per iteration. */
-	for (i = 0; i < curlimit; i += 32)
+	for (i = 0; i < curlimit; i += 16)
 	{
 	    asm volatile (
 		/* Read character data, and'ing and or'ing them together.
@@ -2599,16 +2599,16 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 
 	/* Break out of the loop if the bound for the inner loop was the maximum
 	 * possible. */
-	if (curlimit == nchars)
+	if (curlimit == nbytes)
 	{
 	    break;
 	}
 	/* Update the bound for the inner loop, taking care not to exceed the
 	 * maximum possible bound. */
 	curlimit += 127 * 32;
-	if (curlimit > nchars)
+	if (curlimit > nbytes)
 	{
-	    curlimit = nchars;
+	    curlimit = nbytes;
 	}
     }
 
