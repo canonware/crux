@@ -12,7 +12,7 @@
 print "Test begin"
 
 matrix = crux.CTMatrix.CTMatrix()
-f = open("test/treezilla.fasta")
+f = open(opts.scriptargs[1] + "/test/treezilla.fasta")
 matrix.fastaFileParse(f, 'DNA')
 
 print matrix.fastaPrints()
