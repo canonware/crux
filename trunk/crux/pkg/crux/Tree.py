@@ -153,8 +153,8 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, nodeA)
 
 class Tree(C_Tree):
-    def __init__(self, with=None, map=None, autoMap=False, tryAdditive=True,
-                 joinRandom=False):
+    def __init__(self, with=None, map=None, autoMap=False, useNj=False,
+                 tryAdditive=True, joinRandom=False):
 
         if type(with) == int:
             self._randomNew(with, map)
@@ -165,7 +165,10 @@ class Tree(C_Tree):
             self._newickNew(with, autoMap)
         elif type(with) == DistMatrix.DistMatrix:
             self._map = with.taxonMapGet()
-            self._rnj(with, tryAdditive, joinRandom)
+            if useNj == False:
+                self._rnj(with, tryAdditive, joinRandom)
+            else:
+                self._nj(with, joinRandom)
         else:
             if map == None:
                 map = TaxonMap.TaxonMap()

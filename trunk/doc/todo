@@ -10,8 +10,6 @@
   The NewickParser code shouldn't ever allow this to happen; the grammar that is
   enforced should require multiple objects inside parens.
 
-* Add nj().
-
 * Figure out how to use command line parsing module on crux.opts, and write some
   canned scripts for inclusion in crux releases.
 

@@ -9,9 +9,8 @@
  *
  ******************************************************************************
  *
- * This file implements the neighbor joining algorithm, but implements some
- * heuristic optimizations that dramatically improve performance, with no loss
- * of algorithmic correctness.
+ * This file implements the neigbhor joining (NJ) and relaxed neighbor joining
+ * (RNJ) algorithms.
  *
  * Matrices are stored as upper-half matrices, which means that addressing is a
  * bit tricky.  The following matrix shows how addressing logically works, as
@@ -61,12 +60,12 @@
  *
  ******************************************************************************
  *
- * The key to this implementation's performance is the way in which clustering
- * (node joining) decisions are made.  Rather than calculating the transformed
- * distances for all possible node pairings, and joining those two nodes, this
- * implementation iteratively checks to see if various possible pairings of
- * nodes are legal, according to the constraints of the neighbor joining
- * algorithm.  For example, consider the joining of nodes 4 and 6:
+ * The key to RNJ's performance is the way in which clustering (node joining)
+ * decisions are made.  Rather than calculating the transformed distances for
+ * all possible node pairings and joining those two nodes as in NJ, RNJ
+ * iteratively checks to see if various possible pairings of nodes are legal,
+ * according to the constraints of the neighbor joining algorithm.  For example,
+ * consider the joining of nodes 4 and 6:
  *
  *   x: 0  1  2  3  4  5  6  7  8
  *     --+--+--+--+--+--+--+--+--+ y:
@@ -93,7 +92,8 @@
  *      to the transformed distances for the matrix elements marked by XX or YY,
  *      and
  *   2) joining rows 4 and 6 does not change the additivity of distances for the
- *      nodes still represented in the distance matrix,
+ *      nodes still represented in the distance matrix (only applicable when
+ *      dealing with additive distance matrices),
  * then joining nodes 4 and 6 poses no correctness problems for the neighbor
  * joining algorithm.  This implementation searches for such clusterings in an
  * efficient manner.
@@ -102,7 +102,8 @@
  * O(n^3) performance.  However, worst case performance requires that the tree
  * be very long, with a particular pattern of branch lengths, and that the taxa
  * be inserted into the matrix in a particular order.  As such, worst case
- * performance almost never occurs, and typical runtime is proportional to n^2.
+ * performance almost never occurs, and typical runtime is approximately
+ * proportional to (n^2 lg n).
  *
  ******************************************************************************/
 
@@ -504,6 +505,73 @@ CxpTreeNjDistCompare(float aA, float aB)
     }
 
     return retval;
+}
+
+CxmpInline void
+CxpTreeNjMinFind(float *aD, float *aRScaled, long aNleft, bool aRandom, 
+		 CxtMt *aMt, long *rXMin, long *rYMin)
+{
+    float *dElm, transMin, transCur;
+    long x, y, xMin, yMin, nmins;
+
+    /* Calculate the transformed distance for each pairwise distance.  Keep
+     * track of the minimum transformed distance, so that the corresponding
+     * nodes can be joined.
+     *
+     * This is by far the most time-consuming portion of NJ.
+     *
+     * Use pointer arithmetic (dElm), rather than d[i].  This appears to reduce
+     * register pressure on x86, and has a significant positive performance
+     * impact. */
+#ifdef CxmCcSilence
+    xMin = yMin = 0;
+#endif
+    for (x = 0, nmins = 1, dElm = aD, transMin = HUGE_VAL; x < aNleft; x++)
+    {
+	for (y = x + 1; y < aNleft; y++)
+	{
+	    transCur = *dElm - (aRScaled[x] + aRScaled[y]);
+	    dElm++;
+
+	    switch (CxpTreeNjDistCompare(transCur, transMin))
+	    {
+	        case -1:
+		{
+		    nmins = 1;
+		    xMin = x;
+		    yMin = y;
+		    transMin = transCur;
+		    break;
+		}
+	        case 0:
+		{
+		    /* If aRandom is true, choose such that all tied distances
+		     * have an equal probability of being chosen. Otherwise,
+		     * break ties arbitrarily (use the first minimum that was
+		     * found). */
+		    nmins++;
+		    if (aRandom && CxMtSint32RangeGet(aMt, nmins) == 0)
+		    {
+		        xMin = x;
+			yMin = y;
+			transMin = transCur;
+		    }
+		    break;
+		}
+	        case 1:
+		{
+		    break;
+		}
+	        default:
+		{
+		    CxmNotReached();
+		}
+	    }
+	}
+    }
+
+    *rXMin = xMin;
+    *rYMin = yMin;
 }
 
 CxmpInline long
@@ -1244,12 +1312,81 @@ CxpTreeNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
     *arNodes = nodes;
 }
 
-/* Create a tree from a pairwise distance matrix, using the neighbor-joining
- * algorithm.
+/* Create a tree from a pairwise distance matrix, using the NJ algorithm.  Data
+ * structures are as for CxpTreeRnj(). */
+static bool
+CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
+{
+    bool retval;
+    float *rOrig, *r; /* Distance sums. */
+    float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
+    CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
+    CxtNodeObject *node;
+    long nleft, xMin, yMin;
+    float distX, distY;
+    CxtMt mt;
+    long seed;
+
+    CxmCheckPtr(aD);
+    CxmAssert(aNtaxa > 1);
+
+    if (aRandom)
+    {
+        if (CxpTreeNjSeedGet(&seed))
+	{
+	    retval = true;
+	    goto RETURN;
+	}
+	CxMtNew(&mt);
+	CxMtUint32Seed(&mt, seed);
+    }
+
+    /* Initialize distance matrix, r, rScaled, and nodes. */
+    rOrig = r = CxpTreeNjRInit(aD, aNtaxa);
+    rScaledOrig = rScaled = CxpTreeNjRScaledInit(aNtaxa);
+    CxpTreeNjRScaledUpdate(rScaled, r, aNtaxa);
+    nodesOrig = nodes = CxpTreeNjNodesInit(aTree, aNtaxa);
+
+    /* Iteratitively join two nodes in the matrix, until only two are left. */
+    for (nleft = aNtaxa; nleft > 2; nleft--)
+    {
+	/* Standard neighbor joining. */
+	CxpTreeNjRScaledUpdate(rScaled, r, nleft);
+#ifdef CxmTreeNjVerbose
+	CxpTreeDump(aD, r, rScaled, nodes, nleft);
+#endif
+	CxpTreeNjMinFind(aD, rScaled, nleft, aRandom, &mt, &xMin, &yMin);
+	CxpTreeNjNodesJoin(aD, rScaled, nodes, aTree, nleft, xMin, yMin,
+			   &node, &distX, &distY);
+	CxpTreeNjRSubtract(aD, r, nleft, xMin, yMin);
+	CxpTreeNjCompact(aD, r, nodes, nleft, xMin, yMin, node, distX, distY);
+	CxpTreeNjDiscard(&aD, &r, &rScaled, &nodes, nleft);
+    }
+
+    /* Join last two nodes. */
+    node = CxpTreeNjFinalJoin(aD, nodes, aTree);
+
+    /* Set the tree base. */
+    CxTreeBaseSet(aTree, node);
+    Py_DECREF(node);
+
+    retval = false;
+    /* Clean up. */
+    CxmFree(nodesOrig);
+    CxmFree(rScaledOrig);
+    CxmFree(rOrig);
+    if (aRandom)
+    {
+        CxMtDelete(&mt);
+    }
+    RETURN:
+    return retval;
+}
+
+/* Create a tree from a pairwise distance matrix, using the RNJ algorithm.
  *
  * The matrix is stored as an upper-triangle symmetric matrix, with additional
- * bookkeeping, as necessary for the neighbor-joining algorithm.  For example (n
- * is current matrix size):
+ * bookkeeping, as necessary for RNJ.  For example (n is current matrix size):
  *
  *                             |  r  ||
  *                             | --- ||
@@ -1289,8 +1426,8 @@ CxpTreeNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
  *   \------+------+------+------+------/
  */
 static bool
-CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
-	  bool aRandom)
+CxpTreeRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
+	   bool aRandom)
 {
     bool retval;
     float *rOrig, *r; /* Distance sums. */
@@ -1360,6 +1497,50 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
 }
 
 PyObject *
+CxTreeNj(CxtTreeObject *self, PyObject *args)
+{
+    PyObject *retval, *distMatrix;
+    float *d;
+    long ntaxa;
+    int random;
+
+    if (PyArg_ParseTuple(args, "Oi", &distMatrix, &random) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+
+    Py_INCREF(Py_None);
+    retval = Py_None;
+    CxmXepBegin();
+    CxmXepTry
+    {
+	CxDistMatrixUpperHandoff((CxtDistMatrixObject *) distMatrix,
+				 &d, &ntaxa);
+
+	if (ntaxa > 1)
+	{
+	    /* NJ. */
+	    if (CxpTreeNj(self, d, ntaxa, (bool) random))
+	    {
+		Py_DECREF(retval);
+		retval = NULL;
+	    }
+	    CxmFree(d);
+	}
+    }
+    CxmXepCatch(CxmXepOOM)
+    {
+	CxmXepHandled();
+	retval = PyErr_NoMemory();
+    }
+    CxmXepEnd();
+
+    RETURN:
+    return retval;
+}
+
+PyObject *
 CxTreeRnj(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval, *distMatrix;
@@ -1383,8 +1564,8 @@ CxTreeRnj(CxtTreeObject *self, PyObject *args)
 
 	if (ntaxa > 1)
 	{
-	    /* Neighbor-join. */
-	    if (CxpTreeNj(self, d, ntaxa, (bool) additive, (bool) random))
+	    /* RNJ. */
+	    if (CxpTreeRnj(self, d, ntaxa, (bool) additive, (bool) random))
 	    {
 		Py_DECREF(retval);
 		retval = NULL;
