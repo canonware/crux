@@ -345,8 +345,8 @@ CxpTreeRfBipartitionsCleanup(CxtTreeObject *self, CxtTreeRfTree *aRfTree)
 
 /******************************************************************************/
 
-/* Calculate the RF distances between self and other trees, and return a sequence
- * of the corresponding distances. */
+/* Calculate the RF distances between self and other trees, and return a
+ * sequence of the corresponding distances. */
 PyObject *
 CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
 {
