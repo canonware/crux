@@ -72,9 +72,6 @@ modcrux_ia32_cpu_init(void)
     if (ia32_has_cpuid())
     {
 	ia32_cpuid(1, abcd);
-	fprintf(stderr, "%s:%d:%s(): %08x %08x %08x %08x\n",
-		__FILE__, __LINE__, __func__,
-		abcd[0], abcd[1], abcd[2], abcd[3]);
 
 	/* Mask everything but bit 26 (SSE2 feature flag) of edx. */
 	if ((abcd[3] & 0x04000000) != 0)
@@ -91,9 +88,4 @@ modcrux_ia32_cpu_init(void)
 	/* cpuid is missing.  This is an old CPU. */
 	modcrux_ia32_use_sse2 = FALSE;
     }
-
-    // XXX Remove.
-    fprintf(stderr, "%s:%d:%s(): Use SSE2: %s\n",
-	    __FILE__, __LINE__, __func__,
-	    modcrux_ia32_use_sse2 ? "TRUE" : "FALSE");
 }
