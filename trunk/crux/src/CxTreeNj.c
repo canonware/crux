@@ -11,6 +11,9 @@
 
 #include "../include/_cruxmodule.h"
 
+//#define CxmTreeNjVerbose
+//#define CxmTreeNjDump
+
 /* The following function can be used to convert from row/column matrix
  * coordinates to array offsets for neighbor-joining:
  *
@@ -398,9 +401,8 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 
     CxmAssert(aA < aB);
 
-    /* Compare the distances from {aA, aB} to every other node, and make sure
-     * that one of the two is always closer, always farther, or always
-     * equidistant. */
+    /* Compare the transformed distances from {aA, aB} to every other node, and
+     * make sure that the two are always closer. */
     dist = aD[CxpTreeNjXy2i(aNleft, aA, aB)] - (aRScaled[aA] + aRScaled[aB]);
     for (x = 0,
 	     iA = aA - 1,
@@ -447,7 +449,7 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	distA -= (aRScaled[x] + aRScaled[aA]);
 	distB -= (aRScaled[x] + aRScaled[aB]);
 
-	if (distA <= dist || distB <= dist)
+	if (distA < dist || distB < dist)
 	{
 	    retval = false;
 	    goto RETURN;
@@ -455,16 +457,19 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     }
 
     retval = true;
+#ifdef CxmTreeNjVerbose
     fprintf(stderr, "Cluster rows %ld and %ld\n", aA, aB);
+#endif
     RETURN:
     return retval;
 }
 
-static void
+static long
 CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 		 CxtNodeObject ***arNodes, long *arNleft,
 		 CxtTreeObject *aTree, long aPrevJoin)
 {
+    long retval = 0;
     float *d = *arD;
     float *r = *arR;
     float *rScaled = *arRScaled;
@@ -502,8 +507,7 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 
 	    if (CxpTreeNjPairClusterOk(d, rScaled, nleft, a, b))
 	    {
-		CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-#ifdef CxmTreeNjVerbose
+#ifdef CxmTreeNjDump
 		CxpTreeDump(d, r, rScaled, nodes, nleft);
 #endif
 		CxpTreeNjNodesJoin(d, rScaled, nodes, aTree,
@@ -513,8 +517,19 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 				 node, distX, distY);
 		CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
 		nleft--;
-		prevJoin = a;
+		CxpTreeNjRScaledUpdate(rScaled, r, nleft);
+		/* Take into account that the first row was moved to b, then the
+		 * matrix indexing was moved forward. */
+		if (a != 0)
+		{
+		    prevJoin = a - 1;
+		}
+		else
+		{
+		    prevJoin = b - 1;
+		}
 		stop = false;
+		retval++;
 		break;
 	    }
 	}
@@ -525,14 +540,17 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
     *arRScaled = rScaled;
     *arNodes = nodes;
     *arNleft = nleft;
+
+    return retval;
 }
 
-static void
+static long
 CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
 		     CxtNodeObject ***arNodes, long *arNleft,
 		     CxtTreeObject *aTree)
 {
-    long x, y, min;
+    long retval = 0;
+    long x, y, min, prevJoin;
     float *dElm;
     float dist, minDist, distX, distY;
     float *d = *arD;
@@ -542,7 +560,7 @@ CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
     CxtNodeObject **nodes = *arNodes;
     long nleft = *arNleft;
 
-    for (x = 0; x < nleft - 1; x++)
+    for (x = 0; x < nleft - 2;) /* Avoid last row, y indexes one past x. */
     {
 	/* Find the minimum distance from the node on row x to any other
 	 * node that comes after this one in the matrix.  This has the effect of
@@ -566,6 +584,7 @@ CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
 
 	if (CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min))
 	{
+	    retval++;
 	    CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, x, min,
 			       &node, &distX, &distY);
 	    CxpTreeNjRSubtract(d, r, nleft, x, min);
@@ -573,6 +592,24 @@ CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
 			     node, distX, distY);
 	    CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
 	    nleft--;
+	    CxpTreeNjRScaledUpdate(rScaled, r, nleft);
+
+	    /* The indexing of the matrix is shifted as a result of having
+             * removed the first row.  Set prevJoin accordingly, and do not
+             * increment x.  Note that if x is 0, then the row is now at
+	     * (min - 1). */
+	    if (x > 0)
+	    {
+		prevJoin = x - 1;
+	    }
+	    else
+	    {
+		prevJoin = min - 1;
+	    }
+	}
+	else
+	{
+	    x++;
 	}
     }
 
@@ -581,10 +618,11 @@ CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
     *arRScaled = rScaled;
     *arNodes = nodes;
     *arNleft = nleft;
+
+    return retval;
 }
 
-//#define CxmTreeNjVerbose
-#ifdef CxmTreeNjVerbose
+#ifdef CxmTreeNjDump
 static void
 CxpTreeDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 	    long aNleft)
@@ -673,12 +711,24 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     float *rOrig, *r; /* Distance sums. */
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
-    long nleft, xMin, yMin;
+    long nleft, xMin, yMin, nclustered, totalClustered;
     CxtNodeObject *node;
     float distX, distY;
 
     CxmCheckPtr(aDistMatrix);
     CxmAssert(aNtaxa > 1);
+#ifdef CxmTreeNjVerbose
+    static bool initialized = false;
+    time_t starttime;
+    long ntaxa;
+
+    if (initialized == false)
+    {
+	ntaxa = aNtaxa;
+	time(&starttime);
+	initialized = true;
+    }
+#endif
 
     /* Initialize distance matrix, r, rScaled, and nodes. */
     if ((dOrig = d = CxpTreeNjMatrixInit(aDistMatrix, aNtaxa)) == NULL)
@@ -692,25 +742,31 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 
     nleft = aNtaxa;
 
-    /* Do a full pass through the matrix, trying all clusters. */
-    CxpTreeNjFullCluster(&d, &r, &rScaled, &nodes, &nleft, aTree);
+    /* Do as many full passes through the matrix as are beneficial. */
+    CxpTreeNjRScaledUpdate(rScaled, r, nleft);
+    totalClustered = 0;
+#ifdef CxmTreeNjVerbose
+    fprintf(stderr, "INIT vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
+#endif
+    while ((nclustered = CxpTreeNjFullCluster(&d, &r, &rScaled, &nodes,
+					      &nleft, aTree)) > 0)
+    {
+	totalClustered += nclustered;
+#ifdef CxmTreeNjVerbose
+	fprintf(stderr, "INIT ------------------------------------------\n");
+#endif
+    }
+#ifdef CxmTreeNjVerbose
+    fprintf(stderr, "INIT ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+#endif
 
     /* Iteratitively join two nodes in the matrix, until only two are left. */
     while (nleft > 2)
     {
-#if (0)
+#ifdef CxmTreeNjVerbose
 	{
-	    static bool initialized = false;
-	    time_t starttime, t;
-	    long ntaxa;
+	    time_t t;
 	    struct tm *tm;
-
-	    if (initialized == false)
-	    {
-		ntaxa = nleft;
-		time(&starttime);
-		initialized = true;
-	    }
 
 	    time(&t);
 	    tm = localtime(&t);
@@ -724,10 +780,8 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	    }
 	}
 #endif
-
 	/* Standard neighbor joining. */
-	CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-#ifdef CxmTreeNjVerbose
+#ifdef CxmTreeNjDump
 	CxpTreeDump(d, r, rScaled, nodes, nleft);
 #endif
 	CxpTreeNjMinFind(d, rScaled, nleft, &xMin, &yMin);
@@ -738,10 +792,27 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 			 node, distX, distY);
 	CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
 	nleft--;
+	CxpTreeNjRScaledUpdate(rScaled, r, nleft);
 
 	/* Try to cluster nodes. */
-	CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree, xMin);
+	nclustered = CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree,
+				      xMin);
+	if (nclustered > 0)
+	{
+	    totalClustered += nclustered;
+#ifdef CxmTreeNjVerbose
+	    fprintf(stderr, "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
+#endif
+	    totalClustered += CxpTreeNjFullCluster(&d, &r, &rScaled, &nodes,
+						   &nleft, aTree);
+#ifdef CxmTreeNjVerbose
+	    fprintf(stderr, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+#endif
+	}
     }
+#ifdef CxmTreeNjVerbose
+    fprintf(stderr, "Clustered %ld times\n", totalClustered);
+#endif
 
     node = CxpTreeNjFinalJoin(d, nodes, aTree);
 
