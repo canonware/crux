@@ -1,0 +1,24 @@
+--------------------------------------------------------------------------------
+17 September 2004
+--------------------------------------------------------------------------------
+
+With the conversion of Crux's NJ implementation to heuristic clustering, the
+performance has increased by roughly two orders of magnitude.  However, this
+performance gain is not guaranteed; the algorithm is still O(n^3) in the worst
+case.  The question of how often the worst case shows up is therefore of
+interest.  It turns out that worst case performance requires a specially shaped
+tree, and the taxa have to be listed in the matrix in just the right order.
+As a result of the second factor (ordering), there turns out to be a simple way
+to make sure that the worst case never shows up in practice.  Since the number
+of possible orderings grows factorially with the number of taxa, we can
+randomize the starting order of the matrix, thus assuring that hitting the worst
+case performance happens 1/n! of the time.
+
+What about nearly worst case performance?  This happens more often, but again,
+it happens very seldom, relative to the total number of possible orderings.
+
+Anyway, I don't know that it's worthwhile implementing randomization, but it
+probably is worth mentioning in the paper about this algorithm.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
