@@ -105,13 +105,8 @@ class _NewickParser(NewickParser.NewickParser):
 
     # Overridden method.
     def rootLabelAccept(self):
-        # A tree with only one node can be written as a single root label.  This
-        # is the only case that we allow root labels here.
         if len(self.token()) > 0:
-            if len(self._taxonStack) > 0:
-                self.error_raise("Trailing root label not supported")
-            else:
-                self._labelAccept()
+            self._labelAccept()
 
     # Overridden method.
     def leafLabelAccept(self):
