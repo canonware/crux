@@ -39,7 +39,8 @@ check: all
 		for t in @crux_tests@; do \
 			total=`expr $$total + 1`; \
 			echo -n "$$t ... "; \
-			@objroot@/crux --batch --quiet --infile=$$t \\\
+			@objroot@/crux --batch --quiet --infile=$$t \
+			  -- @srcroot@ @objroot@ \
 			  > $${t}.out 2>/dev/null; \
 			if test -e "$${t}.exp"; then \
 				diff -u $${t}.exp $${t}.out; \
