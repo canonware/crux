@@ -10,9 +10,9 @@
  *
  ******************************************************************************/
 
-#include "../include/modcrux.h"
+#include "../include/_cruxmodule.h"
 
-bool modcrux_ia32_use_sse2;
+bool crux_ia32_use_sse2;
 
 /* Check for the cpuid instruction.  If the ID bit (21) in EFLAGS is writable
  * then cpuid is supported. */
@@ -63,7 +63,7 @@ ia32_cpuid(unsigned a_eax, unsigned *r_abcd)
 }
 
 void
-modcrux_ia32_cpu_init(void)
+crux_ia32_cpu_init(void)
 {
     int abcd[4];
 
@@ -76,16 +76,16 @@ modcrux_ia32_cpu_init(void)
 	/* Mask everything but bit 26 (SSE2 feature flag) of edx. */
 	if ((abcd[3] & 0x04000000) != 0)
 	{
-	    modcrux_ia32_use_sse2 = true;
+	    crux_ia32_use_sse2 = true;
 	}
 	else
 	{
-	    modcrux_ia32_use_sse2 = false;
+	    crux_ia32_use_sse2 = false;
 	}
     }
     else
     {
 	/* cpuid is missing.  This is an old CPU. */
-	modcrux_ia32_use_sse2 = false;
+	crux_ia32_use_sse2 = false;
     }
 }

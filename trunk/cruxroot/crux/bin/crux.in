@@ -1,0 +1,9 @@
+#!python
+
+# XXX Doing this allows things like tree(), where crux.tree() would be
+# preferrable.  It also polutes the global namespace.  However, if I don't
+# do this, then the crux scripts end up being executed in the crux module
+# namespace, and I want that to happen in the global namespace.  How can this
+# be fixed?
+from crux import *
+#import crux

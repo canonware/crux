@@ -1,0 +1,19 @@
+################################################################################
+#
+# Version: Crux <Version = crux>
+#
+################################################################################
+
+The following files may be of direct interest to the user:
+
+* COPYING - Copyright and redistribution information.
+
+* INSTALL - Installation information.
+
+* PLATFORMS - Supported platforms and platform-specific information.
+
+* doc/html/crux/crux.html - Manual in html format.
+
+* doc/ps/crux/crux.ps - Manual in PostScript format.
+
+* doc/pdf/crux/crux.pdf - Manual in Portable Document Format.

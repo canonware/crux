@@ -1,0 +1,19 @@
+#!/bin/sh
+################################################################################
+#
+# <Copyright = jasone>
+# <License>
+#
+################################################################################
+#
+# Version: <Version = crux>
+#
+# Invoke crux.
+#
+################################################################################
+
+PYTHONPATH="@abs_objroot@/build/lib*"
+PYTHONPATH=`echo $PYTHONPATH`
+export PYTHONPATH
+
+@PYTHON@ @objroot@/build/scripts*/crux $@

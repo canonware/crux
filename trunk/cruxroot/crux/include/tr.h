@@ -1,5 +1,4 @@
-/* -*- mode: c ; c-file-style: "canonware-c-style" -*-
- ******************************************************************************
+/******************************************************************************
  *
  * <Copyright = jasone>
  * <License>
@@ -27,7 +26,7 @@ typedef uint32_t cw_tr_edge_t;
 
 /* Constructor. */
 cw_tr_t *
-tr_new(cw_mema_t *a_mema);
+tr_new(void);
 
 /* Destructor. */
 void

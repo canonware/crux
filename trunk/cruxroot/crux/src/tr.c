@@ -29,7 +29,7 @@
  *
  ******************************************************************************/
 
-#include "../include/modcrux.h"
+#include "../include/_cruxmodule.h"
 
 typedef struct cw_tr_ps_s cw_tr_ps_t;
 typedef struct cw_trn_s cw_trn_t;
@@ -170,9 +170,6 @@ struct cw_tr_s
     uint32_t magic;
 #define CW_TR_MAGIC 0x39886394
 #endif
-
-    /* Used for memory allocation. */
-    cw_mema_t *mema;
 
     /* Auxiliary opaque data pointer. */
     void *aux;
@@ -377,9 +374,7 @@ tr_p_ps_new(cw_tr_t *a_tr)
 {
     cw_tr_ps_t *retval;
 
-    retval = (cw_tr_ps_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					    mema_arg_get(a_tr->mema),
-					    sizeof(cw_tr_ps_t));
+    retval = (cw_tr_ps_t *) cw_malloc(sizeof(cw_tr_ps_t));
 
     retval->parent = NULL;
     retval->chars = NULL;
@@ -392,15 +387,10 @@ tr_p_ps_delete(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
 {
     if (a_ps->chars != NULL)
     {
-	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-			  mema_arg_get(a_tr->mema),
-			  a_ps->achars,
-			  sizeof(cw_trc_t) * ((a_ps->nchars >> 1)) + 8);
+	cw_free(a_ps->achars);
     }
 
-    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-		      mema_arg_get(a_tr->mema),
-		      a_ps, sizeof(cw_tr_ps_t));
+    cw_free(a_ps);
 }
 
 #if (0) /* Unused (so far). */
@@ -448,10 +438,7 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
      * characters. */
     if (a_ps->chars != NULL && a_ps->nchars != a_nchars)
     {
-	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-			  mema_arg_get(a_tr->mema),
-			  a_ps->achars,
-			  sizeof(cw_trc_t) * ((a_ps->nchars >> 1) + 8));
+	cw_free(a_ps->achars);
 	a_ps->chars = NULL;
     }
 
@@ -467,11 +454,8 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 
 	/* Tack on 8 bytes; all modern systems provide at least 8 byte
 	 * alignment. */
-	a_ps->achars
-	    = (cw_trc_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					   mema_arg_get(a_tr->mema),
-					   sizeof(cw_trc_t)
-					   * (((a_nchars + npad) >> 1)) + 8);
+	a_ps->achars = (cw_trc_t *) cw_malloc(sizeof(cw_trc_t)
+					      * (((a_nchars + npad) >> 1)) + 8);
 
 	/* Make sure that chars is 16 byte-aligned.  Assume that chars is at
 	 * least 8 byte-aligned. */
@@ -522,37 +506,21 @@ tr_p_edge_alloc(cw_tr_t *a_tr)
 
 	if (a_tr->tres == NULL)
 	{
-	    a_tr->tres
-		= (cw_tre_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					       mema_arg_get(a_tr->mema),
-					       sizeof(cw_tre_t));
+	    a_tr->tres = (cw_tre_t *) cw_malloc(sizeof(cw_tre_t));
 	    cw_assert(a_tr->trrs == NULL);
-	    a_tr->trrs
-		= (cw_trr_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					       mema_arg_get(a_tr->mema),
-					       sizeof(cw_trr_t) * 2);
+	    a_tr->trrs = (cw_trr_t *) cw_malloc(sizeof(cw_trr_t) * 2);
 	    nspares = 1;
 	    a_tr->ntres = 1;
 	}
 	else
 	{
-	    a_tr->tres
-		= (cw_tre_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
-						 mema_arg_get(a_tr->mema),
-						 a_tr->tres,
+	    a_tr->tres = (cw_tre_t *) cw_realloc(a_tr->tres,
 						 sizeof(cw_tre_t)
-						 * a_tr->ntres * 2,
-						 sizeof(cw_tre_t)
-						 * a_tr->ntres);
-	    cw_check_ptr(a_tr->trrs);
-	    a_tr->trrs
-		= (cw_trr_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
-						 mema_arg_get(a_tr->mema),
-						 a_tr->trrs,
-						 sizeof(cw_trr_t)
-						 * a_tr->ntres * 4,
-						 sizeof(cw_trr_t)
 						 * a_tr->ntres * 2);
+	    cw_check_ptr(a_tr->trrs);
+	    a_tr->trrs = (cw_trr_t *) cw_realloc(a_tr->trrs,
+						 sizeof(cw_trr_t)
+						 * a_tr->ntres * 4);
 	    nspares = a_tr->ntres;
 	    a_tr->ntres *= 2;
 	}
@@ -810,22 +778,15 @@ tr_p_node_alloc(cw_tr_t *a_tr)
 	if (a_tr->trns == NULL)
 	{
 	    a_tr->trns
-		= (cw_trn_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					       mema_arg_get(a_tr->mema),
-					       sizeof(cw_trn_t));
+		= (cw_trn_t *) cw_malloc(sizeof(cw_trn_t));
 	    nspares = 1;
 	    a_tr->ntrns = 1;
 	}
 	else
 	{
-	    a_tr->trns
-		= (cw_trn_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
-						 mema_arg_get(a_tr->mema),
-						 a_tr->trns,
+	    a_tr->trns = (cw_trn_t *) cw_realloc(a_tr->trns,
 						 sizeof(cw_trn_t)
-						 * a_tr->ntrns * 2,
-						 sizeof(cw_trn_t)
-						 * a_tr->ntrns);
+						 * a_tr->ntrns * 2);
 	    nspares = a_tr->ntrns;
 	    a_tr->ntrns *= 2;
 	}
@@ -1050,9 +1011,8 @@ tr_node_distance(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_other)
 
 /* Initialize everything except trns and sparetrns. */
 CW_P_INLINE void
-tr_p_new(cw_tr_t *a_tr, cw_mema_t *a_mema)
+tr_p_new(cw_tr_t *a_tr)
 {
-    a_tr->mema = a_mema;
     a_tr->aux = NULL;
     a_tr->modified = false;
     a_tr->base = CW_TR_NODE_NONE;
@@ -1406,19 +1366,14 @@ tr_p_trti_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
 	{
 	    cw_assert(a_nedges_prev == 0);
 
-	    a_tr->trti = (cw_tr_edge_t *)
-		cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-				mema_arg_get(a_tr->mema),
-				sizeof(cw_tr_edge_t) * a_tr->nedges);
+	    a_tr->trti = (cw_tr_edge_t *) cw_malloc(sizeof(cw_tr_edge_t)
+						    * a_tr->nedges);
 	}
 	else
 	{
-	    a_tr->trti = (cw_tr_edge_t *)
-		cw_opaque_realloc(mema_realloc_get(a_tr->mema),
-				  mema_arg_get(a_tr->mema),
-				  a_tr->trti,
-				  sizeof(cw_tr_edge_t) * a_tr->nedges,
-				  sizeof(cw_tr_edge_t) * a_nedges_prev);
+	    a_tr->trti = (cw_tr_edge_t *) cw_realloc(a_tr->trti,
+						     sizeof(cw_tr_edge_t)
+						     * a_tr->nedges);
 	}
     }
     else if (a_tr->nedges < a_nedges_prev)
@@ -1426,19 +1381,13 @@ tr_p_trti_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
 	/* Shrink the array. */
 	if (a_tr->nedges > 0)
 	{
-	    a_tr->trti = (cw_tr_edge_t *)
-		cw_opaque_realloc(mema_realloc_get(a_tr->mema),
-				  mema_arg_get(a_tr->mema),
-				  a_tr->trti,
-				  sizeof(cw_tr_edge_t) * a_tr->nedges,
-				  sizeof(cw_tr_edge_t) * a_nedges_prev);
+	    a_tr->trti = (cw_tr_edge_t *) cw_realloc(a_tr->trti,
+						     sizeof(cw_tr_edge_t)
+						     * a_tr->nedges);
 	}
 	else
 	{
-	    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-			      mema_arg_get(a_tr->mema),
-			      a_tr->trti,
-			      sizeof(cw_tr_edge_t) * a_nedges_prev);
+	    cw_free(a_tr->trti);
 	    a_tr->trti = NULL;
 	}
     }
@@ -1481,22 +1430,16 @@ tr_p_trt_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
     if (a_tr->trt == NULL)
     {
 	/* Allocate trt. */
-	a_tr->trt = (cw_trt_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-						 mema_arg_get(a_tr->mema),
-						 sizeof(cw_trt_t)
-						 * (a_tr->nedges + 1));
+	a_tr->trt = (cw_trt_t *) cw_malloc(sizeof(cw_trt_t)
+					   * (a_tr->nedges + 1));
     }
     else if (a_tr->nedges != a_nedges_prev)
     {
 	/* Reallocate trt.  There is never a need to deallocate trt here,
 	 * since trt contains one extra element. */
-	a_tr->trt = (cw_trt_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
-						   mema_arg_get(a_tr->mema),
-						   a_tr->trt,
-						   sizeof(cw_trt_t)
-						   * (a_tr->nedges + 1),
-						   sizeof(cw_trt_t)
-						   * (a_nedges_prev + 1));
+	a_tr->trt = (cw_trt_t *) cw_realloc(a_tr->trt,
+					    sizeof(cw_trt_t)
+					    * (a_tr->nedges + 1));
     }
 
     /* Iteratively fill in trt. */
@@ -1559,30 +1502,21 @@ tr_p_bedges_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
     {
 	/* Allocate bedges. */
 	a_tr->bedges
-	    = (cw_tr_edge_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					       mema_arg_get(a_tr->mema),
-					       sizeof(cw_tr_edge_t)
-					       * a_tr->nedges);
+	    = (cw_tr_edge_t *) cw_malloc(sizeof(cw_tr_edge_t) * a_tr->nedges);
     }
     else if (a_tr->nedges != a_nedges_prev)
     {
 	if (a_tr->nedges > 0)
 	{
 	    /* Reallocate bedges. */
-	    a_tr->bedges = (cw_tr_edge_t *)
-		cw_opaque_realloc(mema_realloc_get(a_tr->mema),
-				  mema_arg_get(a_tr->mema),
-				  a_tr->bedges,
-				  sizeof(cw_tr_edge_t) * a_tr->nedges,
-				  sizeof(cw_tr_edge_t) * a_nedges_prev);
+	    a_tr->bedges = (cw_tr_edge_t *) cw_realloc(a_tr->bedges,
+						       sizeof(cw_tr_edge_t)
+						       * a_tr->nedges);
 	}
 	else
 	{
 	    /* Deallocate bedges. */
-	    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-			      mema_arg_get(a_tr->mema),
-			      a_tr->bedges,
-			      sizeof(cw_tr_edge_t) * a_nedges_prev);
+	    cw_free(a_tr->bedges);
 	    a_tr->bedges = NULL;
 	}
     }
@@ -1667,9 +1601,7 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 	/* Allocate space for a temporary array that can be used to sort the
 	 * ring. */
 	canonize = (struct cw_tr_canonize_s *)
-	    cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-			    mema_arg_get(a_tr->mema),
-			    sizeof(struct cw_tr_canonize_s) * (degree - 1));
+	    cw_malloc(sizeof(struct cw_tr_canonize_s) * (degree - 1));
 
 	/* Iteratively canonize subtrees, keeping track of the minimum taxon
 	 * number seen overall, as well as for each subtree. */
@@ -1708,10 +1640,7 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 	}
 
 	/* Clean up. */
-	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-			  mema_arg_get(a_tr->mema),
-			  canonize,
-			  sizeof(struct cw_tr_canonize_s) * (degree - 1));
+	cw_free(canonize);
     }
 
     return retval;
@@ -2177,8 +2106,8 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     }
     for (i = 0;;)
     {
-	/* Use SSE2 to evaluate as many of the characters as possible.  This
-	 * loop handles 32 characters per iteration. */
+	/* Use SSE2 to evaluate the characters.  This loop handles 32 characters
+	 * per iteration. */
 	for (; i < curlimit; i += 16)
 	{
 	    asm volatile (
@@ -2379,7 +2308,7 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	+ a_b->subtrees_score + a_b->node_score;
 
 #ifdef CW_CPU_IA32
-    if (modcrux_ia32_use_sse2)
+    if (crux_ia32_use_sse2)
     {
 	tr_p_mp_ia32_pscore(a_tr, a_p, a_a, a_b);
     }
@@ -2523,8 +2452,8 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
 	    );
     }
 
-    /* Use SSE2 to evaluate as many of the characters as possible.  This loop
-     * handles 32 characters per iteration. */
+    /* Use SSE2 to evaluate the characters.  This loop handles 32 characters per
+     * iteration. */
     for (i = 0, nbytes = (a_a->nchars >> 1); i < nbytes; i += 16)
     {
 	asm volatile (
@@ -2678,7 +2607,7 @@ tr_p_mp_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
     uint32_t retval;
 
 #ifdef CW_CPU_IA32
-    if (modcrux_ia32_use_sse2)
+    if (crux_ia32_use_sse2)
     {
 	retval = tr_p_mp_ia32_fscore(a_tr, a_a, a_b, a_maxscore);
     }
@@ -3006,23 +2935,15 @@ tr_p_hold(cw_tr_t *a_tr, uint32_t a_max_hold, uint32_t a_neighbor,
 	if (a_tr->held == NULL)
 	{
 	    /* Allocate. */
-	    a_tr->held
-		= (cw_trh_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					       mema_arg_get(a_tr->mema),
-					       sizeof(cw_trh_t));
+	    a_tr->held = (cw_trh_t *) cw_malloc(sizeof(cw_trh_t));
 	    a_tr->heldlen = 1;
 	}
 	else if (a_tr->nheld == a_tr->heldlen)
 	{
 	    /* Reallocate. */
-	    a_tr->held
-		= (cw_trh_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
-						 mema_arg_get(a_tr->mema),
-						 a_tr->held,
+	    a_tr->held = (cw_trh_t *) cw_realloc(a_tr->held,
 						 sizeof(cw_trh_t)
-						 * a_tr->heldlen * 2,
-						 sizeof(cw_trh_t)
-						 * a_tr->heldlen);
+						 * a_tr->heldlen * 2);
 	    a_tr->heldlen *= 2;
 	}
 	
@@ -3177,15 +3098,13 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 }
 
 cw_tr_t *
-tr_new(cw_mema_t *a_mema)
+tr_new(void)
 {
     cw_tr_t *retval;
 
-    retval = (cw_tr_t *) cw_opaque_alloc(mema_alloc_get(a_mema),
-					 mema_arg_get(a_mema),
-					 sizeof(cw_tr_t));
+    retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
 
-    tr_p_new(retval, a_mema);
+    tr_p_new(retval);
 
     return retval;
 }
@@ -3194,19 +3113,14 @@ cw_tr_t *
 tr_dup(cw_tr_t *a_tr)
 {
     cw_tr_t *retval;
-    cw_opaque_alloc_t *alloc;
-    void *arg;
     uint32_t i;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
 
-    alloc = mema_alloc_get(a_tr->mema);
-    arg = mema_arg_get(a_tr->mema);
+    retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
 
-    retval = (cw_tr_t *) cw_opaque_alloc(alloc, arg, sizeof(cw_tr_t));
-
-    tr_p_new(retval, a_tr->mema);
+    tr_p_new(retval);
 
     retval->base = a_tr->base;
     retval->ntaxa = a_tr->ntaxa;
@@ -3219,9 +3133,7 @@ tr_dup(cw_tr_t *a_tr)
     /* Allocate trns the same size as a_tr's, then copy. */
     if (a_tr->trns != NULL)
     {
-	retval->trns
-	    = (cw_trn_t *) cw_opaque_alloc(alloc, arg,
-					   sizeof(cw_trn_t) * a_tr->ntrns);
+	retval->trns = (cw_trn_t *) cw_malloc(sizeof(cw_trn_t) * a_tr->ntrns);
 	memcpy(retval->trns, a_tr->trns, sizeof(cw_trn_t) * a_tr->ntrns);
 	retval->ntrns = a_tr->ntrns;
 
@@ -3242,9 +3154,7 @@ tr_dup(cw_tr_t *a_tr)
     if (a_tr->tres != NULL)
     {
 	/* Allocate tres the same size as a_tr's, then copy. */
-	retval->tres
-	    = (cw_tre_t *) cw_opaque_alloc(alloc, arg,
-					   sizeof(cw_tre_t) * a_tr->ntres);
+	retval->tres = (cw_tre_t *) cw_malloc(sizeof(cw_tre_t) * a_tr->ntres);
 	memcpy(retval->tres, a_tr->tres, sizeof(cw_tre_t) * a_tr->ntres);
 	retval->ntres = a_tr->ntres;
 
@@ -3259,9 +3169,8 @@ tr_dup(cw_tr_t *a_tr)
 	retval->sparetres = a_tr->sparetres;
 
 	/* Alocate trrs the same size as a_tr's, then copy. */
-	retval->trrs
-	    = (cw_trr_t *) cw_opaque_alloc(alloc, arg,
-					   sizeof(cw_trr_t) * a_tr->ntres * 2);
+	retval->trrs = (cw_trr_t *) cw_malloc(sizeof(cw_trr_t)
+					      * a_tr->ntres * 2);
 	memcpy(retval->trrs, a_tr->trrs, sizeof(cw_trr_t *) * a_tr->ntres * 2);
 
 	for (i = 0; i < retval->ntres * 2; i++)
@@ -3276,55 +3185,41 @@ tr_dup(cw_tr_t *a_tr)
 void
 tr_delete(cw_tr_t *a_tr)
 {
-    cw_opaque_dealloc_t *dealloc;
-    void *arg;
-
     cw_check_ptr(a_tr);
     cw_assert(a_tr->magic == CW_TR_MAGIC);
 
-    dealloc = mema_dealloc_get(a_tr->mema);
-    arg = mema_arg_get(a_tr->mema);
-
     if (a_tr->held != NULL)
     {
-	cw_opaque_dealloc(dealloc, arg, a_tr->held,
-			  sizeof(cw_trh_t) * a_tr->heldlen);
+	cw_free(a_tr->held);
     }
 
     /* This assumes that all nodes are deallocated before tr_delete() is
      * called. */
     if (a_tr->trns != NULL)
     {
-	cw_opaque_dealloc(dealloc, arg, a_tr->trns,
-			  sizeof(cw_trn_t) * a_tr->ntrns);
+	cw_free(a_tr->trns);
     }
 
     if (a_tr->trt != NULL)
     {
-	cw_opaque_dealloc(dealloc, arg, a_tr->trt,
-			  sizeof(cw_trt_t) * (a_tr->nedges + 1));
-	cw_opaque_dealloc(dealloc, arg, a_tr->trti,
-			  sizeof(cw_tr_edge_t) * a_tr->nedges);
+	cw_free(a_tr->trt);
+	cw_free(a_tr->trti);
     }
 
     if (a_tr->bedges != NULL)
     {
-	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-			  mema_arg_get(a_tr->mema),
-			  a_tr->bedges, sizeof(cw_tr_edge_t) * a_tr->nedges);
+	cw_free(a_tr->bedges);
     }
 
     /* This assumes that all edges are deallocated before tr_delete() is
      * called. */
     if (a_tr->tres != NULL)
     {
-	cw_opaque_dealloc(dealloc, arg, a_tr->tres,
-			  sizeof(cw_tre_t) * a_tr->ntres);
-	cw_opaque_dealloc(dealloc, arg, a_tr->trrs,
-			  sizeof(cw_trr_t) * a_tr->ntres * 2);
+	cw_free(a_tr->tres);
+	cw_free(a_tr->trrs);
     }
 
-    cw_opaque_dealloc(dealloc, arg, a_tr, sizeof(cw_tr_t));
+    cw_free(a_tr);
 }
 
 uint32_t
@@ -3886,9 +3781,7 @@ tr_held_finish(cw_tr_t *a_tr)
 
     if (a_tr->held != NULL)
     {
-	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-			  mema_arg_get(a_tr->mema), a_tr->held,
-			  sizeof(cw_trh_t) * a_tr->heldlen);
+	cw_free(a_tr->held);
 	a_tr->held = NULL;
 	a_tr->heldlen = 0;
 	a_tr->nheld = 0;

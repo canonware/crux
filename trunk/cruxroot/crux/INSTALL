@@ -1,0 +1,172 @@
+################################################################################
+#
+# Version: Crux <Version = crux>
+#
+# Building and installation instructions for the Crux distribution.
+#
+################################################################################
+
+Required: This software depends on the excellent 'cook' program for building.
+	  'cook' is freely available (GPLed), and runs on many platforms.  For
+	  more information, see:
+
+		http://www.canb.auug.org.au/~millerp/cook/cook.html
+
+Optional: Running the regression tests requires perl.
+
+Optional: Rebuilding the documentation requires LaTeX (teTeX distribution),
+	  transfig, latex2html, and perl.  However, the source distribution
+	  should come with the documentation already built, so you should not
+	  need to do so unless making documentation modifications.
+
+Optional: Regenerating the configure script requires GNU autoconf and GNU
+	  automake.
+
+Building this distribution in many cases is as simple as typing the following
+while in the root directory of the source tree:
+
+	./configure
+	cook
+
+To install, do the above, then type:
+
+	cook install
+
+Additional build targets of finer granularity include:
+
+	bins
+	<binname>
+	mods
+	<modname>
+	tests
+	examples
+
+Additional install targets of finer granularity include:
+
+	{bins,mods,docs}_install
+	<binname>_bins_install
+	<modname>_mods_install
+	docs_install_{ps,pdf,html}
+
+Uninstall targets include:
+
+	uninstall
+	{bins,mods,docs}_uninstall
+	<binname>_uninstall
+	<modname>_uninstall
+
+Cleanup targets include:
+
+	clean
+	distclean
+	relclean
+
+Targets that depend on optional supporting software include:
+
+	docs
+	docs_{ps,pdf,html}
+	release
+	check
+	check_update
+
+The build system is capable of building in a different directory than the
+source, so that no files are written to the source tree.  In order to use this
+feature, run 'configure' and 'cook' while in the directory that you want to
+build the software in.
+
+Optionally, pass any of the following (not a definitive list) arguments to
+'configure':
+
+--prefix=<install-root-dir>
+	Set the base directory in which to install.  For example:
+	
+		./configure --prefix=/usr/local
+
+	will cause files to be installed into /usr/local/bin, /usr/local/man,
+	/usr/local/include, and /usr/local/share.
+
+--with-onyx-prefix=<prefix>
+	Use the copy of onyx that is installed in <prefix>.  If this option
+	isn't specified, the first instance of onyx_config in PATH is used for
+	configuration.
+
+--with-onyx-version=<version>
+
+	Use onyx-<version>, rather than onyx.  This can be used to select a
+	particular version of onyx when multiple versions are installed to the
+	same directory tree.
+
+	Note that there are no provisions for having multiple versions of
+	libonyx headers in the same directory tree, so for this to work
+	correctly, you must have the appropriate headers installed at build
+	time.  However, this option is still useful in that it locks crux into
+	using a particular version of onyx, so if a newer version is installed
+	in the same directory tree, crux will continue to work correctly.
+
+--enable-autogen
+	Include dependency rules in the build system to automatically regenerate
+	files created by configure when their sources are newer.  This is
+	only of interest when making modifications to the source code.
+
+--with-docs
+	Enable build system rules to build the documentation.  Unless this
+	option is specified, the build system assumes that pre-built
+	documentation resides in the source directory (which is the case for all
+	Onyx distributions).  Note that the documentation lands in the objdir,
+	so in order to completely empty the objdir, the relclean target must be
+	used.  This option is only useful when modifications have been made to
+	the documentation source.
+
+Optionally, define environment variables when invoking configure, including (not
+exclusively):
+
+CFLAGS="?"
+	Pass these flags to the compiler.  You probably shouldn't define this
+	unless you know what you are doing.
+
+CPPFLAGS="?"
+	Pass these flags to the C preprocessor.  Note that CFLAGS is not passed
+	to 'cpp' when 'configure' is looking for include files, so you must use 
+	CPPFLAGS instead if you need to help 'configure' find header files.
+
+LD_LIBRARY_PATH="?"
+	'ld' uses this colon-separated list to find libraries.
+
+LDFLAGS="?"
+	Pass these flags when linking.
+
+PATH="?"
+	'configure' uses this to find programs.
+
+Optionally, define cook variables when invoking cook, including (not
+exclusively):
+
+PREFIX="?"
+	Use this as the installation prefix.
+
+BINDIR="?"
+	Use this as the installation prefix for programs.
+
+DATADIR="?"
+	Use this as the installation prefix for modules and documentation.
+
+INCLUDEDIR="?"
+	Use this as the installation prefix for header files.
+
+MANDIR="?"
+	Use this as the installation prefix for man pages.
+
+CC="?"
+	Use this to invoke the C compiler.
+
+CFLAGS="?"
+	Pass these flags to the compiler.
+
+CPPFLAGS="?"
+	Pass these flags to the C preprocessor.
+
+LDFLAGS="?"
+	Pass these flags when linking.
+
+PATH="?"
+	Use this to search for programs used during configuration and building.

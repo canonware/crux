@@ -1,0 +1,26 @@
+#!@PYTHON@
+################################################################################
+#
+# <Copyright = jasone>
+# <License>
+#
+################################################################################
+#
+# Version: Crux <Version = crux>
+#
+################################################################################
+
+from distutils.core import setup, Extension
+setup(name = 'crux',
+      version = '@crux_version@',
+      description = 'Pylogenetic inferencing program',
+      author = 'Jason Evans',
+      author_email = 'jevans@uidaho.edu',
+      package_dir = {'': '@srcroot@/pkg'},
+      packages = @crux_packages@,
+      ext_modules = [Extension('crux._crux',
+                               sources=@crux_sources@,
+                               include_dirs=["@srcroot@/include",
+                                             "@objroot@/include"])],
+      scripts = @crux_scripts@
+      )

@@ -9,9 +9,9 @@
  *
  ******************************************************************************/
 
-#define CRUX_CPU_INIT() crux_ia32_cpu_init()
-
-extern bool crux_ia32_use_sse2;
-
 void
-crux_ia32_cpu_init(void);
+crux_tree_init(void);
+void
+crux_node_init(void);
+void
+crux_edge_init(void);
