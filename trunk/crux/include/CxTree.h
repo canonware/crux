@@ -18,6 +18,7 @@ struct CxsTreeObject
 {
     PyObject_HEAD
     CxtTr *tr;
+    bool GcCleared;
 };
 
 struct CxsNodeObject
@@ -25,6 +26,7 @@ struct CxsNodeObject
     PyObject_HEAD
     CxtTreeObject *tree;
     CxtTrNode node;
+    bool GcCleared;
 };
 
 struct CxsEdgeObject
@@ -35,6 +37,7 @@ struct CxsEdgeObject
     CxtRingObject *ringB;
     CxtTrEdge edge;
     bool GcDetached;
+    bool GcCleared;
 };
 
 struct CxsRingObject
@@ -44,6 +47,7 @@ struct CxsRingObject
     CxtEdgeObject *edge;
     CxtTrRing ring;
     bool GcDetached;
+    bool GcCleared;
 };
 
 extern PyObject *CxgTreeException;
