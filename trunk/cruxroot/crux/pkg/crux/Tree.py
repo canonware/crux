@@ -13,6 +13,7 @@ import _Tree
 
 import Node
 import Edge
+import Ring
 import NewickParser
 import TaxonMap
 
@@ -129,23 +130,24 @@ class _NewickParser(NewickParser.NewickParser):
             n = self._taxonStack[0]
             if n.degree() == 2:
                 self._taxonStack.pop(0)
-                # Get edges (and end that n is attached to).
-                (edgeA, endA) = n.edge()
-                (edgeB, endB) = edgeA.next(endA)
+                # Get rings.
+                ringA = n.ring()
+                ringB = ringA.next()
                 # Get neighboring nodes.
-                nodeA = edgeA.node(endA ^ 1)
-                nodeB = edgeB.node(endB ^ 1)
+                nodeA = ringA.other().node()
+                nodeB = ringB.other().node()
                 # Detach edges.
-                edgeA.detach()
-                edgeB.detach()
+                ringA.edge().detach()
+                ringB.edge().detach()
                 # Attach neighbors.
                 e = Edge.Edge(self._tree)
                 e.attach(nodeA, nodeB)
                 if length != None:
                     e.lengthSet(length)
                 else:
-                    e.lengthSet(edgeA.lengthGet() + edgeB.lengthGet())
-                    
+                    e.lengthSet(ringA.edge().lengthGet()
+                                + ringB.edge().lengthGet())
+
                 # Push a node back onto the stack.
                 self._taxonStack.insert(0, nodeA)
 

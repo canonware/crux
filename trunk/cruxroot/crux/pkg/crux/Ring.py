@@ -9,15 +9,9 @@
 #
 ################################################################################
 
-from _crux import *
+import _Ring
 
-from Exception import *
-
-import Tree
-import Node
-import Edge
-import Ring
-
-import DistMatrix
-import NewickParser
-import TaxonMap
+class Ring(_Ring.Ring):
+    def __init__(self, edge, end):
+        pass
+#EOF

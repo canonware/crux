@@ -38,24 +38,6 @@ typedef unsigned char bool;
 #include <sys/types.h>
 #include <setjmp.h>
 
-#include "CxQr.h"
-#include "CxMem.h"
-#include "CxXep.h"
-
-#include "CxQri.h"
-#include "CxQli.h"
-#include "CxTr.h"
-
-#ifdef CxmCpuIa32
-#include "CxIa32.h"
-#endif
-
-#include "CxTree.h"
-#include "CxTreeCanonize.h"
-#include "CxTreeMp.h"
-#include "CxTreeNj.h"
-#include "CxTreeTbr.h"
-
 #define CxmXepOOM 2
 #define CxmXepValueError 3
 
@@ -128,3 +110,21 @@ typedef unsigned char bool;
  * structure. */
 #define cxmOffsetOf(aType, aField)					\
     ((uint32_t) &(((aType *)NULL)->aField))
+
+#include "CxQr.h"
+#include "CxMem.h"
+#include "CxXep.h"
+
+#include "CxQri.h"
+#include "CxQli.h"
+#include "CxTr.h"
+
+#ifdef CxmCpuIa32
+#include "CxIa32.h"
+#endif
+
+#include "CxTree.h"
+#include "CxTreeCanonize.h"
+#include "CxTreeMp.h"
+#include "CxTreeNj.h"
+#include "CxTreeTbr.h"

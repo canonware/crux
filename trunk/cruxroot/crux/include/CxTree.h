@@ -29,13 +29,24 @@ typedef struct
     CxtTrEdge edge;
 } CxtEdgeObject;
 
+typedef struct
+{
+    PyObject_HEAD
+    CxtTreeObject *tree;
+    CxtEdgeObject *edge;
+    CxtTrRing ring;
+} CxtRingObject;
+
 void
 CxTreeInit(void);
 void
 CxNodeInit(void);
 void
 CxEdgeInit(void);
+void
+CxRingInit(void);
 
+/* Tree. */
 CxtTreeObject *
 CxTreeNew(void);
 PyObject *
@@ -49,6 +60,7 @@ CxTreeBaseSet(CxtTreeObject *self, CxtNodeObject *aNode);
 PyObject *
 CxTreeBaseSetPargs(CxtTreeObject *self, PyObject *args);
 
+/* Node. */
 CxtNodeObject *
 CxNodeNew(CxtTreeObject *a_tree);
 PyObject *
@@ -60,28 +72,17 @@ CxNodeTaxonNumSet(CxtNodeObject *self, uint32_t a_taxon_num);
 PyObject *
 CxNodeTaxonNumSetPargs(CxtNodeObject *self, PyObject *args);
 PyObject *
-CxNodeEdge(CxtNodeObject *self);
+CxNodeRing(CxtNodeObject *self);
 PyObject *
 CxNodeDegree(CxtNodeObject *self);
 
+/* Edge. */
 CxtEdgeObject *
 CxEdgeNew(CxtTreeObject *a_tree);
 PyObject *
 CxEdgeTree(CxtEdgeObject *self);
 PyObject *
-CxEdgeNode(CxtEdgeObject *self, uint32_t aInd);
-PyObject *
-CxEdgeNodePargs(CxtEdgeObject *self, PyObject *args);
-void
-CxEdgeNext(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
-	   uint32_t *rNextEnd);
-PyObject *
-CxEdgeNextPargs(CxtEdgeObject *self, PyObject *args);
-void
-CxEdgePrev(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
-	   uint32_t *rPrevEnd);
-PyObject *
-CxEdgePrevPargs(CxtEdgeObject *self, PyObject *args);
+CxEdgeRingsGet(CxtEdgeObject *self);
 PyObject *
 CxEdgeLengthGet(CxtEdgeObject *self);
 void
@@ -95,3 +96,19 @@ PyObject *
 CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args);
 PyObject *
 CxEdgeDetach(CxtEdgeObject *self);
+
+/* Ring. */
+CxtRingObject *
+CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd);
+PyObject *
+CxRingTree(CxtRingObject *self);
+PyObject *
+CxRingNode(CxtRingObject *self);
+PyObject *
+CxRingEdge(CxtRingObject *self);
+PyObject *
+CxRingOther(CxtRingObject *self);
+PyObject *
+CxRingNext(CxtRingObject *self);
+PyObject *
+CxRingPrev(CxtRingObject *self);

@@ -27,218 +27,8 @@
  *
  ******************************************************************************/
 
+#define CxmTr_c
 #include "../include/_cruxmodule.h"
-
-typedef struct CxsTrPs CxtTrPs;
-typedef struct CxsTrn CxtTrn;
-typedef struct CxsTrr CxtTrr;
-typedef struct CxsTre CxtTre;
-typedef struct CxsTrt CxtTrt;
-typedef struct CxsTrh CxtTrh;
-
-typedef uint32_t CxtTrRing;
-#define CxmTrRingNone UINT_MAX
-
-/* Character (in the systematics sense of the word). */
-typedef char CxtTrc;
-
-/* Partial parsimony score information. */
-struct CxsTrPs
-{
-    /* Parent which most recently used this node's partial score when caching
-     * its results.  Both children must still point to the parent in order for
-     * the cached results to be valid. */
-    CxtTrPs *parent;
-
-    /* Sum of the subtree scores, and this node's score, given particular
-     * children.  In order for this to be useful, both childrens' parent
-     * pointers must still point to this node. */
-    uint32_t subtreesScore;
-    uint32_t nodeScore;
-
-    /* chars points to an array of Fitch parsimony state sets.  Each element in
-     * the array contains a bitmap representation of a subset of {ACGT} in the 4
-     * least significant bits.  T is the least significant bit.  1 means that a
-     * nucleotide is in the set.
-     *
-     * There are nchars character state sets.
-     *
-     * achars is the actual allocation, which is padded in order to
-     * be able to guarantee that chars is 16 byte-aligned. */
-    CxtTrc *chars;
-    uint32_t nchars;
-    CxtTrc *achars;
-};
-
-/* Tree node for an unrooted bifurcating phylogenetic tree. */
-struct CxsTrn
-{
-#ifdef CxmDebug
-    uint32_t magic;
-#define CxmTrnMagic 0x63329478
-#endif
-
-    union
-    {
-	/* Auxiliary opaque data pointer. */
-	void *aux;
-
-	/* Spares linkage. */
-	CxtTrNode link;
-    } u;
-
-    /* If CxmTrNodeTaxonNone, then the node is not a leaf node. */
-    uint32_t taxonNum;
-
-    /* Ring of trr's, which are associated with tre's. */
-    CxmQliHead rings;
-};
-
-/* Tree node edge ring element. */
-struct CxsTrr
-{
-    /* Ring linkage. */
-    CxmQri link;
-
-    /* Node whose ring this trr is a part of. */
-    CxtTrNode node;
-
-    /* Used for Fitch parsimony scoring. */
-    CxtTrPs *ps;
-};
-
-/* Tree edge information. */
-struct CxsTre
-{
-#ifdef CxmDebug
-    uint32_t magic;
-#define CxmTreMagic 0xa683fa07
-#endif
-
-    union
-    {
-	/* Auxiliary opaque data pointer. */
-	void *aux;
-
-	/* Spares linkage. */
-	CxtTrEdge link;
-    } u;
-
-    /* Edge length. */
-    double length;
-
-    /* Used for Fitch parsimony scoring. */
-    CxtTrPs *ps;
-};
-
-/* TBR neighbor. */
-struct CxsTrt
-{
-    /* Number of neighbors that can be reached by doing TBR at edges before this
-     * one.  This is also the neighbor index of the first neighbor that can be
-     * reached by doing TBR on this edge. */
-    uint32_t offset;
-
-    /* Bisection edge. */
-    CxtTrEdge bisectEdge;
-};
-
-/* Held neighbor tree. */
-struct CxsTrh
-{
-    /* Neighbor index for the tree.  This can be passed to CxTrTbrNeighborGet()
-     * to get the associated TBR parameters. */
-    uint32_t neighbor;
-
-    /* Fitch parsimony score for the neighboring tree. */
-    uint32_t score;
-};
-
-/* Specifies different tree holding strategies. */
-typedef enum
-{
-    CxeTrHoldBest,
-    CxeTrHoldBetter,
-    CxeTrHoldAll
-} CxtTrHoldHow;
-
-struct CxsTr
-{
-#ifdef CxmDebug
-    uint32_t magic;
-#define CxmTrMagic 0x39886394
-#endif
-
-    /* Auxiliary opaque data pointer. */
-    void *aux;
-
-    /* True if this tree has been modified since the internal state (ntaxa,
-     * nedges, bedges, trt) was updated, false otherwise. */
-    bool modified;
-
-    /* Base of the tree (may or may not be set). */
-    CxtTrNode base;
-
-    /* Number of taxa in tree. */
-    uint32_t ntaxa;
-
-    /* Number of edges in tree.  This has to be calculated separately from
-     * ntaxa, since there is no simple formula for nedges in multifurcating
-     * trees (unlike for strictly trifurcating trees). */
-    uint32_t nedges;
-
-    /* bedges is an array of edges that is used for enumerating the edges on
-     * each side of a logical tree bisection (used by TBR/MP-related functions).
-     * The first list starts at offset 0 and has nbedgesA elements.  The second
-     * list starts at offset nbedgesA and has nbedgesB elements. */
-    CxtTrEdge *bedges;
-    uint32_t nbedgesA;
-    uint32_t nbedgesB;
-
-    /* trt is an array of elements that store per-edge information that is used
-     * for TBR-related functions.  There is one more element in trt than there
-     * are edges in the tree.  This is critical to the way binary searching on
-     * the array is done, and it also makes it easy to get the total number of
-     * TBR neighbors this tree has (trt[nedges].offset).
-     *
-     * Only the first trtused elements are valid, since not all bisection edges
-     * necessarily result in neighbors. */
-    CxtTrt *trt;
-    uint32_t trtused;
-
-    /* Pointer to an array of trn's.  ntrns is the total number of trn's, not
-     * all of which are necessarily in use.
-     *
-     * sparetrns is the index of the first spare trn in the spares stack. */
-    CxtTrn *trns;
-    uint32_t ntrns;
-    CxtTrNode sparetrns;
-
-    /* tres is a pointer to an array of tre's.  ntres is the total number of
-     * tre's, not all of which are necessarily in use.
-     *
-     * sparetres is the index of the first spare tre in the spares stack.
-     *
-     * trrs is a pointer to an array of trr's.  There are always twice as many
-     * trr's in trrs as there are tre's in tres, and each pair of trr's in trrs
-     * is implicitly associated with the corresponding tre in tres.
-     *
-     *   tres[0] <==> trrs[0], trrs[1]
-     *   tres[1] <==> trrs[2], trrs[3]
-     *   etc.
-     */
-    CxtTre *tres;
-    uint32_t ntres;
-    CxtTrEdge sparetres;
-    CxtTrr *trrs;
-
-    /* held is an array of held TBR neighbors.  The array is iteratively doubled
-     * as necessary.  heldlen is the actual length of the array, and nheld is
-     * the number of elements in use. */
-    CxtTrh *held;
-    uint32_t heldlen;
-    uint32_t nheld;
-};
 
 /******************************************************************************/
 
@@ -254,32 +44,25 @@ CxpTrRingInit(CxtTr *aTr, CxtTrRing aRing)
     trr = &aTr->trrs[aRing];
 
     CxmQriNew(aTr->trrs, aRing, link);
+    trr->aux = NULL;
     trr->node = CxmTrNodeNone;
     trr->ps = NULL;
 }
 
-CxmpInline CxtTrEdge
-CxpTrRingEdgeGet(CxtTr *aTr, CxtTrRing aRing)
+void *
+CxTrRingAuxGet(CxtTr *aTr, CxtTrRing aRing)
 {
-    cxmAssert((aRing >> 1) < aTr->ntres);
+    cxmDassert(CxpTrRingValidate(aTr, aRing));
 
-    return (aRing >> 1);
+    return aTr->trrs[aRing].aux;
 }
 
-CxmpInline CxtTrNode
-CxpTrRingNodeGet(CxtTr *aTr, CxtTrRing aRing)
+void
+CxTrRingAuxSet(CxtTr *aTr, CxtTrRing aRing, void *aAux)
 {
-    cxmAssert((aRing >> 1) < aTr->ntres);
+    cxmDassert(CxpTrRingValidate(aTr, aRing));
 
-    return aTr->trrs[aRing].node;
-}
-
-CxmpInline CxtTrRing
-CxpTrRingOtherGet(CxtTr *aTr, CxtTrRing aRing)
-{
-    cxmAssert((aRing >> 1) < aTr->ntres);
-
-    return (aRing ^ 1);
+    aTr->trrs[aRing].aux = aAux;
 }
 
 /******************************************************************************/
@@ -288,7 +71,7 @@ CxpTrRingOtherGet(CxtTr *aTr, CxtTrRing aRing)
 
 #ifdef CxmDebug
 /* Validate a ring. */
-static bool
+bool
 CxpTrRingValidate(CxtTr *aTr, CxtTrRing aRing)
 {
     CxtTrr *trr;
@@ -305,7 +88,7 @@ CxpTrRingValidate(CxtTr *aTr, CxtTrRing aRing)
 }
 
 /* Validate an edge. */
-static bool
+bool
 CxpTrEdgeValidate(CxtTr *aTr, CxtTrEdge aEdge)
 {
     CxtTre *tre;
@@ -325,7 +108,7 @@ CxpTrEdgeValidate(CxtTr *aTr, CxtTrEdge aEdge)
 }
 
 /* Validate a node. */
-static bool
+bool
 CxpTrNodeValidate(CxtTr *aTr, CxtTrNode aNode)
 {
     CxtTrn *trn;
@@ -344,7 +127,7 @@ CxpTrNodeValidate(CxtTr *aTr, CxtTrNode aNode)
     CxmQliForeach(ring, &trn->rings, aTr->trrs, link)
 	{
 	    /* Validate edge. */
-	    CxpTrEdgeValidate(aTr, CxpTrRingEdgeGet(aTr, ring));
+	    CxpTrEdgeValidate(aTr, CxTrRingEdgeGet(aTr, ring));
 
 	    nneighbors++;
 	}
@@ -591,12 +374,6 @@ CxpTrEdgeDealloc(CxtTr *aTr, CxtTrEdge aEdge)
     aTr->sparetres = aEdge;
 }
 
-CxmpInline CxtTrRing
-CxpTrEdgeRingGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd)
-{
-    return ((aEdge << 1) + aEnd);
-}
-
 CxtTrEdge
 CxTrEdgeNew(CxtTr *aTr)
 {
@@ -607,51 +384,22 @@ void
 CxTrEdgeDelete(CxtTr *aTr, CxtTrEdge aEdge)
 {
     cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    cxmAssert(CxpTrRingNodeGet(aTr, CxpTrEdgeRingGet(aTr, aEdge, 0))
+    cxmAssert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 0))
 	      == CxmTrNodeNone);
-    cxmAssert(CxpTrRingNodeGet(aTr, CxpTrEdgeRingGet(aTr, aEdge, 1))
+    cxmAssert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 1))
 	      == CxmTrNodeNone);
 
     CxpTrEdgeDealloc(aTr, aEdge);
 }
 
+// XXX Make private, or remove?
 CxtTrNode
 CxTrEdgeNodeGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd)
 {
     cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
     cxmAssert(aEnd == 0 || aEnd == 1);
 
-    return CxpTrRingNodeGet(aTr, CxpTrEdgeRingGet(aTr, aEdge, aEnd));
-}
-
-void
-CxTrEdgeNextGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd,
-		CxtTrEdge *rNext, uint32_t *rEnd)
-{
-    CxtTrRing ringind;
-
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    cxmAssert(aEnd == 0 || aEnd == 1);
-
-    ringind = CxmQriNext(aTr->trrs, CxpTrEdgeRingGet(aTr, aEdge, aEnd),
-			 link);
-    *rNext = CxpTrRingEdgeGet(aTr, ringind);
-    *rEnd = (ringind & 1);
-}
-
-void
-CxTrEdgePrevGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd,
-		CxtTrEdge *rPrev, uint32_t *rEnd)
-{
-    CxtTrRing ringind;
-
-    cxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-    cxmAssert(aEnd == 0 || aEnd == 1);
-
-    ringind = CxmQriPrev(aTr->trrs, CxpTrEdgeRingGet(aTr, aEdge, aEnd),
-			 link);
-    *rPrev = CxpTrRingEdgeGet(aTr, ringind);
-    *rEnd = (ringind & 1);
+    return CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, aEnd));
 }
 
 double
@@ -702,13 +450,13 @@ CxTrEdgeAttach(CxtTr *aTr, CxtTrEdge aEdge, CxtTrNode aNodeA,
     cxmAssert(CxTrNodeDistance(aTr, aNodeA, aNodeB) == 0);
 
     /* First end. */
-    ring = CxpTrEdgeRingGet(aTr, aEdge, 0);
+    ring = CxTrEdgeRingGet(aTr, aEdge, 0);
     trn = &aTr->trns[aNodeA];
     CxmQliTailInsert(&trn->rings, aTr->trrs, ring, link);
     aTr->trrs[ring].node = aNodeA;
 
     /* Second end. */
-    ring = CxpTrEdgeRingGet(aTr, aEdge, 1);
+    ring = CxTrEdgeRingGet(aTr, aEdge, 1);
     trn = &aTr->trns[aNodeB];
     CxmQliTailInsert(&trn->rings, aTr->trrs, ring, link);
     aTr->trrs[ring].node = aNodeB;
@@ -736,13 +484,13 @@ CxTrEdgeDetach(CxtTr *aTr, CxtTrEdge aEdge)
 
     /* Detach from neighboring nodes.  Use CxmQliRemove() to make sure that the
      * nodes still point to their rings. */
-    ring = CxpTrEdgeRingGet(aTr, aEdge, 0);
-    trn = &aTr->trns[CxpTrRingNodeGet(aTr, ring)];
+    ring = CxTrEdgeRingGet(aTr, aEdge, 0);
+    trn = &aTr->trns[CxTrRingNodeGet(aTr, ring)];
     CxmQliRemove(&trn->rings, aTr->trrs, ring, link);
     aTr->trrs[ring].node = CxmTrNodeNone;
 
-    ring = CxpTrEdgeRingGet(aTr, aEdge, 1);
-    trn = &aTr->trns[CxpTrRingNodeGet(aTr, ring)];
+    ring = CxTrEdgeRingGet(aTr, aEdge, 1);
+    trn = &aTr->trns[CxTrRingNodeGet(aTr, ring)];
     CxmQliRemove(&trn->rings, aTr->trrs, ring, link);
     aTr->trrs[ring].node = CxmTrNodeNone;
 
@@ -861,7 +609,7 @@ CxpTrNodeDistance(CxtTr *aTr, CxtTrRing aRing, CxtTrNode aOther,
     uint32_t retval;
     CxtTrRing ring;
 
-    if (CxpTrRingNodeGet(aTr, aRing) == aOther)
+    if (CxTrRingNodeGet(aTr, aRing) == aOther)
     {
 	retval = aDistance;
 	goto RETURN;
@@ -869,7 +617,7 @@ CxpTrNodeDistance(CxtTr *aTr, CxtTrRing aRing, CxtTrNode aOther,
 
     CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	{
-	    if ((retval = CxpTrNodeDistance(aTr, CxpTrRingOtherGet(aTr, ring),
+	    if ((retval = CxpTrNodeDistance(aTr, CxTrRingOtherGet(aTr, ring),
 					    aOther, aDistance + 1)) != 0)
 	    {
 		goto RETURN;
@@ -915,30 +663,19 @@ CxTrNodeTaxonNumSet(CxtTr *aTr, CxtTrNode aNode,
     aTr->modified = true;
 }
 
-void
-CxTrNodeEdgeGet(CxtTr *aTr, CxtTrNode aNode,
-		CxtTrEdge *rEdge, uint32_t *rEnd)
+CxtTrRing
+CxTrNodeRingGet(CxtTr *aTr, CxtTrNode aNode)
 {
+    CxtTrRing retval;
     CxtTrn *trn;
-    CxtTrRing ringind;
 
     cxmDassert(CxpTrNodeValidate(aTr, aNode));
 
     trn = &aTr->trns[aNode];
 
-    ringind = CxmQliFirst(&trn->rings);
-    if (ringind != CxmTrEdgeNone)
-    {
-	*rEdge = CxpTrRingEdgeGet(aTr, ringind);
-	if (rEnd != NULL)
-	{
-	    *rEnd = (ringind & 1);
-	}
-    }
-    else
-    {
-	*rEdge = CxmTrEdgeNone;
-    }
+    retval = CxmQliFirst(&trn->rings);
+
+    return retval;
 }
 
 void *
@@ -997,7 +734,7 @@ CxTrNodeDistance(CxtTr *aTr, CxtTrNode aNode, CxtTrNode aOther)
 	CxmQliForeach(ring, &trn->rings, aTr->trrs, link)
 	    {
 		if ((retval = CxpTrNodeDistance(aTr,
-						CxpTrRingOtherGet(aTr, ring),
+						CxTrRingOtherGet(aTr, ring),
 						aOther, 1)) != 0)
 		{
 		    break;
@@ -1056,7 +793,7 @@ CxpTrLowestRecurse(CxtTr *aTr, CxtTrRing aRing, uint32_t *rNtaxa,
     CxtTrRing ring;
     CxtTrn *trn;
 
-    node = CxpTrRingNodeGet(aTr, aRing);
+    node = CxTrRingNodeGet(aTr, aRing);
     trn = &aTr->trns[node];
 
     if (trn->taxonNum != CxmTrNodeTaxonNone)
@@ -1084,7 +821,7 @@ CxpTrLowestRecurse(CxtTr *aTr, CxtTrRing aRing, uint32_t *rNtaxa,
 	    /* Count edge. */
 	    (*rNedges)++;
 
-	    troot = CxpTrLowestRecurse(aTr, CxpTrRingOtherGet(aTr, ring),
+	    troot = CxpTrLowestRecurse(aTr, CxTrRingOtherGet(aTr, ring),
 				       rNtaxa, rNedges, root);
 	    if (troot != CxmTrNodeNone)
 	    {
@@ -1133,7 +870,7 @@ CxpTrLowest(CxtTr *aTr, CxtTrNode aNode, uint32_t *rNtaxa,
 	    /* Count edge. */
 	    (*rNedges)++;
 	
-	    troot = CxpTrLowestRecurse(aTr, CxpTrRingOtherGet(aTr, ring),
+	    troot = CxpTrLowestRecurse(aTr, CxTrRingOtherGet(aTr, ring),
 				       rNtaxa, rNedges, root);
 	    if (troot != CxmTrNodeNone)
 	    {
@@ -1147,7 +884,7 @@ CxpTrLowest(CxtTr *aTr, CxtTrNode aNode, uint32_t *rNtaxa,
 
 #ifdef CxmDebug
 /* Validate a tree. */
-static bool
+bool
 CxpTrValidate(CxtTr *aTr)
 {
     uint32_t i, ntaxa, nedges;
@@ -1215,12 +952,12 @@ CxpTrBisectionEdgeListGenRecurse(CxtTr *aTr, CxtTrRing aRing,
     CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	{
 	    /* Add edge to list. */
-	    arEdges[*arNedges] = CxpTrRingEdgeGet(aTr, ring);
+	    arEdges[*arNedges] = CxTrRingEdgeGet(aTr, ring);
 	    (*arNedges)++;
 
 	    /* Recurse into neighbor subtree. */
 	    CxpTrBisectionEdgeListGenRecurse(aTr,
-					     CxpTrRingOtherGet(aTr, ring),
+					     CxTrRingOtherGet(aTr, ring),
 					     arEdges, arNedges);
 	}
 }
@@ -1253,7 +990,7 @@ CxpTrBisectionEdgeListGen(CxtTr *aTr, CxtTrRing aRing,
 	     * single entry to the list, and return the node. */
 	    arEdges[0] = CxmTrEdgeNone;
 	    (*arNedges)++;
-	    retval = CxpTrRingNodeGet(aTr, aRing);
+	    retval = CxTrRingNodeGet(aTr, aRing);
 	    break;
 	}
 	case 2:
@@ -1269,19 +1006,19 @@ CxpTrBisectionEdgeListGen(CxtTr *aTr, CxtTrRing aRing,
 
 	    /* First edge. */
 	    ring = CxmQriNext(aTr->trrs, aRing, link);
-	    arEdges[0] = CxpTrRingEdgeGet(aTr, ring);
+	    arEdges[0] = CxTrRingEdgeGet(aTr, ring);
 	    (*arNedges)++;
 
 	    /* First subtree. */
 	    CxpTrBisectionEdgeListGenRecurse(aTr,
-					     CxpTrRingOtherGet(aTr,
+					     CxTrRingOtherGet(aTr,
 							       ring),
 					     arEdges, arNedges);
 
 	    /* Second subtree. */
 	    ring = CxmQriNext(aTr->trrs, ring, link);
 	    CxpTrBisectionEdgeListGenRecurse(aTr,
-					     CxpTrRingOtherGet(aTr,
+					     CxTrRingOtherGet(aTr,
 							       ring),
 					     arEdges, arNedges);
 
@@ -1296,11 +1033,11 @@ CxpTrBisectionEdgeListGen(CxtTr *aTr, CxtTrRing aRing,
 	    CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 		{
 		    /* Add edge to list. */
-		    arEdges[*arNedges] = CxpTrRingEdgeGet(aTr, ring);
+		    arEdges[*arNedges] = CxTrRingEdgeGet(aTr, ring);
 		    (*arNedges)++;
 
 		    CxpTrBisectionEdgeListGenRecurse(aTr,
-						     CxpTrRingOtherGet(aTr,
+						     CxTrRingOtherGet(aTr,
 								       ring),
 						     arEdges, arNedges);
 		}
@@ -1324,10 +1061,10 @@ CxpTrBedgesGen(CxtTr *aTr, CxtTrEdge aBisect, CxtTrNode *rNodeA,
     cxmDassert(CxpTrEdgeValidate(aTr, aBisect));
 
     nodeA = CxpTrBisectionEdgeListGen(aTr,
-				      CxpTrEdgeRingGet(aTr, aBisect, 0),
+				      CxTrEdgeRingGet(aTr, aBisect, 0),
 				      aTr->bedges, &aTr->nbedgesA);
     nodeB = CxpTrBisectionEdgeListGen(aTr,
-				      CxpTrEdgeRingGet(aTr, aBisect, 1),
+				      CxTrEdgeRingGet(aTr, aBisect, 1),
 				      &aTr->bedges[aTr->nbedgesA],
 				      &aTr->nbedgesB);
 
@@ -1350,12 +1087,12 @@ CxpTrtBisectEdgeUpdateRecurse(CxtTr *aTr, CxtTrRing aRing,
     CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	{
 	    /* Record edge. */
-	    aTr->trt[*arEdgeCount].bisectEdge = CxpTrRingEdgeGet(aTr, ring);
+	    aTr->trt[*arEdgeCount].bisectEdge = CxTrRingEdgeGet(aTr, ring);
 	    (*arEdgeCount)++;
 
 	    /* Recurse into neighbor subtree. */
 	    CxpTrtBisectEdgeUpdateRecurse(aTr,
-					  CxpTrRingOtherGet(aTr, ring),
+					  CxTrRingOtherGet(aTr, ring),
 					  arEdgeCount);
 	}
 }
@@ -1398,11 +1135,11 @@ CxpTrtUpdate(CxtTr *aTr, uint32_t aNedgesPrev)
 	CxmQliForeach(ring, &trn->rings, aTr->trrs, link)
 	    {
 		/* Record edge. */
-		aTr->trt[edgeCount].bisectEdge = CxpTrRingEdgeGet(aTr, ring);
+		aTr->trt[edgeCount].bisectEdge = CxTrRingEdgeGet(aTr, ring);
 		edgeCount++;
 
 		CxpTrtBisectEdgeUpdateRecurse(aTr,
-					      CxpTrRingOtherGet(aTr, ring),
+					      CxTrRingOtherGet(aTr, ring),
 					      &edgeCount);
 	    }
 	cxmAssert(edgeCount == aTr->nedges);
@@ -1548,8 +1285,8 @@ CxpTrCanonize(CxtTr *aTr, CxtTrRing aRing)
     CxtTrNode node;
 
     /* Get taxon number (an internal node has CxmTrNodeTaxonNone). */
-    cxmDassert(CxpTrNodeValidate(aTr, CxpTrRingNodeGet(aTr, aRing)));
-    node = CxpTrRingNodeGet(aTr, aRing);
+    cxmDassert(CxpTrNodeValidate(aTr, CxTrRingNodeGet(aTr, aRing)));
+    node = CxTrRingNodeGet(aTr, aRing);
     retval = CxTrNodeTaxonNumGet(aTr, node);
 
     /* Get the degree of the node that this ring is a part of. */
@@ -1572,7 +1309,7 @@ CxpTrCanonize(CxtTr *aTr, CxtTrRing aRing)
 	retval = CxmTrNodeTaxonNone;
 	CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	    {
-		minTaxon = CxpTrCanonize(aTr, CxpTrRingOtherGet(aTr, ring));
+		minTaxon = CxpTrCanonize(aTr, CxTrRingOtherGet(aTr, ring));
 		if (minTaxon < retval)
 		{
 		    retval = minTaxon;
@@ -1647,14 +1384,14 @@ CxpTrTbrNodeExtract(CxtTr *aTr, CxtTrNode aNode,
 	     * rematching is critical to the maintenance of the character state
 	     * sets in leaf nodes (which node[AB] may or may not be). */
 	    ringA = CxmQliFirst(&aTr->trns[aNode].rings);
-	    edgeA = CxpTrRingEdgeGet(aTr, ringA);
-	    ringAOther = CxpTrRingOtherGet(aTr, ringA);
-	    nodeA = CxpTrRingNodeGet(aTr, ringAOther);
+	    edgeA = CxTrRingEdgeGet(aTr, ringA);
+	    ringAOther = CxTrRingOtherGet(aTr, ringA);
+	    nodeA = CxTrRingNodeGet(aTr, ringAOther);
 
 	    ringB = CxmQriNext(aTr->trrs, ringA, link);
-	    edgeB = CxpTrRingEdgeGet(aTr, ringB);
-	    ringBOther = CxpTrRingOtherGet(aTr, ringB);
-	    nodeB = CxpTrRingNodeGet(aTr, ringBOther);
+	    edgeB = CxTrRingEdgeGet(aTr, ringB);
+	    ringBOther = CxTrRingOtherGet(aTr, ringB);
+	    nodeB = CxTrRingNodeGet(aTr, ringBOther);
 
 	    /* Detach. */
 	    CxTrEdgeDetach(aTr, edgeA);
@@ -1745,11 +1482,11 @@ CxpTrTbrNodeSplice(CxtTr *aTr, CxtTrEdge aEdge,
      * aEdge, and proper rematching of rings with nodes.  The rematching is
      * critical to the maintenance of the character state sets in leaf nodes
      * (which node[AB] may or may not be). */
-    ringA = CxpTrEdgeRingGet(aTr, aEdge, 0);
-    nodeA = CxpTrRingNodeGet(aTr, ringA);
+    ringA = CxTrEdgeRingGet(aTr, aEdge, 0);
+    nodeA = CxTrRingNodeGet(aTr, ringA);
 
-    ringB = CxpTrEdgeRingGet(aTr, aEdge, 1);
-    nodeB = CxpTrRingNodeGet(aTr, ringB);
+    ringB = CxTrEdgeRingGet(aTr, aEdge, 1);
+    nodeB = CxTrRingNodeGet(aTr, ringB);
 
     /* Get an edge. */
     if (*arNtedges > 0)
@@ -1761,7 +1498,7 @@ CxpTrTbrNodeSplice(CxtTr *aTr, CxtTrEdge aEdge,
     {
 	// XXX edge = tr_p_edge_wrapped_new(aTr);
     }
-    ring = CxpTrEdgeRingGet(aTr, edge, 0);
+    ring = CxTrEdgeRingGet(aTr, edge, 0);
 
     /* Get a node. */
     if (*arNtnodes > 0)
@@ -1948,7 +1685,7 @@ CxpTrMpPrepareRecurse(CxtTr *aTr, CxtTrRing aRing,
     CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	{
 	    /* Prepare edge before recursing. */
-	    tre = &aTr->tres[CxpTrRingEdgeGet(aTr, ring)];
+	    tre = &aTr->tres[CxTrRingEdgeGet(aTr, ring)];
 	    if (tre->ps == NULL)
 	    {
 		tre->ps = CxpTrPsNew(aTr);
@@ -1960,7 +1697,7 @@ CxpTrMpPrepareRecurse(CxtTr *aTr, CxtTrRing aRing,
 			       aCharsMask, aNinformative);
 
 	    /* Recurse. */
-	    CxpTrMpPrepareRecurse(aTr, CxpTrRingOtherGet(aTr, ring),
+	    CxpTrMpPrepareRecurse(aTr, CxTrRingOtherGet(aTr, ring),
 				  aTaxa, aNtaxa, aNchars,
 				  aCharsMask, aNinformative);
 	}
@@ -1993,7 +1730,7 @@ CxpTrMpFinishRecurse(CxtTr *aTr, CxtTrRing aRing)
     CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	{
 	    /* Clean up edge before recursing. */
-	    tre = &aTr->tres[CxpTrRingEdgeGet(aTr, ring)];
+	    tre = &aTr->tres[CxTrRingEdgeGet(aTr, ring)];
 	    if (tre->ps != NULL)
 	    {
 		CxpTrPsDelete(aTr, tre->ps);
@@ -2004,7 +1741,7 @@ CxpTrMpFinishRecurse(CxtTr *aTr, CxtTrRing aRing)
 	    CxpTrMpRingFinish(aTr, ring);
 
 	    /* Recurse. */
-	    CxpTrMpFinishRecurse(aTr, CxpTrRingOtherGet(aTr, ring));
+	    CxpTrMpFinishRecurse(aTr, CxTrRingOtherGet(aTr, ring));
 	}
 }
 
@@ -2592,7 +2329,7 @@ CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
     adjacent = false;
     CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	{
-	    if (CxpTrRingEdgeGet(aTr, ring) != aBisect)
+	    if (CxTrRingEdgeGet(aTr, ring) != aBisect)
 	    {
 		degree++;
 	    }
@@ -2627,11 +2364,11 @@ CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
 	     * subtree on this side of the bisection. */
 	    CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 		{
-		    if (CxpTrRingEdgeGet(aTr, ring) != aBisect)
+		    if (CxTrRingEdgeGet(aTr, ring) != aBisect)
 		    {
 			retval
 			    = CxpTrMpScoreRecurse(aTr,
-						  CxpTrRingOtherGet(aTr, ring),
+						  CxTrRingOtherGet(aTr, ring),
 						  aBisect);
 			break;
 		    }
@@ -2651,12 +2388,12 @@ CxpTrMpScoreRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrEdge aBisect)
 		/* Recursively calculate partial scores for the subtrees. */
 		ring = CxmQriNext(aTr->trrs, aRing, link);
 		psA = CxpTrMpScoreRecurse(aTr,
-					  CxpTrRingOtherGet(aTr, ring),
+					  CxTrRingOtherGet(aTr, ring),
 					  aBisect);
 
 		ring = CxmQriNext(aTr->trrs, ring, link);
 		psB = CxpTrMpScoreRecurse(aTr,
-					  CxpTrRingOtherGet(aTr, ring),
+					  CxTrRingOtherGet(aTr, ring),
 					  aBisect);
 
 		/* Calculate the partial score for this node. */
@@ -2691,7 +2428,7 @@ CxpTrMpViewsRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrPs *aPs,
     adjacent = false;
     CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 	{
-	    if (CxpTrRingEdgeGet(aTr, ring) != aBisect)
+	    if (CxTrRingEdgeGet(aTr, ring) != aBisect)
 	    {
 		degree++;
 	    }
@@ -2719,7 +2456,7 @@ CxpTrMpViewsRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrPs *aPs,
 	     * subtree on this side of the bisection. */
 	    CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
 		{
-		    if (CxpTrRingEdgeGet(aTr, ring) != aBisect)
+		    if (CxTrRingEdgeGet(aTr, ring) != aBisect)
 		    {
 			/* Clear the cache for the view that is being bypassed.
 			 * This is critical to correctness of the caching
@@ -2729,7 +2466,7 @@ CxpTrMpViewsRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrPs *aPs,
 
 			/* Recurse. */
 			CxpTrMpViewsRecurse(aTr,
-					    CxpTrRingOtherGet(aTr, ring),
+					    CxTrRingOtherGet(aTr, ring),
 					    aPs,
 					    aBisect);
 			break;
@@ -2754,25 +2491,25 @@ CxpTrMpViewsRecurse(CxtTr *aTr, CxtTrRing aRing, CxtTrPs *aPs,
 		 * recursion. */
 		ringA = CxmQriNext(aTr->trrs, aRing, link);
 		psA = aTr->trrs[ringA].ps;
-		ringAOther = CxpTrRingOtherGet(aTr, ringA);
+		ringAOther = CxTrRingOtherGet(aTr, ringA);
 		psAOther = aTr->trrs[ringAOther].ps;
 
 		ringB = CxmQriNext(aTr->trrs, ringA, link);
 		psB = aTr->trrs[ringB].ps;
-		ringBOther = CxpTrRingOtherGet(aTr, ringB);
+		ringBOther = CxTrRingOtherGet(aTr, ringB);
 		psBOther = aTr->trrs[ringBOther].ps;
 
 		/* Calculate views and edges, and recurse. */
 		CxpTrMpPscore(aTr, psA, aPs, psBOther);
 		CxpTrMpPscore(aTr,
-			      aTr->tres[CxpTrRingEdgeGet(aTr, ringA)].ps,
+			      aTr->tres[CxTrRingEdgeGet(aTr, ringA)].ps,
 			      psA,
 			      aTr->trrs[ringAOther].ps);
 		CxpTrMpViewsRecurse(aTr, ringAOther, psA, aBisect);
 
 		CxpTrMpPscore(aTr, psB, aPs, psAOther);
 		CxpTrMpPscore(aTr,
-			      aTr->tres[CxpTrRingEdgeGet(aTr, ringB)].ps,
+			      aTr->tres[CxTrRingEdgeGet(aTr, ringB)].ps,
 			      psB,
 			      aTr->trrs[ringBOther].ps);
 		CxpTrMpViewsRecurse(aTr, ringBOther, psB, aBisect);
@@ -2804,8 +2541,8 @@ CxpTrBisectionEdgeListMp(CxtTr *aTr, CxtTrEdge *aEdges,
 	CxtTrRing ringA, ringB;
 	CxtTrPs *ps, *psA, *psB;
 
-	ringA = CxpTrEdgeRingGet(aTr, aEdges[0], 0);
-	ringB = CxpTrEdgeRingGet(aTr, aEdges[0], 1);
+	ringA = CxTrEdgeRingGet(aTr, aEdges[0], 0);
+	ringB = CxTrEdgeRingGet(aTr, aEdges[0], 1);
 
 	/* Recursively (post-order traversal) calculate the partial score at
 	 * each node, as viewed from the first edge in aEdges.  This leaves one
@@ -3171,7 +2908,7 @@ CxTrCanonize(CxtTr *aTr)
 	if (ring != CxmTrRingNone)
 	{
 	    /* Canonize the tree. */
-	    CxpTrCanonize(aTr, CxpTrRingOtherGet(aTr, ring));
+	    CxpTrCanonize(aTr, CxTrRingOtherGet(aTr, ring));
 	}
     }
 
@@ -3527,7 +3264,7 @@ CxTrMpPrepare(CxtTr *aTr, bool aUninformativeEliminate,
 	CxmQliForeach(ring, &trn->rings, aTr->trrs, link)
 	    {
 		/* Prepare edge before recursing. */
-		tre = &aTr->tres[CxpTrRingEdgeGet(aTr, ring)];
+		tre = &aTr->tres[CxTrRingEdgeGet(aTr, ring)];
 		if (tre->ps == NULL)
 		{
 		    tre->ps = CxpTrPsNew(aTr);
@@ -3539,7 +3276,7 @@ CxTrMpPrepare(CxtTr *aTr, bool aUninformativeEliminate,
 				   charsMask, ninformative);
 
 		/* Recurse. */
-		CxpTrMpPrepareRecurse(aTr, CxpTrRingOtherGet(aTr, ring),
+		CxpTrMpPrepareRecurse(aTr, CxTrRingOtherGet(aTr, ring),
 				      aTaxa, aNtaxa, aNchars,
 				      charsMask, ninformative);
 	    }
@@ -3564,7 +3301,7 @@ CxTrMpFinish(CxtTr *aTr)
 	CxmQliForeach(ring, &trn->rings, aTr->trrs, link)
 	    {
 		/* Clean up edge before recursing. */
-		tre = &aTr->tres[CxpTrRingEdgeGet(aTr, ring)];
+		tre = &aTr->tres[CxTrRingEdgeGet(aTr, ring)];
 		if (tre->ps != NULL)
 		{
 		    CxpTrPsDelete(aTr, tre->ps);
@@ -3575,7 +3312,7 @@ CxTrMpFinish(CxtTr *aTr)
 		CxpTrMpRingFinish(aTr, ring);
 
 		/* Recurse. */
-		CxpTrMpFinishRecurse(aTr, CxpTrRingOtherGet(aTr, ring));
+		CxpTrMpFinishRecurse(aTr, CxTrRingOtherGet(aTr, ring));
 	    }
     }
 }
@@ -3594,14 +3331,14 @@ CxTrMpScore(CxtTr *aTr)
 	CxtTrEdge edge;
 	CxtTrPs *psA, *psB;
 
-	edge = CxpTrRingEdgeGet(aTr, ring);
+	edge = CxTrRingEdgeGet(aTr, ring);
 
 	/* Calculate partial scores for the subtrees on each end of edge. */
 	psA = CxpTrMpScoreRecurse(aTr,
-				  CxpTrEdgeRingGet(aTr, edge, 0),
+				  CxTrEdgeRingGet(aTr, edge, 0),
 				  CxmTrEdgeNone);
 	psB = CxpTrMpScoreRecurse(aTr,
-				  CxpTrEdgeRingGet(aTr, edge, 1),
+				  CxTrEdgeRingGet(aTr, edge, 1),
 				  CxmTrEdgeNone);
 
 	/* Calculate the final score. */

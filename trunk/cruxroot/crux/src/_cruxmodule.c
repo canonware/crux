@@ -31,4 +31,5 @@ init_crux(void)
     CxTreeInit();
     CxNodeInit();
     CxEdgeInit();
+    CxRingInit();
 }

@@ -37,19 +37,19 @@ class Node(_Node.Node):
                 retval = "%s%d" % (retval, self.taxonNumGet())
 
             if lengths:
-                (edge, end) = self.edge()
-                if edge != None:
-                    retval = "%s:%f" % (retval, edge.lengthGet())
+                ring = self.ring()
+                if ring != None:
+                    retval = "%s:%f" % (retval, ring.edge().lengthGet())
             did_something = True
 
         # Iterate through neighbors.
-        (edge, end) = self.edge()
-        if edge != None:
+        ring = self.ring()
+        if ring != None:
             i = 0
             while i < self.degree():
                 # Get the node on the other end of the edge.  If it isn't prev,
                 # recurse.
-                neighbor = edge.node(end ^ 1)
+                neighbor = ring.other().node()
                 if neighbor != prev:
                     if did_something:
                         retval = "%s," % retval
@@ -63,9 +63,9 @@ class Node(_Node.Node):
                               neighbor.rprints(self, map, labels, lengths))
                     if lengths:
                         if neighbor.taxonNumGet() == None:
-                            retval = "%s:%f" % (retval, edge.lengthGet())
+                            retval = "%s:%f" % (retval, ring.edge().lengthGet())
 
-                (edge, end) = edge.next(end)
+                ring = ring.next()
                 i += 1
 
             if did_paren:
