@@ -11,26 +11,6 @@
 
 #include "../include/_cruxmodule.h"
 
-static PyObject *
-hello(PyObject *self)
-{
-    PyObject *retval;
-
-    xep_begin();
-    xep_try
-    {
-	retval = Py_BuildValue("s", "hello");
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    return retval;
-}
-
 static PyMethodDef crux_funcs[] =
 {
     {NULL}
