@@ -527,6 +527,7 @@ CxTreeRfPair(CxtTreeObject *self, PyObject *args)
 		"Wrong number of taxa (%ld), %ld expected",
 		CxTreeNtaxaGet((CxtTreeObject *) other),
 		CxTreeNtaxaGet(self));
+	rVal = NULL;
 	goto RETURN;
     }
 
