@@ -574,6 +574,12 @@ tr_ntaxa2sizeof(cw_uint32_t a_ntaxa)
     return retval;
 }
 
+void
+tr_memcopy(cw_uint8_t *a_dest, cw_tr_t *a_tr)
+{
+    memcpy(a_dest, a_tr, tr_ntaxa2sizeof(tr_ntaxa(a_tr)));
+}
+
 cw_trn_t *
 tr_trn(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
 {
