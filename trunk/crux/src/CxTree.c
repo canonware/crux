@@ -167,6 +167,8 @@ CxTreeNew(void)
 
     globals = PyEval_GetGlobals();
     locals = Py_BuildValue("{}");
+    // XXX globals and locals may be NULL!  Catch this error, here and
+    // elsewhere.
 
     obj = PyEval_EvalCode((PyCodeObject *) CxpTreeNewCode,
 			  globals,
@@ -1179,9 +1181,12 @@ void
 CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
 	     CxtNodeObject *aNodeB)
 {
+    CxtTrRing trRingA, trRingB;
+
     /* Rings refer to nodes. */
     Py_INCREF(aNodeA);
     Py_INCREF(aNodeB);
+
     /* Nodes refer to rings.  In actuality, a node only refers to one element of
      * a ring, but doing all the "correct" reference management for the ring
      * would be hard (and slow), so instead, pretend that a node refers to each
@@ -1189,7 +1194,43 @@ CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
     Py_INCREF(self->ringA);
     Py_INCREF(self->ringB);
 
+    /* Rings potentially refer to rings.  If there is only one ring attached to
+     * a node, increment its reference count in anticipation of attaching the
+     * edge. */
+    if (((trRingA = CxTrNodeRingGet(self->tree->tr, aNodeA->node))
+	 != CxmTrRingNone)
+	&& (CxTrRingNextGet(self->tree->tr, trRingA) != trRingA))
+    {
+	CxtRingObject *ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr,
+							       trRingA);
+	CxmCheckPtr(ring);
+	Py_INCREF(ring);
+    }
+
+    if (((trRingB = CxTrNodeRingGet(self->tree->tr, aNodeB->node))
+	 != CxmTrRingNone)
+	&& (CxTrRingNextGet(self->tree->tr, trRingB) != trRingB))
+    {
+	CxtRingObject *ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr,
+							       trRingB);
+	CxmCheckPtr(ring);
+	Py_INCREF(ring);
+    }
+
+    /* Attach. */
     CxTrEdgeAttach(self->tree->tr, self->edge, aNodeA->node, aNodeB->node);
+
+    /* Rings potentially refer to rings.  If there are other rings attached to
+     * the nodes, increment the reference counts for the rings. */
+    if (trRingA != CxmTrRingNone)
+    {
+	Py_INCREF(self->ringA);
+    }
+
+    if (trRingB != CxmTrRingNone)
+    {
+	Py_INCREF(self->ringB);
+    }
 }
 
 PyObject *
@@ -1229,8 +1270,10 @@ CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args)
 PyObject *
 CxEdgeDetach(CxtEdgeObject *self)
 {
-    PyObject *retval;
-    CxtTrRing trRingA;
+    PyObject *retval, *decrefA, *decrefB;
+    CxtTrNode trNodeA, trNodeB;
+    CxtNodeObject *nodeA, *nodeB;
+    CxtTrRing trRingA, trRingB;
 
     /* Make sure that the edge is currently attached. */
     if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring) == CxmTrNodeNone)
@@ -1241,28 +1284,72 @@ CxEdgeDetach(CxtEdgeObject *self)
     }
 
     trRingA = CxTrEdgeRingGet(self->tree->tr, self->edge, 0);
-    if (trRingA != CxmTrRingNone)
+    CxmAssert(trRingA != CxmTrRingNone);
+    trRingB = CxTrEdgeRingGet(self->tree->tr, self->edge, 1);
+
+    trNodeA = CxTrRingNodeGet(self->tree->tr, trRingA);
+    nodeA = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNodeA);
+
+    trNodeB = CxTrRingNodeGet(self->tree->tr, trRingB);
+    nodeB = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNodeB);
+
+    /* There are potentially other rings referring to ringA and ringB.  If so,
+     * make a note to decrement their reference counts (but do it after actually
+     * detaching. */
+    if (((trRingA = CxTrNodeRingGet(self->tree->tr, trNodeA)) != CxmTrRingNone)
+	&& (CxTrRingNextGet(self->tree->tr, trRingA) != trRingA))
     {
-	CxtTrNode trNodeA, trNodeB;
-	CxtNodeObject *nodeA, *nodeB;
-	CxtTrRing trRingB;
-
-	trRingB = CxTrEdgeRingGet(self->tree->tr, self->edge, 1);
-
-	trNodeA = CxTrRingNodeGet(self->tree->tr, trRingA);
-	nodeA = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNodeA);
-
-	trNodeB = CxTrRingNodeGet(self->tree->tr, trRingB);
-	nodeB = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNodeB);
-
-	CxTrEdgeDetach(self->tree->tr, self->edge);
-	/* Rings refer to nodes. */
-	Py_DECREF(nodeA);
-	Py_DECREF(nodeB);
-	/* Nodes refer to rings. */
-	Py_DECREF(self->ringA);
-	Py_DECREF(self->ringB);
+	decrefA = (PyObject *) CxTrRingAuxGet(self->tree->tr, trRingA);
     }
+    else
+    {
+	decrefA = NULL;
+    }
+
+    if (((trRingB = CxTrNodeRingGet(self->tree->tr, trNodeB)) != CxmTrRingNone)
+	&& (CxTrRingNextGet(self->tree->tr, trRingB) != trRingB))
+    {
+	decrefB = (PyObject *) CxTrRingAuxGet(self->tree->tr, trRingB);
+    }
+    else
+    {
+	decrefB = NULL;
+    }
+
+    /* Detach. */
+    CxTrEdgeDetach(self->tree->tr, self->edge);
+
+    /* Rings refer to nodes. */
+    Py_DECREF(nodeA);
+    Py_DECREF(nodeB);
+
+    /* Nodes refer to rings. */
+    Py_DECREF(self->ringA);
+    Py_DECREF(self->ringB);
+
+    /* There may be only one ring attached to the nodes now.  If so, decrement
+     * those rings' reference counts. */
+    if (((trRingA = CxTrNodeRingGet(self->tree->tr, trNodeA)) != CxmTrRingNone)
+	&& (CxTrRingNextGet(self->tree->tr, trRingA) == trRingA))
+    {
+	CxtRingObject *ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr,
+							       trRingA);
+	CxmCheckPtr(ring);
+	Py_DECREF(ring);
+    }
+
+    if (((trRingB = CxTrNodeRingGet(self->tree->tr, trNodeB)) != CxmTrRingNone)
+	&& (CxTrRingNextGet(self->tree->tr, trRingB) == trRingB))
+    {
+	CxtRingObject *ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr,
+							       trRingB);
+	CxmCheckPtr(ring);
+	Py_DECREF(ring);
+    }
+
+    /* Do delayed decrefs. */
+    Py_XDECREF(decrefA);
+    Py_XDECREF(decrefB);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -1519,8 +1606,6 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
     /* Report next ring element. */
     trRing = CxTrRingNextGet(self->tree->tr, self->ring);
     ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
-    // XXX Perhaps the refcount for this ring should be two less if ring ==
-    // self.
     if (ring != self)
     {
 	if (visit((PyObject *) ring, arg) < 0)
@@ -1534,8 +1619,6 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
     /* Report previous ring element. */
     trRing = CxTrRingPrevGet(self->tree->tr, self->ring);
     ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
-    // XXX Perhaps the refcount for this ring should be two less if ring ==
-    // self.
     if (ring != self)
     {
 	if (visit((PyObject *) ring, arg) < 0)
