@@ -510,7 +510,6 @@ CxpDistMatrixNjFinalJoin(float *aD, CxtNodeObject **aNodes,
     return aNodes[0];
 }
 
-
 // Compare two distances, and consider them equal if they are close enough.  The
 // aMaxUlps parameter (ULP: Units in Last Place) specifies the maximum number of
 // ulps that aA and aB may differ by and still be considered equal.  Typical
