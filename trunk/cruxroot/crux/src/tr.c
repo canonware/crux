@@ -2305,37 +2305,61 @@ tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     /* Calculate node score. */
     ns = 0;
 
+#define MP_C_PSCORE_INNER()						\
+    a = chars_a[i];							\
+    b = chars_b[i];							\
+									\
+    if ((p = ((a & b) & 0xf0U)) != 0)					\
+    {									\
+	r = p;								\
+    }									\
+    else								\
+    {									\
+	r = ((a | b) & 0xf0U);						\
+	ns++;								\
+    }									\
+									\
+    if ((p = ((a & b) & 0x0fU)) != 0)					\
+    {									\
+	r |= p;								\
+    }									\
+    else								\
+    {									\
+	r |= ((a | b) & 0x0fU);						\
+	ns++;								\
+    }									\
+									\
+    chars_p[i] = r;							\
+									\
+    i++;
+
     /* Calculate preliminary Fitch parsimony scores for each character. */
     chars_p = a_p->chars;
     chars_a = a_a->chars;
     chars_b = a_b->chars;
-    for (i = 0, nbytes = (a_p->nchars >> 1); i < nbytes; i++)
+    for (i = 0, nbytes = (a_p->nchars >> 1); i < nbytes;)
     {
-	a = chars_a[i];
-	b = chars_b[i];
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
 
-	if ((p = ((a & b) & 0xf0U)) != 0)
-	{
-	    r = p;
-	}
-	else
-	{
-	    r = ((a | b) & 0xf0U);
-	    ns++;
-	}
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
 
-	if ((p = ((a & b) & 0x0fU)) != 0)
-	{
-	    r |= p;
-	}
-	else
-	{
-	    r |= ((a | b) & 0x0fU);
-	    ns++;
-	}
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
 
-	chars_p[i] = r;
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
+	MP_C_PSCORE_INNER();
     }
+#undef MP_C_PSCORE_INNER
 
     a_p->node_score = ns;
 }
@@ -2590,34 +2614,57 @@ tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
 	= a_a->subtrees_score + a_a->node_score
 	+ a_b->subtrees_score + a_b->node_score;
 
+#define MP_C_FSCORE_INNER()						\
+    a = chars_a[i];							\
+    b = chars_b[i];							\
+									\
+    if (((a & b) & 0xf0U) == 0)						\
+    {									\
+	retval++;							\
+	if (retval > a_maxscore)					\
+	{								\
+	    retval = UINT_MAX;						\
+	    break;							\
+	}								\
+    }									\
+									\
+    if (((a & b) & 0x0fU) == 0)						\
+    {									\
+	retval++;							\
+	if (retval > a_maxscore)					\
+	{								\
+	    retval = UINT_MAX;						\
+	    break;							\
+	}								\
+    }									\
+    i++;
+    
     /* Calculate partial Fitch parsimony scores for each character. */
     chars_a = a_a->chars;
     chars_b = a_b->chars;
-    for (i = 0, nbytes = (a_a->nchars >> 1); i < nbytes; i++)
+    for (i = 0, nbytes = (a_a->nchars >> 1); i < nbytes;)
     {
-	a = chars_a[i];
-	b = chars_b[i];
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
 
-	if (((a & b) & 0xf0U) == 0)
-	{
-	    retval++;
-	    if (retval > a_maxscore)
-	    {
-		retval = UINT_MAX;
-		break;
-	    }
-	}
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
 
-	if (((a & b) & 0x0fU) == 0)
-	{
-	    retval++;
-	    if (retval > a_maxscore)
-	    {
-		retval = UINT_MAX;
-		break;
-	    }
-	}
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
+
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
+	MP_C_FSCORE_INNER();
     }
+#undef MP_C_FSCORE_INNER
 
     return retval;
 }
