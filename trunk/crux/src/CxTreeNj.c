@@ -78,7 +78,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 {
     bool retval;
     float *dOrig, *d; /* Distance matrix. */
-    float dist;
+    float dist, *dElm;
     float *rOrig, *r; /* Distance sums. */
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
@@ -188,25 +188,27 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	 * track of the minimum transformed distance, so that the corresponding
 	 * nodes can be joined.  Ties are broken arbitrarily (the first minimum
 	 * found is used). */
-	for (x = i = 0, iMin = xMin = 0, yMin = 1, transMin = HUGE_VAL;
+#ifdef CxmCcSilence
+	xMin = yMin = 0;
+#endif
+	for (x = 0, dElm = d, transMin = HUGE_VAL;
 	     x < nleft;
 	     x++)
 	{
 	    for (y = x + 1; y < nleft; y++)
 	    {
-		transCur = d[i] - (rScaled[x] + rScaled[y]);
+		transCur = *dElm - (rScaled[x] + rScaled[y]);
+		dElm++;
 
 		if (transCur < transMin)
 		{
-		    iMin = i;
 		    xMin = x;
 		    yMin = y;
 		    transMin = transCur;
 		}
-
-		i++;
 	    }
 	}
+	iMin = CxpTreeNjXy2i(nleft, xMin, yMin);
 
 #ifdef CxmTreeNjVerbose
 	{
@@ -293,7 +295,11 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 #endif
 
 	/* Subtract old distances from r. */
-	for (x = 0, iX = CxpTreeNjXy2i(nleft, x, xMin); x < nleft; x++)
+	for (x = 0,
+		 iX = CxpTreeNjXy2i(nleft, x, xMin),
+		 iY = CxpTreeNjXy2i(nleft, x, yMin);
+	     x < nleft;
+	     x++)
 	{
 	    if (x < xMin)
 	    {
@@ -301,6 +307,11 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 		iX += nleft - 2 - x;
 		r[x] -= dist;
 		r[xMin] -= dist;
+
+		dist = d[iY];
+		iY += nleft - 2 - x;
+		r[x] -= dist;
+		r[yMin] -= dist;
 	    }
 	    else if (x > xMin)
 	    {
@@ -308,13 +319,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 		dist = d[iX];
 		r[x] -= dist;
 		r[xMin] -= dist;
-	    }
-	}
 
-	for (x = 0, iY = CxpTreeNjXy2i(nleft, x, yMin); x < nleft; x++)
-	{
-	    if (x != xMin)
-	    {
 		if (x < yMin)
 		{
 		    dist = d[iY];
