@@ -46,11 +46,13 @@ struct cw_tr_ps_s
      * least significant bits.  T is the least significant bit.  1 means that a
      * nucleotide is in the set.
      *
-     * achars is the actual allocation, which is padded by 15 bytes in order to
+     * There are nchars character state sets.
+     *
+     * achars is the actual allocation, which is padded in order to
      * be able to guarantee that chars is 16 byte-aligned. */
     cw_trc_t *chars;
-    cw_trc_t *achars;
     cw_uint32_t nchars;
+    cw_trc_t *achars;
 };
 
 /* Tree node for an unrooted bifurcating phylogenetic tree. */
@@ -270,8 +272,7 @@ tr_p_ps_delete(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
     {
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
-			  a_ps->achars,
-			  sizeof(cw_trc_t) * (a_ps->nchars + 15));
+			  a_ps->achars, sizeof(cw_trc_t) * (a_ps->nchars * 8));
     }
 
     cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
@@ -289,7 +290,7 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_uint32_t a_nchars)
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
 			  a_ps->achars,
-			  sizeof(cw_trc_t) * (a_ps->nchars + 15));
+			  sizeof(cw_trc_t) * (a_ps->nchars + 8));
 	a_ps->chars = NULL;
     }
 
@@ -299,8 +300,7 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_uint32_t a_nchars)
 	a_ps->achars
 	    = (cw_trc_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
 					   mema_arg_get(a_tr->mema),
-					   sizeof(cw_trc_t)
-					   * (a_nchars + 15));
+					   sizeof(cw_trc_t) * (a_nchars + 8));
 
 	/* Make sure that chars is 16 byte-allocated. */
 	if ((((unsigned) a_ps->achars) & 0xfU) == 0)
@@ -309,8 +309,12 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_uint32_t a_nchars)
 	}
 	else
 	{
-	    a_ps->chars
-		= &a_ps->achars[16 - (((unsigned) a_ps->achars) & 0xfU)];
+	    /* All modern systems guarantee at least 8 byte alignment, so assume
+	     * that offsetting by 8 bytes is correct. */
+	    cw_assert(a_ps->chars
+		      == &a_ps->achars[16 - (((unsigned) a_ps->achars)
+					     & 0xfU)]);
+	    a_ps->chars = &a_ps->achars[8];
 	}
 
 	a_ps->nchars = a_nchars;
