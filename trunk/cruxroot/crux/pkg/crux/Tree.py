@@ -16,6 +16,7 @@ import Edge
 import Ring
 import NewickParser
 import TaxonMap
+import DistMatrix
 
 import random
 
@@ -157,14 +158,15 @@ class _NewickParser(NewickParser.NewickParser):
 
 class Tree(_Tree.Tree):
     def __init__(self, with=None, map=TaxonMap.TaxonMap()):
-        self._map = map
-
         if type(with) == int:
+            self._map = map
             self._randomNew(with)
         elif type(with) == str or type(with) == file:
+            self._map = map
             self._newickNew(with)
-        elif type(with) == list:
-            self._njNew(with)
+        elif type(with) == DistMatrix.DistMatrix:
+            self._map = with.taxonMapGet()
+            self._nj(with.matrixGet())
 
     def _randomNew(self, ntaxa):
         # Create a stack of leaf nodes.
@@ -197,9 +199,6 @@ class Tree(_Tree.Tree):
     def _newickNew(self, input):
         parser = _NewickParser(self, self._map)
         return parser.parse(input, self)
-
-    def _njNew(self, input):
-        self._nj(input)
 
     def prints(self, labels=False, lengths=False):
         n = self.baseGet()
