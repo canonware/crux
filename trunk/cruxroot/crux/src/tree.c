@@ -414,7 +414,7 @@ crux_tree_init(void)
     PyModule_AddObject(m, "Tree", (PyObject *) &Tree_Type);
 
     /* Pre-compile Python code that is used for creating a tree. */
-    tree_p_new_code = Py_CompileString("crux.tree()",
+    tree_p_new_code = Py_CompileString("tree.tree()",
 				       "<string>",
 				       Py_eval_input);
 }
@@ -742,7 +742,7 @@ crux_node_init(void)
     PyModule_AddObject(m, "Node", (PyObject *) &Node_Type);
 
     /* Pre-compile Python code that is used for creating a node. */
-    tree_p_node_new_code = Py_CompileString("crux.node(tree)",
+    tree_p_node_new_code = Py_CompileString("node.node(tree)",
 					    "<string>",
 					    Py_eval_input);
 }
@@ -1231,7 +1231,7 @@ crux_edge_init(void)
     PyModule_AddObject(m, "Edge", (PyObject *) &Edge_Type);
 
     /* Pre-compile Python code that is used for creating a wrapped edge. */
-    tree_p_edge_new_code = Py_CompileString("crux.edge(tree)",
+    tree_p_edge_new_code = Py_CompileString("edge.edge(tree)",
 					    "<string>",
 					    Py_eval_input);
 }
