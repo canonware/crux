@@ -75,9 +75,3 @@ void
 CxDistMatrixDistanceSet(CxtDistMatrixObject *self, long x, long y, float dist);
 PyObject *
 CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args);
-PyObject *
-CxDistMatrixNtaxaAccept(CxtDistMatrixObject *self, PyObject *args);
-PyObject *
-CxDistMatrixLabelAccept(CxtDistMatrixObject *self, PyObject *args);
-PyObject *
-CxDistMatrixDistanceAccept(CxtDistMatrixObject *self, PyObject *args);

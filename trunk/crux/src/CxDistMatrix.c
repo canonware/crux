@@ -360,6 +360,44 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
     return retval;
 }
 
+static void
+CxpDistMatrixNtaxaAccept(CxtDistMatrixObject *self)
+{
+    if (self->symmetric)
+    {
+	self->matrix = (float *) CxmMalloc(sizeof(float)
+					   * (CxpDistMatrixXy2i(self,
+								self->ntaxa - 2,
+								self->ntaxa - 1)
+					      + 1));
+    }
+    else
+    {
+	self->matrix = (float *) CxmMalloc(sizeof(float)
+					   * self->ntaxa * self->ntaxa);
+    }
+}
+
+static bool
+CxpDistMatrixLabelAccept(CxtDistMatrixObject *self, long index)
+{
+    bool retval;
+    PyObject *result;
+
+    result = PyEval_CallMethod(self->map, "map",
+			       "s#i", self->buf, self->tokenLen, index);
+    if (result == NULL)
+    {
+	retval = true;
+	goto RETURN;
+    }
+    Py_DECREF(result);
+
+    retval = false;
+    RETURN:
+    return retval;
+}
+
 static bool
 CxpDistMatrixTokenToDistance(CxtDistMatrixObject *self, float *rDistance)
 {
@@ -383,27 +421,6 @@ CxpDistMatrixTokenToDistance(CxtDistMatrixObject *self, float *rDistance)
 }
 
 static bool
-CxpDistMatrixSetDistance(CxtDistMatrixObject *self, long x, long y,
-			 float distance)
-{
-    bool retval;
-    PyObject *result;
-
-    result = PyEval_CallMethod((PyObject *) self,
-			       "distanceAccept", "llf", x, y, distance);
-    if (result == NULL)
-    {
-	retval = true;
-	goto RETURN;
-    }
-    Py_DECREF(result);
-
-    retval = false;
-    RETURN:
-    return retval;
-}
-
-static bool
 CxpDistMatrixTokenSetDistance(CxtDistMatrixObject *self, long x, long y)
 {
     bool retval;
@@ -415,11 +432,7 @@ CxpDistMatrixTokenSetDistance(CxtDistMatrixObject *self, long x, long y)
 	goto RETURN;
     }
 
-    if (CxpDistMatrixSetDistance(self, x, y, distance))
-    {
-	retval = true;
-	goto RETURN;
-    }
+    CxDistMatrixDistanceSet(self, x, y, distance);
 
     retval = false;
     RETURN:
@@ -456,17 +469,12 @@ CxpDistMatrixProcessLabel(CxtDistMatrixObject *self, long index,
 	}
 	case CxtDistMatrixTokenLabel:
 	{
-	    PyObject *result;
-
 	    /* Insert label into map. */
-	    result = PyEval_CallMethod((PyObject *) self, "labelAccept",
-				       "s#i", self->buf, self->tokenLen, index);
-	    if (result == NULL)
+	    if (CxpDistMatrixLabelAccept(self, index))
 	    {
 		retval = true;
 		goto RETURN;
 	    }
-	    Py_DECREF(result);
 	    break;
 	}
 	default:
@@ -628,7 +636,6 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     } matrixFormat;
     CxtDistMatrixTokenType tokenType;
     long line, column, x, y;
-    PyObject *result;
 
     self->buf = NULL;
     self->bufLen = 0;
@@ -735,24 +742,14 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     {
 	/* Allocate a symmetric matrix. */
 	self->symmetric = true;
-	result = PyEval_CallMethod((PyObject *) self, "ntaxaAccept",
-				   "ll", self->ntaxa, true);
-	if (result == NULL)
-	{
-	    retval = true;
-	    goto RETURN;
-	}
-	Py_DECREF(result);
+	CxpDistMatrixNtaxaAccept(self);
 
 	/* Insert label into map. */
-	result = PyEval_CallMethod((PyObject *) self, "labelAccept",
-				   "s#i", self->buf, self->tokenLen, 1);
-	if (result == NULL)
+	if (CxpDistMatrixLabelAccept(self, 1))
 	{
 	    retval = true;
 	    goto RETURN;
 	}
-	Py_DECREF(result);
 
 	/* Get second row of distances. */
 	if (CxpDistMatrixProcessDistance(self, 1, 0, "lower"))
@@ -863,38 +860,22 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 
 	    /* Allocate a symmetric matrix. */
 	    self->symmetric = true;
-	    result = PyEval_CallMethod((PyObject *) self, "ntaxaAccept",
-				       "ll", self->ntaxa, true);
-	    if (result == NULL)
-	    {
-		retval = true;
-		goto RETURN;
-	    }
-	    Py_DECREF(result);
+	    CxpDistMatrixNtaxaAccept(self);
 
 	    /* Move distances from tdists to matrix. */
 	    for (y = 0; y < self->ntaxa - 1; y++)
 	    {
-		if (CxpDistMatrixSetDistance(self, 0, y + 1, tdists[y]))
-		{
-		    CxmFree(tdists);
-		    retval = true;
-		    goto RETURN;
-		}
+		CxDistMatrixDistanceSet(self, 0, y + 1, tdists[y]);
 	    }
 
 	    CxmFree(tdists);
 
 	    /* Insert label into map. */
-	    
-	    result = PyEval_CallMethod((PyObject *) self, "labelAccept",
-				       "s#i", self->buf, self->tokenLen, 1);
-	    if (result == NULL)
+	    if (CxpDistMatrixLabelAccept(self, 1))
 	    {
 		retval = true;
 		goto RETURN;
 	    }
-	    Py_DECREF(result);
 
 	    /* Get second row of distances. */
 	    for (y = 2; y < self->ntaxa; y++)
@@ -933,24 +914,12 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 
 	    /* Allocate a full matrix. */
 	    self->symmetric = false;
-	    result = PyEval_CallMethod((PyObject *) self, "ntaxaAccept",
-				       "ll", self->ntaxa, false);
-	    if (result == NULL)
-	    {
-		retval = true;
-		goto RETURN;
-	    }
-	    Py_DECREF(result);
+	    CxpDistMatrixNtaxaAccept(self);
 
 	    /* Move distances from tdists to matrix. */
 	    for (y = 0; y < self->ntaxa - 1; y++)
 	    {
-		if (CxpDistMatrixSetDistance(self, 0, y, tdists[y]))
-		{
-		    CxmFree(tdists);
-		    retval = true;
-		    goto RETURN;
-		}
+		CxDistMatrixDistanceSet(self, 0, y, tdists[y]);
 	    }
 	    CxmFree(tdists);
 
@@ -1300,129 +1269,6 @@ CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args)
     return retval;
 }
 
-PyObject *
-CxDistMatrixNtaxaAccept(CxtDistMatrixObject *self, PyObject *args)
-{
-    PyObject *retval;
-    long ntaxa, symmetric;
-
-    if (PyArg_ParseTuple(args, "ll", &ntaxa, &symmetric) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-    if (ntaxa < 2)
-    {
-	CxError(CxgDistMatrixValueError,
-		"ntaxa too small (%ld)",
-		ntaxa);
-	retval = NULL;
-	goto RETURN;
-    }
-    if (symmetric != 0 && symmetric != 1)
-    {
-	CxError(CxgDistMatrixValueError,
-		"symmetric: False or True expected");
-	retval = NULL;
-	goto RETURN;
-    }
-
-    CxmAssert(ntaxa == self->ntaxa);
-    CxmAssert(symmetric == self->symmetric);
-
-    if (symmetric)
-    {
-	self->matrix = (float *) CxmMalloc(sizeof(float)
-					   * (CxpDistMatrixXy2i(self,
-								ntaxa - 2,
-								ntaxa - 1)
-					      + 1));
-    }
-    else
-    {
-	self->matrix = (float *) CxmMalloc(sizeof(float)
-					   * ntaxa * ntaxa);
-    }
-
-    Py_INCREF(Py_None);
-    retval = Py_None;
-    RETURN:
-    return retval;
-}
-
-PyObject *
-CxDistMatrixLabelAccept(CxtDistMatrixObject *self, PyObject *args)
-{
-    PyObject *retval;
-    char *label;
-    int index;
-    PyObject *result;
-
-    if (PyArg_ParseTuple(args, "si", &label, &index) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-    if (index < 0 || index >= self->ntaxa)
-    {
-	CxError(CxgDistMatrixValueError,
-		"index: Out of range (%d)",
-		index);
-	retval = NULL;
-	goto RETURN;
-    }
-
-    result = PyEval_CallMethod(self->map, "map", "si", label, index);
-    if (result == NULL)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-    Py_DECREF(result);
-
-    Py_INCREF(Py_None);
-    retval = Py_None;
-    RETURN:
-    return retval;
-}
-
-PyObject *
-CxDistMatrixDistanceAccept(CxtDistMatrixObject *self, PyObject *args)
-{
-    PyObject *retval;
-    long x, y;
-    float distance;
-
-    if (PyArg_ParseTuple(args, "llf", &x, &y, &distance) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-    if (x < 0 || x >= self->ntaxa || y < 0 || y >= self->ntaxa)
-    {
-	CxError(CxgDistMatrixValueError,
-		"Out of bounds matrix access: (%ld, %ld)",
-		x, y);
-	retval = NULL;
-	goto RETURN;
-    }
-    if (self->symmetric && x == y)
-    {
-	CxError(CxgDistMatrixValueError,
-		"Out of bounds matrix access for symmetric matrix: (%ld, %ld)",
-		x, y);
-	retval = NULL;
-	goto RETURN;
-    }
-
-    CxDistMatrixDistanceSet(self, x, y, distance);
-
-    Py_INCREF(Py_None);
-    retval = Py_None;
-    RETURN:
-    return retval;
-}
-
 static PyMethodDef CxpDistMatrixMethods[] =
 {
     {
@@ -1454,24 +1300,6 @@ static PyMethodDef CxpDistMatrixMethods[] =
 	(PyCFunction) CxDistMatrixDistanceSetPargs,
 	METH_VARARGS,
 	"distanceSet"
-    },
-    {
-	"ntaxaAccept",
-	(PyCFunction) CxDistMatrixNtaxaAccept,
-	METH_VARARGS,
-	"ntaxaAccept"
-    },
-    {
-	"labelAccept",
-	(PyCFunction) CxDistMatrixLabelAccept,
-	METH_VARARGS,
-	"labelAccept"
-    },
-    {
-	"distanceAccept",
-	(PyCFunction) CxDistMatrixDistanceAccept,
-	METH_VARARGS,
-	"distanceAccept"
     },
     {NULL, NULL}
 };
