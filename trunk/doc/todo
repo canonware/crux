@@ -4,6 +4,8 @@
 
 * Move MP code from CxTr.c to CxTreeMp.c.
 
+  Use CTMatrix, rather than copying char data.
+
 * Move tree holding code out of CxTr.c.  It belongs with the MP code (in
   CxTreeMp.c).
 
@@ -16,6 +18,15 @@
 
 * Use tree validation API to make sure that the CxTreeRf.c code doesn't blow up
   on trees with non-contiguous taxon numbers.
+
+* Find out whether it's possible to write a Python class such that methods are
+  written in either Python or C.  If this is possible, it would allow me to
+  vastly simplify the way new nodes/edges/rings are created.
+
+  The example in 16.5 of _The_Python_Cookbook_ looks like it may provide a
+  mechanism for creating classes that have a mutable methods dictionary.  If so,
+  it will require quite a bit of code restructuring, but it may be possible to
+  merge the C/Python portions of all of crux's classes.
 
 === General maintenance ========================================================
 
@@ -39,6 +50,9 @@
   tr code supports.  Collapse unsupported (zero-change) branches when storing
   trees, in order to avoid storing equivalent trees.
 
+  Use heaps or balanced trees to store the best neighbors found so far during a
+  TBR/MP run.  Then, at the end, merge those into the main pool of held trees.
+
 * Write tree comparison code that deals with collapsed trees (CxTreeEqual.c)
 
 * Implement Sankoff parsimony, in preparation for supporting protein parsimony.
@@ -56,7 +70,7 @@
 
 * Implement crux.Tree.Tree.dup().
 
-* Implement NNI and SPR.  These should be easy, since they are subsets of TBR.
+* Implement NNI and SPR.  SPR should be easy, since it is a subset of TBR.
 
 * Implement ML scoring.
 
@@ -86,13 +100,18 @@
 
 === Enhancements to existing features ==========================================
 
-* Do bisection/MP during tree recursion.
+* Do bisection/MP during tree recursion, and get rid of parent pointers/caching.
 
 * Terminate scoring early if identical on a per-word basis.
 
 * Make it possible to permanently discard uninformative characters?  In any
   case, uninformative character elimination is rather opaque at the moment, and
   more information needs to be made available.
+
+* Implement 64-bit version of C-based MP scoring functions, and use it for
+  platforms like Mac G5 and x86-64.
+
+* Make MP work for multifurcating trees.
 
 === Release requirements =======================================================
 
