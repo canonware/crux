@@ -510,73 +510,44 @@ CxpDistMatrixNjFinalJoin(float *aD, CxtNodeObject **aNodes,
     return aNodes[0];
 }
 
-// Compare two distances, and consider them equal if they are close enough.
+
+// Compare two distances, and consider them equal if they are close enough.  The
+// aMaxUlps parameter (ULP: Units in Last Place) specifies the maximum number of
+// ulps that aA and aB may differ by and still be considered equal.  Typical
+// floating point operations cause no more than 1/2 ulp of error, so aMaxUlps
+// should usually be half the number of operations that it took to calculate aA
+// and aB.
 CxmpInline int
-CxpDistMatrixNjDistCompare(float aA, float aB)
+CxpDistMatrixNjDistCompare(float aA, float aB, unsigned aMaxUlps)
 {
     int rVal;
+    int32_t a, b;
 
-    if (aA < aB)
+    // Convert aA and aB to lexicographically ordered ints.
+    a = *(int *) &aA;
+    if (a < 0)
     {
-	if (aB != 0.0)
-	{
-	    if (fabs(1.0 - (aA / aB)) < FLT_EPSILON)
-	    {
-		rVal = 0;
-	    }
-	    else
-	    {
-		rVal = -1;
-	    }
-	}
-	else
-	{
-	    if (aA <= -FLT_EPSILON)
-	    {
-		rVal = -1;
-	    }
-	    else if (aA >= FLT_EPSILON)
-	    {
-		rVal = 1;
-	    }
-	    else
-	    {
-		rVal = 0;
-	    }
-	}
+	a = 0x80000000 - a;
     }
-    else if (aA > aB)
+
+    b = *(int *) &aB;
+    if (b < 0)
     {
-	if (aA != 0.0)
-	{
-	    if (fabs(1.0 - (aB / aA)) < FLT_EPSILON)
-	    {
-		rVal = 0;
-	    }
-	    else
-	    {
-		rVal = 1;
-	    }
-	}
-	else
-	{
-	    if (aB >= FLT_EPSILON)
-	    {
-		rVal = -1;
-	    }
-	    else if (aB <= -FLT_EPSILON)
-	    {
-		rVal = 1;
-	    }
-	    else
-	    {
-		rVal = 0;
-	    }
-	}
+	b = 0x80000000 - b;
+    }
+
+    // Check if aA and aB are within aMaxUlps of each other.
+    if (abs(a - b) <= aMaxUlps)
+    {
+	rVal = 0;
+    }
+    else if (aA < aB)
+    {
+	rVal = -1;
     }
     else
     {
-	rVal = 0;
+	rVal = 1;
     }
 
     return rVal;
@@ -610,7 +581,7 @@ CxpDistMatrixNjRandomMinFind(float *aD, float *aRScaled, long aNleft,
 
 	    // Use CxpDistMatrixNjDistCompare() in order to compare transformed
 	    // distances, so that random selection is possible.
-	    switch (CxpDistMatrixNjDistCompare(transCur, transMin))
+	    switch (CxpDistMatrixNjDistCompare(transCur, transMin, 1))
 	    {
 		case -1:
 		{
@@ -721,7 +692,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 	    dist = *dElm - (aRScaled[y] + aRScaled[aX]);
 	    dElm += (aNleft - 2 - y);
 
-	    switch (CxpDistMatrixNjDistCompare(dist, minDist))
+	    switch (CxpDistMatrixNjDistCompare(dist, minDist, 1))
 	    {
 		case -1:
 		{
@@ -766,7 +737,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 	    dist = *dElm - (aRScaled[aX] + aRScaled[y]);
 	    dElm++;
 
-	    switch (CxpDistMatrixNjDistCompare(dist, minDist))
+	    switch (CxpDistMatrixNjDistCompare(dist, minDist, 1))
 	    {
 		case -1:
 		{
@@ -823,7 +794,7 @@ CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
 	    dist = *dElm - (aRScaled[aX] + aRScaled[y]);
 	    dElm++;
 
-	    if (CxpDistMatrixNjDistCompare(dist, aDist) == -1)
+	    if (CxpDistMatrixNjDistCompare(dist, aDist, 1) == -1)
 	    {
 		rVal = false;
 		goto RETURN;
@@ -843,7 +814,7 @@ CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
 	    dist = *dElm - (aRScaled[y] + aRScaled[aX]);
 	    dElm += (aNleft - 2 - y);
 
-	    if (CxpDistMatrixNjDistCompare(dist, aDist) == -1)
+	    if (CxpDistMatrixNjDistCompare(dist, aDist, 1) == -1)
 	    {
 		rVal = false;
 		goto RETURN;
@@ -928,7 +899,8 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 
 	    if (CxpDistMatrixNjDistCompare(dist + distA,
 					   aD[CxpDistMatrixNjXy2i(aNleft,
-								  aA, x)])
+								  aA, x)],
+					   2)
 		!= 0)
 	    {
 		rVal = false;
@@ -937,7 +909,8 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 
 	    if (CxpDistMatrixNjDistCompare(dist + distB,
 					   aD[CxpDistMatrixNjXy2i(aNleft,
-								  aB, x)])
+								  aB, x)],
+					   2)
 		!= 0)
 	    {
 		rVal = false;
@@ -958,7 +931,8 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 	iB += aNleft - 2 - x;
 
 	if (CxpDistMatrixNjDistCompare(dist + distA,
-				       aD[CxpDistMatrixNjXy2i(aNleft, x, aA)])
+				       aD[CxpDistMatrixNjXy2i(aNleft, x, aA)],
+				       2)
 	    != 0)
 	{
 	    rVal = false;
@@ -966,7 +940,8 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 	}
 
 	if (CxpDistMatrixNjDistCompare(dist + distB,
-				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)])
+				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)],
+				       2)
 	    != 0)
 	{
 	    rVal = false;
@@ -989,7 +964,8 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 	iB += aNleft - 2 - x;
 
 	if (CxpDistMatrixNjDistCompare(dist + distA,
-				       aD[CxpDistMatrixNjXy2i(aNleft, aA, x)])
+				       aD[CxpDistMatrixNjXy2i(aNleft, aA, x)],
+				       2)
 	    != 0)
 	{
 	    rVal = false;
@@ -997,7 +973,8 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 	}
 
 	if (CxpDistMatrixNjDistCompare(dist + distB,
-				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)])
+				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)],
+				       2)
 	    != 0)
 	{
 	    rVal = false;
