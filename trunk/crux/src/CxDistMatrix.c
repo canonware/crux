@@ -987,6 +987,8 @@ CxpDistMatrixNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self->map = Py_None;
     Py_INCREF(self->map);
 
+    self->matrix = NULL;
+
     retval = (PyObject *) self;
     RETURN:
     return retval;
@@ -1025,6 +1027,11 @@ CxpDistMatrixDelete(CxtDistMatrixObject *self)
     {
 	free(self->buf);
 	self->buf = NULL;
+    }
+    if (self->matrix != NULL)
+    {
+	free(self->matrix);
+	self->matrix = NULL;
     }
     self->ob_type->tp_free((PyObject*) self);
 }
