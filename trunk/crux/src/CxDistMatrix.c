@@ -1269,6 +1269,110 @@ CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args)
     return retval;
 }
 
+CxmpInline void
+CxpDistMatrixRowsSwap(CxtDistMatrixObject *self, long aA, long aB)
+{
+    long i;
+    float distA, distB;
+
+    if (self->symmetric)
+    {
+	/* Swap rows.  Avoid the diagonal. */
+	for (i = 0; i < self->ntaxa; i++)
+	{
+	    if (i != aA && i != aB)
+	    {
+		distA = CxDistMatrixDistanceGet(self, i, aA);
+		distB = CxDistMatrixDistanceGet(self, i, aB);
+
+		CxDistMatrixDistanceSet(self, i, aA, distB);
+		CxDistMatrixDistanceSet(self, i, aB, distA);
+	    }
+	}
+    }
+    else
+    {
+	/* Swap rows. */
+	for (i = 0; i < self->ntaxa; i++)
+	{
+	    distA = CxDistMatrixDistanceGet(self, i, aA);
+	    distB = CxDistMatrixDistanceGet(self, i, aB);
+
+	    CxDistMatrixDistanceSet(self, i, aA, distB);
+	    CxDistMatrixDistanceSet(self, i, aB, distA);
+	}
+
+	/* Swap columns. */
+	for (i = 0; i < self->ntaxa; i++)
+	{
+	    distA = CxDistMatrixDistanceGet(self, aA, i);
+	    distB = CxDistMatrixDistanceGet(self, aB, i);
+
+	    CxDistMatrixDistanceSet(self, aA, i, distB);
+	    CxDistMatrixDistanceSet(self, aB, i, distA);
+	}
+    }
+}
+
+static PyObject *
+CxpDistMatrixShuffle(CxtDistMatrixObject *self, PyObject *args)
+{
+    PyObject *retval, *order, *tobj;
+    long i, a, b, t, fromRow, *curOrder, *rowTab;
+
+    /* Parse arguments. */
+    if (PyArg_ParseTuple(args, "O!", &PyList_Type, &order) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+    CxmAssert(PyList_Size(order) == self->ntaxa);
+
+    /* Create a lookup table that maps original row to the current row of the
+     * matrix (rowTab), as well as a table that represents the current row order
+     * of the matrix (curOrder).  This is needed to keep track of where rows end
+     * up as repeated row swaps are done. */
+    rowTab = (long *) CxmMalloc(sizeof(long) * self->ntaxa);
+    curOrder = (long *) CxmMalloc(sizeof(long) * self->ntaxa);
+    for (i = 0; i < self->ntaxa; i++)
+    {
+	rowTab[i] = i;
+	curOrder[i] = i;
+    }
+
+    /* Iteratively swap the correct row into row i.  The last row need not be
+     * swapped with itself. */
+    for (i = 0; i < self->ntaxa - 1; i++)
+    {
+	tobj = PyList_GetItem(order, i);
+	CxmAssert(PyInt_Check(tobj));
+	fromRow = PyInt_AsLong(tobj);
+
+	a = i;
+	b = rowTab[fromRow];
+
+	CxpDistMatrixRowsSwap(self, a, b);
+
+	/* Update curOrder. */
+	t = curOrder[a];
+	curOrder[a] = curOrder[b];
+	curOrder[b] = t;
+
+	/* Update rowTab. */
+	t = rowTab[curOrder[a]];
+	rowTab[curOrder[a]] = rowTab[curOrder[b]];
+	rowTab[curOrder[b]] = t;
+    }
+
+    CxmFree(rowTab);
+    CxmFree(curOrder);
+
+    Py_INCREF(Py_None);
+    retval = Py_None;
+    RETURN:
+    return retval;
+}
+
 /* Hand off an array of floats that represent an upper-triangle distance matrix,
  * and clean up such that this DistMatrix no longer refers to the data (though
  * the TaxonMap continues to be referred to by the DistMatrix).
@@ -1340,6 +1444,12 @@ static PyMethodDef CxpDistMatrixMethods[] =
 	(PyCFunction) CxDistMatrixDistanceSetPargs,
 	METH_VARARGS,
 	"distanceSet"
+    },
+    {
+	"_matrixShuffle",
+	(PyCFunction) CxpDistMatrixShuffle,
+	METH_VARARGS,
+	"_matrixShuffle"
     },
     {NULL, NULL}
 };

@@ -60,6 +60,8 @@ from C_DistMatrix import *
 import TaxonMap
 import crux
 
+import random
+
 class DistMatrix(C_DistMatrix):
     # Construct a DistMatrix from one of the following inputs:
     #
@@ -82,6 +84,21 @@ class DistMatrix(C_DistMatrix):
         else:
             raise crux.DistMatrix\
                   .ValueError("input: File, string, or TaxonMap expected")
+
+    # Randomly shuffle the order of rows/columns in the distance matrix, and
+    # make corresponding changes to the TaxonMap.
+    def shuffle(self):
+        # Create a random shuffle order.
+        order = random.sample(range(self.ntaxaGet()), self.ntaxaGet())
+
+        # Shuffle the matrix.
+        self._matrixShuffle(order)
+
+        # Shuffle the TaxonMap.
+        map = self.taxonMapGet()
+        labels = map.taxaGet()
+        for i in forints(self.ntaxaGet()):
+            map.map(labels[order[i]], i, replace=True)
 
     # Print the matrix to a string in 'full', 'upper', or 'lower' format.
     def render(self, format='full', distFormat="%.5e", outFile=None):
