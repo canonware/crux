@@ -135,3 +135,6 @@ extern PyObject *CxgException;
 
 void
 init_crux(void);
+
+void
+CxError(PyObject *exception, const char *format, ...);

@@ -44,3 +44,17 @@ init_crux(void)
     CxFastaParserInit();
     CxDistMatrixInit();
 }
+
+void
+CxError(PyObject *exception, const char *format, ...)
+{
+    va_list ap;
+    char *str;
+
+    va_start(ap, format);
+    vasprintf(&str, format, ap);
+    va_end(ap);
+
+    PyErr_SetString(exception, str);
+    free(str);
+}

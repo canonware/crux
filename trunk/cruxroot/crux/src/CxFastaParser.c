@@ -138,19 +138,6 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, int *rLine,
     return retval;
 }
 
-static void
-CxpFastaParserSyntaxError(CxtFastaParserObject *self, int line, int column,
-			  char c, const char *msg)
-{
-    char *str;
-
-    asprintf(&str, "At %d:%d (token '%.*s', char '%c'): %s\n",
-	     line, column, self->tokenLen, self->buf, c, msg);
-
-    PyErr_SetString(CxgFastaParserSyntaxError, str);
-    free(str);
-}
-
 PyObject *
 CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 {
@@ -179,8 +166,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     }
     else
     {
-	PyErr_SetString(CxgFastaParserTypeError,
-			"input: file or string expected");
+	CxError(CxgFastaParserTypeError, "input: file or string expected");
 	retval = NULL;
 	goto RETURN;
     }
@@ -196,8 +182,8 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     }
     else
     {
-	PyErr_SetString(CxgFastaParserValueError,
-			"charType: 'DNA' or 'protein' expected");
+	CxError(CxgFastaParserValueError,
+		"charType: 'DNA' or 'protein' expected");
 	retval = NULL;
 	goto RETURN;
     }
@@ -242,8 +228,11 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			{
 			    if (self->tokenLen == 0)
 			    {
-				CxpFastaParserSyntaxError(self, line, column, c,
-							  "Empty label");
+				CxError(CxgFastaParserSyntaxError,
+					"At %d:%d (token '%.*s', char '%c'):"
+					" Empty label",
+					line, column, self->tokenLen, self->buf,
+					c);
 				goto ERROR;
 			    }
 
@@ -258,8 +247,11 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			{
 			    if (self->tokenLen == 0)
 			    {
-				CxpFastaParserSyntaxError(self, line, column, c,
-							  "Empty label");
+				CxError(CxgFastaParserSyntaxError,
+					"At %d:%d (token '%.*s', char '%c'):"
+					" Empty label",
+					line, column, self->tokenLen, self->buf,
+					c);
 				goto ERROR;
 			    }
 
@@ -306,8 +298,11 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 		    {
 			if (self->tokenLen == 0)
 			{
-			    CxpFastaParserSyntaxError(self, line, column, c,
-						      "Missing character data");
+			    CxError(CxgFastaParserSyntaxError,
+				    "At %d:%d (token '%.*s', char '%c'):"
+				    " Missing character data",
+				    line, column, self->tokenLen, self->buf,
+				    c);
 			    goto ERROR;
 			}
 
@@ -342,10 +337,12 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				}
 				default:
 				{
-				    CxpFastaParserSyntaxError(self, line,
-							      column, c,
-							      "Invalid DNA "
-							      "character data");
+				    CxError(CxgFastaParserSyntaxError,
+					    "At %d:%d (token '%.*s',"
+					    " char '%c'):"
+					    " Invalid DNA character data",
+					    line, column,
+					    self->tokenLen, self->buf, c);
 				    goto ERROR;
 				}
 			    }
@@ -377,10 +374,12 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				}
 				default:
 				{
-				    CxpFastaParserSyntaxError(self, line,
-							      column, c,
-							      "Invalid protein "
-							      "character data");
+				    CxError(CxgFastaParserSyntaxError,
+					    "At %d:%d (token '%.*s',"
+					    " char '%c'):"
+					    " Invalid protein character data",
+					    line, column,
+					    self->tokenLen, self->buf, c);
 				    goto ERROR;
 				}
 			    }
@@ -398,16 +397,20 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	/* Make sure that the input ends with character data. */
 	if (state != CxpStateChars)
 	{
-	    CxpFastaParserSyntaxError(self, line, column, c,
-				      "Input ended while reading label");
+	    CxError(CxgFastaParserSyntaxError,
+		    "At %d:%d (token '%.*s', char '%c'):"
+		    " Input ended while reading label",
+		    line, column, self->tokenLen, self->buf, c);
 	    goto ERROR;
 	}
 
 	/* Accept the last token. */
 	if (self->tokenLen == 0)
 	{
-	    CxpFastaParserSyntaxError(self, line, column, c,
-				      "Missing character data");
+	    CxError(CxgFastaParserSyntaxError,
+		    "At %d:%d (token '%.*s', char '%c'):"
+		    " Missing character data",
+		    line, column, self->tokenLen, self->buf, c);
 	    goto ERROR;
 	}
 	result = PyEval_CallMethod((PyObject *) self, "charsAccept", "()");
