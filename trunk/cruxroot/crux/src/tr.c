@@ -394,12 +394,51 @@ tr_p_ps_delete(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
     {
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
-			  a_ps->achars, sizeof(cw_trc_t) * (a_ps->nchars + 8));
+			  a_ps->achars,
+			  sizeof(cw_trc_t) * ((a_ps->nchars / 2) + 8));
     }
 
     cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 		      mema_arg_get(a_tr->mema),
 		      a_ps, sizeof(cw_tr_ps_t));
+}
+
+#if (0) /* Unused (so far). */
+CW_P_INLINE cw_trc_t
+tr_p_ps_char_get(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_offset)
+{
+    cw_trc_t retval;
+
+    cw_check_ptr(a_ps->chars);
+    cw_assert(a_offset < a_ps->nchars);
+
+    retval = a_ps->chars[a_offset >> 1];
+    retval >>= ((a_offset & 1) * 4);
+
+    return retval;
+}
+#endif
+
+CW_P_INLINE void
+tr_p_ps_char_set(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_trc_t a_char,
+		 uint32_t a_offset)
+{
+    cw_check_ptr(a_ps->chars);
+    cw_assert((a_char & 0xfU) == a_char);
+    cw_assert(a_offset < a_ps->nchars);
+
+    if ((a_offset & 1) == 0)
+    {
+	a_ps->chars[a_offset >> 1]
+	    = (a_char << 4)
+	    | (a_ps->chars[a_offset >> 1] & 0xfU);
+    }
+    else
+    {
+	a_ps->chars[a_offset >> 1]
+	    = (a_ps->chars[a_offset >> 1] & 0xf0U)
+	    | a_char;
+    }
 }
 
 CW_P_INLINE void
@@ -412,7 +451,7 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
 			  a_ps->achars,
-			  sizeof(cw_trc_t) * (a_ps->nchars + 8));
+			  sizeof(cw_trc_t) * ((a_ps->nchars / 2) + 8));
 	a_ps->chars = NULL;
     }
 
@@ -423,20 +462,21 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 
 	/* Calculate the number of pad characters to append, such that the total
 	 * number of characters is a multiple of 16. */
-	if ((a_nchars & 0xf) != 0)
+	if ((a_nchars & 0x1f) != 0)
 	{
-	    npad = 16 - (a_nchars & 0xf);
+	    npad = 32 - (a_nchars & 0x1f);
 	}
 	else
 	{
 	    npad = 0;
 	}
+	cw_assert(((a_nchars + npad) & 0x1f) == 0);
 
 	a_ps->achars
 	    = (cw_trc_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
 					   mema_arg_get(a_tr->mema),
 					   sizeof(cw_trc_t)
-					   * (a_nchars + 8 + npad));
+					   * (((a_nchars + npad) / 2) + 8));
 
 	/* Make sure that chars is 16 byte-aligned. */
 	if ((((unsigned) a_ps->achars) & 0xfU) == 0)
@@ -458,7 +498,7 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 	 * score. */
 	for (i = a_nchars; i < a_nchars + npad; i++)
 	{
-	    a_ps->chars[i] = 0xfU;
+	    tr_p_ps_char_set(a_tr, a_ps, 0xfU, i);
 	}
 
 	a_ps->nchars = a_nchars + npad;
@@ -1922,91 +1962,91 @@ tr_p_mp_ring_prepare(cw_tr_t *a_tr, cw_tr_ring_t a_ring, char *a_taxa[],
 		 * things, and may need to be made configurable. */
 		case '-':
 		{
-		    trr->ps->chars[j] = 0xf;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0xf, j);
 		    break;
 		}
 		case 'V':
 		case 'v':
 		{
-		    trr->ps->chars[j] = 0xe;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0xe, j);
 		    break;
 		}
 		case 'H':
 		case 'h':
 		{
-		    trr->ps->chars[j] = 0xd;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0xd, j);
 		    break;
 		}
 		case 'M':
 		case 'm':
 		{
-		    trr->ps->chars[j] = 0xc;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0xc, j);
 		    break;
 		}
 		case 'D':
 		case 'd':
 		{
-		    trr->ps->chars[j] = 0xb;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0xb, j);
 		    break;
 		}
 		case 'R':
 		case 'r':
 		{
-		    trr->ps->chars[j] = 0xa;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0xa, j);
 		    break;
 		}
 		case 'W':
 		case 'w':
 		{
-		    trr->ps->chars[j] = 0x9;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0x9, j);
 		    break;
 		}
 		case 'A':
 		case 'a':
 		{
-		    trr->ps->chars[j] = 0x8;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0x8, j);
 		    break;
 		}
 		case 'B':
 		case 'b':
 		{
-		    trr->ps->chars[j] = 0x7;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0x7, j);
 		    break;
 		}
 		case 'S':
 		case 's':
 		{
-		    trr->ps->chars[j] = 0x6;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0x6, j);
 		    break;
 		}
 		case 'Y':
 		case 'y':
 		{
-		    trr->ps->chars[j] = 0x5;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0x5, j);
 		    break;
 		}
 		case 'C':
 		case 'c':
 		{
-		    trr->ps->chars[j] = 0x4;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0x4, j);
 		    break;
 		}
 		case 'K':
 		case 'k':
 		{
-		    trr->ps->chars[j] = 0x3;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0x3, j);
 		    break;
 		}
 		case 'G':
 		case 'g':
 		{
-		    trr->ps->chars[j] = 0x2;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0x2, j);
 		    break;
 		}
 		case 'T':
 		case 't':
 		{
-		    trr->ps->chars[j] = 0x1;
+		    tr_p_ps_char_set(a_tr, trr->ps, 0x1, j);
 		    break;
 		}
 		default:
@@ -2103,11 +2143,6 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     uint32_t curlimit, i, nchars, ns;
     cw_trc_t *chars_p, *chars_a, *chars_b;
 
-    /* Calculate sum of subtree scores. */
-    a_p->subtrees_score
-	= a_a->subtrees_score + a_a->node_score
-	+ a_b->subtrees_score + a_b->node_score;
-
     /* Calculate node score. */
     ns = 0;
 
@@ -2120,27 +2155,42 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
     /* Initialize SSE2 registers. */
     {
+	static const unsigned char low[] =
+	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f"
+	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f";
+	static const unsigned char high[] =
+	    "\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0"
+	    "\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0";
 	static const unsigned char ones[] =
 	    "\x01\x01\x01\x01\x01\x01\x01\x01"
 	    "\x01\x01\x01\x01\x01\x01\x01\x01";
 
 	asm volatile (
+	    /* Clear pns. */
+	    "pxor %%xmm4, %%xmm4;"
+
+	    /* Fill xmm5 with masks for the least significant four bits of each
+	     * byte. */
+	    "movdqu %[low], %%xmm5;"
+
+	    /* Fill xmm6 with masks for the most significant four bits of each
+	     * byte. */
+	    "movdqu %[high], %%xmm6;"
+
 	    /* Fill xmm7 with 16 1's. */
 	    "movdqu %[ones], %%xmm7;"
 
-	    /* Clear pns. */
-	    "pxor %%xmm5, %%xmm5;"
 	    :
-	    : [ones] "m" (*ones)
-	    : "%xmm5", "%xmm7"
+	    : [low] "m" (*low), [high] "m" (*high), [ones] "m" (*ones)
+	    : "%xmm4", "%xmm5", "%xmm6", "%xmm7"
 	    );
     }
 
     /* The inner loop can be run a maximum of 255 times before the partial node
-     * score results (stored in %xmm5) are added to ns (otherwise, overflow
+     * score results (stored in %xmm4) are added to ns (otherwise, overflow
      * could occur).  Therefore, the outer loop calculates the upper bound for
      * the inner loop, thereby avoiding extra computation in the inner loop. */
-    curlimit = 255 * 16;
+    curlimit = 127 * 32;
     if (curlimit > nchars)
     {
 	curlimit = nchars;
@@ -2148,8 +2198,8 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     for (;;)
     {
 	/* Use SSE2 to evaluate as many of the characters as possible.  This
-	 * loop handles 16 characters per iteration. */
-	for (i = 0; i < curlimit; i += 16)
+	 * loop handles 32 characters per iteration. */
+	for (i = 0; i < curlimit; i += 32)
 	{
 	    asm volatile (
 		/* Read character data, and'ing and or'ing them together.
@@ -2164,33 +2214,56 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		"por %[b], %%xmm0;" /* xmm0 contains d. */
 		"pand %[b], %%xmm1;" /* xmm1 contains p. */
 
+		/**************************************************************/
+		/* Most significant bits. */
+
 		/* Create bitmasks according to whether the character state sets
 		 * are empty.
 		 *
 		 * c = p ? 0x00 : 0xff;
 		 * e = (c & d);
 		 * s = c ? 0 : 1;
-		 */
-		"pxor %%xmm2, %%xmm2;"
-		"pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
-		"pand %%xmm2, %%xmm0;" /* xmm0 contains e. */
-		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
-
-		/* Update node score.  Each byte in %xmm5 is only capable of
-		 * holding up to 255, which is why the outer loop is necessary.
-		 *
+		 * p = (p | e);
 		 * ns += s;
 		 */
-		"paddusb %%xmm2, %%xmm5;"
+		"pxor %%xmm2, %%xmm2;"
+		"movdqa %%xmm1, %%xmm3;"
+		"pand %%xmm6, %%xmm3;" /* Mask out unwanted bits of p. */
+		"pcmpeqb %%xmm3, %%xmm2;" /* xmm2 contains c. */
+		"movdqa %%xmm0, %%xmm3;"
+		"pand %%xmm6, %%xmm3;" /* Mask out unwanted bits of d. */
+		"pand %%xmm2, %%xmm3;" /* xmm3 contains e. */
+		"por %%xmm3, %%xmm1;" /* Update p. */
+		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
+		"paddusb %%xmm2, %%xmm4;" /* Update ns (add s). */
 
-		/* p = (p | e); */
-		"por %%xmm1, %%xmm0;" /* xmm0 contains p. */
+		/**************************************************************/
+		/* Least significant bits. */
+
+		/* Create bitmasks according to whether the character state sets
+		 * are empty.
+		 *
+		 * c = p ? 0x00 : 0xff;
+		 * e = (c & d);
+		 * s = c ? 0 : 1;
+		 * p = (p | e);
+		 * ns += s;
+		 */
+		"pxor %%xmm2, %%xmm2;"
+		"movdqa %%xmm1, %%xmm3;"
+		"pand %%xmm5, %%xmm3;" /* Mask out unwanted bits of p. */
+		"pcmpeqb %%xmm3, %%xmm2;" /* xmm2 contains c. */
+		"pand %%xmm5, %%xmm0;" /* Mask out unwanted bits of d. */
+		"pand %%xmm2, %%xmm0;" /* xmm0 contains e. */
+		"por %%xmm0, %%xmm1;" /* Update p. */
+		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
+		"paddusb %%xmm2, %%xmm4;" /* Update ns (add s). */
 
 		/* Store results.
 		 *
 		 * *chars_p = p;
 		 */
-		"movdqa %%xmm0, %[p];"
+		"movdqa %%xmm1, %[p];"
 		: [p] "=m" (chars_p[i])
 		: [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
 		: "memory"
@@ -2203,8 +2276,8 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	    unsigned char pns[16];
 
 	    asm volatile (
-		"movdqu %%xmm5, %[pns];"
-		"pxor %%xmm5, %%xmm5;"
+		"movdqu %%xmm4, %[pns];"
+		"pxor %%xmm4, %%xmm4;"
 		: [pns] "=m" (*pns)
 		:
 		: "memory"
@@ -2224,7 +2297,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	}
 	/* Update the bound for the inner loop, taking care not to exceed the
 	 * maximum possible bound. */
-	curlimit += 255 * 16;
+	curlimit += 127 * 32;
 	if (curlimit > nchars)
 	{
 	    curlimit = nchars;
@@ -2239,33 +2312,42 @@ static void
 tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		 cw_tr_ps_t *a_b)
 {
-    uint32_t i, nchars, ns, a, b, p, c, s;
+    uint32_t i, niters, ns, a, b, p, r;
     cw_trc_t *chars_p, *chars_a, *chars_b;
-
-    /* Calculate sum of subtree scores. */
-    a_p->subtrees_score
-	= a_a->subtrees_score + a_a->node_score
-	+ a_b->subtrees_score + a_b->node_score;
 
     /* Calculate node score. */
     ns = 0;
 
-    /* Calculate partial Fitch parsimony scores for each character.  The code
-     * inside the loop is written such that the compiler can optimize out all
-     * branches (at least for ia32). */
+    /* Calculate preliminary Fitch parsimony scores for each character. */
     chars_p = a_p->chars;
     chars_a = a_a->chars;
     chars_b = a_b->chars;
-    for (i = 0, nchars = a_p->nchars; i < nchars; i++)
+    for (i = 0, niters = (a_p->nchars >> 1); i < niters; i++)
     {
 	a = chars_a[i];
 	b = chars_b[i];
 
-	p = a & b;
-	s = p ? 0 : 1;
-	c = -s;
-	chars_p[i] = (p | (c & (a | b)));
-	ns += s;
+	if ((p = ((a & b) & 0xf0U)) != 0)
+	{
+	    r = p;
+	}
+	else
+	{
+	    r = ((a | b) & 0xf0U);
+	    ns++;
+	}
+
+	if ((p = ((a & b) & 0x0fU)) != 0)
+	{
+	    r |= p;
+	}
+	else
+	{
+	    r |= ((a | b) & 0x0fU);
+	    ns++;
+	}
+
+	chars_p[i] = r;
     }
 
     a_p->node_score = ns;
@@ -2279,6 +2361,11 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
     /* Reset this node's parent pointer, to keep the parent from using an
      * invalid cached value. */
     a_p->parent = NULL;
+
+    /* Calculate sum of subtree scores. */
+    a_p->subtrees_score
+	= a_a->subtrees_score + a_a->node_score
+	+ a_b->subtrees_score + a_b->node_score;
 
 #ifdef CW_CPU_IA32
     if (modcrux_ia32_use_sse2)
@@ -2384,12 +2471,10 @@ CW_P_INLINE uint32_t
 tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
     uint32_t retval, curlimit, i, nchars;
-    cw_trc_t *chars_a, *chars_b;
+    cw_trc_t *chars_p, *chars_a, *chars_b;
 
-    /* Calculate sum of subtree scores. */
-    retval
-	= a_a->subtrees_score + a_a->node_score
-	+ a_b->subtrees_score + a_b->node_score;
+    /* Calculate node score. */
+    retval = 0;
 
     /* Calculate partial Fitch parsimony scores for each character. */
     chars_a = a_a->chars;
@@ -2399,27 +2484,42 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 
     /* Initialize SSE2 registers. */
     {
+	static const unsigned char low[] =
+	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f"
+	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f";
+	static const unsigned char high[] =
+	    "\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0"
+	    "\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0";
 	static const unsigned char ones[] =
 	    "\x01\x01\x01\x01\x01\x01\x01\x01"
 	    "\x01\x01\x01\x01\x01\x01\x01\x01";
 
 	asm volatile (
+	    /* Clear pns. */
+	    "pxor %%xmm4, %%xmm4;"
+
+	    /* Fill xmm5 with masks for the least significant four bits of each
+	     * byte. */
+	    "movdqu %[low], %%xmm5;"
+
+	    /* Fill xmm6 with masks for the most significant four bits of each
+	     * byte. */
+	    "movdqu %[high], %%xmm6;"
+
 	    /* Fill xmm7 with 16 1's. */
 	    "movdqu %[ones], %%xmm7;"
 
-	    /* Clear pns. */
-	    "pxor %%xmm5, %%xmm5;"
 	    :
-	    : [ones] "m" (*ones)
-	    : "%xmm5", "%xmm7"
+	    : [low] "m" (*low), [high] "m" (*high), [ones] "m" (*ones)
+	    : "%xmm4", "%xmm5", "%xmm6", "%xmm7"
 	    );
     }
 
     /* The inner loop can be run a maximum of 255 times before the partial node
-     * score results (stored in %xmm5) are added to retval (otherwise, overflow
+     * score results (stored in %xmm4) are added to ns (otherwise, overflow
      * could occur).  Therefore, the outer loop calculates the upper bound for
      * the inner loop, thereby avoiding extra computation in the inner loop. */
-    curlimit = 255 * 16;
+    curlimit = 127 * 32;
     if (curlimit > nchars)
     {
 	curlimit = nchars;
@@ -2427,8 +2527,8 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
     for (;;)
     {
 	/* Use SSE2 to evaluate as many of the characters as possible.  This
-	 * loop handles 16 characters per iteration. */
-	for (i = 0; i < curlimit; i += 16)
+	 * loop handles 32 characters per iteration. */
+	for (i = 0; i < curlimit; i += 32)
 	{
 	    asm volatile (
 		/* Read character data, and'ing and or'ing them together.
@@ -2440,23 +2540,39 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 		"movdqa %[a], %%xmm1;"
 		"pand %[b], %%xmm1;" /* xmm1 contains p. */
 
+		/**************************************************************/
+		/* Most significant bits. */
+
 		/* Create bitmasks according to whether the character state sets
 		 * are empty.
 		 *
 		 * c = p ? 0x00 : 0xff;
 		 * s = c ? 0 : 1;
-		 */
-		"pxor %%xmm2, %%xmm2;"
-		"pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
-		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
-
-		/* Update node score.  Each byte in %xmm5 is only capable of
-		 * holding up to 255, which is why the outer loop is necessary.
-		 *
 		 * retval += s;
 		 */
-		"paddusb %%xmm2, %%xmm5;"
-		:
+		"pxor %%xmm2, %%xmm2;"
+		"movdqa %%xmm1, %%xmm3;"
+		"pand %%xmm6, %%xmm3;" /* Mask out unwanted bits of p. */
+		"pcmpeqb %%xmm3, %%xmm2;" /* xmm2 contains c. */
+		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
+		"paddusb %%xmm2, %%xmm4;" /* Update retval (add s). */
+
+		/**************************************************************/
+		/* Least significant bits. */
+
+		/* Create bitmasks according to whether the character state sets
+		 * are empty.
+		 *
+		 * c = p ? 0x00 : 0xff;
+		 * s = c ? 0 : 1;
+		 * retval += s;
+		 */
+		"pxor %%xmm2, %%xmm2;"
+		"pand %%xmm5, %%xmm1;" /* Mask out unwanted bits of p. */
+		"pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
+		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
+		"paddusb %%xmm2, %%xmm4;" /* Update retval (add s). */
+		: [p] "=m" (chars_p[i])
 		: [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
 		: "memory"
 		);
@@ -2468,8 +2584,8 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	    unsigned char pns[16];
 
 	    asm volatile (
-		"movdqu %%xmm5, %[pns];"
-		"pxor %%xmm5, %%xmm5;"
+		"movdqu %%xmm4, %[pns];"
+		"pxor %%xmm4, %%xmm4;"
 		: [pns] "=m" (*pns)
 		:
 		: "memory"
@@ -2489,7 +2605,7 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	}
 	/* Update the bound for the inner loop, taking care not to exceed the
 	 * maximum possible bound. */
-	curlimit += 255 * 16;
+	curlimit += 127 * 32;
 	if (curlimit > nchars)
 	{
 	    curlimit = nchars;
@@ -2503,27 +2619,27 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 static uint32_t
 tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
-    uint32_t retval, i, nchars, a, b, p, s;
+    uint32_t retval, i, niters, a, b;
     cw_trc_t *chars_a, *chars_b;
 
-    /* Calculate sum of subtree scores. */
-    retval
-	= a_a->subtrees_score + a_a->node_score
-	+ a_b->subtrees_score + a_b->node_score;
-
-    /* Calculate partial Fitch parsimony scores for each character.  The code
-     * inside the loop is written such that the compiler can optimize out all
-     * branches (at least for ia32). */
+    /* Calculate partial Fitch parsimony scores for each character. */
+    retval = 0;
     chars_a = a_a->chars;
     chars_b = a_b->chars;
-    for (i = 0, nchars = a_a->nchars; i < nchars; i++)
+    for (i = 0, niters = (a_a->nchars >> 1); i < niters; i++)
     {
 	a = chars_a[i];
 	b = chars_b[i];
 
-	p = a & b;
-	s = p ? 0 : 1;
-	retval += s;
+	if (((a & b) & 0xf0U) == 0)
+	{
+	    retval++;
+	}
+
+	if (((a & b) & 0x0fU) == 0)
+	{
+	    retval++;
+	}
     }
 
     return retval;
@@ -2536,15 +2652,20 @@ tr_p_mp_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
     uint32_t retval;
 
+    /* Calculate sum of subtree scores. */
+    retval
+	= a_a->subtrees_score + a_a->node_score
+	+ a_b->subtrees_score + a_b->node_score;
+
 #ifdef CW_CPU_IA32
     if (modcrux_ia32_use_sse2)
     {
-	retval = tr_p_mp_ia32_fscore(a_tr, a_a, a_b);
+	retval += tr_p_mp_ia32_fscore(a_tr, a_a, a_b);
     }
     else
 #endif
     {
-	retval = tr_p_mp_c_fscore(a_tr, a_a, a_b);
+	retval += tr_p_mp_c_fscore(a_tr, a_a, a_b);
     }
 
     return retval;
