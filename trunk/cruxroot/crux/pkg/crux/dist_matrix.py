@@ -65,7 +65,7 @@ class dist_matrix(object):
         pass
 
     # Parse input (file or string) and return a tuple, where the first element
-    # in the tuple is a list of taxon label strings, and the second element is a
+    # in the tuple is a taxon_map, and the second element is a
     # row-major matrix.
     #
     # Example input:
@@ -79,7 +79,7 @@ class dist_matrix(object):
     #
     # Corresponding return value:
     #
-    # (['Taxon_A', 'Taxon_B', 'Taxon_C', 'Taxon_D', 'Taxon_E'],
+    # (<taxon_map: ['Taxon_A', 'Taxon_B', 'Taxon_C', 'Taxon_D', 'Taxon_E']>,
     #  [0.0, 1.0, 2.0, 3.0, 4.0,
     #   1.0, 0.0, 1.5, 2.5, 3.5,
     #   2.0, 1.5, 0.0, 2.2, 3.2,
@@ -155,8 +155,8 @@ class dist_matrix(object):
 
         return retval
 
-    # Return distance (int or float), or None if the token cannot be converted
-    # to a distance.
+    # Return distance (float), or None if the token cannot be converted to a
+    # distance.
     def _token_to_distance(self, token):
         try:
             retval = float(token)
