@@ -1390,10 +1390,10 @@ tr_p_bisect(cw_tr_t *a_tr, cw_uint32_t a_edge,
     tr_p_bisection_patch(a_tr, node_b, r_node_b, r_spare_b);
 
     /* Move *r_spare_b to *r_spare_a if *r_spare_a is NULL. */
-    if (*r_spare_a == NULL)
+    if (*r_spare_a == CW_TR_NODE_NONE)
     {
 	*r_spare_a = *r_spare_b;
-	*r_spare_b = NULL;
+	*r_spare_b = CW_TR_NODE_NONE;
     }
 }
 
@@ -1414,7 +1414,7 @@ tr_p_connection_patch(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_edge,
 	cw_assert(*ar_spare != CW_TR_NODE_NONE);
 
 	retval = *ar_spare;
-	*ar_spare = NULL;
+	*ar_spare = CW_TR_NODE_NONE;
 
 	/* Detach nodes. */
 	tr_edge_get(a_tr, a_edge, &a, &b);
@@ -1447,7 +1447,7 @@ tr_p_connect(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_uint32_t a_edge_a,
      * necessary. */
     a = tr_p_connection_patch(a_tr, a_node_a, a_edge_a, ar_spare_a);
     b = tr_p_connection_patch(a_tr, a_node_b, a_edge_b,
-			      ((*ar_spare_a != NULL)
+			      ((*ar_spare_a != CW_TR_NODE_NONE)
 			       ? ar_spare_a
 			       : ar_spare_b));
 
