@@ -20,6 +20,7 @@ typedef struct
     PyObject_HEAD
     CxtTreeObject *tree;
     CxtTrNode node;
+    bool valid;
 } CxtNodeObject;
 
 typedef struct
@@ -27,6 +28,7 @@ typedef struct
     PyObject_HEAD
     CxtTreeObject *tree;
     CxtTrEdge edge;
+    bool valid;
 } CxtEdgeObject;
 
 typedef struct
