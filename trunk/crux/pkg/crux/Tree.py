@@ -154,7 +154,7 @@ class _NewickParser(NewickParser.NewickParser):
 
 class Tree(C_Tree):
     def __init__(self, with=None, map=TaxonMap.TaxonMap(), autoMap=False,
-                 maxLength=10):
+                 maxLength=10, tryAdditive=True):
         if type(with) == int:
             self._map = map
             self._randomNew(with, maxLength)
@@ -163,7 +163,7 @@ class Tree(C_Tree):
             self._newickNew(with, autoMap)
         elif type(with) == DistMatrix.DistMatrix:
             self._map = with.taxonMapGet()
-            self._nj(with)
+            self._nj(with, tryAdditive)
 
     def _randomNew(self, ntaxa, maxLength):
         # Create a stack of leaf nodes.
@@ -243,7 +243,8 @@ class Tree(C_Tree):
             else:
                 # Internal node.
                 retval = "%s;" % \
-                         n.rrender(None, self._map, labels, lengths, lengthFormat)
+                         n.rrender(None, self._map, labels, lengths,
+                                   lengthFormat)
         else:
             retval = ";"
 
@@ -266,8 +267,8 @@ class Tree(C_Tree):
                     else:
                         # This tree only has two taxa; start with the tree base.
                         outFile.write("(")
-                        n.rrender(None, self._map, labels, lengths, lengthFormat,
-                                  outFile, twoTaxa=True)
+                        n.rrender(None, self._map, labels, lengths,
+                                  lengthFormat, outFile, twoTaxa=True)
                         outFile.write(");\n")
                 else:
                     # There is only one node in the tree.

@@ -749,7 +749,8 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
  *    x again (as long as collapsing the matrix didn't move row x). */
 static void
 CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
-		 CxtNodeObject ***arNodes, long aNleft, CxtTreeObject *aTree)
+		 CxtNodeObject ***arNodes, long aNleft, CxtTreeObject *aTree,
+		 bool aAdditive)
 {
     long x, y;
     long min
@@ -762,15 +763,14 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
     float *d = *arD;
     CxtNodeObject *node;
     CxtNodeObject **nodes = *arNodes;
-    bool additive, clustered;
+    bool clustered;
 
-    additive = true;
     clustered = true;
     while (true)
     {
 	if (clustered == false)
 	{
-	    additive = false;
+	    aAdditive = false;
 	}
 	clustered = false;
 	for (x = 0; x < aNleft - 1;) /* y indexes one past x. */
@@ -795,7 +795,7 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 	    }
 	    CxmAssert(minDist != HUGE_VAL);
 
-	    if ((additive == false
+	    if ((aAdditive == false
 		 || CxpTreeNjPairClusterAdditive(d, aRScaled, aNleft, x, min))
 		&& CxpTreeNjPairClusterOk(d, aRScaled, aNleft, x, min))
 	    {
@@ -889,7 +889,7 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
  *   \------+------+------+------+------/
  */
 static void
-CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa)
+CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive)
 {
     float *rOrig, *r; /* Distance sums. */
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
@@ -915,7 +915,7 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa)
     nodesOrig = nodes = CxpTreeNjNodesInit(aTree, aNtaxa);
 
     /* Iteratively try all clusterings, until only two rows are left. */
-    CxpTreeNjCluster(&aD, r, rScaled, &nodes, aNtaxa, aTree);
+    CxpTreeNjCluster(&aD, r, rScaled, &nodes, aNtaxa, aTree, aAdditive);
 
     /* Join last two nodes. */
     node = CxpTreeNjFinalJoin(aD, nodes, aTree);
@@ -943,8 +943,9 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
     PyObject *retval, *distMatrix;
     float *d;
     long ntaxa;
+    int additive;
 
-    if (PyArg_ParseTuple(args, "O", &distMatrix) == 0)
+    if (PyArg_ParseTuple(args, "Oi", &distMatrix, &additive) == 0)
     {
 	retval = NULL;
 	goto RETURN;
@@ -966,7 +967,7 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
 	    oldTrNode = CxTrBaseGet(self->tr);
 
 	    /* Neighbor-join. */
-	    CxpTreeNj(self, d, ntaxa);
+	    CxpTreeNj(self, d, ntaxa, (bool) additive);
 	    CxmFree(d);
 
 	    /* Reference new base. */
