@@ -393,7 +393,6 @@ CxTreeRfTuple(CxtTreeObject *self, PyObject *args)
 	    if ((CxtTreeObject *) other == self)
 	    {
 		distance = 0.0;
-		goto RETURN;
 	    }
 	    else
 	    {
@@ -421,6 +420,7 @@ CxTreeRfTuple(CxtTreeObject *self, PyObject *args)
 	/* Discard the bipartition data for self. */
 	CxpTreeRfBipartitionsCleanup(self, rfTreeSelf);
 
+	break;
 	ERROR:
 	rVal = NULL;
     }
