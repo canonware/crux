@@ -105,7 +105,6 @@ struct cw_trt_s
     uint32_t bisect_edge;
 };
 
-
 /* Held tree. */
 struct cw_trh_s
 {
