@@ -1769,8 +1769,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 	nchars = a_p->nchars;
 
-	/* Use SSE2 to evaluate as many of the characters as possible.  This
-	 * loop handles 16 characters per iteration. */
+	/* Initialize SSE2 registers. */
 	{
 	    static const unsigned char ones[] =
 		"\x01\x01\x01\x01\x01\x01\x01\x01"
@@ -1788,6 +1787,8 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		);
 	}
 
+	/* Use SSE2 to evaluate as many of the characters as possible.  This
+	 * loop handles 16 characters per iteration. */
 	for (i = 0;
 	     i < (nchars ^ (nchars & 0xf));
 	     i += 16)
