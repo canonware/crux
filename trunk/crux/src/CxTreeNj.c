@@ -50,6 +50,49 @@
  *
  ******************************************************************************
  *
+ * Throughout the code, the matrix is stored as an upper-triangle symmetric
+ * matrix, with additional bookkeeping, as necessary for RNJ and NJ.  For
+ * example (n is current matrix size):
+ *
+ *                             |  r  ||
+ *                             | --- ||
+ *   | A | B | C | D | E ||  r | n-2 ||
+ *   +===+===+===+===+===++====+=====++===
+ *       | 0 | 1 | 2 | 3 ||  6 | 2.0 || A
+ *       +---+---+---+---++----+-----++---
+ *           | 4 | 5 | 6 || 15 | 5.0 || B
+ *           +---+---+---++----+-----++---
+ *               | 7 | 8 || 20 | 6.7 || C
+ *               +---+---++----+-----++---
+ *                   | 9 || 23 | 7.7 || D
+ *                   +---++----+-----++---
+ *                       || 26 | 8.7 || E
+ *                       ++----+-----++---
+ *
+ * is stored as:
+ *
+ *   d:
+ *   /---+---+---+---+---+---+---+---+---+---\
+ *   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+ *   \---+---+---+---+---+---+---+---+---+---/
+ *
+ *   r:
+ *   /------+------+------+------+------\
+ *   |  6   | 15   | 20   | 23   | 26   |
+ *   \------+------+------+------+------/
+ *
+ *   rScaled:
+ *   /------+------+------+------+------\
+ *   |  2.0 |  5.0 |  6.7 |  7.7 |  8.7 |
+ *   \------+------+------+------+------/
+ *
+ *   nodes:
+ *   /------+------+------+------+------\
+ *   |  A   |  B   |  C   |  D   |  E   |
+ *   \------+------+------+------+------/
+ *
+ ******************************************************************************
+ *
  * Since neighbor joining involves repeatedly joining two nodes and removing a
  * row from the matrix, the performance of matrix collapsing is important.
  * Additionally, it is important to keep the matrix compactly stored in memory,
@@ -111,9 +154,7 @@
 
 #include <float.h>
 
-//#define CxmTreeNjVerbose
 //#define CxmTreeNjDump
-//#define CxmTreeNjCheckAdditiveAll
 
 #ifdef CxmTreeNjDump
 static void
@@ -508,8 +549,8 @@ CxpTreeNjDistCompare(float aA, float aB)
 }
 
 CxmpInline void
-CxpTreeNjMinFind(float *aD, float *aRScaled, long aNleft, bool aRandom, 
-		 CxtMt *aMt, long *rXMin, long *rYMin)
+CxpTreeNjRandomMinFind(float *aD, float *aRScaled, long aNleft, CxtMt *aMt,
+		       long *rXMin, long *rYMin)
 {
     float *dElm, transMin, transCur;
     long x, y, xMin, yMin, nmins;
@@ -533,9 +574,11 @@ CxpTreeNjMinFind(float *aD, float *aRScaled, long aNleft, bool aRandom,
 	    transCur = *dElm - (aRScaled[x] + aRScaled[y]);
 	    dElm++;
 
+	    /* Use CxpTreeNjDistCompare() in order to compare transformed
+	     * distances, so that random selection is possible. */
 	    switch (CxpTreeNjDistCompare(transCur, transMin))
 	    {
-	        case -1:
+		case -1:
 		{
 		    nmins = 1;
 		    xMin = x;
@@ -543,29 +586,70 @@ CxpTreeNjMinFind(float *aD, float *aRScaled, long aNleft, bool aRandom,
 		    transMin = transCur;
 		    break;
 		}
-	        case 0:
+		case 0:
 		{
-		    /* If aRandom is true, choose such that all tied distances
-		     * have an equal probability of being chosen. Otherwise,
-		     * break ties arbitrarily (use the first minimum that was
+		    /* Choose such that all tied distances have an equal
+		     * probability of being chosen. Otherwise, break ties
+		     * arbitrarily (use the first minimum that was
 		     * found). */
 		    nmins++;
-		    if (aRandom && CxMtSint32RangeGet(aMt, nmins) == 0)
+		    if (CxMtSint32RangeGet(aMt, nmins) == 0)
 		    {
-		        xMin = x;
+			xMin = x;
 			yMin = y;
 			transMin = transCur;
 		    }
 		    break;
 		}
-	        case 1:
+		case 1:
 		{
 		    break;
 		}
-	        default:
+		default:
 		{
 		    CxmNotReached();
 		}
+	    }
+	}
+    }
+
+    *rXMin = xMin;
+    *rYMin = yMin;
+}
+
+CxmpInline void
+CxpTreeNjDeterministicMinFind(float *aD, float *aRScaled, long aNleft,
+			      long *rXMin, long *rYMin)
+{
+    float *dElm, transMin, transCur;
+    long x, y, xMin, yMin, nmins;
+
+    /* Calculate the transformed distance for each pairwise distance.  Keep
+     * track of the minimum transformed distance, so that the corresponding
+     * nodes can be joined.
+     *
+     * This is by far the most time-consuming portion of NJ.
+     *
+     * Use pointer arithmetic (dElm), rather than d[i].  This appears to reduce
+     * register pressure on x86, and has a significant positive performance
+     * impact. */
+#ifdef CxmCcSilence
+    xMin = yMin = 0;
+#endif
+    for (x = 0, nmins = 1, dElm = aD, transMin = HUGE_VAL; x < aNleft; x++)
+    {
+	for (y = x + 1; y < aNleft; y++)
+	{
+	    transCur = *dElm - (aRScaled[x] + aRScaled[y]);
+	    dElm++;
+
+	    /* Since an arbitrary tie-breaking decision is being made
+	     * anyway, don't bother using CxpTreeNjDistCompare() here. */
+	    if (transCur < transMin)
+	    {
+		xMin = x;
+		yMin = y;
+		transMin = transCur;
 	    }
 	}
     }
@@ -753,6 +837,8 @@ CxpTreeNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 	dist = *dElm - (aRScaled[x] + aRScaled[y]);
 	dElm++;
 
+	/* Don't bother using CxpTreeNjDistCompare() here, since this function
+	 * is only used for deterministic RNJ. */
 	if (dist < minDist)
 	{
 	    minDist = dist;
@@ -775,7 +861,7 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 			     long aA, long aB)
 {
     bool retval;
-    long iAB, iA, iB;
+    long iAB, iA, iB, x;
     float distA, distB, dist;
 
     /* Calculate distances from {aA,aB} to the new node. */
@@ -785,80 +871,6 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 
     /* Calculate distances to the new node, and make sure that they are
      * consistent with the current distances. */
-#ifndef CxmTreeNjCheckAdditiveAll
-    if (aB + 1 < aNleft)
-    {
-	iA = CxpTreeNjXy2i(aNleft, aA, aB + 1);
-	iB = CxpTreeNjXy2i(aNleft, aB, aB + 1);
-	dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
-	if (CxpTreeNjDistCompare(dist + distA,
-				 aD[CxpTreeNjXy2i(aNleft, aA, aB + 1)]) == 0)
-	{
-	    retval = true;
-	}
-	else
-	{
-	    retval = false;
-	}
-// 	if (retval == false)
-// 	{
-// 	    fprintf(stderr,
-// 		    "(%ld,%ld): Unequal distances at (%ld, %ld),"
-// 		    " %.10e != %.10e\n",
-// 		    aA, aB, aA, aB + 1,
-// 		    dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, aB + 1)]);
-// 	}
-    }
-    else if (aA > 0)
-    {
-	dist = ((aD[aA - 1] - distA) + (aD[aB - 1] - distB)) / 2;
-
-	if (CxpTreeNjDistCompare(dist + distA,
-				 aD[CxpTreeNjXy2i(aNleft, 0, aA)]) == 0)
-	{
-	    retval = true;
-	}
-	else
-	{
-	    retval = false;
-	}
-// 	if (retval == false)
-// 	{
-// 	    fprintf(stderr,
-// 		    "(%ld,%ld): Unequal distances at (%ld, %ld),"
-// 		    " %.10e != %.10e\n",
-// 		    aA, aB, (long) 0, aA,
-// 		    dist + distA, aD[CxpTreeNjXy2i(aNleft, 0, aA)]);
-// 	}
-    }
-    else
-    {
-	CxmAssert(aB > 1);
-
-	iA = aA;
-	iB = aB + aNleft - 3;
-	dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
-
-	if (CxpTreeNjDistCompare(dist + distA,
-				 aD[CxpTreeNjXy2i(aNleft, aA, 1)]) == 0)
-	{
-	    retval = true;
-	}
-	else
-	{
-	    retval = false;
-	}
-// 	if (retval == false)
-// 	{
-// 	    fprintf(stderr,
-// 		    "(%ld,%ld): Unequal distances at (%ld, %ld),"
-// 		    " %.10e != %.10e\n",
-// 		    aA, aB, aA, (long) 1,
-// 		    dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, 1)]);
-// 	}
-    }
-#else
-    long x;
 
     /* Iterate over the row portion of distances for aA and aB. */
     if (aB + 1 < aNleft)
@@ -948,13 +960,12 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 
     retval = true;
     RETURN:
-#endif
     return retval;
 }
 
 /* Finish checking whether it is okay to cluster rows aA and aB;
- * CxpTreeNjCluster() has already done some of the work by the time this
- * function is called.
+ * CxpTreeNjRowMinFind() or CxpTreeNjRowAllMinFind() has already done some of
+ * the work by the time this function is called.
  *
  * Two nodes, aA and aB, can be clustered if the transformed distance between
  * them is less than or equal to the transformed distances from aA or aB to any
@@ -974,7 +985,7 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     distAB = aD[CxpTreeNjXy2i(aNleft, aA, aB)] - (aRScaled[aA] + aRScaled[aB]);
 
     /* Iterate over the row portion of distances for aB.  Distances for aA were
-     * already checked in CxpTreeNjCluster(). */
+     * already checked before this function was called. */
     if (aB < aNleft - 1)
     {
 	for (x = aB + 1,
@@ -983,6 +994,8 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	     x++)
 	{
 	    dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	    /* Don't bother using CxpTreeNjDistCompare() here, since this
+	     * function is only used for deterministic RNJ. */
 	    if (dist < distAB)
 	    {
 		retval = false;
@@ -1000,6 +1013,8 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	 x++)
     {
 	dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
+	/* Don't bother using CxpTreeNjDistCompare() here, since this function
+	 * is only used for deterministic RNJ. */
 	if (dist < distAB)
 	{
 	    retval = false;
@@ -1007,6 +1022,8 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	}
 
 	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	/* Don't bother using CxpTreeNjDistCompare() here, since this function
+	 * is only used for deterministic RNJ. */
 	if (dist < distAB)
 	{
 	    retval = false;
@@ -1022,12 +1039,14 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     x++;
 
     /* Iterate over the second column portion of distances for aB.  Distances
-     * for aA were already checked in CxpTreeNjCluster(). */
+     * for aA were already checked before this function was called. */
     for (;
 	 x < aB;
 	 x++)
     {
 	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	/* Don't bother using CxpTreeNjDistCompare() here, since this function
+	 * is only used for deterministic RNJ. */
 	if (dist < distAB)
 	{
 	    retval = false;
@@ -1312,8 +1331,7 @@ CxpTreeNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
     *arNodes = nodes;
 }
 
-/* Create a tree from a pairwise distance matrix, using the NJ algorithm.  Data
- * structures are as for CxpTreeRnj(). */
+/* Create a tree from a pairwise distance matrix, using the NJ algorithm. */
 static bool
 CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
 {
@@ -1352,10 +1370,17 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
     {
 	/* Standard neighbor joining. */
 	CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-#ifdef CxmTreeNjVerbose
-	CxpTreeDump(aD, r, rScaled, nodes, nleft);
+#ifdef CxmTreeNjDump
+	CxpTreeNjDump(aD, r, rScaled, nodes, nleft);
 #endif
-	CxpTreeNjMinFind(aD, rScaled, nleft, aRandom, &mt, &xMin, &yMin);
+	if (aRandom)
+	{
+	    CxpTreeNjRandomMinFind(aD, rScaled, nleft, &mt, &xMin, &yMin);
+	}
+	else
+	{
+	    CxpTreeNjDeterministicMinFind(aD, rScaled, nleft, &xMin, &yMin);
+	}
 	CxpTreeNjNodesJoin(aD, rScaled, nodes, aTree, nleft, xMin, yMin,
 			   &node, &distX, &distY);
 	CxpTreeNjRSubtract(aD, r, nleft, xMin, yMin);
@@ -1383,48 +1408,7 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
     return retval;
 }
 
-/* Create a tree from a pairwise distance matrix, using the RNJ algorithm.
- *
- * The matrix is stored as an upper-triangle symmetric matrix, with additional
- * bookkeeping, as necessary for RNJ.  For example (n is current matrix size):
- *
- *                             |  r  ||
- *                             | --- ||
- *   | A | B | C | D | E ||  r | n-2 ||
- *   +===+===+===+===+===++====+=====++===
- *       | 0 | 1 | 2 | 3 ||  6 | 2.0 || A
- *       +---+---+---+---++----+-----++---
- *           | 4 | 5 | 6 || 15 | 5.0 || B
- *           +---+---+---++----+-----++---
- *               | 7 | 8 || 20 | 6.7 || C
- *               +---+---++----+-----++---
- *                   | 9 || 23 | 7.7 || D
- *                   +---++----+-----++---
- *                       || 26 | 8.7 || E
- *                       ++----+-----++---
- *
- * is stored as:
- *
- *   d:
- *   /---+---+---+---+---+---+---+---+---+---\
- *   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
- *   \---+---+---+---+---+---+---+---+---+---/
- *
- *   r:
- *   /------+------+------+------+------\
- *   |  6   | 15   | 20   | 23   | 26   |
- *   \------+------+------+------+------/
- *
- *   rScaled:
- *   /------+------+------+------+------\
- *   |  2.0 |  5.0 |  6.7 |  7.7 |  8.7 |
- *   \------+------+------+------+------/
- *
- *   nodes:
- *   /------+------+------+------+------\
- *   |  A   |  B   |  C   |  D   |  E   |
- *   \------+------+------+------+------/
- */
+/* Create a tree from a pairwise distance matrix, using the RNJ algorithm. */
 static bool
 CxpTreeRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
 	   bool aRandom)
@@ -1434,19 +1418,9 @@ CxpTreeRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
     CxtNodeObject *node;
-#ifdef CxmTreeNjVerbose
-    struct timeval tv;
-    unsigned long long startUs, endUs;
-#endif
 
     CxmCheckPtr(aD);
     CxmAssert(aNtaxa > 1);
-
-#ifdef CxmTreeNjVerbose
-    gettimeofday(&tv, NULL);
-    startUs = ((unsigned long long) tv.tv_sec * 1000000ULL)
-	+ ((unsigned long long) tv.tv_usec);
-#endif
 
     /* Initialize distance matrix, r, rScaled, and nodes. */
     rOrig = r = CxpTreeNjRInit(aD, aNtaxa);
@@ -1477,15 +1451,6 @@ CxpTreeRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
     /* Set the tree base. */
     CxTreeBaseSet(aTree, node);
     Py_DECREF(node);
-#ifdef CxmTreeNjVerbose
-    gettimeofday(&tv, NULL);
-    endUs = ((unsigned long long) tv.tv_sec * 1000000ULL)
-	+ ((unsigned long long) tv.tv_usec);
-
-    fprintf(stderr, "%llu.%06llu seconds\n",
-	    (endUs - startUs) / 1000000ULL,
-	    (endUs - startUs) % 1000000ULL);
-#endif
 
     retval = false;
     RETURN:
