@@ -1,5 +1,4 @@
-* Randomly break ties in the deterministic version of RNJ, so that the algorithm
-  will never get stuck due to certain tie patterns.
+* Rewrite Newick parser in C.
 
 * Try to change the random NJ code to avoid having to look at columns when
   deciding on row pairs.
@@ -17,6 +16,10 @@
 
 * Do not bother calculating bit vectors for leaf edges in the RF distance
   calculation code.
+
+* Add programmatic tree validation, so that it's possible to detect and recover
+  from malformed trees.  Right now, the tree validation code is only useful for
+  Crux debugging.
 
 ================================================================================
 
@@ -45,6 +48,9 @@
 
 * Move tree holding code out of CxTr.c.  It belongs with the MP code (in
   CxTreeMp.c).
+
+* Get rid of CxTr.c entirely.  Move functionality to either be merged with the
+  Python glue, or into separate files.
 
 ================================================================================
 
@@ -79,6 +85,11 @@
 
 ================================================================================
 
+Implement MSA.  Consider making this general enough to allow heuristic
+simultaneous alignment of an arbitrary number of sequences.
+
+================================================================================
+
 * Do bisection/MP during tree recursion.
 
 * Terminate scoring early if identical on a per-word basis.
@@ -101,8 +112,6 @@
 * Create rpm for crux.
 
 * Add documentation infrastructure, as well as full documentation of APIs.
-
-* Look at Tr* API and inline appropriate functions.
 
 === Sometime ===
 
