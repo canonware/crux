@@ -307,13 +307,6 @@ CxTrAuxGet(CxtTr *aTr);
 void
 CxTrAuxSet(CxtTr *aTr, void *aAux);
 
-// Prepare for calculating Fitch parsimony scores.  aTaxa points to an array of
-// character array pointers, where the index into aTaxa corresponds to taxon
-// number.  The character arrays need not be nil-terminated.
-void
-CxTrMpPrepare(CxtTr *aTr, bool aUninformativeEliminate,
-	      char *aTaxa[], uint32_t aNtaxa, uint32_t aNchars);
-
 // Clear the data structures used for calculating Fitch parsimony scores.
 void
 CxTrMpFinish(CxtTr *aTr);
