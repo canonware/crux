@@ -304,7 +304,7 @@ CxTreeNheldGet(CxtTreeObject *self)
 }
 
 PyObject *
-CxTreeheldGet(CxtTreeObject *self, PyObject *args)
+CxTreeHeldGet(CxtTreeObject *self, PyObject *args)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
@@ -330,8 +330,8 @@ CxTreeheldGet(CxtTreeObject *self, PyObject *args)
     CxmXepTry
     {
 	CxTrHeldGet(self->tr, held, &neighbor, &score);
-	CxTrTbrNeighborGet(self->tr, neighbor,
-			    &bisect, &reconnectA, &reconnectB);
+//	CxTrTbrNeighborGet(self->tr, neighbor,
+//			    &bisect, &reconnectA, &reconnectB);
 
 	rVal = Py_BuildValue("(i(iii))", score,
 			       bisect, reconnectA, reconnectB);

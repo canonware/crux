@@ -31,4 +31,4 @@ PyObject *
 CxTreeNheldGet(CxtTreeObject *self);
 
 PyObject *
-CxTreeheldGet(CxtTreeObject *self, PyObject *args);
+CxTreeHeldGet(CxtTreeObject *self, PyObject *args);

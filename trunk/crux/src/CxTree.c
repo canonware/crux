@@ -1097,7 +1097,7 @@ static PyMethodDef CxpTreeMethods[] =
     },
     {
 	"heldGet",
-	(PyCFunction) CxTreeheldGet,
+	(PyCFunction) CxTreeHeldGet,
 	METH_VARARGS,
 	"heldGet"
     },
