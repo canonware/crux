@@ -1587,6 +1587,13 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
     }
     f = PyFile_AsFile(outFile);
 
+    if (fprintf(f, "%ld\n", self->ntaxa) < 0)
+    {
+	CxError(CxgDistMatrixIOError, "Error in fprintf()");
+	retval = NULL;
+	goto RETURN;
+    }
+
     if (strcmp(format, "full") == 0)
     {
 	for (x = 0; x < self->ntaxa; x++)
