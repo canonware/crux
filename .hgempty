@@ -6,3 +6,7 @@ Ignore various files that are not under revision control.
 Empty original changeset by jasone:
 Ignore "configure.lineno".
 
+
+Empty original changeset by jasone:
+Ignore *.crux.out, rather than *.py.out.
+
