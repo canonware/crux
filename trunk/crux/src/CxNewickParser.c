@@ -99,7 +99,7 @@
 // comment ::= \[ [<comment_chars>] [<comment>] [<comment_chars>] \]
 //
 // comment_chars ::= /[^[]/
-//                 |
+//                 | <e>
 //
 // e ::= <epsilon (empty production)>
 //
