@@ -516,35 +516,67 @@ CxpDistMatrixNjDistCompare(float aA, float aB)
 {
     int rVal;
 
-    if (aB != 0.0)
+    if (aA < aB)
     {
-	if (fabs(1.0 - (aA / aB)) < FLT_EPSILON)
+	if (aB != 0.0)
 	{
-	    rVal = 0;
-	}
-	else if (aA < aB)
-	{
-	    rVal = -1;
+	    if (fabs(1.0 - (aA / aB)) < FLT_EPSILON)
+	    {
+		rVal = 0;
+	    }
+	    else
+	    {
+		rVal = -1;
+	    }
 	}
 	else
 	{
-	    rVal = 1;
+	    if (aA <= -FLT_EPSILON)
+	    {
+		rVal = -1;
+	    }
+	    else if (aA >= FLT_EPSILON)
+	    {
+		rVal = 1;
+	    }
+	    else
+	    {
+		rVal = 0;
+	    }
+	}
+    }
+    else if (aA > aB)
+    {
+	if (aA != 0.0)
+	{
+	    if (fabs(1.0 - (aB / aA)) < FLT_EPSILON)
+	    {
+		rVal = 0;
+	    }
+	    else
+	    {
+		rVal = 1;
+	    }
+	}
+	else
+	{
+	    if (aB >= FLT_EPSILON)
+	    {
+		rVal = -1;
+	    }
+	    else if (aB <= -FLT_EPSILON)
+	    {
+		rVal = 1;
+	    }
+	    else
+	    {
+		rVal = 0;
+	    }
 	}
     }
     else
     {
-	if (aA <= -FLT_EPSILON)
-	{
-	    rVal = -1;
-	}
-	else if (aA >= FLT_EPSILON)
-	{
-	    rVal = 1;
-	}
-	else
-	{
-	    rVal = 0;
-	}
+	rVal = 0;
     }
 
     return rVal;
