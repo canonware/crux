@@ -280,6 +280,7 @@ CxTreeBaseSetPargs(CxtTreeObject *self, PyObject *args)
     }
     if (node != NULL && node->tree != self)
     {
+	PyErr_SetString(CxgTreeValueError, "Node does not belong to this tree");
 	Py_INCREF(CxgTreeValueError);
 	retval = CxgTreeValueError;
 	goto RETURN;
@@ -1135,6 +1136,7 @@ CxEdgeLengthSetPargs(CxtEdgeObject *self, PyObject *args)
     }
     if (length < 0.0)
     {
+	PyErr_SetString(CxgEdgeValueError, "Length must be non-negative");
 	Py_INCREF(CxgEdgeValueError);
 	retval = CxgEdgeValueError;
 	goto RETURN;
@@ -1190,6 +1192,7 @@ CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args)
     }
     if (nodeA->tree != self->tree || nodeB->tree != self->tree)
     {
+	PyErr_SetString(CxgEdgeValueError, "Node does not belong to this tree");
 	Py_INCREF(CxgEdgeValueError);
 	retval = CxgEdgeValueError;
 	goto RETURN;
@@ -1402,6 +1405,7 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     {
 	type->tp_free((PyObject *) self);
 
+	PyErr_SetString(CxgRingValueError, "End must be 0 or 1");
 	Py_INCREF(CxgRingValueError);
 	retval = CxgRingValueError;
 	goto RETURN;
@@ -1423,6 +1427,8 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	Py_DECREF(edge->tree);
 	type->tp_free((PyObject *) self);
 
+	PyErr_SetString(CxgRingValueError,
+			"Internal error (aux should be NULL)");
 	Py_INCREF(CxgRingValueError);
 	retval = CxgRingValueError;
 	goto RETURN;
