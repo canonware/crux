@@ -9,18 +9,18 @@
 #
 ################################################################################
 
-from _crux import *
+import crux.Exception
 
-from Exception import *
+class Exception(crux.Exception):
+    pass
 
-import Tree
-import Node
-import Edge
-import Ring
+class ValueError(Exception, ValueError):
+    def __init__(self, str):
+        self._str = str
 
-import DistMatrix
-import FastaParser
-import NewickParser
-import TaxonMap
-import CharacterType
-import CTMatrix
+    def __str__(self):
+        return self._str
+
+class CTMatrix(object):
+    def __init__(self):
+        pass
