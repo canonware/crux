@@ -45,6 +45,7 @@ class CruxHelpFormatter(optparse.IndentedHelpFormatter):
 def parse_options():
     helpformatter = CruxHelpFormatter()
     parser = optparse.OptionParser(formatter=helpformatter, add_help_option=0)
+    parser.disable_interspersed_args()
     parser.add_option("-h", "--help", dest="help", action="store_true",
                       default=False)
     parser.add_option("--version", dest="version", action="store_true",
@@ -88,7 +89,10 @@ if not opts.batch and not opts.execed:
     # is enabled via python's '-i' flag.
     args = sys.argv[:]
     args.insert(0, "-i")
-    args.append("--__execed")
+
+    # Insert --__execed as the first command line argument.  Appending doesn't
+    # work correctly when there are trailing script arguments.
+    args.insert(2, "--__execed")
 
     # For some reason, PYTHONINSPECT must be set, even when '-i' is passed to
     # the python interpreter.
