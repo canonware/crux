@@ -31,13 +31,12 @@ class _NewickParser(NewickParser.NewickParser):
         self._tree = tree
         self._map = map
         self._taxonStack = []
-        pass
 
     # Overridden method.
-    def parse(self, input, tree):
+    def parse(self, input):
         if not NewickParser.NewickParser.parse(self, input):
             if len(self._taxonStack) > 0:
-                tree.baseSet(self._taxonStack[0])
+                self._tree.baseSet(self._taxonStack[0])
             retval = False
         else:
             retval = True
@@ -198,7 +197,7 @@ class Tree(_Tree.Tree):
 
     def _newickNew(self, input):
         parser = _NewickParser(self, self._map)
-        return parser.parse(input, self)
+        return parser.parse(input)
 
     def prints(self, labels=False, lengths=False):
         n = self.baseGet()
