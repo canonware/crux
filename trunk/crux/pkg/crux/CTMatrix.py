@@ -72,32 +72,34 @@ class CTMatrix(object):
         parser = _FastaParser(self, self._taxonMap)
         parser.parse(input, chartype)
 
-    def fastaPrint(self, file):
+    def fastaPrint(self, outFile=None):
+        # Set up for sending output to either a string or a file.
+        if outFile == None:
+            callback = self._stringPrintCallback
+            self._string = ""
+        else:
+            callback = self._filePrintCallback
+            self._outFile = outFile
+
+        # Print.
         taxa = self._taxonMap.taxaGet()
         for taxon in taxa:
             if self.dataGet(taxon) != None:
-                print >> file, ">%s" % taxon
+                callback(">%s\n" % taxon)
                 # Break into lines of length 75.
                 for i in forints(len(self.dataGet(taxon)), step=75):
                     if i + 75 < len(self.dataGet(taxon)):
-                        print >> file, "%s" % self.dataGet(taxon)[i:i+75]
+                        callback("%s\n" % self.dataGet(taxon)[i:i+75])
                     else:
-                        print >> file, "%s" % self.dataGet(taxon)[i:]
+                        callback("%s\n" % self.dataGet(taxon)[i:])
 
-    def fastaPrints(self):
-        rVal = ""
-
-        taxa = self._taxonMap.taxaGet()
-        for taxon in taxa:
-            if self.dataGet(taxon) != None:
-                rVal += ">%s\n" % taxon
-                # Break into lines of length 75.
-                for i in forints(len(self.dataGet(taxon)), step=75):
-                    if i + 75 < len(self.dataGet(taxon)):
-                        rVal += "%s\n" % self.dataGet(taxon)[i:i+75]
-                    else:
-                        rVal += "%s\n" % self.dataGet(taxon)[i:]
-
+        # Clean up and set rVal according to where the output was sent.
+        if outFile == None:
+            rVal = self._printString
+            self._printString = None
+        else:
+            rVal = None
+            self._printOutFile = None
         return rVal
 
     # Append CharacterType objects to _chars.
@@ -132,4 +134,16 @@ class CTMatrix(object):
                   .ValueError("Taxon %r not in taxon map" % taxon)
 
         self._taxonData[self._taxonMap.indGet(taxon)] = data
+
+    # Callback method that is used by the print method for printing of the
+    # CTMatrix in FASTA format.
+    def _stringPrintCallback(self, string):
+        # Append string to previous strings that were passed to this callback.
+        self._string = "%s%s" % (self._string, string)
+
+    # Callback method that is used by the print method for printing of the
+    # CTMatrix in FASTA format.
+    def _filePrintCallback(self, string):
+        # Print string to self._outFile.
+        self._outFile.write(string)
 #EOF

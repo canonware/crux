@@ -242,10 +242,10 @@ class Tree(C_Tree):
         # Set up for sending output to either a string or a file.
         if outFile == None:
             callback = self._stringRenderCallback
-            self._string = ""
+            self._renderString = ""
         else:
             callback = self._fileRenderCallback
-            self._outFile = outFile
+            self._renderOutFile = outFile
 
         # Render.
         n = self.baseGet()
@@ -282,25 +282,25 @@ class Tree(C_Tree):
 
         # Clean up and set rVal according to where the output was sent.
         if outFile == None:
-            rVal = self._string
-            self._string = None
+            rVal = self._renderString
+            self._renderString = None
         else:
             callback("\n")
             rVal = None
-            self._outFile = None
+            self._renderOutFile = None
         return rVal
 
     # Callback method that is used by the render method for recursive rendering
     # of the tree in Newick format.
     def _stringRenderCallback(self, string):
         # Append string to previous strings that were passed to this callback.
-        self._string = "%s%s" % (self._string, string)
+        self._renderString = "%s%s" % (self._renderString, string)
 
     # Callback method that is used by the render method for recursive rendering
     # of the tree in Newick format.
     def _fileRenderCallback(self, string):
-        # Print string to self._outFile.
-        self._outFile.write(string)
+        # Print string to self._renderOutFile.
+        self._renderOutFile.write(string)
 
 # Default branch length callback function for random tree construction.
 def _defaultRandomBranchCallback():
