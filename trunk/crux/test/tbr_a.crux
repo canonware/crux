@@ -45,7 +45,9 @@ for tree in trees:
         t = crux.Tree.Tree(tree, taxonMap)
         t.canonize()
         tbrArgs = t.tbrNeighborGet(i)
-        sys.stdout.write("%d/%d %r --> " % (i, nneighbors, tbrArgs))
+        sys.stdout.write("%d/%d (%r, %r, %r) --> " \
+                         % (i, nneighbors, type(tbrArgs[0]), type(tbrArgs[1]),
+                            type(tbrArgs[2])))
         #sys.stdout.flush()
         revTbrArgs = t.tbr(tbrArgs)
         t.canonize()
