@@ -68,7 +68,15 @@ CxpTreeNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
  *   r:
  *   /------+------+------+------+------\
  *   |  6   | 15   | 20   | 23   | 26   |
+ *   \------+------+------+------+------/
+ *
+ *   rScaled:
+ *   /------+------+------+------+------\
  *   |  2.0 |  5.0 |  6.7 |  7.7 |  8.7 |
+ *   \------+------+------+------+------/
+ *
+ *   nodes:
+ *   /------+------+------+------+------\
  *   |  A   |  B   |  C   |  D   |  E   |
  *   \------+------+------+------+------/
  */
@@ -82,7 +90,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     float *rOrig, *r; /* Distance sums. */
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
-    long nleft, i, x, y, iX, iY, iMin, xMin, yMin;
+    long nleft, x, y, iX, iY, iMin, xMin, yMin;
     float transMin, transCur;
     float distX, distY;
     CxtNodeObject *node;
@@ -106,7 +114,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 						     * aNtaxa);
 
     /* Initialize untransformed distances. */
-    for (x = i = 0; x < aNtaxa; x++)
+    for (x = 0, dElm = d; x < aNtaxa; x++)
     {
 	for (y = x + 1; y < aNtaxa; y++)
 	{
@@ -114,12 +122,12 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 				       x, y);
 	    if (PyFloat_Check(result))
 	    {
-		d[i] = (float) PyFloat_AsDouble(result);
+		*dElm = (float) PyFloat_AsDouble(result);
 		Py_DECREF(result);
 	    }
 	    else if (PyInt_Check(result))
 	    {
-		d[i] = (float) PyInt_AsLong(result);
+		*dElm = (float) PyInt_AsLong(result);
 		Py_DECREF(result);
 	    }
 	    else
@@ -132,32 +140,32 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 		goto RETURN;
 	    }
 
-	    i++;
+	    dElm++;
 	}
     }
 
     /* Create a node for each taxon in the matrix. */
-    for (i = 0; i < aNtaxa; i++)
+    for (x = 0; x < aNtaxa; x++)
     {
-	nodes[i] = CxNodeNew(aTree);
-	CxNodeTaxonNumSet(nodes[i], i);
+	nodes[x] = CxNodeNew(aTree);
+	CxNodeTaxonNumSet(nodes[x], x);
     }
 
     /* Calculate r (sum of distances to other nodes) for each node. */
-    for (i = 0; i < aNtaxa; i++)
+    for (x = 0; x < aNtaxa; x++)
     {
-	r[i] = 0.0;
+	r[x] = 0.0;
     }
 
-    for (x = i = 0; x < aNtaxa; x++)
+    for (x = 0, dElm = d; x < aNtaxa; x++)
     {
 	for (y = x + 1; y < aNtaxa; y++)
 	{
-	    dist = d[i];
+	    dist = *dElm;
+	    dElm++;
+
 	    r[x] += dist;
 	    r[y] += dist;
-
-	    i++;
 	}
     }
 
@@ -179,21 +187,25 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 #endif
 
 	/* Calculate rScaled (r/(nleft-2)) for each node. */
-	for (i = 0; i < nleft; i++)
+	for (x = 0; x < nleft; x++)
 	{
-	    rScaled[i] = r[i] / (nleft - 2);
+	    rScaled[x] = r[x] / (nleft - 2);
 	}
 
 	/* Calculate the transformed distance for each pairwise distance.  Keep
 	 * track of the minimum transformed distance, so that the corresponding
 	 * nodes can be joined.  Ties are broken arbitrarily (the first minimum
-	 * found is used). */
+	 * found is used).
+	 *
+	 * This is by far the most time-consuming portion of neighbor joining.
+	 *
+	 * Use pointer arithmetic (dElm), rather than d[i].  This appears to
+	 * reduce register pressure on x86, and has a significant positive
+	 * performance impact. */
 #ifdef CxmCcSilence
 	xMin = yMin = 0;
 #endif
-	for (x = 0, dElm = d, transMin = HUGE_VAL;
-	     x < nleft;
-	     x++)
+	for (x = 0, dElm = d, transMin = HUGE_VAL; x < nleft; x++)
 	{
 	    for (y = x + 1; y < nleft; y++)
 	    {
@@ -219,14 +231,13 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	    fprintf(stderr,
 		    "----------------------------------------"
 		    "----------------------------------------\n");
-	    for (x = i = 0; x < nleft; x++)
+	    for (x = 0, dElm = d; x < nleft; x++)
 	    {
 		fprintf(stderr, "%*s", (int) x * 9 + (!!x), " ");
 		for (y = x + 1; y < nleft; y++)
 		{
-		    fprintf(stderr, " %8.4f", d[i]);
-
-		    i++;
+		    fprintf(stderr, " %8.4f", *dElm);
+		    dElm++;
 		}
 		result = CxNodeTaxonNumGet(nodes[x]);
 		if (result != Py_None)
