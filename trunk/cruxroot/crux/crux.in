@@ -16,4 +16,4 @@ PYTHONPATH="@abs_objroot@/build/lib*"
 PYTHONPATH=`echo $PYTHONPATH`
 export PYTHONPATH
 
-@PYTHON@ @objroot@/build/scripts*/crux $@
+@PYTHON@ @abs_objroot@/build/scripts*/crux $@
