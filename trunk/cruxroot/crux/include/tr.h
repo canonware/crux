@@ -66,14 +66,10 @@ tr_base_set(cw_tr_t *a_tr, cw_tr_node_t a_base);
 void
 tr_canonize(cw_tr_t *a_tr);
 
-/* Perform TBR.  The callback functions are called when new edges or nodes are
- * needed; this never happens for strictly trifurcating trees. */
+/* Perform TBR. */
 void
 tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
-       cw_tr_edge_t a_reconnect_b,
-       cw_tr_edge_t (*a_edge_alloc_callback)(cw_tr_t *, void *),
-       cw_tr_node_t (*a_node_alloc_callback)(cw_tr_t *, void *),
-       void *a_arg);
+       cw_tr_edge_t a_reconnect_b);
 
 /* Get the number of neighboring trees reachable via TBR. */
 uint32_t

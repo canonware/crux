@@ -36,6 +36,13 @@ typedef struct
     cw_tr_edge_t edge;
 } EdgeObject;
 
+static cw_tr_t *
+tree_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
+static cw_tr_node_t
+tree_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
+static cw_tr_edge_t
+tree_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
+
 static PyObject *
 edge_detach(EdgeObject *self);
 
@@ -58,7 +65,8 @@ tree_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     xep_begin();
     xep_try
     {
-	self->tr = tr_new();
+	self->tr = tr_new(tree_wrapped_new, tree_node_wrapped_new,
+			  tree_edge_wrapped_new, self);
 	tr_aux_set(self->tr, self);
 	retval = (PyObject *) self;
     }
@@ -285,8 +293,7 @@ tree_tbr(TreeObject *self, PyObject *args)
     xep_begin();
     xep_try
     {
-	// XXX Pass callback functions.
-	tr_tbr(self->tr, bisect, reconnect_a, reconnect_b, NULL, NULL, NULL);
+	tr_tbr(self->tr, bisect, reconnect_a, reconnect_b);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
@@ -463,9 +470,6 @@ tree_mp_prepare(TreeObject *self, PyObject *args)
     
 	// XXX Recurse through the tree and make sure that the taxa are numbered
 	// correctly.
-
-	// XXX Recurse through the tree and make sure that all internal nodes
-	// have three neighbors.
 
 	/* Do preparation. */
 	tr_mp_prepare(self->tr, elim, tarr, ntaxa, nchars);
@@ -817,6 +821,16 @@ static PyMethodDef tree_funcs[] =
     {NULL}
 };
 
+static cw_tr_t *
+tree_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
+{
+    TreeObject *tree;
+
+    tree = (TreeObject *) tree_new(&Tree_Type, NULL, NULL);
+
+    return tree->tr;
+}
+
 void
 crux_tree_init(void)
 {
@@ -1108,6 +1122,19 @@ static PyMethodDef node_funcs[] =
 {
     {NULL}
 };
+
+static cw_tr_node_t
+tree_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
+{
+    NodeObject *node;
+    PyObject *args;
+
+    args = Py_BuildValue("(O)", (TreeObject *) a_opaque);
+    node = (NodeObject *) node_new(&Node_Type, args, NULL);
+    Py_DECREF(args);
+
+    return node->node;
+}
 
 void
 crux_node_init(void)
@@ -1531,6 +1558,19 @@ static PyMethodDef edge_funcs[] =
 {
     {NULL}
 };
+
+static cw_tr_edge_t
+tree_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
+{
+    EdgeObject *edge;
+    PyObject *args;
+
+    args = Py_BuildValue("(O)", (TreeObject *) a_opaque);
+    edge = (EdgeObject *) edge_new(&Edge_Type, args, NULL);
+    Py_DECREF(args);
+
+    return edge->edge;
+}
 
 void
 crux_edge_init(void)
