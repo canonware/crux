@@ -18,8 +18,8 @@ typedef struct cw_tr_s cw_tr_t;
 struct cw_trn_s
 {
 #ifdef CW_DBG
-    cw_uint32_t magic;
-#define CW_TRN_MAGIC 0x63329478
+    cw_uint32_t magic_a;
+#define CW_TRN_MAGIC_A 0x63329478
 #endif
 
     /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
@@ -35,6 +35,11 @@ struct cw_trn_s
 #define CW_TRN_MAX_NEIGHBORS 3
     cw_trn_t *neighbors[CW_TRN_MAX_NEIGHBORS];
 #define CW_TRN_EDGE_NONE 0xffffffffU
+
+#ifdef CW_DBG
+    cw_uint32_t magic_b;
+#define CW_TRN_MAGIC_B 0x543b1ca7
+#endif
 };
 
 /* TBR neighbor. */

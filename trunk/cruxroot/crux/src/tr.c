@@ -172,7 +172,8 @@ static cw_bool_t
 trn_p_validate(cw_trn_t *a_trn)
 {
     cw_check_ptr(a_trn);
-    cw_assert(a_trn->magic == CW_TRN_MAGIC);
+    cw_assert(a_trn->magic_a == CW_TRN_MAGIC_A);
+    cw_assert(a_trn->magic_b == CW_TRN_MAGIC_B);
 
     /* A trn must either be a leaf node, an internal node, or a root node.
      *
@@ -764,7 +765,8 @@ trn_new(cw_trn_t *a_trn)
     a_trn->taxon_num = CW_TRN_TAXON_NONE;
 
 #ifdef CW_DBG
-    a_trn->magic = CW_TRN_MAGIC;
+    a_trn->magic_a = CW_TRN_MAGIC_A;
+    a_trn->magic_b = CW_TRN_MAGIC_B;
 #endif
 }
 
@@ -845,24 +847,16 @@ trn_join(cw_trn_t *a_a, cw_trn_t *a_b)
 #endif
 
     /* Find an empty slot in a_a. */
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; a_a->neighbors[i] != NULL; i++)
     {
-	if (a_a->neighbors[i] == NULL)
-	{
-	    break;
-	}
+	cw_assert(i < CW_TRN_MAX_NEIGHBORS);
     }
-    cw_assert(i < CW_TRN_MAX_NEIGHBORS);
 
     /* Find an empty slot in a_b. */
-    for (j = 0; j < CW_TRN_MAX_NEIGHBORS; j++)
+    for (j = 0; a_b->neighbors[j] != NULL; j++)
     {
-	if (a_b->neighbors[j] == NULL)
-	{
-	    break;
-	}
+	cw_assert(j < CW_TRN_MAX_NEIGHBORS);
     }
-    cw_assert(j < CW_TRN_MAX_NEIGHBORS);
 
     /* Join the two nodes. */
     a_a->neighbors[i] = a_b;
@@ -881,24 +875,16 @@ trn_detach(cw_trn_t *a_a, cw_trn_t *a_b)
     cw_dassert(trn_p_validate(a_b));
 
     /* Find the slot in a_a that points to a_b. */
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; a_a->neighbors[i] != a_b; i++)
     {
-	if (a_a->neighbors[i] == a_b)
-	{
-	    break;
-	}
+	cw_assert(i < CW_TRN_MAX_NEIGHBORS);
     }
-    cw_assert(i < CW_TRN_MAX_NEIGHBORS);
 
     /* Find the slot in a_b that points to a_a. */
-    for (j = 0; j < CW_TRN_MAX_NEIGHBORS; j++)
+    for (j = 0; a_b->neighbors[j] != a_a; j++)
     {
-	if (a_b->neighbors[j] == a_a)
-	{
-	    break;
-	}
+	cw_assert(j < CW_TRN_MAX_NEIGHBORS);
     }
-    cw_assert(j < CW_TRN_MAX_NEIGHBORS);
 
     /* Detach the two nodes. */
     a_a->neighbors[i] = NULL;
@@ -2048,14 +2034,7 @@ tr_string(cw_tr_t *a_tr, cw_uint8_t *ar_string, cw_uint32_t a_len)
      * the traversal, since it is implicit in the canonical tree encoding.
      * Additionally, the first internal node must be handled here rather than
      * simply recursing to it, since the first '(' is implied. */
-    for (i = 0, node = NULL; i < CW_TRN_MAX_NEIGHBORS; i++)
-    {
-	if (a_tr->croot->neighbors[i] != NULL)
-	{
-	    node = a_tr->croot->neighbors[i];
-	    break;
-	}
-    }
+    node = a_tr->croot->neighbors[0];
     if (node != NULL && node->taxon_num == CW_TRN_TAXON_NONE)
     {
 	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
