@@ -10,9 +10,9 @@
  ******************************************************************************/
 
 /* Pseudo-opaque type. */
-typedef struct cw_xep_s cw_xep_t;
+typedef struct CxsXep CxtXep;
 
-typedef uint32_t cw_xepv_t;
+typedef uint32_t CxtXepv;
 
 #define CW_XEPV_NONE 0
 #define CW_XEPV_CODE 1
@@ -23,10 +23,10 @@ typedef enum
     CW_XEPS_CATCH
 } cw_xeps_t;
 
-struct cw_xep_s
+struct CxsXep
 {
-    volatile qr(cw_xep_t) link;
-    volatile cw_xepv_t value;
+    volatile CxmQr(CxtXep) link;
+    volatile CxtXepv value;
     volatile bool is_handled;
     volatile bool is_linked;
     volatile cw_xeps_t state;
@@ -36,30 +36,30 @@ struct cw_xep_s
 };
 
 void
-xep_init(void);
+CxXepInit(void);
 
 void
-xep_shutdown(void);
+CxXepShutdown(void);
 
-#define xep_begin()							\
+#define CxmXepBegin()							\
     {									\
-	cw_xep_t _xep
+	CxtXep _xep
 
 #define xep_try								\
-	xep_p_link(&_xep);						\
+	CxpXepLink(&_xep);						\
 	switch (setjmp(_xep.context))					\
 	{								\
 	    case CW_XEPV_NONE:						\
 	    case CW_XEPV_CODE:
 
-#define xep_catch(a_value)						\
+#define CxmXepCatch(a_value)						\
 		break;							\
 	    case (a_value):
 
-#define xep_mcatch(a_value)						\
+#define CxmXepMcatch(a_value)						\
 	    case (a_value):
 
-#define xep_acatch							\
+#define CxmXepAcatch							\
 		break;							\
 	    default:							\
 		if (_xep.state != CW_XEPS_CATCH)			\
@@ -67,37 +67,37 @@ xep_shutdown(void);
 		    break;						\
 		}
 
-#define xep_end()							\
+#define CxmXepEnd()							\
 	}								\
-	xep_p_unlink(&_xep);						\
+	CxpXepUnlink(&_xep);						\
     }
 
-#define xep_value() (_xep.value)
+#define CxmXepValue() (_xep.value)
 
-#define xep_filename() (_xep.filename)
+#define CxmXepFilename() (_xep.filename)
 
-#define xep_line_num() (_xep.line_num)
+#define CxmXepLineNum() (_xep.line_num)
 
 void
-xep_throw_e(cw_xepv_t a_value, volatile const char *a_filename,
+CxXepThrowE(CxtXepv a_value, volatile const char *a_filename,
 	    uint32_t a_line_num);
 
-#define xep_throw(a_value) xep_throw_e((a_value), __FILE__, __LINE__)
+#define CxmXepThrow(a_value) CxXepThrowE((a_value), __FILE__, __LINE__)
 
-#define xep_retry() xep_p_retry(&_xep)
+#define CxmXepRetry() CxpXepRetry(&_xep)
 
-#define xep_handled() xep_p_handled(&_xep)
+#define CxmXepHandled() CxpXepHandled(&_xep)
 
 /* Private, but visible here so that the cpp macros above don't cause
  * compilation warnings. */
 void
-xep_p_retry(cw_xep_t *a_xep);
+CxpXepRetry(CxtXep *a_xep);
 
 void
-xep_p_handled(cw_xep_t *a_xep);
+CxpXepHandled(CxtXep *a_xep);
 
 void
-xep_p_link(cw_xep_t *a_xep);
+CxpXepLink(CxtXep *a_xep);
 
 void
-xep_p_unlink(cw_xep_t *a_xep);
+CxpXepUnlink(CxtXep *a_xep);

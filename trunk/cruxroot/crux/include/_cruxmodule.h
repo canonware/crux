@@ -38,29 +38,29 @@ typedef unsigned char bool;
 #include <sys/types.h>
 #include <setjmp.h>
 
-#include "qr.h"
-#include "mem.h"
-#include "xep.h"
+#include "CxQr.h"
+#include "CxMem.h"
+#include "CxXep.h"
 
-#include "qri.h"
-#include "qli.h"
-#include "tr.h"
+#include "CxQri.h"
+#include "CxQli.h"
+#include "CxTr.h"
 
 #ifdef CW_CPU_IA32
-#include "ia32.h"
+#include "CxIa32.h"
 #endif
 
-#include "tree.h"
-#include "tree_canonize.h"
-#include "tree_mp.h"
-#include "tree_nj.h"
-#include "tree_tbr.h"
+#include "CxTree.h"
+#include "CxTreeCanonize.h"
+#include "CxTreeMp.h"
+#include "CxTreeNj.h"
+#include "CxTreeTbr.h"
 
-#define CW_CRUXX_OOM 2
-#define CW_CRUXX_ValueError 3
+#define CxmXepOOM 2
+#define CxmXepValueError 3
 
 /* assert()-alike.  It's a bit prettier and cleaner, but the same idea. */
-#define cw_error(a)							\
+#define cxmError(a)							\
     do									\
     {									\
 	fprintf(stderr, "%s:%u:%s(): Error: %s\n", __FILE__,		\
@@ -69,7 +69,7 @@ typedef unsigned char bool;
     } while (0)
 
 #ifdef CW_ASSERT
-#define cw_not_reached()						\
+#define cxmNotReached()						\
     do									\
     {									\
 	fprintf(stderr, "%s:%u:%s(): Unreachable code reached\n",	\
@@ -77,7 +77,7 @@ typedef unsigned char bool;
 		abort();						\
     } while (0)
 
-#define cw_assert(a)							\
+#define cxmAssert(a)							\
     do									\
     {									\
 	if (!(a))							\
@@ -89,7 +89,7 @@ typedef unsigned char bool;
     } while (0)
 
 /* Macro to do the drudgery of assuring that a pointer is non-NULL. */
-#define cw_check_ptr(x)							\
+#define cxmCheckPtr(x)							\
     do									\
     {									\
 	if (((x) == NULL) || ((x) == (void *) 0xa5a5a5a5)		\
@@ -101,16 +101,16 @@ typedef unsigned char bool;
 	}								\
     } while (0)
 #else
-#define cw_not_reached()
-#define cw_assert(a)
-#define cw_check_ptr(a)
+#define cxmNotReached()
+#define cxmAssert(a)
+#define cxmCheckPtr(a)
 #endif
 
 /* cw_dasssert() is used internally in places that the assertion should only
- * be made if CW_DBG is defined, such as checking magic variables that only
+ * be made if CxmDebug is defined, such as checking magic variables that only
  * exist in that case. */
-#if (defined(CW_DBG) && defined(CW_ASSERT))
-#define cw_dassert(a)							\
+#if (defined(CxmDebug) && defined(CW_ASSERT))
+#define cxmDassert(a)							\
     do									\
     {									\
 	if (!(a))							\
@@ -121,10 +121,10 @@ typedef unsigned char bool;
 	}								\
     } while (0)
 #else
-#define cw_dassert(a)
+#define cxmDassert(a)
 #endif
 
 /* Convenience macro for determining the offset of a field within a
  * structure. */
-#define cw_offsetof(a_type, a_field)					\
+#define cxmOffsetOf(a_type, a_field)					\
     ((uint32_t) &(((a_type *)NULL)->a_field))

@@ -9,9 +9,9 @@
  *
  ******************************************************************************/
 
-#define CRUX_CPU_INIT() crux_ia32_cpu_init()
+#define CxmCpuInit() CxIa32CpuInit()
 
-extern bool crux_ia32_use_sse2;
+extern bool CxgIa32UseSse2;
 
 void
-crux_ia32_cpu_init(void);
+CxIa32CpuInit(void);

@@ -12,10 +12,10 @@
 #include "../include/_cruxmodule.h"
 
 PyObject *
-tree_tbr(TreeObject *self, PyObject *args)
+CxTreeTbr(CxtCxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
@@ -28,54 +28,54 @@ tree_tbr(TreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
-	tr_tbr(self->tr, bisect, reconnect_a, reconnect_b);
+	CxTrTbr(self->tr, bisect, reconnect_a, reconnect_b);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_end();
+    CxmXepEnd();
 
     RETURN:
     return retval;
 }
 
 PyObject *
-tree_tbr_nneighbors_get(TreeObject *self)
+CxTreeTbrNneighborsGet(CxtCxtTreeObject *self)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
-	retval = Py_BuildValue("i", tr_tbr_nneighbors_get(self->tr));
+	retval = Py_BuildValue("i", CxTrTbrNneighborsGet(self->tr));
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_end();
+    CxmXepEnd();
 
     return retval;
 }
 
 PyObject *
-tree_tbr_neighbor_get(TreeObject *self, PyObject *args)
+CxTreeTbrNeighborGet(CxtCxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
@@ -87,28 +87,28 @@ tree_tbr_neighbor_get(TreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
-	if (neighbor >= tr_tbr_nneighbors_get(self->tr))
+	if (neighbor >= CxTrTbrNneighborsGet(self->tr))
 	{
 	    Py_INCREF(PyExc_ValueError);
 	    retval = PyExc_ValueError;
 	}
 	else
 	{
-	    tr_tbr_neighbor_get(self->tr, neighbor,
+	    CxTrTbrNeighborGet(self->tr, neighbor,
 				&bisect, &reconnect_a, &reconnect_b);
 
 	    retval = Py_BuildValue("(iii)", bisect, reconnect_a, reconnect_b);
 	}
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_end();
+    CxmXepEnd();
 
     RETURN:
     return retval;

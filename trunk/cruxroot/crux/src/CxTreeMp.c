@@ -12,22 +12,22 @@
 #include "../include/_cruxmodule.h"
 
 PyObject *
-tree_mp_prepare(TreeObject *self, PyObject *args)
+CxTreeMpPrepare(CxtCxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
     PyObject *taxa, *tobj;
     uint32_t elim, ntaxa, i, j;
     uint32_t nchars
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= 0
 #endif
 	;
     char **tarr
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
@@ -47,7 +47,7 @@ tree_mp_prepare(TreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
 	/* Make sure that all taxa have the same number of characters. */
@@ -62,7 +62,7 @@ tree_mp_prepare(TreeObject *self, PyObject *args)
 	    }
 
 	    /* Create an array of string pointers. */
-	    tarr = (char **) cw_malloc(sizeof(char *) * ntaxa);
+	    tarr = (char **) CxmMalloc(sizeof(char *) * ntaxa);
 	}
 
 	for (i = 0; i < ntaxa; i++)
@@ -70,8 +70,8 @@ tree_mp_prepare(TreeObject *self, PyObject *args)
 	    tobj = PyList_GetItem(taxa, i);
 	    if (PyString_Check(tobj) == 0 || PyString_Size(tobj) != nchars)
 	    {
-		cw_free(tarr);
-		xep_throw(CW_CRUXX_ValueError);
+		CxmFree(tarr);
+		CxmXepThrow(CxmXepValueError);
 	    }
 	    tarr[i] = PyString_AsString(tobj);
 
@@ -118,8 +118,8 @@ tree_mp_prepare(TreeObject *self, PyObject *args)
 		    }
 		    default:
 		    {
-			cw_free(tarr);
-			xep_throw(CW_CRUXX_ValueError);
+			CxmFree(tarr);
+			CxmXepThrow(CxmXepValueError);
 		    }
 		}
 	    }
@@ -129,186 +129,186 @@ tree_mp_prepare(TreeObject *self, PyObject *args)
 	// correctly.
 
 	/* Do preparation. */
-	tr_mp_prepare(self->tr, elim, tarr, ntaxa, nchars);
+	CxTrMpPrepare(self->tr, elim, tarr, ntaxa, nchars);
 
 	/* Clean up. */
-	cw_free(tarr);
+	CxmFree(tarr);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_catch(CW_CRUXX_ValueError)
+    CxmXepCatch(CxmXepValueError)
     {
-	xep_handled();
+	CxmXepHandled();
 	Py_INCREF(PyExc_ValueError);
 	retval = PyExc_ValueError;
     }
-    xep_end();
+    CxmXepEnd();
 
     RETURN:
     return retval;
 }
 
 PyObject *
-tree_mp_finish(TreeObject *self)
+CxTreeMpFinish(CxtCxtTreeObject *self)
 {
-    tr_mp_finish(self->tr);
+    CxTrMpFinish(self->tr);
 
     Py_INCREF(Py_None);
     return Py_None;
 }
 
 PyObject *
-tree_mp(TreeObject *self)
+CxTreeMp(CxtCxtTreeObject *self)
 {
-    return Py_BuildValue("i", tr_mp_score(self->tr));
+    return Py_BuildValue("i", CxTrMpScore(self->tr));
 }
 
 PyObject *
-tree_tbr_best_neighbors_mp(TreeObject *self, PyObject *args)
+CxTreeTbrBestNeighborsMp(CxtCxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
     uint32_t maxhold;
 
-    maxhold = CW_TR_HOLD_ALL;
+    maxhold = CxmTrHoldAll;
     if (PyArg_ParseTuple(args, "|i", &maxhold) == 0)
     {
 	retval = NULL;
 	goto RETURN;
     }
-    if (maxhold < 0 && maxhold != CW_TR_HOLD_ALL)
+    if (maxhold < 0 && maxhold != CxmTrHoldAll)
     {
 	Py_INCREF(PyExc_ValueError);
 	retval = PyExc_ValueError;
 	goto RETURN;
     }
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
-	tr_tbr_best_neighbors_mp(self->tr, maxhold);
+	CxTrTbrBestNeighborsMp(self->tr, maxhold);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_end();
+    CxmXepEnd();
 
     RETURN:
     return retval;
 }
 
 PyObject *
-tree_tbr_better_neighbors_mp(TreeObject *self, PyObject *args)
+CxTreeTbrBetterNeighborsMp(CxtCxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
     uint32_t maxhold;
 
-    maxhold = CW_TR_HOLD_ALL;
+    maxhold = CxmTrHoldAll;
     if (PyArg_ParseTuple(args, "|i", &maxhold) == 0)
     {
 	retval = NULL;
 	goto RETURN;
     }
-    if (maxhold < 0 && maxhold != CW_TR_HOLD_ALL)
+    if (maxhold < 0 && maxhold != CxmTrHoldAll)
     {
 	Py_INCREF(PyExc_ValueError);
 	retval = PyExc_ValueError;
 	goto RETURN;
     }
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
-	tr_tbr_better_neighbors_mp(self->tr, maxhold);
+	CxTrTbrBetterNeighborsMp(self->tr, maxhold);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_end();
+    CxmXepEnd();
 
     RETURN:
     return retval;
 }
 
 PyObject *
-tree_tbr_all_neighbors_mp(TreeObject *self)
+CxTreeTbrAllNeighborsMp(CxtCxtTreeObject *self)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
-	tr_tbr_all_neighbors_mp(self->tr);
+	CxTrTbrAllNeighborsMp(self->tr);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_end();
+    CxmXepEnd();
 
     return retval;
 }
 
 PyObject *
-tree_nheld_get(TreeObject *self)
+CxTreeNheldGet(CxtCxtTreeObject *self)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
-	retval = Py_BuildValue("i", tr_nheld_get(self->tr));
+	retval = Py_BuildValue("i", CxTrNheldGet(self->tr));
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_end();
+    CxmXepEnd();
 
     return retval;
 }
 
 PyObject *
-tree_held_get(TreeObject *self, PyObject *args)
+CxTreeheldGet(CxtCxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
@@ -319,29 +319,29 @@ tree_held_get(TreeObject *self, PyObject *args)
 	retval = NULL;
 	goto RETURN;
     }
-    if (held >= tr_nheld_get(self->tr))
+    if (held >= CxTrNheldGet(self->tr))
     {
 	Py_INCREF(PyExc_ValueError);
 	retval = PyExc_ValueError;
 	goto RETURN;
     }
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
-	tr_held_get(self->tr, held, &neighbor, &score);
-	tr_tbr_neighbor_get(self->tr, neighbor,
+	CxTrHeldGet(self->tr, held, &neighbor, &score);
+	CxTrTbrNeighborGet(self->tr, neighbor,
 			    &bisect, &reconnect_a, &reconnect_b);
 
 	retval = Py_BuildValue("(i(iii))", score,
 			       bisect, reconnect_a, reconnect_b);
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_end();
+    CxmXepEnd();
 
     RETURN:
     return retval;

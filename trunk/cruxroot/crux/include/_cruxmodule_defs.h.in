@@ -9,28 +9,28 @@
  *
  ******************************************************************************/
 
-#undef CW_DBG
+#undef CxmDebug
 
-#undef CW_CC_SILENCE
+#undef CxmCcSilence
 
-#ifndef CW_ASSERT
-#undef CW_ASSERT
+#ifndef CxmAssert
+#undef CxmAssert
 #endif
 
 #undef WORDS_BIGENDIAN
 
 /* If using gcc and inlines weren't disabled by configure, use inline
  * functions. */
-#undef CW_USE_INLINES
+#undef CxmUseInlines
 #if (defined(__GNUC__) && defined(CW_USE_INLINES))
-#define CW_INLINE static __inline__
-#define CW_P_INLINE static __inline__
+#define CxmInline static __inline__
+#define CxmpInline static __inline__
 #else
-#define CW_INLINE
-#define CW_P_INLINE static
+#define CxmInline
+#define CxmpInline static
 #endif
 
-#undef CW_CPU_IA32
-#undef CW_CPU_PPC
+#undef CxmCpuIa32
+#undef CxmCpuPpc
 
 #undef HAVE_STDBOOL_H

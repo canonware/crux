@@ -10,4 +10,4 @@
  ******************************************************************************/
 
 PyObject *
-tree_canonize(TreeObject *self);
+CxTreeCanonize(CxtCxtTreeObject *self);

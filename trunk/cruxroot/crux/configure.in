@@ -58,10 +58,10 @@ dnl Platform-specific settings.
 AC_CANONICAL_HOST
 case "${host_cpu}" in
   i[[3456]]86)
-	AC_DEFINE([CW_CPU_IA32])
+	AC_DEFINE([CxmCpuIa32])
 	;;
   powerpc)
-	AC_DEFINE([CW_CPU_PPC])
+	AC_DEFINE([CxmCpuPpc])
 	;;
   *)
 	;;
@@ -99,8 +99,8 @@ fi
 [enable_debug="0"]
 )
 if test "x$enable_debug" = "x1" ; then
-  AC_DEFINE([CW_DBG])
-  AC_DEFINE([CW_ASSERT])
+  AC_DEFINE([CxmDebug])
+  AC_DEFINE([CxmAssert])
 fi
 AC_SUBST([enable_debug])
 
@@ -115,7 +115,7 @@ fi
 [enable_cc_silence="0"]
 )
 if test "x$enable_cc_silence" = "x1" ; then
-  AC_DEFINE([CW_CC_SILENCE])
+  AC_DEFINE([CxmCcSilence])
 fi
 AC_SUBST([enable_cc_silence])
 
@@ -202,7 +202,7 @@ AC_SUBST([crux_sources])
 dnl C headers.
 crux_headers=""
 for h in `find ${srcroot}/include -type f |grep "\.h$"` \
-         $objroot/_cruxmodule_defs.h ; do
+         $objroot/_cruxmodule_defs.h.in ; do
   crux_headers="${crux_headers} ${h}"
 done
 AC_SUBST([crux_headers])

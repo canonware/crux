@@ -12,48 +12,48 @@
 #include "../include/_cruxmodule.h"
 
 PyObject *
-tree_canonize(TreeObject *self)
+CxTreeCanonize(CxtCxtTreeObject *self)
 {
     PyObject *retval
-#ifdef CW_CC_SILENCE
+#ifdef CxmCcSilence
 	= NULL
 #endif
 	;
 
-    xep_begin();
+    CxmXepBegin();
     xep_try
     {
-	cw_tr_node_t old_tr_node, tr_node;
-	NodeObject *node;
+	CxtTrNode old_tr_node, tr_node;
+	CxtCxtNodeObject *node;
 
-	old_tr_node = tr_base_get(self->tr);
+	old_tr_node = CxTrBaseGet(self->tr);
 
-	tr_canonize(self->tr);
+	CxTrCanonize(self->tr);
 
 	/* Reference new base. */
-	tr_node = tr_base_get(self->tr);
-	if (tr_node != CW_TR_NODE_NONE)
+	tr_node = CxTrBaseGet(self->tr);
+	if (tr_node != CxmTrNodeNone)
 	{
-	    node = (NodeObject *) tr_node_aux_get(self->tr, tr_node);
+	    node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, tr_node);
 	    Py_INCREF(node);
 	}
 
 	/* Decref old base. */
-	if (old_tr_node != CW_TR_NODE_NONE)
+	if (old_tr_node != CxmTrNodeNone)
 	{
-	    node = (NodeObject *) tr_node_aux_get(self->tr, old_tr_node);
+	    node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, old_tr_node);
 	    Py_DECREF(node);
 	}
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
     }
-    xep_catch(CW_CRUXX_OOM)
+    CxmXepCatch(CxmXepOOM)
     {
-	xep_handled();
+	CxmXepHandled();
 	retval = PyErr_NoMemory();
     }
-    xep_end();
+    CxmXepEnd();
 
     return retval;
 }

@@ -10,25 +10,25 @@
  ******************************************************************************/
 
 PyObject *
-tree_mp_prepare(TreeObject *self, PyObject *args);
+CxTreeMpPrepare(CxtCxtTreeObject *self, PyObject *args);
 
 PyObject *
-tree_mp_finish(TreeObject *self);
+CxTreeMpFinish(CxtCxtTreeObject *self);
 
 PyObject *
-tree_mp(TreeObject *self);
+CxTreeMp(CxtCxtTreeObject *self);
 
 PyObject *
-tree_tbr_best_neighbors_mp(TreeObject *self, PyObject *args);
+CxTreeTbrBestNeighborsMp(CxtCxtTreeObject *self, PyObject *args);
 
 PyObject *
-tree_tbr_better_neighbors_mp(TreeObject *self, PyObject *args);
+CxTreeTbrBetterNeighborsMp(CxtCxtTreeObject *self, PyObject *args);
 
 PyObject *
-tree_tbr_all_neighbors_mp(TreeObject *self);
+CxTreeTbrAllNeighborsMp(CxtCxtTreeObject *self);
 
 PyObject *
-tree_nheld_get(TreeObject *self);
+CxTreeNheldGet(CxtCxtTreeObject *self);
 
 PyObject *
-tree_held_get(TreeObject *self, PyObject *args);
+CxTreeheldGet(CxtCxtTreeObject *self, PyObject *args);

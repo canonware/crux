@@ -10,10 +10,10 @@
  ******************************************************************************/
 
 PyObject *
-tree_tbr(TreeObject *self, PyObject *args);
+CxTreeTbr(CxtCxtTreeObject *self, PyObject *args);
 
 PyObject *
-tree_tbr_nneighbors_get(TreeObject *self);
+CxTreeTbrNneighborsGet(CxtCxtTreeObject *self);
 
 PyObject *
-tree_tbr_neighbor_get(TreeObject *self, PyObject *args);
+CxTreeTbrNeighborGet(CxtCxtTreeObject *self, PyObject *args);
