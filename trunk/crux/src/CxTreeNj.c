@@ -102,7 +102,7 @@
  * O(n^3) performance.  However, worst case performance requires that the tree
  * be very long, with a particular pattern of branch lengths, and that the taxa
  * be inserted into the matrix in a particular order.  As such, worst case
- * performance almost never occurs.
+ * performance almost never occurs, and typical runtime is proportional to n^2.
  *
  ******************************************************************************/
 
@@ -466,92 +466,38 @@ CxpTreeNjFinalJoin(float *aD, CxtNodeObject **aNodes, CxtTreeObject *aTree)
     return aNodes[0];
 }
 
-/* Finish checking whether it is okay to cluster rows aA and aB;
- * CxpTreeNjCluster() has already done some of the work by the time this
- * function is called.
- *
- * Two nodes, aA and aB, can be clustered if the transformed distance between
- * them is less than or equal to the transformed distances from aA or aB to any
- * other node.
- */
-CxmpInline bool
-CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
-		       long aA, long aB)
+CxmpInline long
+CxpTreeNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 {
-    bool retval;
-    long x, iA, iB;
-    float distAB, dist;
+    long retval
+#ifdef CxmCcSilence
+	= -1
+#endif
+	;
+    long y;
+    float *dElm, dist, minDist;
 
-    CxmAssert(aA < aB);
-
-    /* Calculate the transformed distance between aA and aB. */
-    distAB = aD[CxpTreeNjXy2i(aNleft, aA, aB)] - (aRScaled[aA] + aRScaled[aB]);
-
-    /* Iterate over the row portion of distances for aB.  Distances for aA were
-     * already checked in CxpTreeNjCluster(). */
-    if (aB < aNleft - 1)
+    /* Find the minimum distance from the node on row x to any other node that
+     * comes after it in the matrix.  This has the effect of trying each node
+     * pairing only once. */
+    for (y = x + 1,
+	     dElm = &d[CxpTreeNjXy2i(aNleft, x, y)],
+	     minDist = HUGE_VAL;
+	 y < aNleft;
+	 y++)
     {
-	for (x = aB + 1,
-		 iB = CxpTreeNjXy2i(aNleft, aB, aB + 1);
-	     x < aNleft;
-	     x++)
+	dist = *dElm - (aRScaled[x] + aRScaled[y]);
+	dElm++;
+
+	if (dist < minDist)
 	{
-	    dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
-	    if (dist < distAB)
-	    {
-		retval = false;
-		goto RETURN;
-	    }
-	    iB++;
+	    minDist = dist;
+	    retval = y;
 	}
     }
+    CxmAssert(minDist != HUGE_VAL);
+    CxmAssert(retval != -1);
 
-    /* Iterate over the first column portion of distances for aA and aB. */
-    for (x = 0,
-	     iA = aA - 1,
-	     iB = aB - 1;
-	 x < aA;
-	 x++)
-    {
-	dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
-	if (dist < distAB)
-	{
-	    retval = false;
-	    goto RETURN;
-	}
-
-	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
-	if (dist < distAB)
-	{
-	    retval = false;
-	    goto RETURN;
-	}
-
-	iA += aNleft - 2 - x;
-	iB += aNleft - 2 - x;
-    }
-
-    /* (x == aA) */
-    iB += aNleft - 2 - x;
-    x++;
-
-    /* Iterate over the second column portion of distances for aB.  Distances
-     * for aA were already checked in CxpTreeNjCluster(). */
-    for (;
-	 x < aB;
-	 x++)
-    {
-	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
-	if (dist < distAB)
-	{
-	    retval = false;
-	    goto RETURN;
-	}
-	iB += aNleft - 2 - x;
-    }
-
-    retval = true;
-    RETURN:
     return retval;
 }
 
@@ -741,18 +687,111 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
     return retval;
 }
 
+/* Finish checking whether it is okay to cluster rows aA and aB;
+ * CxpTreeNjCluster() has already done some of the work by the time this
+ * function is called.
+ *
+ * Two nodes, aA and aB, can be clustered if the transformed distance between
+ * them is less than or equal to the transformed distances from aA or aB to any
+ * other node.
+ */
+CxmpInline bool
+CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
+		       long aA, long aB)
+{
+    bool retval;
+    long x, iA, iB;
+    float distAB, dist;
+
+    CxmAssert(aA < aB);
+
+    /* Calculate the transformed distance between aA and aB. */
+    distAB = aD[CxpTreeNjXy2i(aNleft, aA, aB)] - (aRScaled[aA] + aRScaled[aB]);
+
+    /* Iterate over the row portion of distances for aB.  Distances for aA were
+     * already checked in CxpTreeNjCluster(). */
+    if (aB < aNleft - 1)
+    {
+	for (x = aB + 1,
+		 iB = CxpTreeNjXy2i(aNleft, aB, aB + 1);
+	     x < aNleft;
+	     x++)
+	{
+	    dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	    if (dist < distAB)
+	    {
+		retval = false;
+		goto RETURN;
+	    }
+	    iB++;
+	}
+    }
+
+    /* Iterate over the first column portion of distances for aA and aB. */
+    for (x = 0,
+	     iA = aA - 1,
+	     iB = aB - 1;
+	 x < aA;
+	 x++)
+    {
+	dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
+	if (dist < distAB)
+	{
+	    retval = false;
+	    goto RETURN;
+	}
+
+	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	if (dist < distAB)
+	{
+	    retval = false;
+	    goto RETURN;
+	}
+
+	iA += aNleft - 2 - x;
+	iB += aNleft - 2 - x;
+    }
+
+    /* (x == aA) */
+    iB += aNleft - 2 - x;
+    x++;
+
+    /* Iterate over the second column portion of distances for aB.  Distances
+     * for aA were already checked in CxpTreeNjCluster(). */
+    for (;
+	 x < aB;
+	 x++)
+    {
+	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	if (dist < distAB)
+	{
+	    retval = false;
+	    goto RETURN;
+	}
+	iB += aNleft - 2 - x;
+    }
+
+    retval = true;
+    RETURN:
+    return retval;
+}
+
 /* Iteratively try all clusterings of two rows in the matrix.  Do this in a
  * cache-friendly manner (keeping in mind that the matrix is stored in row-major
  * form).  This means:
  *
- * 1) For each row (x), find the row after it which is the closest (min),
- *    according to transformed distances.  This operation scans the row portion
- *    of the distances for x, which is a fast operation.
+ * 1) For each row (x), find the row after it which is the closest (y),
+ *    according to transformed distances, by calling CxpTreeNjRowMinFind().
+ *    This operation scans the row portion of the distances for x, which is a
+ *    fast operation.
  *
- * 2) Check whether it is okay to cluster x and min, by calling
+ * 2) If the additivity constraint is enabled, check whether clustering x and y
+ *    would violate additivity, by calling CxpTreeNjPairClusterAdditive().
+ *
+ * 2) Check whether it is okay to cluster x and y, by calling
  *    CxpTreeNjPairClusterOk().
  *
- * 3) If x and min can be clustered, do so, then immediately try to cluster with
+ * 3) If x and y can be clustered, do so, then immediately try to cluster with
  *    x again (as long as collapsing the matrix didn't move row x). */
 static void
 CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
@@ -760,13 +799,7 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 		 bool aAdditive)
 {
     long x, y;
-    long min
-#ifdef CxmCcSilence
-	= -1
-#endif
-	;
-    float *dElm;
-    float dist, minDist, distX, distY;
+    float distX, distY;
     float *d = *arD;
     CxtNodeObject *node;
     CxtNodeObject **nodes = *arNodes;
@@ -782,38 +815,20 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 	clustered = false;
 	for (x = 0; x < aNleft - 1;) /* y indexes one past x. */
 	{
-	    /* Find the minimum distance from the node on row x to any other
-	     * node that comes after it in the matrix.  This has the effect of
-	     * trying each node pairing only once. */
-	    for (y = x + 1,
-		     dElm = &d[CxpTreeNjXy2i(aNleft, x, y)],
-		     minDist = HUGE_VAL;
-		 y < aNleft;
-		 y++)
-	    {
-		dist = *dElm - (aRScaled[x] + aRScaled[y]);
-		dElm++;
-
-		if (dist < minDist)
-		{
-		    minDist = dist;
-		    min = y;
-		}
-	    }
-	    CxmAssert(minDist != HUGE_VAL);
+	    y = CxpTreeNjRowMinFind(d, aRScaled, aNleft, x);
 
 	    if ((aAdditive == false
-		 || CxpTreeNjPairClusterAdditive(d, aRScaled, aNleft, x, min))
-		&& CxpTreeNjPairClusterOk(d, aRScaled, aNleft, x, min))
+		 || CxpTreeNjPairClusterAdditive(d, aRScaled, aNleft, x, y))
+		&& CxpTreeNjPairClusterOk(d, aRScaled, aNleft, x, y))
 	    {
 		clustered = true;
 #ifdef CxmTreeNjDump
 		CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
 #endif
-		CxpTreeNjNodesJoin(d, aRScaled, nodes, aTree, aNleft, x, min,
+		CxpTreeNjNodesJoin(d, aRScaled, nodes, aTree, aNleft, x, y,
 				   &node, &distX, &distY);
-		CxpTreeNjRSubtract(d, aR, aNleft, x, min);
-		CxpTreeNjCompact(d, aR, nodes, aNleft, x, min, node,
+		CxpTreeNjRSubtract(d, aR, aNleft, x, y);
+		CxpTreeNjCompact(d, aR, nodes, aNleft, x, y, node,
 				 distX, distY);
 		CxpTreeNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
 		aNleft--;
@@ -832,7 +847,7 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 		 * removed the first row.  Set x such that joining with this row
 		 * is immediately tried again.
 		 *
-		 * Note that if x is 0, then the row is now at (min - 1); in
+		 * Note that if x is 0, then the row is now at (y - 1); in
 		 * that case, stay on row 0. */
 		if (x > 0)
 		{
