@@ -59,48 +59,6 @@ typedef unsigned char bool;
 #define CW_CRUXX_OOM 2
 #define CW_CRUXX_ValueError 3
 
-/* Used for allocation via an opaque function pointer.  These macros are used
- * to call functions such as mem_free_e(). */
-#ifdef CW_DBG
-#define cw_opaque_alloc(a_func, a_arg, a_size)				\
-    (a_func)((void *) (a_arg), (size_t) (a_size), __FILE__, __LINE__)
-#define cw_opaque_calloc(a_func, a_arg, a_num, a_size)			\
-    (a_func)((void *) (a_arg), (size_t) (a_num), (size_t) (a_size),	\
-	     __FILE__, __LINE__)
-#define cw_opaque_realloc(a_func, a_arg, a_ptr, a_size, a_old_size)	\
-    (a_func)((void *) (a_arg), (void *) (a_ptr), (size_t) (a_size),	\
-	     (size_t) (a_old_size), __FILE__, __LINE__)
-#define cw_opaque_dealloc(a_func, a_arg, a_ptr, a_size)			\
-    (a_func)((void *) (a_arg), (void *) (a_ptr), (size_t) (a_size),	\
-	     __FILE__, __LINE__)
-#else
-#define cw_opaque_alloc(a_func, a_arg, a_size)				\
-    (a_func)((void *) (a_arg), (size_t) (a_size), NULL, 0)
-#define cw_opaque_calloc(a_func, a_arg, a_num, a_size)			\
-    (a_func)((void *) (a_arg), (size_t) (a_num), (size_t) (a_size),	\
-	     NULL, 0)
-#define cw_opaque_realloc(a_func, a_arg, a_ptr, a_size, a_old_size)	\
-    (a_func)((void *) (a_arg), (void *) (a_ptr), (size_t) (a_size),	\
-	     (size_t) (a_old_size), NULL, 0)
-#define cw_opaque_dealloc(a_func, a_arg, a_ptr, a_size)			\
-    (a_func)((void *) (a_arg), (void *) (a_ptr), (size_t) (a_size),	\
-	     NULL, 0)
-#endif
-
-#ifdef WORDS_BIGENDIAN
-#define cw_ntohq(a) (a)
-#define cw_htonq(a) (a)
-#else
-#define cw_ntohq(a)							\
-    (uint64_t) (((uint64_t) (ntohl((uint32_t) ((a) >> 32))))	\
-		   | (((uint64_t) (ntohl((uint32_t)		\
-		   ((a) & 0x00000000ffffffff)))) << 32))
-#define cw_htonq(a)							\
-    (uint64_t) (((uint64_t) (htonl((uint32_t) ((a) >> 32))))	\
-		   | (((uint64_t) (htonl((uint32_t)		\
-		   ((a) & 0x00000000ffffffff)))) << 32))
-#endif
-
 /* assert()-alike.  It's a bit prettier and cleaner, but the same idea. */
 #define cw_error(a)							\
     do									\
