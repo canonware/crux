@@ -99,8 +99,11 @@ fi
 [enable_debug="0"]
 )
 if test "x$enable_debug" = "x1" ; then
+  python_opts=""
   AC_DEFINE([CxmDebug])
   AC_DEFINE([CxmAssert])
+else
+  python_opts=" -O"
 fi
 AC_SUBST([enable_debug])
 
@@ -168,6 +171,7 @@ fi
 if test "x$have_python" = "x0" ; then
   AC_MSG_ERROR([Cannot build without python])
 fi
+AC_SUBST([python_opts])
 AC_SUBST([PYTHON])
 
 AC_SUBST([bins])

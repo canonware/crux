@@ -1,4 +1,4 @@
-#!python
+#!@PYTHON@@python_opts@
 
 import crux
 
