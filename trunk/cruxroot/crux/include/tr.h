@@ -53,7 +53,7 @@ cw_uint32_t
 tr_ntaxa2sizeof(cw_uint32_t a_ntaxa);
 
 void
-tr_memcpy(cw_uint8_t *a_dest, cw_tr_t *a_tr);
+tr_memcopy(cw_uint8_t *a_dest, cw_tr_t *a_tr);
 
 cw_trn_t *
 tr_trn(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa);
