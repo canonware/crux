@@ -440,10 +440,11 @@ CxTrEdgeAttach(CxtTr *aTr, CxtTrEdge aEdge, CxtTrNode aNodeA,
 void
 CxTrEdgeDetach(CxtTr *aTr, CxtTrEdge aEdge);
 
-#if (!defined(CxmUseInlines) && !defined(CxmTr_c))
+#if (!defined(CxmUseInlines))
 CxtTrRing
 CxTrEdgeRingGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd);
-#else
+#endif
+#if (defined(CxmUseInlines) || defined(CxmTr_c))
 CxmInline CxtTrRing
 CxTrEdgeRingGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd)
 {
@@ -458,7 +459,7 @@ CxTrEdgeRingGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd)
 
 /* CxTrRing. */
 
-#if (!defined(CxmUseInlines) && !defined(CxmTr_c))
+#if (!defined(CxmUseInlines))
 CxtTrNode
 CxTrRingNodeGet(CxtTr *aTr, CxtTrRing aRing);
 CxtTrEdge
@@ -469,8 +470,9 @@ CxmInline CxtTrRing
 CxTrRingNextGet(CxtTr *aTr, CxtTrRing aRing);
 CxmInline CxtTrRing
 CxTrRingPrevGet(CxtTr *aTr, CxtTrRing aRing);
-#else
+#endif
 
+#if (defined(CxmUseInlines) || defined(CxmTr_c))
 /* Get the node associated with aRing. */
 CxmInline CxtTrNode
 CxTrRingNodeGet(CxtTr *aTr, CxtTrRing aRing)

@@ -571,11 +571,11 @@ CxpTrNodeAlloc(CxtTr *aTr)
 CxmpInline void
 CxpTrNodeDealloc(CxtTr *aTr, CxtTrNode aNode)
 {
+#ifdef CxmDebug
     CxtTrn *trn;
 
     trn = &aTr->trns[aNode];
     
-#ifdef CxmDebug
     memset(trn, 0x5a, sizeof(CxtTrn));
 #endif
 

@@ -177,7 +177,7 @@ CxTreeTbrBestNeighborsMp(CxtTreeObject *self, PyObject *args)
 	= NULL
 #endif
 	;
-    uint32_t maxhold;
+    int maxhold;
 
     maxhold = CxmTrHoldAll;
     if (PyArg_ParseTuple(args, "|i", &maxhold) == 0)
@@ -219,7 +219,7 @@ CxTreeTbrBetterNeighborsMp(CxtTreeObject *self, PyObject *args)
 	= NULL
 #endif
 	;
-    uint32_t maxhold;
+    int maxhold;
 
     maxhold = CxmTrHoldAll;
     if (PyArg_ParseTuple(args, "|i", &maxhold) == 0)
@@ -312,7 +312,8 @@ CxTreeheldGet(CxtTreeObject *self, PyObject *args)
 	= NULL
 #endif
 	;
-    uint32_t held, neighbor, score, bisect, reconnectA, reconnectB;
+    int held;
+    uint32_t neighbor, score, bisect, reconnectA, reconnectB;
 
     if (PyArg_ParseTuple(args, "i", &held) == 0)
     {

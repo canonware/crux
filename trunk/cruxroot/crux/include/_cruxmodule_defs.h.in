@@ -22,7 +22,7 @@
 /* If using gcc and inlines weren't disabled by configure, use inline
  * functions. */
 #undef CxmUseInlines
-#if (defined(__GNUC__) && defined(CW_USE_INLINES))
+#if (defined(__GNUC__) && defined(CxmUseInlines))
 #define CxmInline static __inline__
 #define CxmpInline static __inline__
 #else

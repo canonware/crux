@@ -343,7 +343,7 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
     }
 
     nelms = PyList_Size(distList);
-    ntaxa = sqrt(nelms);
+    ntaxa = (uint32_t) sqrt(nelms);
     if (ntaxa * ntaxa != nelms)
     {
 	Py_INCREF(PyExc_ValueError);

@@ -47,7 +47,7 @@ extern PyObject *CxgException;
 #define CxmError(a)							\
     do									\
     {									\
-	fprintf(stderr, "%s:%u:%s(): Error: %s\n", __FILE__,		\
+	fprintf(stderr, "%s:%d:%s(): Error: %s\n", __FILE__,		\
 		__LINE__, __func__, a);					\
 		abort();						\
     } while (0)
@@ -56,7 +56,7 @@ extern PyObject *CxgException;
 #define CxmNotReached()							\
     do									\
     {									\
-	fprintf(stderr, "%s:%u:%s(): Unreachable code reached\n",	\
+	fprintf(stderr, "%s:%d:%s(): Unreachable code reached\n",	\
 		__FILE__, __LINE__, __func__);				\
 		abort();						\
     } while (0)
@@ -66,7 +66,7 @@ extern PyObject *CxgException;
     {									\
 	if (!(a))							\
 	{								\
-	    fprintf(stderr, "%s:%u:%s(): Failed assertion: \"%s\"\n",	\
+	    fprintf(stderr, "%s:%d:%s(): Failed assertion: \"%s\"\n",	\
 		    __FILE__, __LINE__, __func__, #a);			\
 	    abort();							\
 	}								\
@@ -79,7 +79,7 @@ extern PyObject *CxgException;
 	if (((x) == NULL) || ((x) == (void *) 0xa5a5a5a5)		\
 	    || ((x) == (void *) 0x5a5a5a5a))				\
 	{								\
-	    fprintf(stderr, "%s:%u:%s(): Invalid pointer: %s (%p)\n",	\
+	    fprintf(stderr, "%s:%d:%s(): Invalid pointer: %s (%p)\n",	\
 		    __FILE__, __LINE__, __func__, #x, (x));		\
 	    abort();							\
 	}								\
@@ -99,7 +99,7 @@ extern PyObject *CxgException;
     {									\
 	if (!(a))							\
 	{								\
-	    fprintf(stderr, "%s:%u:%s(): Failed assertion: \"%s\"\n",	\
+	    fprintf(stderr, "%s:%d:%s(): Failed assertion: \"%s\"\n",	\
 		    __FILE__, __LINE__, __func__, #a);			\
 	    abort();							\
 	}								\
@@ -130,3 +130,6 @@ extern PyObject *CxgException;
 #include "CxTreeMp.h"
 #include "CxTreeNj.h"
 #include "CxTreeTbr.h"
+
+void
+init_crux(void);

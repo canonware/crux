@@ -56,7 +56,7 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
     else
     {
 	/* No exception handlers at all. */
-	fprintf(stderr, "%s(): Unhandled exception %u thrown at %s:%u\n",
+	fprintf(stderr, "%s(): Unhandled exception %u thrown at %s:%d\n",
 		__func__, aValue, aFilename, aLineNum);
 	abort();
     }
@@ -92,7 +92,7 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
     } while (xep != xepFirst);
 
     /* No more exception handlers. */
-    fprintf(stderr, "%s(): Unhandled exception %u thrown at %s:%u\n",
+    fprintf(stderr, "%s(): Unhandled exception %u thrown at %s:%d\n",
 	    __func__, aValue, xep->filename, xep->lineNum);
     abort();
 }
@@ -218,7 +218,7 @@ CxpXepUnlink(CxtXep *aXep)
 	    {
 		/* No more exception handlers. */
 		fprintf(stderr, "%s(): Unhandled exception "
-			"%u thrown at %s:%u\n", __func__,
+			"%u thrown at %s:%d\n", __func__,
 			aXep->value, aXep->filename,
 			aXep->lineNum);
 		abort();
