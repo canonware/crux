@@ -196,10 +196,23 @@ CxpTreeRfBipartitionsInitRecurse(CxtTreeObject *self,
     }
     else
     {
-	// Create a vector for this edge.
-	rVal = &aRfTree->edgeVecs[aRfTree->nEdgeVecs];
-	aRfTree->nEdgeVecs++;
-	CxpTreeRfVecNew(rVal, ntaxa);
+	bool calcVector;
+
+	if (CxNodeTaxonNumGet(prevNode) == CxmTrNodeTaxonNone)
+	{
+	    // Create a vector for this edge.
+	    calcVector = true;
+	    rVal = &aRfTree->edgeVecs[aRfTree->nEdgeVecs];
+	    aRfTree->nEdgeVecs++;
+	    CxmAssert(aRfTree->nEdgeVecs <= ntaxa - 3);
+	    CxpTreeRfVecNew(rVal, ntaxa);
+	}
+	else
+	{
+	    // Avoid creating a vector if the previous node is a leaf node.
+	    // This only happens when the tree base is a leaf node.
+	    calcVector = false;
+	}
 
 	// Recurse.
 	firstRing = CxNodeRing(curNode);
@@ -214,7 +227,10 @@ CxpTreeRfBipartitionsInitRecurse(CxtTreeObject *self,
 		{
 		    vec = CxpTreeRfBipartitionsInitRecurse(self, aRfTree,
 							   curNode, otherNode);
-		    CxpTreeRfVecUnion(rVal, vec);
+		    if (calcVector)
+		    {
+			CxpTreeRfVecUnion(rVal, vec);
+		    }
 		}
 		curRing = CxRingNext(curRing);
 	    } while (curRing != firstRing);
