@@ -256,6 +256,8 @@ tr_p_ring_init(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 {
     cw_trr_t *trr;
 
+    cw_assert((a_ring >> 1) < a_tr->ntres);
+
     trr = &a_tr->trrs[a_ring];
 
     qri_new(a_tr->trrs, a_ring, link);
@@ -266,18 +268,24 @@ tr_p_ring_init(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 CW_P_INLINE cw_tr_edge_t
 tr_p_ring_edge_get(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 {
+    cw_assert((a_ring >> 1) < a_tr->ntres);
+
     return (a_ring >> 1);
 }
 
 CW_P_INLINE cw_tr_node_t
 tr_p_ring_node_get(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 {
+    cw_assert((a_ring >> 1) < a_tr->ntres);
+
     return a_tr->trrs[a_ring].node;
 }
 
 CW_P_INLINE cw_tr_ring_t
 tr_p_ring_other_get(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 {
+    cw_assert((a_ring >> 1) < a_tr->ntres);
+
     return (a_ring ^ 1);
 }
 
@@ -297,11 +305,11 @@ tr_p_ring_validate(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
 
     cw_check_ptr(a_tr);
     cw_assert(a_tr->magic == CW_TR_MAGIC);
-    cw_assert(a_ring < a_tr->ntres);
+    cw_assert((a_ring >> 1) < a_tr->ntres);
 
     trr = &a_tr->trrs[a_ring];
 
-    cw_assert(trr->node < a_tr->ntrns);
+    cw_assert(trr->node < a_tr->ntrns || trr->node == CW_TR_NODE_NONE);
 
     return true;
 }
@@ -676,6 +684,8 @@ tr_edge_attach(cw_tr_t *a_tr, cw_tr_edge_t a_edge, cw_tr_node_t a_node_a,
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
     cw_dassert(tr_p_node_validate(a_tr, a_node_a));
     cw_dassert(tr_p_node_validate(a_tr, a_node_b));
+    fprintf(stderr, "%s:%d:%s(): %u\n", __FILE__, __LINE__, __func__,
+	    tr_node_distance(a_tr, a_node_a, a_node_b));
     cw_assert(tr_node_distance(a_tr, a_node_a, a_node_b) == 1);
 }
 
@@ -826,24 +836,29 @@ tr_p_node_distance(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_node_t a_other,
 {
     uint32_t retval;
     cw_tr_ring_t ring;
+	fprintf(stderr, "%s:%d:%s(): %u\n", __FILE__, __LINE__, __func__, a_ring);
 
     if (tr_p_ring_node_get(a_tr, a_ring) == a_other)
     {
 	retval = a_distance;
+	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	goto RETURN;
     }
 
     qri_others_foreach(ring, a_tr->trrs, a_ring, link)
     {
-	if ((retval = tr_p_node_distance(a_tr, tr_p_ring_node_get(a_tr, ring),
+	if ((retval = tr_p_node_distance(a_tr, tr_p_ring_other_get(a_tr, ring),
 					 a_other, a_distance + 1)) != 0)
 	{
+	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	    goto RETURN;
 	}
     }
 
     retval = 0;
+	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
     RETURN:
+	fprintf(stderr, "%s:%d:%s(): %u\n", __FILE__, __LINE__, __func__, a_ring);
     return retval;
 }
 
@@ -947,12 +962,35 @@ tr_node_degree(cw_tr_t *a_tr, cw_tr_node_t a_node)
 uint32_t
 tr_node_distance(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_other)
 {
+    uint32_t retval;
+    cw_trn_t *trn;
+    cw_tr_ring_t ring;
+
     cw_dassert(tr_p_node_validate(a_tr, a_node));
     cw_dassert(tr_p_node_validate(a_tr, a_other));
     cw_assert(a_node != a_other);
 
-    return tr_p_node_distance(a_tr, qli_first(&a_tr->trns[a_node].rings),
-			      a_other, 1);
+    trn = &a_tr->trns[a_node];
+
+    ring = qli_first(&trn->rings);
+    if (ring != CW_TR_RING_NONE)
+    {
+	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
+	{
+	    if ((retval = tr_p_node_distance(a_tr,
+					     tr_p_ring_other_get(a_tr, ring),
+					     a_other, 1)) != 0)
+	    {
+		break;
+	    }
+	}
+    }
+    else
+    {
+	retval = 0;
+    }
+
+    return retval;
 }
 
 /******************************************************************************/
