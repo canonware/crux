@@ -24,9 +24,6 @@
 * Add true tree holding, rather than just the limited form of holding that the
   tr code supports.
 
-* Fix edge length printing for trees (one edge length is printed in two places
-  sometimes).  Fix this by unrooting the tree during printing.
-
 ================================================================================
 
 * Add aux-like facilities to tree.c.  I think the way to go is have 
