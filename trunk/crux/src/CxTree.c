@@ -93,16 +93,20 @@ CxpTreeTraverse(CxtTreeObject *self, visitproc visit, void *arg)
     fprintf(stderr, "%s:%d:%s() Enter: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    base = CxTrBaseGet(self->tr);
-    if (base != CxmTrNodeNone)
-    {
-	CxtNodeObject *node;
 
-	node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, base);
-	if (visit((PyObject *) node, arg) < 0)
+    if (self->GcCleared == false)
+    {
+	base = CxTrBaseGet(self->tr);
+	if (base != CxmTrNodeNone)
 	{
-	    retval = -1;
-	    goto RETURN;
+	    CxtNodeObject *node;
+
+	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, base);
+	    if (visit((PyObject *) node, arg) < 0)
+	    {
+		retval = -1;
+		goto RETURN;
+	    }
 	}
     }
 
@@ -124,21 +128,26 @@ CxpTreeClear(CxtTreeObject *self)
     fprintf(stderr, "%s:%d:%s() Enter: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    base = CxTrBaseGet(self->tr);
-    if (base != CxmTrNodeNone)
-    {
-	CxtNodeObject *node;
 
-	node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, base);
-	CxTrBaseSet(self->tr, CxmTrNodeNone);
-	Py_DECREF(node);
+    if (self->GcCleared == false)
+    {
+	base = CxTrBaseGet(self->tr);
+	if (base != CxmTrNodeNone)
+	{
+	    CxtNodeObject *node;
+
+	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, base);
+	    CxTrBaseSet(self->tr, CxmTrNodeNone);
+	    Py_DECREF(node);
+	}
+
+	self->GcCleared = true;
     }
 
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    self->GcCleared = true;
     return 0;
 }
 
@@ -150,10 +159,7 @@ CxpTreeDelete(CxtTreeObject *self)
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    if (self->GcCleared == false)
-    {
-	CxpTreeClear(self);
-    }
+    CxpTreeClear(self);
     CxTrDelete(self->tr);
     self->ob_type->tp_free((PyObject*) self);
 
@@ -606,31 +612,34 @@ CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    if (visit((PyObject *) self->tree, arg) < 0)
+    if (self->GcCleared == false)
     {
-	retval = -1;
-	goto RETURN;
-    }
-
-    /* Report all rings.  It is not good enough to simply report one, since
-     * Python's mark/sweep GC apparently keeps track of how many times each
-     * object is visited. */
-    trRing = CxTrNodeRingGet(self->tree->tr, self->node);
-    if (trRing != CxmTrRingNone)
-    {
-	trCurRing = trRing;
-	do
+	if (visit((PyObject *) self->tree, arg) < 0)
 	{
-	    ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr,
-						    trCurRing);
-	    if (visit((PyObject *) ring, arg) < 0)
-	    {
-		retval = -1;
-		goto RETURN;
-	    }
+	    retval = -1;
+	    goto RETURN;
+	}
 
-	    trCurRing = CxTrRingNextGet(self->tree->tr, trCurRing);
-	} while (trCurRing != trRing);
+	/* Report all rings.  It is not good enough to simply report one, since
+	 * Python's mark/sweep GC apparently keeps track of how many times each
+	 * object is visited. */
+	trRing = CxTrNodeRingGet(self->tree->tr, self->node);
+	if (trRing != CxmTrRingNone)
+	{
+	    trCurRing = trRing;
+	    do
+	    {
+		ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr,
+							trCurRing);
+		if (visit((PyObject *) ring, arg) < 0)
+		{
+		    retval = -1;
+		    goto RETURN;
+		}
+
+		trCurRing = CxTrRingNextGet(self->tree->tr, trCurRing);
+	    } while (trCurRing != trRing);
+	}
     }
 
     retval = 0;
@@ -654,49 +663,54 @@ CxpNodeClear(CxtNodeObject *self)
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    /* Detach from rings. */
-    trRing = CxTrNodeRingGet(self->tree->tr, self->node);
-    if (trRing != CxmTrRingNone)
+    if (self->GcCleared == false)
     {
-	PyObject *obj;
-
-	trCurRing = trRing;
-	do
+	/* Detach from rings. */
+	trRing = CxTrNodeRingGet(self->tree->tr, self->node);
+	if (trRing != CxmTrRingNone)
 	{
-	    ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trCurRing);
+	    PyObject *obj;
 
-	    /* Get next ring before detaching. */
-	    trRing = trCurRing;
-	    trCurRing = CxTrRingNextGet(self->tree->tr, trCurRing);
+	    trCurRing = trRing;
+	    do
+	    {
+		ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr,
+							trCurRing);
 
-	    obj = CxEdgeDetach(ring->edge);
-	    CxmCheckPtr(obj);
-	    Py_DECREF(obj);
-	} while (trCurRing != trRing);
+		/* Get next ring before detaching. */
+		trRing = trCurRing;
+		trCurRing = CxTrRingNextGet(self->tree->tr, trCurRing);
+
+		obj = CxEdgeDetach(ring->edge);
+		CxmCheckPtr(obj);
+		Py_DECREF(obj);
+	    } while (trCurRing != trRing);
+	}
+
+	/* Detach from tree if tree base. */
+	base = CxTrBaseGet(self->tree->tr);
+	if (base == self->node)
+	{
+	    CxtNodeObject *node;
+
+	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, base);
+	    CxTrBaseSet(self->tree->tr, CxmTrNodeNone);
+	    Py_DECREF(node);
+	}
+
+	/* Delete node. */
+	CxTrNodeDelete(self->tree->tr, self->node);
+
+	/* Drop reference to tree. */
+	Py_DECREF(self->tree);
+
+	self->GcCleared = true;
     }
-
-    /* Detach from tree if tree base. */
-    base = CxTrBaseGet(self->tree->tr);
-    if (base == self->node)
-    {
-	CxtNodeObject *node;
-
-	node = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, base);
-	CxTrBaseSet(self->tree->tr, CxmTrNodeNone);
-	Py_DECREF(node);
-    }
-
-    /* Delete node. */
-    CxTrNodeDelete(self->tree->tr, self->node);
-
-    /* Drop reference to tree. */
-    Py_DECREF(self->tree);
 
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    self->GcCleared = true;
     return 0;
 }
 
@@ -708,10 +722,7 @@ CxpNodeDelete(CxtNodeObject *self)
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    if (self->GcCleared == false)
-    {
-	CxpNodeClear(self);
-    }
+    CxpNodeClear(self);
     self->ob_type->tp_free((PyObject*) self);
 
 #ifdef CxmTreeGCVerbose
@@ -1060,22 +1071,25 @@ CxpEdgeTraverse(CxtEdgeObject *self, visitproc visit, void *arg)
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    if (visit((PyObject *) self->tree, arg) < 0)
+    if (self->GcCleared == false)
     {
-	retval = -1;
-	goto RETURN;
-    }
+	if (visit((PyObject *) self->tree, arg) < 0)
+	{
+	    retval = -1;
+	    goto RETURN;
+	}
 
-    if (visit((PyObject *) self->ringA, arg) < 0)
-    {
-	retval = -1;
-	goto RETURN;
-    }
+	if (visit((PyObject *) self->ringA, arg) < 0)
+	{
+	    retval = -1;
+	    goto RETURN;
+	}
 
-    if (visit((PyObject *) self->ringB, arg) < 0)
-    {
-	retval = -1;
-	goto RETURN;
+	if (visit((PyObject *) self->ringB, arg) < 0)
+	{
+	    retval = -1;
+	    goto RETURN;
+	}
     }
 
     retval = 0;
@@ -1095,36 +1109,41 @@ CxpEdgeClear(CxtEdgeObject *self)
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    /* Detach from nodes, if not already done. */
-    if (self->GcDetached == false)
+    if (self->GcCleared == false)
     {
-	self->GcDetached = true;
-	self->ringA->GcDetached = true;
-	self->ringB->GcDetached = true;
-
-	if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring) != CxmTrNodeNone)
+	/* Detach from nodes, if not already done. */
+	if (self->GcDetached == false)
 	{
-	    PyObject *obj = CxEdgeDetach(self);
-	    CxmCheckPtr(obj);
-	    Py_DECREF(obj);
+	    self->GcDetached = true;
+	    self->ringA->GcDetached = true;
+	    self->ringB->GcDetached = true;
+
+	    if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring)
+		!= CxmTrNodeNone)
+	    {
+		PyObject *obj = CxEdgeDetach(self);
+		CxmCheckPtr(obj);
+		Py_DECREF(obj);
+	    }
 	}
+
+	/* Drop references to rings. */
+	Py_DECREF(self->ringA);
+	Py_DECREF(self->ringB);
+
+	/* Do refcounted delete of edge/rings. */
+	CxTrEdgeDecref(self->tree->tr, self->edge);
+
+	/* Drop reference to tree. */
+	Py_DECREF(self->tree);
+
+	self->GcCleared = true;
     }
-
-    /* Drop references to rings. */
-    Py_DECREF(self->ringA);
-    Py_DECREF(self->ringB);
-
-    /* Do refcounted delete of edge/rings. */
-    CxTrEdgeDecref(self->tree->tr, self->edge);
-
-    /* Drop reference to tree. */
-    Py_DECREF(self->tree);
 
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    self->GcCleared = true;
     return 0;
 }
 
@@ -1136,10 +1155,7 @@ CxpEdgeDelete(CxtEdgeObject *self)
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    if (self->GcCleared == false)
-    {
-	CxpEdgeClear(self);
-    }
+    CxpEdgeClear(self);
     self->ob_type->tp_free((PyObject*) self);
 
 #ifdef CxmTreeGCVerbose
@@ -1240,10 +1256,6 @@ void
 CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
 	     CxtNodeObject *aNodeB)
 {
-    CxtTrRing trRingA0, trRingA1, trRing2;
-    CxtTrRing trRingB0, trRingB1;
-    CxtRingObject *ring;
-
     /* Rings refer to nodes. */
     Py_INCREF(aNodeA);
     Py_INCREF(aNodeB);
@@ -1254,97 +1266,6 @@ CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
      * ring element. */
     Py_INCREF(self->ringA);
     Py_INCREF(self->ringB);
-
-    /* Determine whether there are 0, 1, 2, or 3+ rings already attached to the
-     * nodes.  This determines how to increment refcounts of the rings. */
-    if ((trRingA0 = CxTrNodeRingGet(self->tree->tr, aNodeA->node))
-	== CxmTrRingNone)
-    {
-	/* 0. */
-
-	/* Do nothing. */
-    }
-    else if ((trRingA1 = CxTrRingNextGet(self->tree->tr, trRingA0)) == trRingA0)
-    {
-	/* 1. */
-
-	/* One other ring refers to this one. */
-	Py_INCREF(self->ringA);
-
-	/* This ring refers to ringA0. */
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingA0);
-	CxmCheckPtr(ring);
-	Py_INCREF(ring);
-    }
-    else if ((trRing2 = CxTrRingNextGet(self->tree->tr, trRingA1)) == trRingA0)
-    {
-	/* 2. */
-
-	/* Two other rings refer to this one. */
-	Py_INCREF(self->ringA);
-	Py_INCREF(self->ringA);
-
-	/* This ring refers to ringA0 and ringA1. */
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingA0);
-	CxmCheckPtr(ring);
-	Py_INCREF(ring);
-	    
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingA1);
-	CxmCheckPtr(ring);
-	Py_INCREF(ring);
-    }
-    else
-    {
-	/* 3+. */
-
-	/* Two other rings refer to this one. */
-	Py_INCREF(self->ringA);
-	Py_INCREF(self->ringA);
-    }
-
-    if ((trRingB0 = CxTrNodeRingGet(self->tree->tr, aNodeB->node))
-	== CxmTrRingNone)
-    {
-	/* 0. */
-
-	/* Do nothing. */
-    }
-    else if ((trRingB1 = CxTrRingNextGet(self->tree->tr, trRingB0)) == trRingB0)
-    {
-	/* 1. */
-
-	/* One other ring refers to this one. */
-	Py_INCREF(self->ringB);
-
-	/* This ring refers to ringB0. */
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingB0);
-	CxmCheckPtr(ring);
-	Py_INCREF(ring);
-    }
-    else if ((trRing2 = CxTrRingNextGet(self->tree->tr, trRingB1)) == trRingB0)
-    {
-	/* 2. */
-
-	/* Two other rings refer to this one. */
-	Py_INCREF(self->ringB);
-	Py_INCREF(self->ringB);
-
-	/* This ring refers to ringB0 and ringB1. */
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingB0);
-	CxmCheckPtr(ring);
-	Py_INCREF(ring);
-	    
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingB1);
-	CxmCheckPtr(ring);
-	Py_INCREF(ring);
-    }
-    else
-    {
-	/* 3+. */
-	/* Two other rings refer to this one. */
-	Py_INCREF(self->ringB);
-	Py_INCREF(self->ringB);
-    }
 
     /* Attach. */
     CxTrEdgeAttach(self->tree->tr, self->edge, aNodeA->node, aNodeB->node);
@@ -1391,9 +1312,6 @@ CxEdgeDetach(CxtEdgeObject *self)
     CxtTrNode trNodeA, trNodeB;
     CxtNodeObject *nodeA, *nodeB;
     CxtTrRing trRingA, trRingB;
-    CxtTrRing trRingA0, trRingA1, trRing2;
-    CxtTrRing trRingB0, trRingB1;
-    CxtRingObject *ring;
 
     /* Make sure that the edge is currently attached. */
     if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring) == CxmTrNodeNone)
@@ -1416,98 +1334,6 @@ CxEdgeDetach(CxtEdgeObject *self)
     /* Detach. */
     CxTrEdgeDetach(self->tree->tr, self->edge);
 
-    /* Determine whether there are 0, 1, 2, or 3+ rings still attached to the
-     * nodes.  This determines how to decrement refcounts of the rings. */
-    if ((trRingA0 = CxTrNodeRingGet(self->tree->tr, nodeA->node))
-	== CxmTrRingNone)
-    {
-	/* 0. */
-
-	/* Do nothing. */
-    }
-    else if ((trRingA1 = CxTrRingNextGet(self->tree->tr, trRingA0)) == trRingA0)
-    {
-	/* 1. */
-
-	/* One other ring referred to this one. */
-	Py_DECREF(self->ringA);
-
-	/* This ring referred to ringA0. */
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingA0);
-	CxmCheckPtr(ring);
-	Py_DECREF(ring);
-    }
-    else if ((trRing2 = CxTrRingNextGet(self->tree->tr, trRingA1)) == trRingA0)
-    {
-	/* 2. */
-
-	/* Two other rings referred to this one. */
-	Py_DECREF(self->ringA);
-	Py_DECREF(self->ringA);
-
-	/* This ring referred to ringA0 and ringA1. */
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingA0);
-	CxmCheckPtr(ring);
-	Py_DECREF(ring);
-	    
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingA1);
-	CxmCheckPtr(ring);
-	Py_DECREF(ring);
-    }
-    else
-    {
-	/* 3+. */
-
-	/* Two other rings referred to this one. */
-	Py_DECREF(self->ringA);
-	Py_DECREF(self->ringA);
-    }
-    
-    if ((trRingB0 = CxTrNodeRingGet(self->tree->tr, nodeB->node))
-	== CxmTrRingNone)
-    {
-	/* 0. */
-
-	/* Do nothing. */
-    }
-    else if ((trRingB1 = CxTrRingNextGet(self->tree->tr, trRingB0)) == trRingB0)
-    {
-	/* 1. */
-
-	/* One other ring referred to this one. */
-	Py_DECREF(self->ringB);
-
-	/* This ring referred to ringB0. */
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingB0);
-	CxmCheckPtr(ring);
-	Py_DECREF(ring);
-    }
-    else if ((trRing2 = CxTrRingNextGet(self->tree->tr, trRingB1)) == trRingB0)
-    {
-	/* 2. */
-
-	/* Two other rings referred to this one. */
-	Py_DECREF(self->ringB);
-	Py_DECREF(self->ringB);
-
-	/* This ring referred to ringB0 and ringB1. */
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingB0);
-	CxmCheckPtr(ring);
-	Py_DECREF(ring);
-	    
-	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRingB1);
-	CxmCheckPtr(ring);
-	Py_DECREF(ring);
-    }
-    else
-    {
-	/* 3+. */
-
-	/* Two other rings referred to this one. */
-	Py_DECREF(self->ringB);
-	Py_DECREF(self->ringB);
-    }
-    
     /* Rings refer to nodes. */
     Py_DECREF(nodeA);
     Py_DECREF(nodeB);
@@ -1696,6 +1522,9 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self->tree = edge->tree;
     self->edge = edge;
 
+    Py_INCREF(self);
+    Py_INCREF(self);
+
     self->ring = CxTrEdgeRingGet(edge->tree->tr, edge->edge, end);
     if (CxTrRingAuxGet(self->tree->tr, self->ring) != NULL)
     {
@@ -1730,57 +1559,54 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
     int retval;
     CxtTrNode trNode;
     CxtTrRing trRing;
-    CxtRingObject *ringPrev, *ringNext;
+    CxtRingObject *ring;
 
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Enter: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    if (visit((PyObject *) self->tree, arg) < 0)
+    if (self->GcCleared == false)
     {
-	retval = -1;
-	goto RETURN;
-    }
-
-    trNode = CxTrRingNodeGet(self->tree->tr, self->ring);
-    if (trNode != CxmTrNodeNone)
-    {
-	CxtNodeObject *node;
-
-	node = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNode);
-	if (visit((PyObject *) node, arg) < 0)
+	if (visit((PyObject *) self->tree, arg) < 0)
 	{
 	    retval = -1;
 	    goto RETURN;
 	}
-    }
 
-    /* Report edge. */
-    if (visit((PyObject *) self->edge, arg) < 0)
-    {
-	retval = -1;
-	goto RETURN;
-    }
+	trNode = CxTrRingNodeGet(self->tree->tr, self->ring);
+	if (trNode != CxmTrNodeNone)
+	{
+	    CxtNodeObject *node;
 
-    /* Report next ring element. */
-    trRing = CxTrRingNextGet(self->tree->tr, self->ring);
-    ringNext = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
-    if (ringNext != self)
-    {
-	if (visit((PyObject *) ringNext, arg) < 0)
+	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNode);
+	    if (visit((PyObject *) node, arg) < 0)
+	    {
+		retval = -1;
+		goto RETURN;
+	    }
+	}
+
+	/* Report edge. */
+	if (visit((PyObject *) self->edge, arg) < 0)
 	{
 	    retval = -1;
 	    goto RETURN;
 	}
-    }
 
-    /* Report previous ring element. */
-    trRing = CxTrRingPrevGet(self->tree->tr, self->ring);
-    ringPrev = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
-    if (ringPrev != self && ringPrev != ringNext)
-    {
-	if (visit((PyObject *) ringPrev, arg) < 0)
+	/* Report next ring element. */
+	trRing = CxTrRingNextGet(self->tree->tr, self->ring);
+	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
+	if (visit((PyObject *) ring, arg) < 0)
+	{
+	    retval = -1;
+	    goto RETURN;
+	}
+
+	/* Report previous ring element. */
+	trRing = CxTrRingPrevGet(self->tree->tr, self->ring);
+	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
+	if (visit((PyObject *) ring, arg) < 0)
 	{
 	    retval = -1;
 	    goto RETURN;
@@ -1804,35 +1630,43 @@ CxpRingClear(CxtRingObject *self)
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    /* Detach from nodes, if not already done. */
-    if (self->GcDetached == false)
+    if (self->GcCleared == false)
     {
-	self->edge->GcDetached = true;
-	self->edge->ringA->GcDetached = true;
-	self->edge->ringB->GcDetached = true;
-
-	if (CxTrRingNodeGet(self->tree->tr, self->ring) != CxmTrNodeNone)
+	/* Detach from nodes, if not already done. */
+	if (self->GcDetached == false)
 	{
-	    PyObject *obj = CxEdgeDetach(self->edge);
-	    CxmCheckPtr(obj);
-	    Py_DECREF(obj);
+	    self->edge->GcDetached = true;
+	    self->edge->ringA->GcDetached = true;
+	    self->edge->ringB->GcDetached = true;
+
+	    if (CxTrRingNodeGet(self->tree->tr, self->ring) != CxmTrNodeNone)
+	    {
+		PyObject *obj = CxEdgeDetach(self->edge);
+		CxmCheckPtr(obj);
+		Py_DECREF(obj);
+	    }
 	}
+
+	/* Do refcounted delete of edge/rings. */
+	CxTrEdgeDecref(self->tree->tr, self->edge->edge);
+
+	/* Drop reference to edge. */
+	Py_DECREF(self->edge);
+
+	/* Drop reference to tree. */
+	Py_DECREF(self->tree);
+
+	/* Drop references to self. */
+	Py_DECREF(self);
+	Py_DECREF(self);
+
+	self->GcCleared = true;
     }
-
-    /* Do refcounted delete of edge/rings. */
-    CxTrEdgeDecref(self->tree->tr, self->edge->edge);
-
-    /* Drop reference to edge. */
-    Py_DECREF(self->edge);
-
-    /* Drop reference to tree. */
-    Py_DECREF(self->tree);
 
 #ifdef CxmTreeGCVerbose
     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
-    self->GcCleared = true;
     return 0;
 }
 
@@ -1844,10 +1678,7 @@ CxpRingDelete(CxtRingObject *self)
  	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 #endif
 
-    if (self->GcCleared == false)
-    {
-	CxpRingClear(self);
-    }
+    CxpRingClear(self);
     self->ob_type->tp_free((PyObject*) self);
 
 #ifdef CxmTreeGCVerbose
