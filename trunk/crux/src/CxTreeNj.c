@@ -1011,11 +1011,13 @@ seed = random.randint(0, max)\n\
     result = PyEval_EvalCode((PyCodeObject *) seedCode, globals, locals);
     if (result == NULL)
     {
+	Py_DECREF(seedCode);
 	Py_DECREF(locals);
 	retval = true;
 	goto RETURN;
     }
     Py_DECREF(result);
+    Py_DECREF(seedCode);
 
     result = PyDict_GetItemString(locals, "seed");
     if (result == NULL)
