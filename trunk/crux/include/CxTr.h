@@ -393,6 +393,9 @@ CxTrNodeAuxSet(CxtTr *aTr, CxtTrNode aNode, void *aAux);
 uint32_t
 CxTrNodeDegree(CxtTr *aTr, CxtTrNode aNode);
 
+void
+CxTrNodeRingSet(CxtTr *aTr, CxtTrNode aNode, CxtTrRing aRing);
+
 // Get the number of edges between aNode and aOther.  0 means that there is
 // no path between the two nodes.
 uint32_t

@@ -361,6 +361,156 @@ CxTreeBaseSetPargs(CxtTreeObject *self, PyObject *args)
     return rVal;
 }
 
+static bool
+CxpTreeIterateNodeCallbackDefault(CxtNodeObject *aNode,
+				  CxtTreeIteratorStage aStage, void *aContext)
+{
+    return false;
+}
+
+static bool
+CxpTreeIterateEdgeCallbackDefault(CxtEdgeObject *aEdge,
+				  CxtTreeIteratorStage aStage, void *aContext)
+{
+    return false;
+}
+
+static bool
+CxpTreeIterateRingCallbackDefault(CxtRingObject *aRing,
+				  CxtTreeIteratorStage aStage, void *aContext)
+{
+    return false;
+}
+
+static bool
+CxpTreeIterateRecurse(CxtRingObject *aRing,
+		      CxtTreeIterateNodeCallback *aNodeCallback,
+		      CxtTreeIterateEdgeCallback *aEdgeCallback,
+		      CxtTreeIterateRingCallback *aRingCallback,
+		      void *aContext)
+{
+    bool rVal;
+    CxtEdgeObject *edge;
+    CxtRingObject *ringOther, *ringCur;
+    CxtNodeObject *node;
+
+    edge = CxRingEdge(aRing);
+    ringOther = CxRingOther(aRing);
+    node = CxRingNode(ringOther);
+
+    if (aRingCallback(aRing, CxTreeIteratorStagePre, aContext)
+	|| aEdgeCallback(edge, CxTreeIteratorStagePre, aContext)
+	|| aRingCallback(ringOther, CxTreeIteratorStagePre, aContext)
+	|| aNodeCallback(node, CxTreeIteratorStagePre, aContext))
+    {
+	rVal = true;
+	goto RETURN;
+    }
+
+    ringCur = CxRingNext(ringOther);
+    if (ringCur != ringOther)
+    {
+	while (true)
+	{
+	    if (CxpTreeIterateRecurse(ringCur, aNodeCallback, aEdgeCallback,
+				      aRingCallback, aContext))
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+
+	    ringCur = CxRingNext(ringCur);
+	    if (ringCur == ringOther)
+	    {
+		break;
+	    }
+
+	    if (aNodeCallback(node, CxTreeIteratorStageIn, aContext))
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+	}
+    }
+
+    if (aNodeCallback(node, CxTreeIteratorStagePost, aContext)
+	|| aRingCallback(ringOther, CxTreeIteratorStagePost, aContext)
+	|| aEdgeCallback(edge, CxTreeIteratorStagePost, aContext)
+	|| aRingCallback(aRing, CxTreeIteratorStagePost, aContext))
+    {
+	rVal = true;
+	goto RETURN;
+    }
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeIterate(CxtTreeObject *aTree,
+	      CxtTreeIterateNodeCallback *aNodeCallback,
+	      CxtTreeIterateEdgeCallback *aEdgeCallback,
+	      CxtTreeIterateRingCallback *aRingCallback,
+	      void *aContext)
+{
+    bool rVal;
+    CxtNodeObject *base;
+    CxtTreeIterateNodeCallback *nodeCallback;
+    CxtTreeIterateEdgeCallback *edgeCallback;
+    CxtTreeIterateRingCallback *ringCallback;
+
+    // Set callback functions pointers.
+    nodeCallback = (aNodeCallback != NULL)
+	? aNodeCallback
+	: CxpTreeIterateNodeCallbackDefault;
+    edgeCallback = (aEdgeCallback != NULL)
+	? aEdgeCallback
+	: CxpTreeIterateEdgeCallbackDefault;
+    ringCallback = (aRingCallback != NULL)
+	? aRingCallback
+	: CxpTreeIterateRingCallbackDefault;
+
+    if ((base = CxTreeBaseGet(aTree)) != NULL)
+    {
+	CxtRingObject *ringStart;
+
+	if (nodeCallback(base, CxTreeIteratorStagePre, aContext))
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	if ((ringStart = CxNodeRing(base)) != NULL)
+	{
+	    CxtRingObject *ringCur;
+
+	    ringCur = ringStart;
+	    do
+	    {
+		if (CxpTreeIterateRecurse(ringCur, nodeCallback, edgeCallback,
+					  ringCallback, aContext))
+		{
+		    rVal = true;
+		    goto RETURN;
+		}
+
+		ringCur = CxRingNext(ringCur);
+	    } while (ringCur != ringStart);
+	}
+
+	if (nodeCallback(base, CxTreeIteratorStagePost, aContext))
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+    }
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
 static PyMethodDef CxpTreeMethods[] =
 {
     {
@@ -907,6 +1057,14 @@ CxNodeRingPargs(CxtNodeObject *self)
     return rVal;
 }
 
+void
+CxNodeRingSet(CxtNodeObject *self, CxtRingObject *aRing)
+{
+    CxmAssert(CxRingNode(aRing) == self);
+
+    CxTrNodeRingSet(self->tree->tr, self->node, aRing->ring);
+}
+
 unsigned
 CxNodeDegree(CxtNodeObject *self)
 {
@@ -1347,6 +1505,9 @@ CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
     Py_INCREF(self->ringB);
 
     // Attach.
+    //
+    // CxpTreeCanonize() assumes that attaching inserts the edge at the tail
+    // of the ring; make sure to keep that code in sync with this function.
     CxTrEdgeAttach(self->tree->tr, self->edge, aNodeA->node, aNodeB->node);
 }
 

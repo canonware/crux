@@ -9,7 +9,7 @@
 //
 //==============================================================================
 //
-// tr implements multifurcating phylogenetic trees and various operations on
+// Tr implements multifurcating phylogenetic trees and various operations on
 // them.  Nodes can be manipulated via the CxTrNode*() APIs, and edges can be
 // manipulated via the CxTrEdge*() APIs.
 //
@@ -724,6 +724,13 @@ CxTrNodeDegree(CxtTr *aTr, CxtTrNode aNode)
     return rVal;
 }
 
+// Set the head of the ring for aNode to aRing.
+void
+CxTrNodeRingSet(CxtTr *aTr, CxtTrNode aNode, CxtTrRing aRing)
+{
+    CxmQliFirst(&aTr->trns[aNode].rings) = aRing;
+}
+
 uint32_t
 CxTrNodeDistance(CxtTr *aTr, CxtTrNode aNode, CxtTrNode aOther)
 {
@@ -1257,101 +1264,6 @@ CxpTrUpdate(CxtTr *aTr)
 	// Clear held trees.
 	aTr->nheld = 0;
     }
-}
-
-// Used for canonizing trees.
-struct CxsTrCanonize
-{
-    CxtTrRing ring;
-    uint32_t minTaxon;
-};
-
-// Comparison function that is passed to qsort().
-static int
-CxpTrCanonizeCompare(const void *aA, const void *aB)
-{
-    const struct CxsTrCanonize *a = (const struct CxsTrCanonize *) aA;
-    const struct CxsTrCanonize *b = (const struct CxsTrCanonize *) aB;
-
-    if (a->minTaxon < b->minTaxon)
-    {
-	return -1;
-    }
-    else
-    {
-	CxmAssert(a->minTaxon > b->minTaxon);
-	return 1;
-    }
-}
-
-// Convert a tree node to canonical form by re-ordering the ring such that
-// subtrees are in increasing order of minimum taxon number contained.
-static uint32_t
-CxpTrCanonize(CxtTr *aTr, CxtTrRing aRing)
-{
-    uint32_t rVal, degree;
-    CxtTrNode node;
-
-    // Get taxon number (an internal node has CxmTrNodeTaxonNone).
-    CxmDassert(CxpTrNodeValidate(aTr, CxTrRingNodeGet(aTr, aRing)));
-    node = CxTrRingNodeGet(aTr, aRing);
-    rVal = CxTrNodeTaxonNumGet(aTr, node);
-
-    // Get the degree of the node that this ring is a part of.
-    degree = CxpTrNodeDegree(aTr, aRing);
-
-    if (degree > 1)
-    {
-	uint32_t i, minTaxon;
-	CxtTrRing ring;
-	struct CxsTrCanonize *canonize;
-
-	// Allocate space for a temporary array that can be used to sort the
-	// ring.
-	canonize = (struct CxsTrCanonize *)
-	    CxmMalloc(sizeof(struct CxsTrCanonize) * (degree - 1));
-
-	// Iteratively canonize subtrees, keeping track of the minimum taxon
-	// number seen overall, as well as for each subtree.
-	i = 0;
-	rVal = CxmTrNodeTaxonNone;
-	CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
-	    {
-		minTaxon = CxpTrCanonize(aTr, CxTrRingOtherGet(aTr, ring));
-		if (minTaxon < rVal)
-		{
-		    rVal = minTaxon;
-		}
-
-		canonize[i].ring = ring;
-		canonize[i].minTaxon = minTaxon;
-
-		i++;
-	    }
-	CxmAssert(i == degree - 1);
-
-	// Sort the subtrees.
-	qsort(canonize, degree - 1, sizeof(struct CxsTrCanonize),
-	      CxpTrCanonizeCompare);
-
-	// Set the beginning of the ring to aRing.  This makes it easier for
-	// external code to traverse a tree in canonical order.
-	CxmQliFirst(&aTr->trns[node].rings) = aRing;
-
-	// Re-arrange the ring.  The first element can be skipped, since the
-	// removal/re-insertion of all other elements eventually leaves the
-	// first element in the proper location.
-	for (i = 1; i < (degree - 1); i++)
-	{
-	    CxmQriRemove(aTr->trrs, canonize[i].ring, link);
-	    CxmQriBeforeInsert(aTr->trrs, aRing, canonize[i].ring, link);
-	}
-
-	// Clean up.
-	CxmFree(canonize);
-    }
-
-    return rVal;
 }
 
 // As part of TBR, extract a node that has only two neighbors.  Take care to
@@ -2876,37 +2788,6 @@ CxTrBaseSet(CxtTr *aTr, CxtTrNode aBase)
     aTr->base = aBase;
 
     aTr->modified = true;
-}
-
-void
-CxTrCanonize(CxtTr *aTr)
-{
-    // Update internal state, so that ntaxa and nedges are correct.
-    CxpTrUpdate(aTr);
-    CxmDassert(CxpTrValidate(aTr));
-
-    if (aTr->base != CxmTrNodeNone)
-    {
-	uint32_t ntaxa, nedges;
-	CxtTrRing ring;
-
-	// Set base to be the lowest-numbered taxon.
-	ntaxa = 0;
-	nedges = 0;
-	aTr->base = CxpTrLowest(aTr, aTr->base, &ntaxa, &nedges);
-
-	// Get base's ring.
-	ring = CxmQliFirst(&aTr->trns[aTr->base].rings);
-	if (ring != CxmTrRingNone)
-	{
-	    // Canonize the tree.
-	    CxpTrCanonize(aTr, CxTrRingOtherGet(aTr, ring));
-	}
-    }
-
-    // Re-update internal state.
-    CxpTrUpdate(aTr);
-    CxmDassert(CxpTrValidate(aTr));
 }
 
 void

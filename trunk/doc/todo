@@ -1,5 +1,3 @@
-* Move canonization code to CxTreeCanonize.c.
-
 * Rewrite Newick parser in C.
 
   Gracefully raise an exception (or just complain and keep going?) when parsing

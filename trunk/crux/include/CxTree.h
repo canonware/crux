@@ -110,6 +110,27 @@ CxTreeBaseSet(CxtTreeObject *self, CxtNodeObject *aNode);
 PyObject *
 CxTreeBaseSetPargs(CxtTreeObject *self, PyObject *args);
 
+typedef enum
+{
+    CxTreeIteratorStagePre,
+    CxTreeIteratorStageIn,
+    CxTreeIteratorStagePost
+} CxtTreeIteratorStage;
+
+typedef bool
+CxtTreeIterateNodeCallback(CxtNodeObject *, CxtTreeIteratorStage, void *);
+typedef bool
+CxtTreeIterateEdgeCallback(CxtEdgeObject *, CxtTreeIteratorStage, void *);
+typedef bool
+CxtTreeIterateRingCallback(CxtRingObject *, CxtTreeIteratorStage, void *);
+
+bool
+CxTreeIterate(CxtTreeObject *aTree,
+	      CxtTreeIterateNodeCallback *aNodeCallback,
+	      CxtTreeIterateEdgeCallback *aEdgeCallback,
+	      CxtTreeIterateRingCallback *aRingCallback,
+	      void *aContext);
+
 #if (!defined(CxmUseInlines))
 void *
 CxTreeAuxGet(CxtTreeObject *self, unsigned aInd);
@@ -136,7 +157,7 @@ CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux)
 
 // Node.
 CxtNodeObject *
-CxNodeNew(CxtTreeObject *a_tree);
+CxNodeNew(CxtTreeObject *aTree);
 
 PyObject *
 CxNodeTree(CxtNodeObject *self);
@@ -147,7 +168,7 @@ PyObject *
 CxNodeTaxonNumGetPargs(CxtNodeObject *self);
 
 void
-CxNodeTaxonNumSet(CxtNodeObject *self, uint32_t a_taxon_num);
+CxNodeTaxonNumSet(CxtNodeObject *self, uint32_t aTaxonNum);
 PyObject *
 CxNodeTaxonNumSetPargs(CxtNodeObject *self, PyObject *args);
 
@@ -160,6 +181,9 @@ unsigned
 CxNodeDegree(CxtNodeObject *self);
 PyObject *
 CxNodeDegreePargs(CxtNodeObject *self);
+
+void
+CxNodeRingSet(CxtNodeObject *self, CxtRingObject *aRing);
 
 #if (!defined(CxmUseInlines))
 void *
@@ -187,7 +211,7 @@ CxNodeAuxSet(CxtNodeObject *self, unsigned aInd, void *aAux)
 
 // Edge.
 CxtEdgeObject *
-CxEdgeNew(CxtTreeObject *a_tree);
+CxEdgeNew(CxtTreeObject *aTree);
 PyObject *
 CxEdgeTree(CxtEdgeObject *self);
 
