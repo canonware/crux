@@ -1,5 +1,10 @@
 ################################################################################
 #
+# <Copyright = jasone>
+# <License>
+#
+################################################################################
+#
 # Version: Crux <Version = crux>
 #
 # Makefile.in
@@ -15,19 +20,19 @@ SHELL := /bin/sh
 all:
 	@sh -c 'force=0; \
 		for f in @crux_headers@; do \
-			if test "@objroot@/build.stamp" -ot "$$f"; then \
-				echo Force full rebuild due to $$f; \
+			if @TEST@ "@objroot@/build.stamp" -ot "$$f"; then \
+				@ECHO@ Force full rebuild due to $$f; \
 				force=1; \
 			fi \
 		done; \
-		if test "x$$force" = "x0"; then \
-			echo "@PYTHON@ setup.py build"; \
+		if @TEST@ "x$$force" = "x0"; then \
+			@ECHO@ "@PYTHON@ setup.py build"; \
 			@PYTHON@ setup.py build; \
 		else \
-			echo "@PYTHON@ setup.py build --force"; \
+			@ECHO@ "@PYTHON@ setup.py build --force"; \
 			@PYTHON@ setup.py build --force; \
 		fi'
-	echo stamp > @objroot@/build.stamp
+	@ECHO@ stamp > @objroot@/build.stamp
 
 install:
 	@PYTHON@ setup.py install
@@ -35,34 +40,34 @@ install:
 check: all
 	@sh -c 'total=0; \
 		failures=0; \
-		echo "========================================="; \
+		@ECHO@ "========================================="; \
 		for t in @crux_tests@; do \
 			total=`expr $$total + 1`; \
-			echo -n "$$t ... "; \
+			@ECHO@ -n "$$t ... "; \
 			@objroot@/crux --batch --quiet --infile=$$t \
 			  -- @srcroot@ @objroot@ \
 			  > $${t}.out 2>/dev/null; \
-			if test -e "$${t}.exp"; then \
+			if @TEST@ -e "$${t}.exp"; then \
 				diff -u $${t}.exp $${t}.out; \
 				fail=$$?; \
-				if test "$$fail" -eq "1" ; then \
+				if @TEST@ "$$fail" -eq "1" ; then \
 					failures=`expr $$failures + 1`; \
-					echo "*** FAIL ***"; \
+					@ECHO@ "*** FAIL ***"; \
 				else \
-					echo "pass"; \
+					@ECHO@ "pass"; \
 				fi; \
 			else \
-				echo "*** FAIL *** (.exp file is missing)"; \
+				@ECHO@ "*** FAIL *** (.exp file is missing)"; \
 				failures=`expr $$failures + 1`; \
 			fi; \
 		done; \
-		echo "========================================="; \
-		echo "Failures: $$failures/$$total"'
+		@ECHO@ "========================================="; \
+		@ECHO@ "Failures: $$failures/$$total"'
 
 clean:
 	rm -rf @objroot@/build
 	@sh -c 'for t in @crux_tests@; do \
-			echo "rm -f $${t}.out"; \
+			@ECHO@ "rm -f $${t}.out"; \
 			rm -f $${t}.out; \
 		done'
 
@@ -91,7 +96,7 @@ ifeq (@enable_autogen@, 1)
 
 @srcroot@/config.stamp.in : @srcroot@/configure.in @srcroot@/aclocal.m4
 	cd @srcroot@ && @AUTOHEADER@
-	echo stamp > @srcroot@/config.stamp.in
+	@ECHO@ stamp > @srcroot@/config.stamp.in
 
 $(patsubst %, @srcroot@/%.in, @cfghdrs@) : @srcroot@/config.stamp.in
 
