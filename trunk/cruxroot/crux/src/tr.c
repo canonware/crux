@@ -2158,12 +2158,6 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	static const unsigned char low[] =
 	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f"
 	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f";
-	static const unsigned char high[] =
-	    "\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0"
-	    "\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0";
-	static const unsigned char ones[] =
-	    "\x01\x01\x01\x01\x01\x01\x01\x01"
-	    "\x01\x01\x01\x01\x01\x01\x01\x01";
 
 	asm volatile (
 	    /* Clear pns. */
@@ -2175,18 +2169,20 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 	    /* Fill xmm6 with masks for the most significant four bits of each
 	     * byte. */
-	    "movdqu %[high], %%xmm6;"
+	    "pcmpeqb %%xmm6, %%xmm6;"
+	    "pxor %%xmm5, %%xmm6;"
 
 	    /* Fill xmm7 with 16 1's. */
-	    "movdqu %[ones], %%xmm7;"
-
+	    "pxor %%xmm7, %%xmm7;"
+	    "pcmpeqb %%xmm0, %%xmm0;"
+	    "psubb %%xmm0, %%xmm7;"
 	    :
-	    : [low] "m" (*low), [high] "m" (*high), [ones] "m" (*ones)
+	    : [low] "m" (*low)
 	    : "%xmm4", "%xmm5", "%xmm6", "%xmm7"
 	    );
     }
 
-    /* The inner loop can be run a maximum of 255 times before the partial node
+    /* The inner loop can be run a maximum of 127 times before the partial node
      * score results (stored in %xmm4) are added to ns (otherwise, overflow
      * could occur).  Therefore, the outer loop calculates the upper bound for
      * the inner loop, thereby avoiding extra computation in the inner loop. */
@@ -2272,21 +2268,46 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 	/* Update ns and reset pns. */
 	{
-	    uint32_t j;
-	    unsigned char pns[16];
+	    uint32_t pns;
 
 	    asm volatile (
-		"movdqu %%xmm4, %[pns];"
+		"pxor %%xmm0, %%xmm0;"
+
+		/* Bytes --> words. */
+		"movdqa %%xmm4, %%xmm3;"
+		"punpcklbw %%xmm0, %%xmm3;"
+		"punpckhbw %%xmm0, %%xmm4;"
+		"paddw %%xmm3, %%xmm4;"
+
+		/* Words --> dwords. */
+		"movdqa %%xmm4, %%xmm3;"
+		"punpcklwd %%xmm0, %%xmm3;"
+		"punpckhwd %%xmm0, %%xmm4;"
+		"paddd %%xmm3, %%xmm4;"
+
+		/* Dwords --> qwords. */
+		"movdqa %%xmm4, %%xmm3;"
+		"punpckldq %%xmm0, %%xmm3;"
+		"punpckhdq %%xmm0, %%xmm4;"
+		"paddq %%xmm3, %%xmm4;"
+
+		/* Qwords --> dqwords. */
+		"movdqa %%xmm4, %%xmm3;"
+		"punpcklqdq %%xmm0, %%xmm3;"
+		"punpckhqdq %%xmm0, %%xmm4;"
+		"paddq %%xmm3, %%xmm4;" /* Good enough for the possible range. */
+
+		/* Copy the result to pns. */
+		"movd %%xmm4, %[pns];"
+
+		/* Reset the cumulator. */
 		"pxor %%xmm4, %%xmm4;"
-		: [pns] "=m" (*pns)
+		: [pns] "=m" (pns)
 		:
 		: "memory"
 		);
 
-	    for (j = 0; j < 16; j++)
-	    {
-		ns += pns[j];
-	    }
+	    ns += pns;
 	}
 
 	/* Break out of the loop if the bound for the inner loop was the maximum
@@ -2297,7 +2318,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	}
 	/* Update the bound for the inner loop, taking care not to exceed the
 	 * maximum possible bound. */
-	curlimit += 127 * 32;
+	curlimit += 127 * 16;
 	if (curlimit > nbytes)
 	{
 	    curlimit = nbytes;
@@ -2487,12 +2508,6 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	static const unsigned char low[] =
 	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f"
 	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f";
-	static const unsigned char high[] =
-	    "\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0"
-	    "\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0";
-	static const unsigned char ones[] =
-	    "\x01\x01\x01\x01\x01\x01\x01\x01"
-	    "\x01\x01\x01\x01\x01\x01\x01\x01";
 
 	asm volatile (
 	    /* Clear pns. */
@@ -2504,18 +2519,20 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 
 	    /* Fill xmm6 with masks for the most significant four bits of each
 	     * byte. */
-	    "movdqu %[high], %%xmm6;"
+	    "pcmpeqb %%xmm6, %%xmm6;"
+	    "pxor %%xmm5, %%xmm6;"
 
 	    /* Fill xmm7 with 16 1's. */
-	    "movdqu %[ones], %%xmm7;"
-
+	    "pxor %%xmm7, %%xmm7;"
+	    "pcmpeqb %%xmm0, %%xmm0;"
+	    "psubb %%xmm0, %%xmm7;"
 	    :
-	    : [low] "m" (*low), [high] "m" (*high), [ones] "m" (*ones)
+	    : [low] "m" (*low)
 	    : "%xmm4", "%xmm5", "%xmm6", "%xmm7"
 	    );
     }
 
-    /* The inner loop can be run a maximum of 255 times before the partial node
+    /* The inner loop can be run a maximum of 127 times before the partial node
      * score results (stored in %xmm4) are added to ns (otherwise, overflow
      * could occur).  Therefore, the outer loop calculates the upper bound for
      * the inner loop, thereby avoiding extra computation in the inner loop. */
@@ -2580,21 +2597,46 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 
 	/* Update retval and reset pns. */
 	{
-	    uint32_t j;
-	    unsigned char pns[16];
+	    uint32_t pns;
 
 	    asm volatile (
-		"movdqu %%xmm4, %[pns];"
+		"pxor %%xmm0, %%xmm0;"
+
+		/* Bytes --> words. */
+		"movdqa %%xmm4, %%xmm3;"
+		"punpcklbw %%xmm0, %%xmm3;"
+		"punpckhbw %%xmm0, %%xmm4;"
+		"paddw %%xmm3, %%xmm4;"
+
+		/* Words --> dwords. */
+		"movdqa %%xmm4, %%xmm3;"
+		"punpcklwd %%xmm0, %%xmm3;"
+		"punpckhwd %%xmm0, %%xmm4;"
+		"paddd %%xmm3, %%xmm4;"
+
+		/* Dwords --> qwords. */
+		"movdqa %%xmm4, %%xmm3;"
+		"punpckldq %%xmm0, %%xmm3;"
+		"punpckhdq %%xmm0, %%xmm4;"
+		"paddq %%xmm3, %%xmm4;"
+
+		/* Qwords --> dqwords. */
+		"movdqa %%xmm4, %%xmm3;"
+		"punpcklqdq %%xmm0, %%xmm3;"
+		"punpckhqdq %%xmm0, %%xmm4;"
+		"paddq %%xmm3, %%xmm4;" /* Good enough for the possible range. */
+
+		/* Copy the result to pns. */
+		"movd %%xmm4, %[pns];"
+
+		/* Reset the cumulator. */
 		"pxor %%xmm4, %%xmm4;"
-		: [pns] "=m" (*pns)
+		: [pns] "=m" (pns)
 		:
 		: "memory"
 		);
 
-	    for (j = 0; j < 16; j++)
-	    {
-		retval += pns[j];
-	    }
+	    retval += pns;
 	}
 
 	/* Break out of the loop if the bound for the inner loop was the maximum
@@ -2605,7 +2647,7 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	}
 	/* Update the bound for the inner loop, taking care not to exceed the
 	 * maximum possible bound. */
-	curlimit += 127 * 32;
+	curlimit += 127 * 16;
 	if (curlimit > nbytes)
 	{
 	    curlimit = nbytes;
