@@ -1166,16 +1166,17 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
     CxtNodeObject *node;
 #ifdef CxmTreeNjVerbose
-    time_t t;
-    struct tm *tm;
-    time_t starttime;
+    struct timeval tv;
+    unsigned long long startUs, endUs;
 #endif
 
     CxmCheckPtr(aD);
     CxmAssert(aNtaxa > 1);
 
 #ifdef CxmTreeNjVerbose
-    time(&starttime);
+    gettimeofday(&tv, NULL);
+    startUs = ((unsigned long long) tv.tv_sec * 1000000ULL)
+	+ ((unsigned long long) tv.tv_usec);
 #endif
 
     /* Initialize distance matrix, r, rScaled, and nodes. */
@@ -1199,12 +1200,13 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
     CxTreeBaseSet(aTree, node);
     Py_DECREF(node);
 #ifdef CxmTreeNjVerbose
-    time(&t);
-    tm = localtime(&t);
-    fprintf(stderr, "%d/%02d/%02d %02d:%02d:%02d: %d second%s\n",
-	    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday + 1,
-	    tm->tm_hour, tm->tm_min, tm->tm_sec,
-	    (int)(t - starttime), (t - starttime) == 1 ? "" : "s");
+    gettimeofday(&tv, NULL);
+    endUs = ((unsigned long long) tv.tv_sec * 1000000ULL)
+	+ ((unsigned long long) tv.tv_usec);
+
+    fprintf(stderr, "%llu.%06llu seconds\n",
+	    (endUs - startUs) / 1000000ULL,
+	    (endUs - startUs) % 1000000ULL);
 #endif
 
     retval = false;
