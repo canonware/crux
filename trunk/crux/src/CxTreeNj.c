@@ -108,7 +108,6 @@
 
 #include "../include/_cruxmodule.h"
 
-//#define CxmTreeNjRandomize
 //#define CxmTreeNjVerbose
 //#define CxmTreeNjDump
 //#define CxmTreeNjCheckAdditiveAll
@@ -596,7 +595,7 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 #ifndef CxmTreeNjCheckAdditiveAll
     if (aB + 1 < aNleft)
     {
-	iA = CxpTreeNjXy2i(aNleft, aA, aA + 1);
+	iA = CxpTreeNjXy2i(aNleft, aA, aB + 1);
 	iB = CxpTreeNjXy2i(aNleft, aB, aB + 1);
 	dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
 	retval = CxpTreeNjDistEq(dist + distA,
@@ -606,11 +605,11 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 // 	    fprintf(stderr,
 // 		    "(%ld,%ld): Unequal distances at (%ld, %ld),"
 // 		    " %.10e != %.10e\n",
-// 		    aA, aB, x, aA,
+// 		    aA, aB, aA, aB + 1,
 // 		    dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, aB + 1)]);
 // 	}
     }
-    else
+    else if (aA > 0)
     {
 	dist = ((aD[aA - 1] - distA) + (aD[aB - 1] - distB)) / 2;
 
@@ -621,36 +620,58 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 // 	    fprintf(stderr,
 // 		    "(%ld,%ld): Unequal distances at (%ld, %ld),"
 // 		    " %.10e != %.10e\n",
-// 		    aA, aB, x, aA,
+// 		    aA, aB, (long) 0, aA,
 // 		    dist + distA, aD[CxpTreeNjXy2i(aNleft, 0, aA)]);
+// 	}
+    }
+    else
+    {
+	CxmAssert(aB > 1);
+
+	iA = aA;
+	iB = aB + aNleft - 3;
+	dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
+
+	retval = CxpTreeNjDistEq(dist + distA,
+				 aD[CxpTreeNjXy2i(aNleft, aA, 1)]);
+// 	if (retval == false)
+// 	{
+// 	    fprintf(stderr,
+// 		    "(%ld,%ld): Unequal distances at (%ld, %ld),"
+// 		    " %.10e != %.10e\n",
+// 		    aA, aB, aA, (long) 1,
+// 		    dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, 1)]);
 // 	}
     }
 #else
     long x;
 
     /* Iterate over the row portion of distances for aA and aB. */
-    for (x = aB + 1,
-	     iA = CxpTreeNjXy2i(aNleft, aA, aA + 1),
-	     iB = CxpTreeNjXy2i(aNleft, aB, aB + 1);
-	 x < aNleft;
-	 x++)
+    if (aB + 1 < aNleft)
     {
-	dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
-	iA++;
-	iB++;
-
-	if (CxpTreeNjDistEq(dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)])
-	    == false)
+	for (x = aB + 1,
+		 iA = CxpTreeNjXy2i(aNleft, aA, aB + 1),
+		 iB = CxpTreeNjXy2i(aNleft, aB, aB + 1);
+	     x < aNleft;
+	     x++)
 	{
-	    retval = false;
-	    goto RETURN;
-	}
+	    dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
+	    iA++;
+	    iB++;
 
-	if (CxpTreeNjDistEq(dist + distB, aD[CxpTreeNjXy2i(aNleft, aB, x)])
-	    == false)
-	{
-	    retval = false;
-	    goto RETURN;
+	    if (CxpTreeNjDistEq(dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)])
+		== false)
+	    {
+		retval = false;
+		goto RETURN;
+	    }
+
+	    if (CxpTreeNjDistEq(dist + distB, aD[CxpTreeNjXy2i(aNleft, aB, x)])
+		== false)
+	    {
+		retval = false;
+		goto RETURN;
+	    }
 	}
     }
 
@@ -684,7 +705,8 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
     iB += aNleft - 2 - x;
     x++;
 
-    /* Iterate over the second column portion of distances for aA and aB. */
+    /* Iterate over the first row portion of distances for aA, and the second
+     * column portion of distances for aB. */
     for (;
 	 x < aB;
 	 x++)
@@ -740,11 +762,8 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
     float *dElm;
     float dist, minDist, distX, distY;
     float *d = *arD;
-//    float *r = *arR;
-//    float *rScaled = *arRScaled;
     CxtNodeObject *node;
     CxtNodeObject **nodes = *arNodes;
-//    long nleft = *arNleft;
     bool additive, clustered;
 
     additive = true;
@@ -783,27 +802,6 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 		&& CxpTreeNjPairClusterOk(d, aRScaled, aNleft, x, min))
 	    {
 		clustered = true;
-		// XXX Move randomization to matrix initialization, and expose
-		// it as an option.
-#ifdef CxmTreeNjRandomize
-		{
-		    static bool inited = false;
-
-		    if (inited == false)
-		    {
-			time_t t;
-			time(&t);
-			srand(t);
-			inited = true;
-		    }
-
-		    if ((rand() & 1) != 0)
-		    {
-			x++;
-			continue;
-		    }
-		}
-#endif
 #ifdef CxmTreeNjDump
 		CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
 #endif
@@ -850,15 +848,6 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 
     *arD = d;
     *arNodes = nodes;
-    // XXX Remove.
-//     if (retval == false)
-//     {
-// 	fprintf(stderr, "Next round will be in non-additive mode\n");
-//     }
-//     else
-//     {
-// 	fprintf(stderr, "Next round will be in additive mode\n");
-//     }
 }
 
 /* Create a tree from a pairwise distance matrix, using the neighbor-joining
@@ -978,25 +967,28 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
 	CxDistMatrixUpperHandoff((CxtDistMatrixObject *) distMatrix,
 				 &d, &ntaxa);
 
-	oldTrNode = CxTrBaseGet(self->tr);
-
-	/* Neighbor-join. */
-	CxpTreeNj(self, d, ntaxa);
-	CxmFree(d);
-
-	/* Reference new base. */
-	trNode = CxTrBaseGet(self->tr);
-	if (trNode != CxmTrNodeNone)
+	if (ntaxa > 1)
 	{
-	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, trNode);
-	    Py_INCREF(node);
-	}
+	    oldTrNode = CxTrBaseGet(self->tr);
 
-	/* Decref old base. */
-	if (oldTrNode != CxmTrNodeNone)
-	{
-	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
-	    Py_DECREF(node);
+	    /* Neighbor-join. */
+	    CxpTreeNj(self, d, ntaxa);
+	    CxmFree(d);
+
+	    /* Reference new base. */
+	    trNode = CxTrBaseGet(self->tr);
+	    if (trNode != CxmTrNodeNone)
+	    {
+		node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, trNode);
+		Py_INCREF(node);
+	    }
+
+	    /* Decref old base. */
+	    if (oldTrNode != CxmTrNodeNone)
+	    {
+		node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
+		Py_DECREF(node);
+	    }
 	}
     }
     CxmXepCatch(CxmXepOOM)
