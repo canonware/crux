@@ -88,21 +88,18 @@ class dist_matrix(object):
     #
     def parse(self, input):
         self._input = input
-        self._tokens = None
+        self._i = 0
         self._matrix_format = 'unknown' # 'unknown', 'full', 'upper', 'lower'
 
         # Get the number of taxa.
-        self._ntaxa = int(self._get_token())
+        token = self._get_token()
+        self._ntaxa = int(token)
 
         # Create an empty taxon_map.
         self._map = taxon_map.taxon_map()
 
         # Create an empty distance matrix (fourth quadrant coordinates).
-        self._matrix = []
-        i = 0
-        while i < self._ntaxa * self._ntaxa:
-            self._matrix.append(None)
-            i += 1
+        self._matrix = [None] * (self._ntaxa * self._ntaxa);
 
         # Get the first taxon label.
         token = self._get_token()
@@ -114,10 +111,14 @@ class dist_matrix(object):
 
         x = 0
         while True:
+            #sys.stderr.write("A")
             token = self._get_token()
+            #sys.stderr.write("B")
             distance = self._token_to_distance(token)
+            #sys.stderr.write("C")
             if distance != None:
                 # Get distance for taxon.
+                #sys.stderr.write("D")
                 distances.append(distance)
             else:
                 # Merge distances into the matrix.
@@ -132,49 +133,34 @@ class dist_matrix(object):
                     self._map.map(token, self._map.ntaxa_get())
                     x += 1
 
-        # Make sure there are no trailing tokens.
-        if len(self._tokens) > 0:
-            raise ValueError
-
         return (self._map, self._matrix)
 
-    # Return the next token
+    # Return the next token.
+    #
+    # XXX Add support for input files.
     def _get_token(self):
-        if type(self._input) == str:
-            if self._tokens == None:
-                # Convert newlines to spaces.
-                input = re.compile(r'\n', re.M | re.S).sub(' ', self._input)
-                # Split input into tokens.
-                self._tokens = re.split(r'\s+', input)
-        elif type(self._input) == file:
-            if self._tokens == None or len(self._tokens) == 0:
-                line = self._input.readline()
-                self._tokens = re.split(r'\s+', line)
-        else:
-            raise TypeError
+        retval = ""
+        start = self._i
+        while self._i < len(self._input):
+            if self._input[self._i] == " " \
+                   or self._input[self._i] == "\n" \
+                   or self._input[self._i] == "\t":
+                if self._i == start:
+                    start = self._i + 1
+                else:
+                    retval = self._input[start:self._i]
+                    break
 
-        retval = None
-        m = None
-        while not m and len(self._tokens) > 0:
-            retval = self._tokens.pop(0)
-            m = re.compile(r'\S+').match(retval)
+            self._i += 1
 
         return retval
 
     # Return distance (int or float), or None if the token cannot be converted
     # to a distance.
     def _token_to_distance(self, token):
-        m = re.compile(r'^[\d\.eE+-]+$').match(token)
-        if m:
-            try:
-                # Use the Python parser to convert the string to a number.
-                retval = eval(token)
-                # Make sure that retval is a number.
-                if type(retval) != int and type(retval) != float:
-                    retval = None
-            except SyntaxError:
-                retval = None
-        else:
+        try:
+            retval = float(token)
+        except ValueError:
             retval = None
 
         return retval
