@@ -73,8 +73,8 @@ tr_tbr_nneighbors_get(cw_tr_t *a_tr);
 /* Get the parameters necessary to transorm this tree to neighbor a_neighbor. */
 void
 tr_tbr_neighbor_get(cw_tr_t *a_tr, uint32_t a_neighbor,
-		    uint32_t *r_bisect, uint32_t *r_reconnect_a,
-		    uint32_t *r_reconnect_b);
+		    cw_tr_edge_t *r_bisect, cw_tr_edge_t *r_reconnect_a,
+		    cw_tr_edge_t *r_reconnect_b);
 
 /* Get the value of the auxiliary pointer associated with the tr. */
 void *
