@@ -8,8 +8,26 @@
 
 SHELL := /bin/sh
 
+# Force a full rebuild if any of the header files have changed.  In an ideal
+# world, all build dependencies would be tracked in one place, but setup.py
+# only does part of the job, so this kludge is necessary to avoid inconsistent
+# partial rebuilds.
 all:
-	@PYTHON@ setup.py build
+	@sh -c 'force=0; \
+		for f in @crux_headers@; do \
+			if test "@objroot@/build.stamp" -ot "$$f"; then \
+				echo Force full rebuild due to $$f; \
+				force=1; \
+			fi \
+		done; \
+		if test "x$$force" = "x0"; then \
+			echo "@PYTHON@ setup.py build"; \
+			@PYTHON@ setup.py build; \
+		else \
+			echo "@PYTHON@ setup.py build --force"; \
+			@PYTHON@ setup.py build --force; \
+		fi'
+	echo stamp > @objroot@/build.stamp
 
 install:
 	@PYTHON@ setup.py install
@@ -28,9 +46,6 @@ relclean: distclean
 	rm -f @objroot@/aclocal.m4
 	rm -rf @objroot@/autom4te.cache
 	rm -f @objroot@/configure
-
-# XXX Python's buildtools doesn't track C source dependencies.  Add rules that
-# remove .o files that depend on changed .h files before setup.py is run.
 
 # Re-configuration rules.
 ifeq (@enable_autogen@, 1)

@@ -206,6 +206,15 @@ done
 crux_sources="[[${crux_sources}]]"
 AC_SUBST([crux_sources])
 
+dnl C headers.
+crux_headers=""
+for h in _cruxmodule.h _cruxmodule_defs.h ia32.h mem.h qli.h qr.h qri.h tr.h \
+         tree.h tree_canonize.h tree_mp.h tree_nj.h tree_tbr.h xep.h ; do
+  crux_headers="${crux_headers} ${srcroot}/include/${h}"
+done
+crux_headers="${crux_headers}"
+AC_SUBST([crux_headers])
+
 dnl Python scripts.
 crux_scripts=""
 for s in crux ; do
