@@ -93,6 +93,9 @@ void
 trn_aux_set(cw_trn_t *a_trn, void *a_aux);
 
 /* Functions that operate on trn-based trees. */
+cw_trn_t *
+trn_tree_random(cw_mema_t *a_mema, cw_uint32_t a_ntaxa);
+
 void
 trn_tree_delete(cw_trn_t *a_trn);
 

@@ -935,6 +935,72 @@ trn_p_tree_delete(cw_trn_t *a_trn)
     trn_delete(a_trn);
 }
 
+/* Generate a random tree. */
+/* XXX Take a function pointer to a random number function. */
+cw_trn_t *
+trn_tree_random(cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
+{
+    cw_trn_t *trn, **subtrees;
+    cw_uint32_t i, a, b, t;
+
+    cw_assert(a_ntaxa >= 2);
+
+    /* Allocate an array that is large enough to hold a pointer to each taxon
+     * trn, and populated it. */
+    subtrees = (cw_trn_t **) cw_opaque_alloc(mema_alloc_get(a_mema),
+					     mema_arg_get(a_mema),
+					     a_ntaxa * sizeof(cw_trn_t *));
+    for (i = 0; i < a_ntaxa; i++)
+    {
+	subtrees[i] = trn_new(NULL, a_mema);
+	trn_taxon_num_set(subtrees[i], i);
+    }
+
+    /* Iteratively randomly select two items from the array, join them, and
+     * insert the result back into the array.  Stop when there are two subtrees
+     * left, and join them directly, in order to create an unrooted tree as the
+     * final result. */
+    for (i = a_ntaxa; i > 2; i--)
+    {
+	/* Choose two elements randomly, such that a < b. */
+	a = random() % i;
+	b = random() % (i - 1);
+	if (b >= a)
+	{
+	    b++;
+	}
+	cw_assert(a != b);
+	if (a > b)
+	{
+	    t = a;
+	    a = b;
+	    b = t;
+	}
+
+	/* Allocate a new internal node and join. */
+	trn = trn_new(NULL, a_mema);
+	trn_join(trn, subtrees[a]);
+	trn_join(trn, subtrees[b]);
+
+	/* Insert the new subtree and shorten the array. */
+	subtrees[a] = trn;
+	if (b < (i - 1))
+	{
+	    subtrees[b] = subtrees[i - 1];
+	}
+    }
+
+    /* Join the final two subtrees. */
+    trn_join(subtrees[0], subtrees[1]);
+    trn = trn_tree_root_get(subtrees[0]);
+
+    /* Clean up. */
+    cw_opaque_dealloc(mema_dealloc_get(a_mema), mema_arg_get(a_mema),
+		      subtrees, a_ntaxa * sizeof(cw_trn_t *));
+
+    return trn;
+}
+
 void
 trn_tree_delete(cw_trn_t *a_trn)
 {
