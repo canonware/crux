@@ -99,24 +99,20 @@ tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore);
 
 /* Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
  * a_max_hold of the best neighbors (or all best neighbors, if a_max_hold is
- * CW_TR_HOLD_ALL).
- *
- * Return the number of neighbors held. */
-cw_uint32_t
-tr_tbr_best_neighbors_mp_get(cw_tr_t *a_tr, cw_uint32_t a_max_hold);
+ * CW_TR_HOLD_ALL). */
+void
+tr_tbr_best_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold);
 
 /* Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
  * a_max_hold of the better neighbors (or all better neighbors, if a_max_hold is
- * CW_TR_HOLD_ALL).
- *
- * Return the number of neighbors held. */
-cw_uint32_t
-tr_tbr_better_neighbors_mp_get(cw_tr_t *a_tr, cw_uint32_t a_max_hold);
+ * CW_TR_HOLD_ALL). */
+void
+tr_tbr_better_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold);
 
 /* Calculate the Fitch parsimony of all TBR neighbors, and keep track of all
  * neighbors. */
 void
-tr_tbr_all_neighbors_mp_get(cw_tr_t *a_tr);
+tr_tbr_all_neighbors_mp(cw_tr_t *a_tr);
 
 /* Get the number of trees currently held. */
 cw_uint32_t
