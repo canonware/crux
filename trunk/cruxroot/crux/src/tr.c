@@ -2369,6 +2369,16 @@ tr_p_mp_cache_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 #endif
 }
 
+CW_P_INLINE void
+tr_p_mp_cache_invalidate(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
+{
+    cw_check_ptr(a_ps);
+
+    /* Reset this node's parent pointer, to keep the old parent from using an
+     * invalid cached value. */
+    a_ps->parent = NULL;
+}
+
 static cw_tr_ps_t *
 tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 {
@@ -2407,6 +2417,12 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	     * Return the child node's ps, since this node's ps is
 	     * irrelevant. */
 	    cw_assert(adjacent);
+
+	    /* Clear the cache for the view that is being bypassed.  This is
+	     * critical to correctness of the caching machinery, since each view
+	     * should never be claimed as the parent of more than two other
+	     * views. */
+	    tr_p_mp_cache_invalidate(a_tr, a_tr->trrs[a_ring].ps);
 
 	    /* Get the ring element that connects to the other portion of the
 	     * subtree on this side of the bisection. */
@@ -2506,6 +2522,12 @@ tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
 	    {
 		if (tr_p_ring_edge_get(a_tr, ring) != a_bisect)
 		{
+		    /* Clear the cache for the view that is being bypassed.
+		     * This is critical to correctness of the caching machinery,
+		     * since each view should never be claimed as the parent of
+		     * more than two other views. */
+		    tr_p_mp_cache_invalidate(a_tr, a_tr->trrs[ring].ps);
+
 		    /* Recurse. */
 		    tr_p_mp_views_recurse(a_tr,
 					  tr_p_ring_other_get(a_tr, ring),
