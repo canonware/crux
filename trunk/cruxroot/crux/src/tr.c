@@ -42,7 +42,7 @@
  *
  * The following example is in canonical form:
  *
- *            A           C
+ *            C           A
  *             \         /
  *              \       /
  *               \     /
@@ -129,6 +129,13 @@ static cw_uint32_t
 tr_p_ntaxa(const cw_tr_t *a_tr);
 static cw_uint32_t
 tr_p_sizeof(const cw_tr_t *a_tr);
+static void
+tr_p_trn2parens(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
+		cw_trn_t *a_prev);
+static void
+tr_p_trn2perm(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
+	      cw_trn_t *a_prev, cw_uint32_t *a_unchosen,
+	      cw_uint32_t a_nunchosen);
 #ifdef CW_DBG
 static cw_bool_t
 tr_p_validate(const cw_tr_t *a_tr);
@@ -149,6 +156,8 @@ static cw_uint32_t
 trn_p_tree_ntaxa_get(cw_trn_t *a_trn, cw_trn_t *a_prev);
 static cw_trn_t *
 trn_p_tree_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev);
+static cw_uint32_t
+trn_p_tree_canonicalize(cw_trn_t *a_trn, cw_trn_t *a_prev);
 
 /* Get bit a_i in a_vec (cw_uint8_t *). */
 #define TR_BIT_GET(a_vec, a_i)						\
@@ -269,6 +278,21 @@ tr_p_sizeof(const cw_tr_t *a_tr)
     return tr_ntaxa2sizeof(tr_p_ntaxa(a_tr));
 }
 
+static void
+tr_p_trn2parens(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
+		cw_trn_t *a_prev)
+{
+    cw_error("XXX Not implemented");
+}
+
+static void
+tr_p_trn2perm(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
+	      cw_trn_t *a_prev, cw_uint32_t *a_unchosen,
+	      cw_uint32_t a_nunchosen)
+{
+    cw_error("XXX Not implemented");
+}
+
 #ifdef CW_DBG
 static cw_bool_t
 tr_p_validate(const cw_tr_t *a_tr)
@@ -304,9 +328,6 @@ tr_p_validate(const cw_tr_t *a_tr)
 	}
     }
 
-    /* Assert that the parenthetical tree is strictly bifurcating. */
-    /* XXX */
-
     return TRUE;
 }
 #endif
@@ -315,7 +336,9 @@ cw_tr_t *
 tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 {
     cw_tr_t *retval;
-    cw_uint32_t tr_sizeof;
+    cw_trn_t *root;
+    cw_uint32_t tr_sizeof, bitind, i;
+    cw_uint32_t *unchosen;
 
     cw_check_ptr(a_mema);
     cw_check_ptr(mema_alloc_get(a_mema));
@@ -328,6 +351,29 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 
     /* Set the last byte to 0 to assure that there is no trailing garbage. */
     retval[tr_sizeof - 1] = 0;
+
+    /* Canonicalize the tree. */
+    root = trn_tree_root_get(a_trn);
+    trn_p_tree_canonicalize(root, NULL);
+
+    /* The tree can now be converted to parenthetical form using a simple
+     * in-order traversal. */
+    bitind = 0;
+    tr_p_trn2parens(retval, &bitind, root, NULL);
+
+    /* Create the taxon permutation.  This requires maintaining a list of the
+     * taxa that remain to be chosen from.  An array of taxon numbers is
+     * maintained in compact form (already chosen taxa are removed, and trailing
+     * space in the array is ignored). */
+    unchosen = cw_opaque_alloc(mema_alloc_get(a_mema), mema_arg_get(a_mema),
+			     a_ntaxa * sizeof(cw_uint32_t));
+    for (i = 0; i < a_ntaxa; i++)
+    {
+	unchosen[i] = i;
+    }
+    tr_p_trn2perm(retval, &bitind, root, NULL, unchosen, a_ntaxa);
+    cw_opaque_dealloc(mema_dealloc_get(a_mema), mema_arg_get(a_mema),
+		      unchosen, a_ntaxa * sizeof(cw_uint32_t));
 
     return retval;
 }
@@ -808,4 +854,75 @@ trn_tree_root_get(cw_trn_t *a_trn)
     cw_dassert(trn_p_tree_validate(a_trn));
 
     return trn_p_tree_root_get(a_trn, NULL);
+}
+
+/* Convert a tree to canonical form by re-ordering the neighbors array such that
+ * subtrees are in increasing order of minimum taxon number contained. */
+static cw_uint32_t
+trn_p_tree_canonicalize(cw_trn_t *a_trn, cw_trn_t *a_prev)
+{
+    cw_uint32_t retval;
+    cw_uint32_t i, j, t;
+    cw_uint32_t subtree_mins[CW_TRN_MAX_NEIGHBORS - 1];
+    cw_uint32_t subtree_inds[CW_TRN_MAX_NEIGHBORS - 1];
+    cw_bool_t swapped;
+
+    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    {
+	/* Leaf node. */
+	retval = a_trn->taxon_num;
+    }
+    else
+    {
+	/* Internal node. */
+	retval = CW_TRN_TAXON_NONE;
+    }
+
+    /* Iteratively canonicalize subtrees, keeping track of the minimum taxon
+     * number seen overall, as well as for each subtree. */
+    for (i = j = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
+	{
+	    cw_assert(j < (CW_TRN_MAX_NEIGHBORS - 1));
+	    subtree_mins[j] = trn_p_tree_canonicalize(a_trn->neighbors[i],
+						      a_trn);
+	    if (subtree_mins[j] < retval)
+	    {
+		retval = subtree_mins[j];
+	    }
+	    subtree_inds[j] = i;
+	    j++;
+	}
+    }
+
+    /* Bubble sort the subtrees.  This algorithm works in the general case, and
+     * in the case this code is actually designed for (bifurcating trees), it
+     * only requires a couple of extra branches. */
+    do
+    {
+	swapped = FALSE;
+
+	for (i = 0; i < j - 1; i++)
+	{
+	    if (subtree_mins[i] > subtree_mins[i + 1])
+	    {
+		swapped = TRUE;
+
+		/* Swap subtrees. */
+		trn_neighbors_swap(a_trn, subtree_inds[i], subtree_inds[i + 1]);
+
+		/* Swap subtree_* arrays. */
+		t = subtree_mins[i];
+		subtree_mins[i] = subtree_mins[i + 1];
+		subtree_mins[i + 1] = t;
+	    
+		t = subtree_inds[i];
+		subtree_inds[i] = subtree_inds[i + 1];
+		subtree_inds[i + 1] = t;
+	    }
+	}
+    } while (swapped);
+
+    return retval;
 }
