@@ -8,6 +8,16 @@
 // Version: Crux <Version = crux>
 //
 //==============================================================================
+//
+// This file implements the Robinson-Foulds distance measure, precisely as
+// defined in:
+//
+//   Bernard M.E., L. Nakhleh, T. Warnow, C.R. Linder, A. Tholse, A. Padolina,
+//   J. Sun, and R. Timme.  2004.  Phylogenetic Networks: Modeling,
+//   Reconstructibility, and Accuracy.  IEEE Transactions on Computational
+//   Biology and Bioinformatics 1(1):13-23.
+//
+//==============================================================================
 
 // XXX This implementation assumes that taxon numbers start at 0, and are
 // contiguous.
@@ -291,8 +301,8 @@ static float
 CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
 		      CxtTreeObject *aTreeB, CxtTreeRfTree *aTreeBRfVec)
 {
-    float rVal;
-    unsigned iA, iB, nUniqueA, nUniqueB, nedges;
+    float rVal, falseNegativeRate, falsePositiveRate;
+    unsigned iA, iB, nUniqueA, nUniqueB;
     int relation;
 
     // If the trees don't have precisely the same taxa, treat them as being
@@ -300,13 +310,6 @@ CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
     if (CxpTreeRfVecCompare(&aTreeARfVec->treeVec, &aTreeBRfVec->treeVec) != 0)
     {
 	rVal = 1.0;
-	goto RETURN;
-    }
-
-    // If there are no edges in the trees, treat them as being equal.
-    if (aTreeARfVec->nEdgeVecs == 0)
-    {
-	rVal = 0.0;
 	goto RETURN;
     }
 
@@ -355,13 +358,26 @@ CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
 	nUniqueB += aTreeBRfVec->nEdgeVecs - iB;
     }
 
-    // Convert counts to the Robinson-Foulds distance.  The leaf edges were left
-    // out of the edge vectors, so they must be added back in to the total edge
-    // count here.
-    nedges = (aTreeARfVec->nEdgeVecs * 2) + 3;
-    rVal = ((((float) nUniqueA / (float) nedges)
-	      + ((float) nUniqueB / (float) nedges))
-	     / 2.0);
+    // Convert counts to the Robinson-Foulds distance.
+    if (aTreeARfVec->nEdgeVecs > 0)
+    {
+	falseNegativeRate = (float) nUniqueA / (float) aTreeARfVec->nEdgeVecs;
+    }
+    else
+    {
+	falseNegativeRate = 0.0;
+    }
+
+    if (aTreeBRfVec->nEdgeVecs > 0)
+    {
+	falsePositiveRate = (float) nUniqueB / (float) aTreeBRfVec->nEdgeVecs;
+    }
+    else
+    {
+	falsePositiveRate = 0.0;
+    }
+
+    rVal = (falseNegativeRate + falsePositiveRate) / 2.0;
 
     RETURN:
     return rVal;
@@ -414,7 +430,8 @@ CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
     if (PySequence_Check(sequence) == 0)
     {
 	CxError(CxgTreeTypeError, "Sequence expected");
-	goto ERROR;
+	rVal = NULL;
+	goto RETURN;
     }
 
     CxmXepBegin();

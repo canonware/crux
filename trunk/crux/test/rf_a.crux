@@ -13,6 +13,7 @@ print "Test begin"
 
 taxonMap = crux.TaxonMap.TaxonMap(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'])
 
+###
 a = crux.Tree.Tree('(A,(B,C),D);', taxonMap=taxonMap)
 print "%.2f" % a.rf(a)
 
@@ -31,18 +32,50 @@ for distance in r:
     print "  %.2f" % distance
 print ")"
 
+###
+a = crux.Tree.Tree('((A,B),(C,D),(E,F));', taxonMap=taxonMap)
+print "%.2f" % a.rf(a)
+
+b = crux.Tree.Tree('(((A,B),C),D,(E,F));', taxonMap=taxonMap)
+print "%.2f" % a.rf(b)
+
+c = crux.Tree.Tree('(((C,D),A),B,(E,F));', taxonMap=taxonMap)
+print "%.2f" % a.rf(c)
+
+d = crux.Tree.Tree('(((A,C),E),F,(B,D));', taxonMap=taxonMap)
+print "%.2f" % a.rf(d)
+
+e = crux.Tree.Tree('(A,B,C,D,E,F);', taxonMap=taxonMap)
+print "%.2f" % a.rf(e)
+
+print "("
+r = a.rf((a, b, c, d, e))
+for distance in r:
+    print "  %.2f" % distance
+print ")"
+
+print "("
+r = e.rf((a, b, c, d, e))
+for distance in r:
+    print "  %.2f" % distance
+print ")"
+
+###
 a = crux.Tree.Tree(';', taxonMap=taxonMap)
 b = crux.Tree.Tree(';', taxonMap=taxonMap)
 print "%.2f" % a.rf(b)
 
+###
 a = crux.Tree.Tree('A;', taxonMap=taxonMap)
 b = crux.Tree.Tree('A;', taxonMap=taxonMap)
 print "%.2f" % a.rf(b)
 
+###
 a = crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
 b = crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
 print "%.2f" % a.rf(b)
 
+###
 try:
     a = crux.Tree.Tree('A;', taxonMap=taxonMap)
     b = crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
