@@ -394,18 +394,6 @@ static PyMethodDef CxpTreeMethods[] =
 	"canonize"
     },
     {
-	"_nj",
-	(PyCFunction) CxTreeNj,
-	METH_VARARGS,
-	"_nj"
-    },
-    {
-	"_rnj",
-	(PyCFunction) CxTreeRnj,
-	METH_VARARGS,
-	"_rnj"
-    },
-    {
 	"_rfSequence",
 	(PyCFunction) CxTreeRfSequence,
 	METH_VARARGS,

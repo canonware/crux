@@ -192,15 +192,18 @@ PyObject *
 CxEdgeRingsGet(CxtEdgeObject *self);
 PyObject *
 CxEdgeLengthGet(CxtEdgeObject *self);
+
 void
 CxEdgeLengthSet(CxtEdgeObject *self, double aLength);
 PyObject *
 CxEdgeLengthSetPargs(CxtEdgeObject *self, PyObject *args);
+
 void
 CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
 	     CxtNodeObject *aNodeB);
 PyObject *
 CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args);
+
 PyObject *
 CxEdgeDetach(CxtEdgeObject *self);
 

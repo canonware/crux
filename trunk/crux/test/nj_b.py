@@ -21,7 +21,7 @@ D
 """
 
 matrix = crux.DistMatrix.DistMatrix(testMatrix)
-t = crux.Tree.Tree(matrix, useNj=True)
+t = matrix.nj()
 t.canonize()
 t.render(labels=True, lengths=True, lengthFormat="%.6f", outFile=sys.stdout)
 

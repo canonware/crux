@@ -1880,6 +1880,18 @@ static PyMethodDef CxpDistMatrixMethods[] =
 	"_matrixShuffle"
     },
     {
+	"_nj",
+	(PyCFunction) CxDistMatrixNj,
+	METH_VARARGS,
+	"_nj"
+    },
+    {
+	"_rnj",
+	(PyCFunction) CxDistMatrixRnj,
+	METH_VARARGS,
+	"_rnj"
+    },
+    {
 	"_render",
 	(PyCFunction) CxpDistMatrixRender,
 	METH_VARARGS,

@@ -154,12 +154,12 @@
 
 #include <float.h>
 
-//#define CxmTreeNjDump
+//#define CxmDistMatrixNjDump
 
-#ifdef CxmTreeNjDump
+#ifdef CxmDistMatrixNjDump
 static void
-CxpTreeNjDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
-	      long aNleft)
+CxpDistMatrixNjDump(float *aD, float *aR, float *aRScaled,
+		    CxtNodeObject **aNodes, long aNleft)
 {
     float *dElm;
     long x, y;
@@ -210,7 +210,7 @@ CxpTreeNjDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 
 // Convert from row/column matrix coordinates to array offsets.
 CxmpInline unsigned long
-CxpTreeNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
+CxpDistMatrixNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
 {
     CxmAssert(aX < aN);
     CxmAssert(aY < aN);
@@ -220,7 +220,7 @@ CxpTreeNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
 }
 
 static float *
-CxpTreeNjRInit(float *aD, long aNtaxa)
+CxpDistMatrixNjRInit(float *aD, long aNtaxa)
 {
     float *retval;
     float dist, *dElm;
@@ -250,7 +250,7 @@ CxpTreeNjRInit(float *aD, long aNtaxa)
 }
 
 static float *
-CxpTreeNjRScaledInit(long aNtaxa)
+CxpDistMatrixNjRScaledInit(long aNtaxa)
 {
     float *retval;
 
@@ -260,7 +260,7 @@ CxpTreeNjRScaledInit(long aNtaxa)
 }
 
 static CxtNodeObject **
-CxpTreeNjNodesInit(CxtTreeObject *aTree, long aNtaxa)
+CxpDistMatrixNjNodesInit(CxtTreeObject *aTree, long aNtaxa)
 {
     CxtNodeObject **retval;
     long x;
@@ -278,7 +278,7 @@ CxpTreeNjNodesInit(CxtTreeObject *aTree, long aNtaxa)
 }
 
 CxmpInline void
-CxpTreeNjRScaledUpdate(float *aRScaled, float *aR, long aNleft)
+CxpDistMatrixNjRScaledUpdate(float *aRScaled, float *aR, long aNleft)
 {
     long x;
 
@@ -290,9 +290,10 @@ CxpTreeNjRScaledUpdate(float *aRScaled, float *aR, long aNleft)
 }
 
 CxmpInline void
-CxpTreeNjNodesJoin(float *aD, float *aRScaled, CxtNodeObject **aNodes,
-		   CxtTreeObject *aTree, long aNleft, long aXMin, long aYMin,
-		   CxtNodeObject **rNode, float *rDistX, float *rDistY)
+CxpDistMatrixNjNodesJoin(float *aD, float *aRScaled, CxtNodeObject **aNodes,
+			 CxtTreeObject *aTree, long aNleft,
+			 long aXMin, long aYMin, CxtNodeObject **rNode,
+			 float *rDistX, float *rDistY)
 {
     CxtNodeObject *node;
     float distX, distY;
@@ -304,7 +305,7 @@ CxpTreeNjNodesJoin(float *aD, float *aRScaled, CxtNodeObject **aNodes,
     edgeX = CxEdgeNew(aTree);
     CxEdgeAttach(edgeX, node, aNodes[aXMin]);
     Py_DECREF(aNodes[aXMin]);
-    iMin = CxpTreeNjXy2i(aNleft, aXMin, aYMin);
+    iMin = CxpDistMatrixNjXy2i(aNleft, aXMin, aYMin);
     distX = (aD[iMin] + aRScaled[aXMin] - aRScaled[aYMin]) / 2;
     CxEdgeLengthSet(edgeX, distX);
     Py_DECREF(edgeX);
@@ -322,7 +323,8 @@ CxpTreeNjNodesJoin(float *aD, float *aRScaled, CxtNodeObject **aNodes,
 }
 
 CxmpInline void
-CxpTreeNjRSubtract(float *aD, float *aR, long aNleft, long aXMin, long aYMin)
+CxpDistMatrixNjRSubtract(float *aD, float *aR, long aNleft, long aXMin,
+			 long aYMin)
 {
     long x, iX, iY;
     float dist;
@@ -388,9 +390,9 @@ CxpTreeNjRSubtract(float *aD, float *aR, long aNleft, long aXMin, long aYMin)
 }
 
 CxmpInline void
-CxpTreeNjCompact(float *aD, float *aR, CxtNodeObject **aNodes, long aNleft,
-		 long aXMin, long aYMin, CxtNodeObject *aNode,
-		 float aDistX, float aDistY)
+CxpDistMatrixNjCompact(float *aD, float *aR, CxtNodeObject **aNodes,
+		       long aNleft, long aXMin, long aYMin,
+		       CxtNodeObject *aNode, float aDistX, float aDistY)
 {
     long x, iX, iY;
     float dist;
@@ -482,7 +484,7 @@ CxpTreeNjCompact(float *aD, float *aR, CxtNodeObject **aNodes, long aNleft,
 }
 
 CxmpInline void
-CxpTreeNjDiscard(float **arD, float **arR, float **arRScaled,
+CxpDistMatrixNjDiscard(float **arD, float **arR, float **arRScaled,
 		 CxtNodeObject ***arNodes, long aNleft)
 {
     // Move pointers forward, which removes the first row.
@@ -493,7 +495,8 @@ CxpTreeNjDiscard(float **arD, float **arR, float **arRScaled,
 }
 
 static CxtNodeObject *
-CxpTreeNjFinalJoin(float *aD, CxtNodeObject **aNodes, CxtTreeObject *aTree)
+CxpDistMatrixNjFinalJoin(float *aD, CxtNodeObject **aNodes,
+			 CxtTreeObject *aTree)
 {
     CxtEdgeObject *edge;
     
@@ -509,7 +512,7 @@ CxpTreeNjFinalJoin(float *aD, CxtNodeObject **aNodes, CxtTreeObject *aTree)
 
 // Compare two distances, and consider them equal if they are close enough.
 CxmpInline int
-CxpTreeNjDistCompare(float aA, float aB)
+CxpDistMatrixNjDistCompare(float aA, float aB)
 {
     int retval;
 
@@ -548,8 +551,8 @@ CxpTreeNjDistCompare(float aA, float aB)
 }
 
 CxmpInline void
-CxpTreeNjRandomMinFind(float *aD, float *aRScaled, long aNleft, CxtMt *aMt,
-		       long *rXMin, long *rYMin)
+CxpDistMatrixNjRandomMinFind(float *aD, float *aRScaled, long aNleft,
+			     CxtMt *aMt, long *rXMin, long *rYMin)
 {
     float *dElm, transMin, transCur;
     long x, y, xMin, yMin, nmins;
@@ -573,9 +576,9 @@ CxpTreeNjRandomMinFind(float *aD, float *aRScaled, long aNleft, CxtMt *aMt,
 	    transCur = *dElm - (aRScaled[x] + aRScaled[y]);
 	    dElm++;
 
-	    // Use CxpTreeNjDistCompare() in order to compare transformed
+	    // Use CxpDistMatrixNjDistCompare() in order to compare transformed
 	    // distances, so that random selection is possible.
-	    switch (CxpTreeNjDistCompare(transCur, transMin))
+	    switch (CxpDistMatrixNjDistCompare(transCur, transMin))
 	    {
 		case -1:
 		{
@@ -616,8 +619,8 @@ CxpTreeNjRandomMinFind(float *aD, float *aRScaled, long aNleft, CxtMt *aMt,
 }
 
 CxmpInline void
-CxpTreeNjDeterministicMinFind(float *aD, float *aRScaled, long aNleft,
-			      long *rXMin, long *rYMin)
+CxpDistMatrixNjDeterministicMinFind(float *aD, float *aRScaled, long aNleft,
+				    long *rXMin, long *rYMin)
 {
     float *dElm, transMin, transCur;
     long x, y, xMin, yMin, nmins;
@@ -642,7 +645,7 @@ CxpTreeNjDeterministicMinFind(float *aD, float *aRScaled, long aNleft,
 	    dElm++;
 
 	    // Since an arbitrary tie-breaking decision is being made anyway,
-	    // don't bother using CxpTreeNjDistCompare() here.
+	    // don't bother using CxpDistMatrixNjDistCompare() here.
 	    if (transCur < transMin)
 	    {
 		xMin = x;
@@ -657,8 +660,8 @@ CxpTreeNjDeterministicMinFind(float *aD, float *aRScaled, long aNleft,
 }
 
 CxmpInline long
-CxpTreeNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
-		       long aX, CxtMt *aMt, float *rDist)
+CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
+			     long aX, CxtMt *aMt, float *rDist)
 {
     long retval;
     float *dElm, dist, minDist;
@@ -671,14 +674,14 @@ CxpTreeNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
     if (aX != 0)
     {
 	for (y = 0,
-		 dElm = &d[CxpTreeNjXy2i(aNleft, y, aX)];
+		 dElm = &d[CxpDistMatrixNjXy2i(aNleft, y, aX)];
 	     y < aX;
 	     y++)
 	{
 	    dist = *dElm - (aRScaled[y] + aRScaled[aX]);
 	    dElm += (aNleft - 2 - y);
 
-	    switch (CxpTreeNjDistCompare(dist, minDist))
+	    switch (CxpDistMatrixNjDistCompare(dist, minDist))
 	    {
 		case -1:
 		{
@@ -716,14 +719,14 @@ CxpTreeNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
     if (aX < aNleft - 1)
     {
 	for (y = aX + 1,
-		 dElm = &d[CxpTreeNjXy2i(aNleft, aX, y)];
+		 dElm = &d[CxpDistMatrixNjXy2i(aNleft, aX, y)];
 	     y < aNleft;
 	     y++)
 	{
 	    dist = *dElm - (aRScaled[aX] + aRScaled[y]);
 	    dElm++;
 
-	    switch (CxpTreeNjDistCompare(dist, minDist))
+	    switch (CxpDistMatrixNjDistCompare(dist, minDist))
 	    {
 		case -1:
 		{
@@ -761,8 +764,8 @@ CxpTreeNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 }
 
 CxmpInline bool
-CxpTreeNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
-		     float aDist)
+CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
+			   float aDist)
 {
     bool retval;
     float *dElm, dist;
@@ -773,14 +776,14 @@ CxpTreeNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
     if (aX + 1 < aNleft)
     {
 	for (y = aX + 1,
-		 dElm = &d[CxpTreeNjXy2i(aNleft, aX, y)];
+		 dElm = &d[CxpDistMatrixNjXy2i(aNleft, aX, y)];
 	     y < aNleft;
 	     y++)
 	{
 	    dist = *dElm - (aRScaled[aX] + aRScaled[y]);
 	    dElm++;
 
-	    if (CxpTreeNjDistCompare(dist, aDist) == -1)
+	    if (CxpDistMatrixNjDistCompare(dist, aDist) == -1)
 	    {
 		retval = false;
 		goto RETURN;
@@ -793,14 +796,14 @@ CxpTreeNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
     if (aX != 0)
     {
 	for (y = 0,
-		 dElm = &d[CxpTreeNjXy2i(aNleft, y, aX)];
+		 dElm = &d[CxpDistMatrixNjXy2i(aNleft, y, aX)];
 	     y < aX;
 	     y++)
 	{
 	    dist = *dElm - (aRScaled[y] + aRScaled[aX]);
 	    dElm += (aNleft - 2 - y);
 
-	    if (CxpTreeNjDistCompare(dist, aDist) == -1)
+	    if (CxpDistMatrixNjDistCompare(dist, aDist) == -1)
 	    {
 		retval = false;
 		goto RETURN;
@@ -814,7 +817,7 @@ CxpTreeNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
 }
 
 CxmpInline long
-CxpTreeNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
+CxpDistMatrixNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 {
     long retval
 #ifdef CxmCcSilence
@@ -827,7 +830,7 @@ CxpTreeNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
     // Find the minimum distance from the node on row x to any other node that
     // comes after it in the matrix.
     for (y = x + 1,
-	     dElm = &d[CxpTreeNjXy2i(aNleft, x, y)],
+	     dElm = &d[CxpDistMatrixNjXy2i(aNleft, x, y)],
 	     minDist = HUGE_VAL;
 	 y < aNleft;
 	 y++)
@@ -835,8 +838,8 @@ CxpTreeNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 	dist = *dElm - (aRScaled[x] + aRScaled[y]);
 	dElm++;
 
-	// Don't bother using CxpTreeNjDistCompare() here, since this function
-	// is only used for deterministic RNJ.
+	// Don't bother using CxpDistMatrixNjDistCompare() here, since this
+	// function is only used for deterministic RNJ.
 	if (dist < minDist)
 	{
 	    minDist = dist;
@@ -855,15 +858,15 @@ CxpTreeNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 // (distances are additive).  If the distances are non-additive though, there is
 // no need to do this check.
 CxmpInline bool
-CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
-			     long aA, long aB)
+CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
+				   long aA, long aB)
 {
     bool retval;
     long iAB, iA, iB, x;
     float distA, distB, dist;
 
     // Calculate distances from {aA,aB} to the new node.
-    iAB = CxpTreeNjXy2i(aNleft, aA, aB);
+    iAB = CxpDistMatrixNjXy2i(aNleft, aA, aB);
     distA = (aD[iAB] + aRScaled[aA] - aRScaled[aB]) / 2;
     distB = aD[iAB] - distA;
 
@@ -874,8 +877,8 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
     if (aB + 1 < aNleft)
     {
 	for (x = aB + 1,
-		 iA = CxpTreeNjXy2i(aNleft, aA, aB + 1),
-		 iB = CxpTreeNjXy2i(aNleft, aB, aB + 1);
+		 iA = CxpDistMatrixNjXy2i(aNleft, aA, aB + 1),
+		 iB = CxpDistMatrixNjXy2i(aNleft, aB, aB + 1);
 	     x < aNleft;
 	     x++)
 	{
@@ -883,16 +886,18 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 	    iA++;
 	    iB++;
 
-	    if (CxpTreeNjDistCompare(dist + distA, aD[CxpTreeNjXy2i(aNleft,
-								    aA, x)])
+	    if (CxpDistMatrixNjDistCompare(dist + distA,
+					   aD[CxpDistMatrixNjXy2i(aNleft,
+								  aA, x)])
 		!= 0)
 	    {
 		retval = false;
 		goto RETURN;
 	    }
 
-	    if (CxpTreeNjDistCompare(dist + distB, aD[CxpTreeNjXy2i(aNleft,
-								    aB, x)])
+	    if (CxpDistMatrixNjDistCompare(dist + distB,
+					   aD[CxpDistMatrixNjXy2i(aNleft,
+								  aB, x)])
 		!= 0)
 	    {
 		retval = false;
@@ -912,14 +917,16 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 	iA += aNleft - 2 - x;
 	iB += aNleft - 2 - x;
 
-	if (CxpTreeNjDistCompare(dist + distA, aD[CxpTreeNjXy2i(aNleft, x, aA)])
+	if (CxpDistMatrixNjDistCompare(dist + distA,
+				       aD[CxpDistMatrixNjXy2i(aNleft, x, aA)])
 	    != 0)
 	{
 	    retval = false;
 	    goto RETURN;
 	}
 
-	if (CxpTreeNjDistCompare(dist + distB, aD[CxpTreeNjXy2i(aNleft, x, aB)])
+	if (CxpDistMatrixNjDistCompare(dist + distB,
+				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)])
 	    != 0)
 	{
 	    retval = false;
@@ -941,14 +948,16 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 	dist = ((aD[iA] - distA) + (aD[iB] - distB)) / 2;
 	iB += aNleft - 2 - x;
 
-	if (CxpTreeNjDistCompare(dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)])
+	if (CxpDistMatrixNjDistCompare(dist + distA,
+				       aD[CxpDistMatrixNjXy2i(aNleft, aA, x)])
 	    != 0)
 	{
 	    retval = false;
 	    goto RETURN;
 	}
 
-	if (CxpTreeNjDistCompare(dist + distB, aD[CxpTreeNjXy2i(aNleft, x, aB)])
+	if (CxpDistMatrixNjDistCompare(dist + distB,
+				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)])
 	    != 0)
 	{
 	    retval = false;
@@ -962,15 +971,15 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 }
 
 // Finish checking whether it is okay to cluster rows aA and aB;
-// CxpTreeNjRowMinFind() or CxpTreeNjRowAllMinFind() has already done some of
-// the work by the time this function is called.
+// CxpDistMatrixNjRowMinFind() or CxpDistMatrixNjRowAllMinFind() has already
+// done some of the work by the time this function is called.
 //
 // Two nodes, aA and aB, can be clustered if the transformed distance between
 // them is less than or equal to the transformed distances from aA or aB to any
 // other node.
 CxmpInline bool
-CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
-		       long aA, long aB)
+CxpDistMatrixNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
+			     long aA, long aB)
 {
     bool retval;
     long x, iA, iB;
@@ -979,19 +988,20 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     CxmAssert(aA < aB);
 
     // Calculate the transformed distance between aA and aB.
-    distAB = aD[CxpTreeNjXy2i(aNleft, aA, aB)] - (aRScaled[aA] + aRScaled[aB]);
+    distAB = aD[CxpDistMatrixNjXy2i(aNleft, aA, aB)]
+	- (aRScaled[aA] + aRScaled[aB]);
 
     // Iterate over the row portion of distances for aB.  Distances for aA were
     // already checked before this function was called.
     if (aB < aNleft - 1)
     {
 	for (x = aB + 1,
-		 iB = CxpTreeNjXy2i(aNleft, aB, aB + 1);
+		 iB = CxpDistMatrixNjXy2i(aNleft, aB, aB + 1);
 	     x < aNleft;
 	     x++)
 	{
 	    dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
-	    // Don't bother using CxpTreeNjDistCompare() here, since this
+	    // Don't bother using CxpDistMatrixNjDistCompare() here, since this
 	    // function is only used for deterministic RNJ.
 	    if (dist < distAB)
 	    {
@@ -1010,8 +1020,8 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	 x++)
     {
 	dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
-	// Don't bother using CxpTreeNjDistCompare() here, since this function
-	// is only used for deterministic RNJ.
+	// Don't bother using CxpDistMatrixNjDistCompare() here, since this
+	// function is only used for deterministic RNJ.
 	if (dist < distAB)
 	{
 	    retval = false;
@@ -1019,8 +1029,8 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	}
 
 	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
-	// Don't bother using CxpTreeNjDistCompare() here, since this function
-	// is only used for deterministic RNJ.
+	// Don't bother using CxpDistMatrixNjDistCompare() here, since this
+	// function is only used for deterministic RNJ.
 	if (dist < distAB)
 	{
 	    retval = false;
@@ -1042,8 +1052,8 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	 x++)
     {
 	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
-	// Don't bother using CxpTreeNjDistCompare() here, since this function
-	// is only used for deterministic RNJ.
+	// Don't bother using CxpDistMatrixNjDistCompare() here, since this
+	// function is only used for deterministic RNJ.
 	if (dist < distAB)
 	{
 	    retval = false;
@@ -1059,7 +1069,7 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 
 // Get a seed for the C-based PRNG from Python's PRNG.
 static bool
-CxpTreeNjSeedGet(long *rSeed)
+CxpDistMatrixNjSeedGet(long *rSeed)
 {
     bool retval;
     PyObject *globals, *locals, *result, *seedCode;
@@ -1122,18 +1132,18 @@ seed = random.randint(0, max)\n\
 // stored in row-major form).  This means:
 //
 // 1) For each randomly chosen row (x), find the row which is the closest (y),
-//    according to transformed distances, by calling CxpTreeNjRowAllMinFind().
+//    according to transformed distances, by calling
+//    CxpDistMatrixNjRowAllMinFind().
 //
 // 2) If the additivity constraint is enabled, check whether clustering x and y
-//    would violate additivity, by calling CxpTreeNjPairClusterAdditive().
+//    would violate additivity, by calling CxpDistMatrixNjPairClusterAdditive().
 //
 // 2) Check whether it is okay to cluster x and y, by calling
-//    CxpTreeNjAllMinOk().
+//    CxpDistMatrixNjAllMinOk().
 static bool
-CxpTreeNjRandomCluster(float **arD, float *aR, float *aRScaled,
-		       CxtNodeObject ***arNodes, long aNleft,
-		       CxtTreeObject *aTree,
-		       bool aAdditive)
+CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
+			     CxtNodeObject ***arNodes, long aNleft,
+			     CxtTreeObject *aTree, bool aAdditive)
 {
     bool retval;
     long randomRow, closestRow, x, y;
@@ -1147,7 +1157,7 @@ CxpTreeNjRandomCluster(float **arD, float *aR, float *aRScaled,
     float dist;
     bool clustered;
 
-    if (CxpTreeNjSeedGet(&seed))
+    if (CxpDistMatrixNjSeedGet(&seed))
     {
 	retval = true;
 	goto RETURN;
@@ -1172,8 +1182,8 @@ CxpTreeNjRandomCluster(float **arD, float *aR, float *aRScaled,
 	    randomRow = CxRiRandomGet(&ri, &mt);
 
 	    // Find a row that is closest to x.
-	    closestRow = CxpTreeNjRowAllMinFind(d, aRScaled, aNleft, randomRow,
-						&mt, &dist);
+	    closestRow = CxpDistMatrixNjRowAllMinFind(d, aRScaled, aNleft,
+						      randomRow, &mt, &dist);
 
 	    if (randomRow < closestRow)
 	    {
@@ -1188,21 +1198,23 @@ CxpTreeNjRandomCluster(float **arD, float *aR, float *aRScaled,
 
 	    // Make sure that no row is closer to y than x is.
 	    if ((aAdditive == false
-		 || CxpTreeNjPairClusterAdditive(d, aRScaled, aNleft, x, y))
-		&& CxpTreeNjRowAllMinOk(d, aRScaled, aNleft, closestRow, dist))
+		 || CxpDistMatrixNjPairClusterAdditive(d, aRScaled, aNleft,
+						       x, y))
+		&& CxpDistMatrixNjRowAllMinOk(d, aRScaled, aNleft, closestRow,
+					      dist))
 	    {
 		clustered = true;
-#ifdef CxmTreeNjDump
-		CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
+#ifdef CxmDistMatrixNjDump
+		CxpDistMatrixNjDump(d, aR, aRScaled, nodes, aNleft);
 #endif
-		CxpTreeNjNodesJoin(d, aRScaled, nodes, aTree, aNleft, x, y,
-				   &node, &distX, &distY);
-		CxpTreeNjRSubtract(d, aR, aNleft, x, y);
-		CxpTreeNjCompact(d, aR, nodes, aNleft, x, y, node,
-				 distX, distY);
-		CxpTreeNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
+		CxpDistMatrixNjNodesJoin(d, aRScaled, nodes, aTree, aNleft,
+					 x, y, &node, &distX, &distY);
+		CxpDistMatrixNjRSubtract(d, aR, aNleft, x, y);
+		CxpDistMatrixNjCompact(d, aR, nodes, aNleft, x, y, node,
+				       distX, distY);
+		CxpDistMatrixNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
 		aNleft--;
-		CxpTreeNjRScaledUpdate(aRScaled, aR, aNleft);
+		CxpDistMatrixNjRScaledUpdate(aRScaled, aR, aNleft);
 
 		// Shrinking the matrix may have reduced it to the point
 		// that the enclosing loop will no longer function
@@ -1222,8 +1234,8 @@ CxpTreeNjRandomCluster(float **arD, float *aR, float *aRScaled,
     CxRiDelete(&ri);
     CxMtDelete(&mt);
 
-#ifdef CxmTreeNjDump
-    CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
+#ifdef CxmDistMatrixNjDump
+    CxpDistMatrixNjDump(d, aR, aRScaled, nodes, aNleft);
 #endif
 
     *arD = d;
@@ -1239,23 +1251,22 @@ CxpTreeNjRandomCluster(float **arD, float *aR, float *aRScaled,
 // form).  This means:
 //
 // 1) For each row (x), find the row after it which is the closest (y),
-//    according to transformed distances, by calling CxpTreeNjRowMinFind().
-//    This operation scans the row portion of the distances for x, which is a
-//    fast operation.
+//    according to transformed distances, by calling
+//    CxpDistMatrixNjRowMinFind().  This operation scans the row portion of the
+//    distances for x, which is a fast operation.
 //
 // 2) If the additivity constraint is enabled, check whether clustering x and y
-//    would violate additivity, by calling CxpTreeNjPairClusterAdditive().
+//    would violate additivity, by calling CxpDistMatrixNjPairClusterAdditive().
 //
 // 2) Check whether it is okay to cluster x and y, by calling
-//    CxpTreeNjPairClusterOk().
+//    CxpDistMatrixNjPairClusterOk().
 //
 // 3) If x and y can be clustered, do so, then immediately try to cluster with
 //    x again (as long as collapsing the matrix didn't move row x).
 static void
-CxpTreeNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
-			      CxtNodeObject ***arNodes, long aNleft,
-			      CxtTreeObject *aTree,
-			      bool aAdditive)
+CxpDistMatrixNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
+				    CxtNodeObject ***arNodes, long aNleft,
+				    CxtTreeObject *aTree, bool aAdditive)
 {
     long x, y;
     float distX, distY;
@@ -1274,24 +1285,25 @@ CxpTreeNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
 	clustered = false;
 	for (x = 0; x < aNleft - 1;) // y indexes one past x.
 	{
-	    y = CxpTreeNjRowMinFind(d, aRScaled, aNleft, x);
+	    y = CxpDistMatrixNjRowMinFind(d, aRScaled, aNleft, x);
 
 	    if ((aAdditive == false
-		 || CxpTreeNjPairClusterAdditive(d, aRScaled, aNleft, x, y))
-		&& CxpTreeNjPairClusterOk(d, aRScaled, aNleft, x, y))
+		 || CxpDistMatrixNjPairClusterAdditive(d, aRScaled, aNleft, x,
+						       y))
+		&& CxpDistMatrixNjPairClusterOk(d, aRScaled, aNleft, x, y))
 	    {
 		clustered = true;
-#ifdef CxmTreeNjDump
-		CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
+#ifdef CxmDistMatrixNjDump
+		CxpDistMatrixNjDump(d, aR, aRScaled, nodes, aNleft);
 #endif
-		CxpTreeNjNodesJoin(d, aRScaled, nodes, aTree, aNleft, x, y,
-				   &node, &distX, &distY);
-		CxpTreeNjRSubtract(d, aR, aNleft, x, y);
-		CxpTreeNjCompact(d, aR, nodes, aNleft, x, y, node,
-				 distX, distY);
-		CxpTreeNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
+		CxpDistMatrixNjNodesJoin(d, aRScaled, nodes, aTree, aNleft, x,
+					 y, &node, &distX, &distY);
+		CxpDistMatrixNjRSubtract(d, aR, aNleft, x, y);
+		CxpDistMatrixNjCompact(d, aR, nodes, aNleft, x, y, node,
+				       distX, distY);
+		CxpDistMatrixNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
 		aNleft--;
-		CxpTreeNjRScaledUpdate(aRScaled, aR, aNleft);
+		CxpDistMatrixNjRScaledUpdate(aRScaled, aR, aNleft);
 
 		// Shrinking the matrix may have reduced it to the point
 		// that the enclosing loop will no longer function
@@ -1320,8 +1332,8 @@ CxpTreeNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
 	}
     }
     OUT:
-#ifdef CxmTreeNjDump
-    CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
+#ifdef CxmDistMatrixNjDump
+    CxpDistMatrixNjDump(d, aR, aRScaled, nodes, aNleft);
 #endif
 
     *arD = d;
@@ -1330,7 +1342,7 @@ CxpTreeNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
 
 // Create a tree from a pairwise distance matrix, using the NJ algorithm.
 static bool
-CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
+CxpDistMatrixNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
 {
     bool retval;
     float *rOrig, *r; // Distance sums.
@@ -1347,7 +1359,7 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
 
     if (aRandom)
     {
-        if (CxpTreeNjSeedGet(&seed))
+        if (CxpDistMatrixNjSeedGet(&seed))
 	{
 	    retval = true;
 	    goto RETURN;
@@ -1357,36 +1369,38 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
     }
 
     // Initialize distance matrix, r, rScaled, and nodes.
-    rOrig = r = CxpTreeNjRInit(aD, aNtaxa);
-    rScaledOrig = rScaled = CxpTreeNjRScaledInit(aNtaxa);
-    CxpTreeNjRScaledUpdate(rScaled, r, aNtaxa);
-    nodesOrig = nodes = CxpTreeNjNodesInit(aTree, aNtaxa);
+    rOrig = r = CxpDistMatrixNjRInit(aD, aNtaxa);
+    rScaledOrig = rScaled = CxpDistMatrixNjRScaledInit(aNtaxa);
+    CxpDistMatrixNjRScaledUpdate(rScaled, r, aNtaxa);
+    nodesOrig = nodes = CxpDistMatrixNjNodesInit(aTree, aNtaxa);
 
     // Iteratitively join two nodes in the matrix, until only two are left.
     for (nleft = aNtaxa; nleft > 2; nleft--)
     {
 	// Standard neighbor joining.
-	CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-#ifdef CxmTreeNjDump
-	CxpTreeNjDump(aD, r, rScaled, nodes, nleft);
+	CxpDistMatrixNjRScaledUpdate(rScaled, r, nleft);
+#ifdef CxmDistMatrixNjDump
+	CxpDistMatrixNjDump(aD, r, rScaled, nodes, nleft);
 #endif
 	if (aRandom)
 	{
-	    CxpTreeNjRandomMinFind(aD, rScaled, nleft, &mt, &xMin, &yMin);
+	    CxpDistMatrixNjRandomMinFind(aD, rScaled, nleft, &mt, &xMin, &yMin);
 	}
 	else
 	{
-	    CxpTreeNjDeterministicMinFind(aD, rScaled, nleft, &xMin, &yMin);
+	    CxpDistMatrixNjDeterministicMinFind(aD, rScaled, nleft,
+						&xMin, &yMin);
 	}
-	CxpTreeNjNodesJoin(aD, rScaled, nodes, aTree, nleft, xMin, yMin,
-			   &node, &distX, &distY);
-	CxpTreeNjRSubtract(aD, r, nleft, xMin, yMin);
-	CxpTreeNjCompact(aD, r, nodes, nleft, xMin, yMin, node, distX, distY);
-	CxpTreeNjDiscard(&aD, &r, &rScaled, &nodes, nleft);
+	CxpDistMatrixNjNodesJoin(aD, rScaled, nodes, aTree, nleft, xMin, yMin,
+				 &node, &distX, &distY);
+	CxpDistMatrixNjRSubtract(aD, r, nleft, xMin, yMin);
+	CxpDistMatrixNjCompact(aD, r, nodes, nleft, xMin, yMin, node,
+			       distX, distY);
+	CxpDistMatrixNjDiscard(&aD, &r, &rScaled, &nodes, nleft);
     }
 
     // Join last two nodes.
-    node = CxpTreeNjFinalJoin(aD, nodes, aTree);
+    node = CxpDistMatrixNjFinalJoin(aD, nodes, aTree);
 
     // Set the tree base.
     CxTreeBaseSet(aTree, node);
@@ -1407,8 +1421,8 @@ CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
 
 // Create a tree from a pairwise distance matrix, using the RNJ algorithm.
 static bool
-CxpTreeRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
-	   bool aRandom)
+CxpDistMatrixRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
+		 bool aRandom)
 {
     bool retval;
     float *rOrig, *r; // Distance sums.
@@ -1420,16 +1434,16 @@ CxpTreeRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
     CxmAssert(aNtaxa > 1);
 
     // Initialize distance matrix, r, rScaled, and nodes.
-    rOrig = r = CxpTreeNjRInit(aD, aNtaxa);
-    rScaledOrig = rScaled = CxpTreeNjRScaledInit(aNtaxa);
-    CxpTreeNjRScaledUpdate(rScaled, r, aNtaxa);
-    nodesOrig = nodes = CxpTreeNjNodesInit(aTree, aNtaxa);
+    rOrig = r = CxpDistMatrixNjRInit(aD, aNtaxa);
+    rScaledOrig = rScaled = CxpDistMatrixNjRScaledInit(aNtaxa);
+    CxpDistMatrixNjRScaledUpdate(rScaled, r, aNtaxa);
+    nodesOrig = nodes = CxpDistMatrixNjNodesInit(aTree, aNtaxa);
 
     if (aRandom)
     {
 	// Cluster randomly.
-	if (CxpTreeNjRandomCluster(&aD, r, rScaled, &nodes, aNtaxa, aTree,
-				   aAdditive))
+	if (CxpDistMatrixNjRandomCluster(&aD, r, rScaled, &nodes, aNtaxa, aTree,
+					 aAdditive))
 	{
 	    retval = true;
 	    goto RETURN;
@@ -1438,12 +1452,12 @@ CxpTreeRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
     else
     {
 	// Cluster deterministically.
-	CxpTreeNjDeterministicCluster(&aD, r, rScaled, &nodes, aNtaxa, aTree,
-				      aAdditive);
+	CxpDistMatrixNjDeterministicCluster(&aD, r, rScaled, &nodes, aNtaxa,
+					    aTree, aAdditive);
     }
 
     // Join last two nodes.
-    node = CxpTreeNjFinalJoin(aD, nodes, aTree);
+    node = CxpDistMatrixNjFinalJoin(aD, nodes, aTree);
 
     // Set the tree base.
     CxTreeBaseSet(aTree, node);
@@ -1459,14 +1473,15 @@ CxpTreeRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
 }
 
 PyObject *
-CxTreeNj(CxtTreeObject *self, PyObject *args)
+CxDistMatrixNj(CxtDistMatrixObject *self, PyObject *args)
 {
-    PyObject *retval, *distMatrix;
+    PyObject *retval;
+    CxtTreeObject *tree;
     float *d;
     long ntaxa;
     int random;
 
-    if (PyArg_ParseTuple(args, "Oi", &distMatrix, &random) == 0)
+    if (PyArg_ParseTuple(args, "O!i", &CxtTree, &tree, &random) == 0)
     {
 	retval = NULL;
 	goto RETURN;
@@ -1477,13 +1492,12 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
     CxmXepBegin();
     CxmXepTry
     {
-	CxDistMatrixUpperHandoff((CxtDistMatrixObject *) distMatrix,
-				 &d, &ntaxa);
+	CxDistMatrixUpperHandoff(self, &d, &ntaxa);
 
 	if (ntaxa > 1)
 	{
 	    // NJ.
-	    if (CxpTreeNj(self, d, ntaxa, (bool) random))
+	    if (CxpDistMatrixNj(tree, d, ntaxa, (bool) random))
 	    {
 		Py_DECREF(retval);
 		retval = NULL;
@@ -1503,14 +1517,16 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
 }
 
 PyObject *
-CxTreeRnj(CxtTreeObject *self, PyObject *args)
+CxDistMatrixRnj(CxtDistMatrixObject *self, PyObject *args)
 {
-    PyObject *retval, *distMatrix;
+    PyObject *retval;
+    CxtTreeObject *tree;
     float *d;
     long ntaxa;
     int additive, random;
 
-    if (PyArg_ParseTuple(args, "Oii", &distMatrix, &additive, &random) == 0)
+    if (PyArg_ParseTuple(args, "O!ii", &CxtTree, &tree, &random, &additive)
+	== 0)
     {
 	retval = NULL;
 	goto RETURN;
@@ -1521,13 +1537,13 @@ CxTreeRnj(CxtTreeObject *self, PyObject *args)
     CxmXepBegin();
     CxmXepTry
     {
-	CxDistMatrixUpperHandoff((CxtDistMatrixObject *) distMatrix,
-				 &d, &ntaxa);
+	CxDistMatrixUpperHandoff(self, &d, &ntaxa);
 
 	if (ntaxa > 1)
 	{
 	    // RNJ.
-	    if (CxpTreeRnj(self, d, ntaxa, (bool) additive, (bool) random))
+	    if (CxpDistMatrixRnj(tree, d, ntaxa, (bool) additive,
+				 (bool) random))
 	    {
 		Py_DECREF(retval);
 		retval = NULL;

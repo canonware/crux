@@ -16,7 +16,6 @@ import Edge
 import Ring
 import NewickParser
 import TaxonMap
-import DistMatrix
 import crux
 import __builtin__
 
@@ -153,9 +152,7 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, nodeA)
 
 class Tree(C_Tree):
-    def __init__(self, with=None, map=None, autoMap=False, useNj=False,
-                 tryAdditive=True, joinRandom=False):
-
+    def __init__(self, with=None, map=None, autoMap=False):
         if type(with) == int:
             self._randomNew(with, map)
         elif type(with) == str or type(with) == file:
@@ -163,12 +160,6 @@ class Tree(C_Tree):
                 map = TaxonMap.TaxonMap()
             self._map = map
             self._newickNew(with, autoMap)
-        elif type(with) == DistMatrix.DistMatrix:
-            self._map = with.taxonMapGet()
-            if useNj == False:
-                self._rnj(with, tryAdditive, joinRandom)
-            else:
-                self._nj(with, joinRandom)
         else:
             if map == None:
                 map = TaxonMap.TaxonMap()

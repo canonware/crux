@@ -20,12 +20,6 @@
 # must not be interpretable as distances, but otherwise can be composed of any
 # printable non-whitespace characters.
 #
-# Note: The parser reads the input one line at a time.  In order to avoid
-#       silently losing trailing text, the last line of the distance matrix
-#       must either be the end of input (end of file or end of string), or there
-#       must be no non-whitespace characters before the newline at the end of
-#       the last line of the distance matrix.
-#
 # Distance matrices may be specified as full matrices (these need not be
 # symmetrical):
 #
@@ -58,6 +52,7 @@
 
 from C_DistMatrix import *
 import TaxonMap
+import Tree
 import crux
 
 import random
@@ -127,6 +122,26 @@ class DistMatrix(C_DistMatrix):
         for i in forints(self.ntaxaGet()):
             map.map(labels[order[i]], i, replace=True)
 
+    # Construct a neighbor joining (NJ) tree from the distance matrix.
+    def nj(self, joinRandom=False, destructive=False):
+        rVal = Tree.Tree(map=self.taxonMapGet())
+        if (destructive):
+            self._nj(rVal, joinRandom)
+        else:
+            DistMatrix(self)._nj(rVal, joinRandom)
+
+        return rVal
+
+    # Construct a relaxed neighbor joining (RNJ) tree from the distance matrix.
+    def rnj(self, joinRandom=False, tryAdditive=True, destructive=False):
+        rVal = Tree.Tree(map=self.taxonMapGet())
+        if (destructive):
+            self._rnj(rVal, joinRandom, tryAdditive)
+        else:
+            DistMatrix(self)._rnj(rVal, joinRandom, tryAdditive)
+
+        return rVal
+
     # Print the matrix to a string in 'full', 'upper', or 'lower' format.
     def render(self, format=None, distFormat="%.5e", outFile=None):
         if format == None:
@@ -139,9 +154,9 @@ class DistMatrix(C_DistMatrix):
         distFormat % self.distanceGet(0, 1)
 
         if outFile == None:
-            retval = self._render(format, " " + distFormat)
+            rVal = self._render(format, " " + distFormat)
         else:
-            retval = self._render(format, " " + distFormat, outFile)
+            rVal = self._render(format, " " + distFormat, outFile)
 
-        return retval
+        return rVal
 #EOF

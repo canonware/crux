@@ -40,7 +40,7 @@ H 23 25 20 26 15 15 10  0
 for testMatrix in testMatrices:
     matrix = crux.DistMatrix.DistMatrix(testMatrix)
     #matrix.render(distFormat="%2.0f", outFile=sys.stdout)
-    t = matrix.rnj()
+    t = matrix.nj()
     map = t.taxonMapGet()
     t.canonize()
     t.render(labels=True, lengths=True, lengthFormat="%.0f", outFile=sys.stdout)
@@ -48,7 +48,7 @@ for testMatrix in testMatrices:
     for i in forints(10):
         matrix = crux.DistMatrix.DistMatrix(testMatrix)
         matrix.shuffle()
-        t = matrix.rnj()
+        t = matrix.nj()
 
         treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
         t = crux.Tree.Tree(treeStr, map=map)
@@ -58,7 +58,7 @@ for testMatrix in testMatrices:
 
     for i in forints(10):
         matrix = crux.DistMatrix.DistMatrix(testMatrix)
-        t = matrix.rnj(joinRandom=True, tryAdditive=True)
+        t = matrix.nj(joinRandom=True)
 
         treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
         t = crux.Tree.Tree(treeStr, map=map)

@@ -129,11 +129,11 @@ extern PyObject *CxgException;
 #include "CxTree.h"
 #include "CxTreeCanonize.h"
 #include "CxTreeMp.h"
-#include "CxTreeNj.h"
 #include "CxTreeRf.h"
 #include "CxTreeTbr.h"
 #include "CxFastaParser.h"
 #include "CxDistMatrix.h"
+#include "CxDistMatrixNj.h"
 
 void
 init_crux(void);

@@ -15,7 +15,7 @@ print "Test begin"
 
 matrix = crux.DistMatrix.DistMatrix(open(opts.scriptargs[1]
                                          + '/test/treezilla.dist'))
-t = crux.Tree.Tree(matrix, useNj=True)
+t = matrix.nj()
 
 t.canonize()
 t.render(outFile=sys.stdout)
