@@ -11,8 +11,6 @@
 
 #include "../include/_cruxmodule.h"
 
-typedef struct CxsTreeNjr CxtTreeNjr;
-
 /* The following function can be used to convert from row/column matrix
  * coordinates to array offsets for neighbor-joining:
  *
@@ -157,10 +155,10 @@ CxpTreeNjRScaledUpdate(float *aRScaled, float *aR, long aNleft)
 
 CxmpInline void
 CxpTreeNjMinFind(float *aD, float *aRScaled, long aNleft,
-		 long *rXMin, long *rYMin, long *rIMin)
+		 long *rXMin, long *rYMin)
 {
     float *dElm, transMin, transCur;
-    long x, y, xMin, yMin, iMin;
+    long x, y, xMin, yMin;
 
     /* Calculate the transformed distance for each pairwise distance.  Keep
      * track of the minimum transformed distance, so that the corresponding
@@ -190,35 +188,38 @@ CxpTreeNjMinFind(float *aD, float *aRScaled, long aNleft,
 	    }
 	}
     }
-    iMin = CxpTreeNjXy2i(aNleft, xMin, yMin);
 
     *rXMin = xMin;
     *rYMin = yMin;
-    *rIMin = iMin;
 }
 
-CxmpInline CxtNodeObject *
+CxmpInline void
 CxpTreeNjNodesJoin(float *aD, float *aRScaled, CxtNodeObject **aNodes,
-		   CxtTreeObject *aTree, long aXMin, long aYMin, long aIMin)
+		   CxtTreeObject *aTree, long aNleft, long aXMin, long aYMin,
+		   CxtNodeObject **rNode, float *rDistX, float *rDistY)
 {
-    CxtNodeObject *retval;
+    CxtNodeObject *node;
     float distX, distY;
     CxtEdgeObject *edgeX, *edgeY;
-    
+    long iMin;
+
     /* Join the nodes that have the minimum transformed distance between
      * them. */
-    retval = CxNodeNew(aTree);
+    node = CxNodeNew(aTree);
     edgeX = CxEdgeNew(aTree);
-    CxEdgeAttach(edgeX, retval, aNodes[aXMin]);
-    distX = (aD[aIMin] + aRScaled[aXMin] - aRScaled[aYMin]) / 2;
+    CxEdgeAttach(edgeX, node, aNodes[aXMin]);
+    iMin = CxpTreeNjXy2i(aNleft, aXMin, aYMin);
+    distX = (aD[iMin] + aRScaled[aXMin] - aRScaled[aYMin]) / 2;
     CxEdgeLengthSet(edgeX, distX);
 
     edgeY = CxEdgeNew(aTree);
-    CxEdgeAttach(edgeY, retval, aNodes[aYMin]);
-    distY = aD[aIMin] - distX;
+    CxEdgeAttach(edgeY, node, aNodes[aYMin]);
+    distY = aD[iMin] - distX;
     CxEdgeLengthSet(edgeY, distY);
 
-    return retval;
+    *rNode = node;
+    *rDistX = distX;
+    *rDistY = distY;
 }
 
 CxmpInline void
@@ -277,13 +278,11 @@ CxpTreeNjRSubtract(float *aD, float *aR, long aNleft, long aXMin, long aYMin)
 
 CxmpInline void
 CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
-		 long aNleft, long aXMin, long aYMin, CxtNodeObject *aNode)
+		 long aNleft, long aXMin, long aYMin, CxtNodeObject *aNode,
+		 float aDistX, float aDistY)
 {
     long x, iX, iY;
-    float dist, distX, distY;
-#ifdef CxmCcSilence
-    distX = distY = 0.0;
-#endif
+    float dist;
 
     /* Insert the new node into r. */
     aNodes[aXMin] = aNode;
@@ -298,7 +297,7 @@ CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
     {
 	if (x < aXMin)
 	{
-	    dist = ((aD[iX] - distX) + (aD[iY] - distY)) / 2;
+	    dist = ((aD[iX] - aDistX) + (aD[iY] - aDistY)) / 2;
 	    aD[iX] = dist;
 	    iX += aNleft - 2 - x;
 	    iY += aNleft - 2 - x;
@@ -310,7 +309,7 @@ CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 	    if (x < aYMin)
 	    {
 		iX++;
-		dist = ((aD[iX] - distX) + (aD[iY] - distY)) / 2;
+		dist = ((aD[iX] - aDistX) + (aD[iY] - aDistY)) / 2;
 		aD[iX] = dist;
 		iY += aNleft - 2 - x;
 		aR[x] += dist;
@@ -320,7 +319,7 @@ CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 	    {
 		iX++;
 		iY++;
-		dist = ((aD[iX] - distX) + (aD[iY] - distY)) / 2;
+		dist = ((aD[iX] - aDistX) + (aD[iY] - aDistY)) / 2;
 		aD[iX] = dist;
 		aR[x] += dist;
 		aR[aXMin] += dist;
@@ -387,6 +386,214 @@ CxpTreeNjFinalJoin(float *aD, CxtNodeObject **aNodes, CxtTreeObject *aTree)
     CxEdgeLengthSet(edge, aD[0]);
 
     return aNodes[0];
+}
+
+CxmpInline bool
+CxpTreeNjPairClusterOk(float *aD, long aNleft, long aA, long aB)
+{
+    bool retval;
+    int relation;
+    long x, iA, iB;
+    float dist, distA, distB;
+
+    CxmAssert(aA < aB);
+
+    /* Compare the distances from {aA, aB} to every other node, and make sure
+     * that one of the two is always closer, always farther, or always
+     * equidistant. */
+    dist = aD[CxpTreeNjXy2i(aNleft, aA, aB)];
+    for (x = relation = 0,
+	     iA = aA - 1,
+	     iB = aB - 1;
+	 x < aNleft;
+	 x++)
+    {
+	if (x < aA)
+	{
+	    distA = aD[iA];
+	    iA += aNleft - 2 - x;
+
+	    distB = aD[iB];
+	    iB += aNleft - 2 - x;
+	}
+	else if (x > aA)
+	{
+	    iA++;
+	    distA = aD[iA];
+
+	    if (x < aB)
+	    {
+		distB = aD[iB];
+		iB += aNleft - 2 - x;
+	    }
+	    else if (x > aB)
+	    {
+		iB++;
+		distB = aD[iB];
+	    }
+	    else
+	    {
+		continue;
+	    }
+	}
+	else // (x == aA)
+	{
+	    iB += aNleft - 2 - x;
+	    continue;
+	}
+
+	/* Make sure aA and aB are closer together than any nodes are to either
+	 * aA or aB. */
+	if (distA <= dist || distB <= dist)
+	{
+	    retval = false;
+	    goto RETURN;
+	}
+
+	/* Check relationship of distances. */
+	if (distA < distB)
+	{
+	    relation |= 1;
+	}
+	else if (distA > distB)
+	{
+	    relation |= 2;
+	}
+
+	if (relation == 3)
+	{
+	    retval = false;
+	    goto RETURN;
+	}
+    }
+
+    retval = true;
+    fprintf(stderr, "Cluster rows %ld and %ld\n", aA, aB);
+    RETURN:
+    return retval;
+}
+
+static void
+CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
+		     CxtNodeObject ***arNodes, long *arNleft,
+		     CxtTreeObject *aTree, long aPrevJoin)
+{
+    float *d = *arD;
+    float *r = *arR;
+    float *rScaled = *arRScaled;
+    CxtNodeObject *node;
+    CxtNodeObject **nodes = *arNodes;
+    long nleft = *arNleft;
+    long x, prevJoin, a, b;
+    float distX, distY;
+    bool stop;
+
+    /* Try to cluster with the most recently created node.  Continue doing
+     * this as long as possible (clustering succeeds, or we run out of
+     * nodes. */
+    prevJoin = aPrevJoin;
+    stop = false;
+    while (nleft > 2 && stop == false)
+    {
+	stop = true;
+	for (x = 0; x < nleft; x++)
+	{
+	    if (x < prevJoin)
+	    {
+		a = x;
+		b = prevJoin;
+	    }
+	    else if (x > prevJoin)
+	    {
+		a = prevJoin;
+		b = x;
+	    }
+	    else
+	    {
+		continue;
+	    }
+
+	    if (CxpTreeNjPairClusterOk(d, nleft, a, b))
+	    {
+		CxpTreeNjRScaledUpdate(rScaled, r, nleft);
+#ifdef CxmTreeNjVerbose
+		CxpTreeDump(d, r, rScaled, nodes, nleft);
+#endif
+		CxpTreeNjNodesJoin(d, rScaled, nodes, aTree,
+				   nleft, a, b, &node, &distX, &distY);
+		CxpTreeNjRSubtract(d, r, nleft, a, b);
+		CxpTreeNjCompact(d, r, rScaled, nodes, nleft, a, b,
+				 node, distX, distY);
+		CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
+		nleft--;
+		prevJoin = a;
+		stop = false;
+		break;
+	    }
+	}
+    }
+
+    *arD = d;
+    *arR = r;
+    *arRScaled = rScaled;
+    *arNodes = nodes;
+    *arNleft = nleft;
+}
+
+static void
+CxpTreeNjFullCluster(float **arD, float **arR, float **arRScaled,
+		     CxtNodeObject ***arNodes, long *arNleft,
+		     CxtTreeObject *aTree)
+{
+    long x, y, min;
+    float *dElm;
+    float dist, minDist, distX, distY;
+    float *d = *arD;
+    float *r = *arR;
+    float *rScaled = *arRScaled;
+    CxtNodeObject *node;
+    CxtNodeObject **nodes = *arNodes;
+    long nleft = *arNleft;
+
+    for (x = 0; x < nleft - 1; x++)
+    {
+	/* Find the minimum distance from the node on row x to any other
+	 * node that comes after this one in the matrix.  This has the effect of
+	 * trying each node pairing only once. */
+	for (y = x + 1,
+		 dElm = &d[CxpTreeNjXy2i(nleft, x, y)],
+		 minDist = HUGE_VAL;
+	     y < nleft;
+	     y++)
+	{
+	    dist = *dElm;
+	    dElm++;
+
+	    if (dist < minDist)
+	    {
+		minDist = dist;
+		min = y;
+	    }
+	}
+	CxmAssert(minDist != HUGE_VAL);
+
+	if (CxpTreeNjPairClusterOk(d, nleft, x, min))
+	{
+	    CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, x, min,
+			       &node, &distX, &distY);
+	    CxpTreeNjRSubtract(d, r, nleft, x, min);
+	    CxpTreeNjCompact(d, r, rScaled, nodes, nleft, x, min,
+			     node, distX, distY);
+	    CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
+	    nleft--;
+	}
+    }
+
+    *arD = d;
+    *arR = r;
+    *arRScaled = rScaled;
+    *arNodes = nodes;
+    *arNleft = nleft;
 }
 
 //#define CxmTreeNjVerbose
@@ -479,8 +686,9 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     float *rOrig, *r; /* Distance sums. */
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
-    long nleft, iMin, xMin, yMin;
+    long nleft, xMin, yMin;
     CxtNodeObject *node;
+    float distX, distY;
 
     CxmCheckPtr(aDistMatrix);
     CxmAssert(aNtaxa > 1);
@@ -495,8 +703,13 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     rScaledOrig = rScaled = CxpTreeNjRScaledInit(aNtaxa);
     nodesOrig = nodes = CxpTreeNjNodesInit(aTree, aNtaxa);
 
+    nleft = aNtaxa;
+
+    /* Do a full pass through the matrix, trying all clusters. */
+    CxpTreeNjFullCluster(&d, &r, &rScaled, &nodes, &nleft, aTree);
+
     /* Iteratitively join two nodes in the matrix, until only two are left. */
-    for (nleft = aNtaxa; nleft > 2; nleft--)
+    while (nleft > 2)
     {
 #if (0)
 	{
@@ -524,16 +737,23 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	    }
 	}
 #endif
+
+	/* Standard neighbor joining. */
+	CxpTreeNjRScaledUpdate(rScaled, r, nleft);
 #ifdef CxmTreeNjVerbose
 	CxpTreeDump(d, r, rScaled, nodes, nleft);
 #endif
-
-	CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-	CxpTreeNjMinFind(d, rScaled, nleft, &xMin, &yMin, &iMin);
-	node = CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, xMin, yMin, iMin);
+	CxpTreeNjMinFind(d, rScaled, nleft, &xMin, &yMin);
+	CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, xMin, yMin,
+			   &node, &distX, &distY);
 	CxpTreeNjRSubtract(d, r, nleft, xMin, yMin);
-	CxpTreeNjCompact(d, r, rScaled, nodes, nleft, xMin, yMin, node);
+	CxpTreeNjCompact(d, r, rScaled, nodes, nleft, xMin, yMin,
+			 node, distX, distY);
 	CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
+	nleft--;
+
+	/* Try to cluster nodes. */
+	CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree, xMin);
     }
 
     node = CxpTreeNjFinalJoin(d, nodes, aTree);
