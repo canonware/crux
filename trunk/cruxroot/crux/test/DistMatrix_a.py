@@ -78,6 +78,12 @@ Taxon_B 1.0
 Taxon_C 2.0 3.0
 """,
 
+"""3
+Taxon_A 1.0e4 +1.0e4 -1.0e4
+Taxon_B 1e4   +1e4   -1e4
+Taxon_C 1e+4  1e-4   1E4
+""",
+
 #
 # Error cases.
 #
