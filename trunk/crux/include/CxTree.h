@@ -27,7 +27,7 @@ extern PyTypeObject CxtRing;
 // The (void *) argument to these types of functions is the "data" pointer
 // associated with each aux registration.
 //
-// The (unsigned) argument is the aux index 
+// The (unsigned) argument is the aux index.
 typedef bool
 CxtNodeAuxInit(CxtNodeObject *, unsigned);
 typedef bool
