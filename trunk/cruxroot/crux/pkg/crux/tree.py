@@ -153,7 +153,7 @@ class tree(_tree.Tree):
         elif type(with) == str or type(with) == file:
             self._newick_new(with, map)
         elif type(with) == list:
-            self._nj_new(with)
+            self._nj_new(with, map)
 
         self._rmap = None
 
@@ -198,7 +198,11 @@ class tree(_tree.Tree):
         parser = _newick_parser(self, self._map)
         return parser.parse(input, self)
 
-    def _nj_new(self, input):
+    def _nj_new(self, input, map=None):
+        if map != None:
+            self._map = map.copy()
+        else:
+            self._map = {}
         self._nj(input)
 
     def prints(self, labels=False, lengths=False, map=None):
