@@ -1,8 +1,3 @@
-* Gracefully raise an exception (or just complain and keep going?) when parsing
-  Newick files that have extra parens (as do ROSE outputs).  The NewickParser
-  code shouldn't ever allow this to happen; the grammar that is enforced should
-  require multiple objects inside parens.
-
 * Add basic TBR tests.
 
 ================================================================================

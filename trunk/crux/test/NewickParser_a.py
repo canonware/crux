@@ -54,16 +54,15 @@ class testclass(crux.NewickParser.NewickParser):
 
 teststrs = (
     # Basic trees.
-    "(A);",
+    "A;",
     "(A,B);",
     "(A,B,C);",
     "(A,(B,C));",
     "((A,B),(C,D));",
 
     # Branch lengths.
-    "(A:42);",
-    "(A:42.3);",
-    "((A,B):42.3);",
+    "A:42;",
+    "A:42.3;",
     "(A,B):42.3;",
     "(1,2,3:4.2):4;",
 
@@ -74,9 +73,9 @@ teststrs = (
     "(A,B[hi]);",
     "(A,B)[hi];",
 
-    "[[hi][bye]](A);",
-    "[[hi] [bye]](A);",
-    "[a[b[c[d[e[f]g]h]i]j]k](A);",
+    "[[hi][bye]](A,B);",
+    "[[hi] [bye]](A,B);",
+    "[a[b[c[d[e[f]g]h]i]j]k](A,B);",
 
     # Whitespace.
     " (A,B);",
@@ -103,12 +102,12 @@ teststrs = (
     # Labels.
     ";",
     "A;",
-    "();",
-    "()label;",
+    "(,);",
+    "(,)label;",
     "(,);",
     "(,,);",
     "(,,,);",
-    "(,());",
+    "(,(,));",
     "(,(,),);",
     "(,(,)label,);",
     "(A,B,);",
@@ -116,27 +115,27 @@ teststrs = (
     "(A,B,,C,,,);",
 
     # Branch lengths.
-    "(A:0);",
-    "(A:0123456789);",
-    "(A:0.0);",
-    "(A:0123456789.0123456789);",
-    "(A:+1);",
-    "(A:-1);",
-    "(A:+3.42);",
-    "(A:-3.42);",
-    "(A:3e1);",
-    "(A:3.52e1);",
-    "(A:3.52e+1);",
-    "(A:3.52e-1);",
-    "(A:3.52E1);",
-    "(A:3.52E+1);",
-    "(A:3.52E-1);",
+    "(A:0,B);",
+    "(A:0123456789,B);",
+    "(A:0.0,B);",
+    "(B,A:0123456789.0123456789);",
+    "(B,A:+1);",
+    "(B,A:-1);",
+    "(B,A:+3.42);",
+    "(,A:-3.42);",
+    "(,A:3e1);",
+    "(,A:3.52e1);",
+    "(,A:3.52e+1);",
+    "(A:3.52e-1,);",
+    "(A:3.52E1,);",
+    "(A:3.52E+1,);",
+    "(A:3.52E-1,);",
 
     # Unquoted labels.
-    """(SomeCharacters!@#$%^*&.<>/?"\|-_=+`~{}whee);""",
+    """(SomeCharacters!@#$%^*&.<>/?"\|-_=+`~{}whee,B);""",
 
     # Quoted labels.
-    "('A quoted label.  Let''s embed a single quote.');",
+    "('A quoted label.  Let''s embed a single quote.',B);",
     "(A,'',C);",
     
     # Test error conditions.
@@ -145,6 +144,11 @@ teststrs = (
     "(A,B)",
     "(A,B:42.43.44);",
     "(A:42.);",
+
+    "(A);",
+    "(A,(B));",
+    "(A,((B,C)));",
+    "(A,((B,(C,D))));",
 
     # General tests.
     "( [hi]1_1[bye[hi again]bye for real]: 4.2,3,('4_4',5));",

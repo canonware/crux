@@ -59,7 +59,7 @@
 //
 // tree ::= [ <descendant_list> ][ <root_label> ][ : <branch_length> ] ;
 //
-// descendant_list ::= ( <subtree> [ , <subtree> ] )
+// descendant_list ::= ( <subtree> , <subtree> [ , <subtree> ] )
 //
 // subtree ::= <descendant_list> [ <internal_label> ][ : <branch_length> ]
 //           | <leaf_label> [ : <branch_length> ]
@@ -1017,6 +1017,31 @@ CxpNewickParserProdDescendantList(CxtNewickParserObject *self, bool *rAccepted)
     if (self->c == '(')
     {
 	if (CxpNewickParserTokenAccept(self, "openParenAccept")
+	    || CxpNewickParserProdWs(self)
+	    || CxpNewickParserProdSubtree(self)
+	    || CxpNewickParserProdWs(self))
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	if (CxpNewickParserGetC(self))
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	if (self->c != ',')
+	{
+	    CxError(CxgNewickParserSyntaxError,
+		    "At offset %d (token '%.*s', char '%c'):"
+		    " ',' expected",
+		    self->i.s.offset - 1, self->tokenLen, self->buf, self->c);
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	if (CxpNewickParserTokenAccept(self, "commaAccept")
 	    || CxpNewickParserProdWs(self)
 	    || CxpNewickParserProdSubtree(self)
 	    || CxpNewickParserProdWs(self))

@@ -14,7 +14,7 @@ import sys
 print "Test begin"
 
 teststrs = (
-    "(A);",
+    "A;",
     "(A,B);",
     "(A,B,C);",
 

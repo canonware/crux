@@ -1,10 +1,7 @@
 Test begin
 
-=== '(A);' ===
---(--: '('
---leafLabel--: 'A'
---)--: ')'
---rootLabel--: ''
+=== 'A;' ===
+--rootLabel--: 'A'
 --;--: ';'
 
 === '(A,B);' ===
@@ -60,36 +57,16 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:42);' ===
---(--: '('
---leafLabel--: 'A'
+=== 'A:42;' ===
+--rootLabel--: 'A'
 --:--: ':'
 --length--: '42'
---)--: ')'
---rootLabel--: ''
 --;--: ';'
 
-=== '(A:42.3);' ===
---(--: '('
---leafLabel--: 'A'
+=== 'A:42.3;' ===
+--rootLabel--: 'A'
 --:--: ':'
 --length--: '42.3'
---)--: ')'
---rootLabel--: ''
---;--: ';'
-
-=== '((A,B):42.3);' ===
---(--: '('
---(--: '('
---leafLabel--: 'A'
---,--: ','
---leafLabel--: 'B'
---)--: ')'
---internalLabel--: ''
---:--: ':'
---length--: '42.3'
---)--: ')'
---rootLabel--: ''
 --;--: ';'
 
 === '(A,B):42.3;' ===
@@ -168,26 +145,32 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '[[hi][bye]](A);' ===
+=== '[[hi][bye]](A,B);' ===
 --[]--: '[[hi][bye]]'
 --(--: '('
 --leafLabel--: 'A'
+--,--: ','
+--leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '[[hi] [bye]](A);' ===
+=== '[[hi] [bye]](A,B);' ===
 --[]--: '[[hi] [bye]]'
 --(--: '('
 --leafLabel--: 'A'
+--,--: ','
+--leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '[a[b[c[d[e[f]g]h]i]j]k](A);' ===
+=== '[a[b[c[d[e[f]g]h]i]j]k](A,B);' ===
 --[]--: '[a[b[c[d[e[f]g]h]i]j]k]'
 --(--: '('
 --leafLabel--: 'A'
+--,--: ','
+--leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
@@ -399,15 +382,19 @@ Test begin
 --rootLabel--: 'A'
 --;--: ';'
 
-=== '();' ===
+=== '(,);' ===
 --(--: '('
+--leafLabel--: ''
+--,--: ','
 --leafLabel--: ''
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '()label;' ===
+=== '(,)label;' ===
 --(--: '('
+--leafLabel--: ''
+--,--: ','
 --leafLabel--: ''
 --)--: ')'
 --rootLabel--: 'label'
@@ -446,11 +433,13 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(,());' ===
+=== '(,(,));' ===
 --(--: '('
 --leafLabel--: ''
 --,--: ','
 --(--: '('
+--leafLabel--: ''
+--,--: ','
 --leafLabel--: ''
 --)--: ')'
 --internalLabel--: ''
@@ -535,35 +524,43 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:0);' ===
+=== '(A:0,B);' ===
 --(--: '('
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '0'
+--,--: ','
+--leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:0123456789);' ===
+=== '(A:0123456789,B);' ===
 --(--: '('
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '0123456789'
+--,--: ','
+--leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:0.0);' ===
+=== '(A:0.0,B);' ===
 --(--: '('
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '0.0'
+--,--: ','
+--leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:0123456789.0123456789);' ===
+=== '(B,A:0123456789.0123456789);' ===
 --(--: '('
+--leafLabel--: 'B'
+--,--: ','
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '0123456789.0123456789'
@@ -571,8 +568,10 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:+1);' ===
+=== '(B,A:+1);' ===
 --(--: '('
+--leafLabel--: 'B'
+--,--: ','
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '+1'
@@ -580,8 +579,10 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:-1);' ===
+=== '(B,A:-1);' ===
 --(--: '('
+--leafLabel--: 'B'
+--,--: ','
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '-1'
@@ -589,8 +590,10 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:+3.42);' ===
+=== '(B,A:+3.42);' ===
 --(--: '('
+--leafLabel--: 'B'
+--,--: ','
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '+3.42'
@@ -598,8 +601,10 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:-3.42);' ===
+=== '(,A:-3.42);' ===
 --(--: '('
+--leafLabel--: ''
+--,--: ','
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '-3.42'
@@ -607,8 +612,10 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:3e1);' ===
+=== '(,A:3e1);' ===
 --(--: '('
+--leafLabel--: ''
+--,--: ','
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '3e1'
@@ -616,8 +623,10 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:3.52e1);' ===
+=== '(,A:3.52e1);' ===
 --(--: '('
+--leafLabel--: ''
+--,--: ','
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '3.52e1'
@@ -625,8 +634,10 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:3.52e+1);' ===
+=== '(,A:3.52e+1);' ===
 --(--: '('
+--leafLabel--: ''
+--,--: ','
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '3.52e+1'
@@ -634,52 +645,64 @@ Test begin
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:3.52e-1);' ===
+=== '(A:3.52e-1,);' ===
 --(--: '('
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '3.52e-1'
+--,--: ','
+--leafLabel--: ''
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:3.52E1);' ===
+=== '(A:3.52E1,);' ===
 --(--: '('
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '3.52E1'
+--,--: ','
+--leafLabel--: ''
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:3.52E+1);' ===
+=== '(A:3.52E+1,);' ===
 --(--: '('
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '3.52E+1'
+--,--: ','
+--leafLabel--: ''
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '(A:3.52E-1);' ===
+=== '(A:3.52E-1,);' ===
 --(--: '('
 --leafLabel--: 'A'
 --:--: ':'
 --length--: '3.52E-1'
+--,--: ','
+--leafLabel--: ''
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== '(SomeCharacters!@#$%^*&.<>/?"\\|-_=+`~{}whee);' ===
+=== '(SomeCharacters!@#$%^*&.<>/?"\\|-_=+`~{}whee,B);' ===
 --(--: '('
 --leafLabel--: 'SomeCharacters!@#$%^*&.<>/?"\\|- =+`~{}whee'
+--,--: ','
+--leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
 
-=== "('A quoted label.  Let''s embed a single quote.');" ===
+=== "('A quoted label.  Let''s embed a single quote.',B);" ===
 --(--: '('
 --leafLabel--: "A quoted label.  Let's embed a single quote."
+--,--: ','
+--leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
 --;--: ';'
@@ -712,7 +735,7 @@ Exception C_NewickParser.SyntaxError: At offset 5 (token ')', char ')'): ';' exp
 --leafLabel--: 'B'
 --)--: ')'
 --internalLabel--: ''
-Exception C_NewickParser.SyntaxError: At offset 6 (token ';', char ';'): ',' or ')' expected
+Exception C_NewickParser.SyntaxError: At offset 6 (token ';', char ';'): ',' expected
 
 === '(A,B)' ===
 --(--: '('
@@ -736,6 +759,50 @@ Exception C_NewickParser.SyntaxError: At offset 10 (token '.', char '.'): ',' or
 --leafLabel--: 'A'
 --:--: ':'
 Exception C_NewickParser.SyntaxError: At offset 6 (token '42.)', char ')'): Expected digit
+
+=== '(A);' ===
+--(--: '('
+--leafLabel--: 'A'
+Exception C_NewickParser.SyntaxError: At offset 2 (token ')', char ')'): ',' expected
+
+=== '(A,(B));' ===
+--(--: '('
+--leafLabel--: 'A'
+--,--: ','
+--(--: '('
+--leafLabel--: 'B'
+Exception C_NewickParser.SyntaxError: At offset 5 (token ')', char ')'): ',' expected
+
+=== '(A,((B,C)));' ===
+--(--: '('
+--leafLabel--: 'A'
+--,--: ','
+--(--: '('
+--(--: '('
+--leafLabel--: 'B'
+--,--: ','
+--leafLabel--: 'C'
+--)--: ')'
+--internalLabel--: ''
+Exception C_NewickParser.SyntaxError: At offset 9 (token ')', char ')'): ',' expected
+
+=== '(A,((B,(C,D))));' ===
+--(--: '('
+--leafLabel--: 'A'
+--,--: ','
+--(--: '('
+--(--: '('
+--leafLabel--: 'B'
+--,--: ','
+--(--: '('
+--leafLabel--: 'C'
+--,--: ','
+--leafLabel--: 'D'
+--)--: ')'
+--internalLabel--: ''
+--)--: ')'
+--internalLabel--: ''
+Exception C_NewickParser.SyntaxError: At offset 13 (token ')', char ')'): ',' expected
 
 === "( [hi]1_1[bye[hi again]bye for real]: 4.2,3,('4_4',5));" ===
 --(--: '('
