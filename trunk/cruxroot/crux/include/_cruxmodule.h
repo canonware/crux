@@ -126,5 +126,5 @@ typedef unsigned char bool;
 
 /* Convenience macro for determining the offset of a field within a
  * structure. */
-#define cxmOffsetOf(a_type, a_field)					\
-    ((uint32_t) &(((a_type *)NULL)->a_field))
+#define cxmOffsetOf(aType, aField)					\
+    ((uint32_t) &(((aType *)NULL)->aField))
