@@ -1,0 +1,116 @@
+Test begin
+=== CharacterType ===
+==> stateCodeAdd('A')
+A --> 1
+A <-- 1
+nstates: 1
+==> stateCodeAdd('B')
+B --> 2
+B <-- 2
+nstates: 2
+==> stateCodeAdd('C')
+C --> 4
+C <-- 4
+nstates: 3
+==> stateCodeAdd('D')
+D --> 8
+D <-- 8
+nstates: 4
+Codes: ['A', 'B', 'C', 'D']
+==> ambiguityCodeAdd('Y', ['C', 'D'])
+Y --> 12
+Y <-- 12
+==> ambiguityCodeAdd('X', ['A', 'B', 'C'])
+X --> 7
+X <-- 7
+==> ambiguityCodeAdd('Z', ['A', 'B', 'C', 'D'])
+Z --> 15
+Z <-- 15
+==> ambiguityCodeAdd('W', ['A', 'B'])
+W --> 3
+W <-- 3
+Codes: ['A', 'B', 'C', 'D', 'W', 'X', 'Y', 'Z']
+==> aliasCodeAdd('a', 'A')
+a --> 1
+A <-- 1
+==> aliasCodeAdd('c', 'C')
+c --> 4
+C <-- 4
+==> aliasCodeAdd('b', 'B')
+b --> 2
+B <-- 2
+==> aliasCodeAdd('d', 'D')
+d --> 8
+D <-- 8
+Codes: ['A', 'B', 'C', 'D', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd']
+nstates: 4
+Exception crux.CharacterType.ValueError: State already defined: 'A'
+Exception crux.CharacterType.ValueError: State already defined: 'A'
+Exception crux.CharacterType.ValueError: State already defined: 'A'
+Exception crux.CharacterType.ValueError: State not defined: 'J'
+Exception crux.CharacterType.ValueError: Value not defined: 42
+=== DnaCharacterType ===
+Codes: ['-', 'A', 'B', 'C', 'D', 'G', 'H', 'K', 'M', 'N', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'a', 'b', 'c', 'd', 'g', 'h', 'k', 'm', 'n', 'r', 's', 't', 'v', 'w', 'x', 'y']
+nstates: 4
+- --> 0xf --> -
+A --> 0x8 --> A
+B --> 0x7 --> B
+C --> 0x4 --> C
+D --> 0xb --> D
+G --> 0x2 --> G
+H --> 0xd --> H
+K --> 0x3 --> K
+M --> 0xc --> M
+N --> 0xf --> -
+R --> 0xa --> R
+S --> 0x6 --> S
+T --> 0x1 --> T
+V --> 0xe --> V
+W --> 0x9 --> W
+X --> 0xf --> -
+Y --> 0x5 --> Y
+a --> 0x8 --> A
+b --> 0x7 --> B
+c --> 0x4 --> C
+d --> 0xb --> D
+g --> 0x2 --> G
+h --> 0xd --> H
+k --> 0x3 --> K
+m --> 0xc --> M
+n --> 0xf --> -
+r --> 0xa --> R
+s --> 0x6 --> S
+t --> 0x1 --> T
+v --> 0xe --> V
+w --> 0x9 --> W
+x --> 0xf --> -
+y --> 0x5 --> Y
+=== ProteinCharacterType ===
+Codes: ['-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+nstates: 24
+- --> 0x00ffffff --> -
+A --> 0x00000001 --> A
+B --> 0x00000002 --> B
+C --> 0x00000004 --> C
+D --> 0x00000008 --> D
+E --> 0x00000010 --> E
+F --> 0x00000020 --> F
+G --> 0x00000040 --> G
+H --> 0x00000080 --> H
+I --> 0x00000100 --> I
+K --> 0x00000200 --> K
+L --> 0x00000400 --> L
+M --> 0x00000800 --> M
+N --> 0x00001000 --> N
+P --> 0x00002000 --> P
+Q --> 0x00004000 --> Q
+R --> 0x00008000 --> R
+S --> 0x00010000 --> S
+T --> 0x00020000 --> T
+U --> 0x00040000 --> U
+V --> 0x00080000 --> V
+W --> 0x00100000 --> W
+X --> 0x00200000 --> X
+Y --> 0x00400000 --> Y
+Z --> 0x00800000 --> Z
+Test end
