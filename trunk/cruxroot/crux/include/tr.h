@@ -64,12 +64,6 @@ trn_new(cw_trn_t *a_trn);
 void
 trn_delete(cw_trn_t *a_trn);
 
-void
-trn_leaf(cw_trn_t *a_trn);
-
-void
-trn_internal(cw_trn_t *a_trn);
-
 cw_tx_t *
 trn_tx_get(cw_trn_t *a_trn);
 
@@ -77,7 +71,7 @@ void
 trn_tx_set(cw_trn_t *a_trn, cw_tx_t *a_tx);
 
 cw_trn_t *
-trn_neighbor_get(cw_trn_t *a_trn, cw_uint32_t a_neighbor);
+trn_neighbor_get(cw_trn_t *a_trn, cw_uint32_t a_i);
 
 void
 trn_neighbors_swap(cw_trn_t *a_trn, cw_uint32_t a_i, cw_uint32_t a_j);
