@@ -13,7 +13,7 @@
  ******************************************************************************/
 
 #include <stdio.h>
-#include <stdart.h>
+#include <stdarg.h>
 
 static int
 asprintf(char **rResult, const char *aFormat, ...)
