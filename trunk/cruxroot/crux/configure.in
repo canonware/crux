@@ -193,18 +193,17 @@ AC_SUBST([crux_packages])
 
 dnl C sources.
 crux_sources=""
-for s in _cruxmodule.c ia32.c mem.c tr.c tree.c tree_canonize.c tree_mp.c \
-         tree_nj.c tree_tbr.c xep.c ; do
-  crux_sources="${crux_sources} '${srcroot}/src/${s}',"
+for s in `find ${srcroot}/src -type f |grep "\.c$"` ; do
+  crux_sources="${crux_sources} '${s}',"
 done
 crux_sources="[[${crux_sources}]]"
 AC_SUBST([crux_sources])
 
 dnl C headers.
 crux_headers=""
-for h in _cruxmodule.h _cruxmodule_defs.h ia32.h mem.h qli.h qr.h qri.h tr.h \
-         tree.h tree_canonize.h tree_mp.h tree_nj.h tree_tbr.h xep.h ; do
-  crux_headers="${crux_headers} ${srcroot}/include/${h}"
+for h in `find ${srcroot}/include -type f |grep "\.h$"` \
+         $objroot/_cruxmodule_defs.h ; do
+  crux_headers="${crux_headers} ${h}"
 done
 AC_SUBST([crux_headers])
 
@@ -218,8 +217,8 @@ AC_SUBST([crux_scripts])
 
 dnl Crux tests.
 crux_tests=""
-for t in NewickParser_a.py NewickParser_b.py dist_matrix_a.py taxon_map_a.py; do
-  crux_tests="${crux_tests} test/${t}"
+for t in `find ${srcroot}/test -type f |grep "\.py$"`; do
+  crux_tests="${crux_tests} ${t}"
 done
 AC_SUBST([crux_tests])
 

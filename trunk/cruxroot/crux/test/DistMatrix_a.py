@@ -11,7 +11,7 @@
 
 import sys
 
-def matrix_print(matrix, ntaxa):
+def matrixPrint(matrix, ntaxa):
     x = 0
     while x < ntaxa:
         y = 0
@@ -98,11 +98,11 @@ print "Test begin"
 for matrix in matrices:
     try:
         print matrix
-        (map, matrix) = crux.dist_matrix.dist_matrix().parse(matrix)
+        (map, matrix) = crux.DistMatrix.DistMatrix().parse(matrix)
 
-        print map.taxa_get()
-        matrix_print(matrix, map.ntaxa_get())
-    except crux.dist_matrix.Exception, x:
+        print map.taxaGet()
+        matrixPrint(matrix, map.ntaxaGet())
+    except crux.DistMatrix.Exception, x:
         import sys
         
         print "Exception %s: %s" % (sys.exc_type, x.__str__())

@@ -58,7 +58,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000
 
-Exception crux.dist_matrix.SyntaxError: Taxon count specification: Syntax error
+Exception crux.DistMatrix.SyntaxError: Taxon count specification: Syntax error
 5
 Alpha      0.000 1.000 2.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
@@ -66,7 +66,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.dist_matrix.SyntaxError: Row 1: Syntax error
+Exception crux.DistMatrix.SyntaxError: Row 1: Syntax error
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000
@@ -74,7 +74,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.dist_matrix.SyntaxError: Row 1: Syntax error
+Exception crux.DistMatrix.SyntaxError: Row 1: Syntax error
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
@@ -82,5 +82,5 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000
 
-Exception crux.dist_matrix.SyntaxError: Row 4: Syntax error
+Exception crux.DistMatrix.SyntaxError: Row 4: Syntax error
 Test end

@@ -17,6 +17,6 @@ import tree
 import node
 import edge
 
-import dist_matrix
+import DistMatrix
 import NewickParser
-import taxon_map
+import TaxonMap

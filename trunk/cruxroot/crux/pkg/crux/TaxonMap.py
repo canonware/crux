@@ -9,7 +9,19 @@
 #
 ################################################################################
 
-class taxon_map(object):
+import crux.Exception
+
+class Exception(crux.Exception):
+    pass
+
+class ValueError(Exception, ValueError):
+    def __init__(self, message):
+        self._message = message
+
+    def __str__(self):
+        return self._message
+
+class TaxonMap(object):
     def __init__(self, taxa=[]):
         self._label2ind = {}
         self._ind2label = {}
@@ -22,10 +34,10 @@ class taxon_map(object):
 
             i += 1
 
-    def ntaxa_get(self):
+    def ntaxaGet(self):
         return len(self._label2ind)
 
-    def label_get(self, ind):
+    def labelGet(self, ind):
         if self._ind2label.has_key(ind):
             retval = self._ind2label[ind]
         else:
@@ -33,7 +45,7 @@ class taxon_map(object):
 
         return retval
 
-    def ind_get(self, label):
+    def indGet(self, label):
         if self._label2ind.has_key(label):
             retval = self._label2ind[label]
         else:
@@ -41,14 +53,15 @@ class taxon_map(object):
 
         return retval
 
-    def taxa_get(self):
+    def taxaGet(self):
         retval = self._ind2label.keys()
         retval.sort()
         i = 0
         for ind in retval:
             # Make sure that taxon indices are contiguous.
             if ind != i:
-                raise ValueError
+                raise crux.TaxonMap.ValueError(
+                    "Taxon indices must be contiguous")
 
             retval[ind] = self._ind2label[ind]
 

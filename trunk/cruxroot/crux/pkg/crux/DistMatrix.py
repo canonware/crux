@@ -56,10 +56,9 @@
 #
 ################################################################################
 
-import taxon_map
-
 import re
 
+import TaxonMap
 import crux.Exception
 
 class Exception(crux.Exception):
@@ -77,12 +76,12 @@ class SyntaxError(Exception, SyntaxError):
 
         return retval
 
-class dist_matrix(object):
+class DistMatrix(object):
     def __init__(self):
         pass
 
     # Parse input (file or string) and return a tuple, where the first element
-    # in the tuple is a taxon_map, and the second element is a
+    # in the tuple is a TaxonMmap, and the second element is a
     # row-major matrix.
     #
     # Example input:
@@ -96,7 +95,7 @@ class dist_matrix(object):
     #
     # Corresponding return value:
     #
-    # (<taxon_map: ['Taxon_A', 'Taxon_B', 'Taxon_C', 'Taxon_D', 'Taxon_E']>,
+    # (<TaxonMap: ['Taxon_A', 'Taxon_B', 'Taxon_C', 'Taxon_D', 'Taxon_E']>,
     #  [0.0, 1.0, 2.0, 3.0, 4.0,
     #   1.0, 0.0, 1.5, 2.5, 3.5,
     #   2.0, 1.5, 0.0, 2.2, 3.2,
@@ -106,47 +105,47 @@ class dist_matrix(object):
     def parse(self, input):
         self._input = input
         self._i = 0
-        self._matrix_format = 'unknown' # 'unknown', 'full', 'upper', 'lower'
+        self._matrixFormat = 'unknown' # 'unknown', 'full', 'upper', 'lower'
 
         # Get the number of taxa.
-        token = self._get_token()
+        token = self._tokenGet()
         try:
             self._ntaxa = int(token)
         except ValueError:
-            raise crux.dist_matrix.SyntaxError(-1)
+            raise crux.DistMatrix.SyntaxError(-1)
 
-        # Create an empty taxon_map.
-        self._map = taxon_map.taxon_map()
+        # Create an empty TaxonMap.
+        self._map = TaxonMap.TaxonMap()
 
         # Create an empty distance matrix (fourth quadrant coordinates).
         self._matrix = [None] * (self._ntaxa * self._ntaxa);
 
         # Get the first taxon label.
-        token = self._get_token()
-        distance = self._token_to_distance(token)
+        token = self._tokenGet()
+        distance = self._tokenToDistance(token)
         if distance != None:
-            raise crux.dist_matrix.SyntaxError(0)
-        self._map.map(token, self._map.ntaxa_get())
+            raise crux.DistMatrix.SyntaxError(0)
+        self._map.map(token, self._map.ntaxaGet())
         distances = []
 
         x = 0
         while True:
-            token = self._get_token()
-            distance = self._token_to_distance(token)
+            token = self._tokenGet()
+            distance = self._tokenToDistance(token)
             if distance != None:
                 # Get distance for taxon.
                 distances.append(distance)
             else:
                 # Merge distances into the matrix.
-                self._merge_distances(distances, x)
+                self._distancesMerge(distances, x)
                 distances = []
 
                 # Get taxon label, unless all taxon labels have already been
                 # read.
-                if self._map.ntaxa_get() == self._ntaxa:
+                if self._map.ntaxaGet() == self._ntaxa:
                     break
                 else:
-                    self._map.map(token, self._map.ntaxa_get())
+                    self._map.map(token, self._map.ntaxaGet())
                     x += 1
 
         return (self._map, self._matrix)
@@ -154,7 +153,7 @@ class dist_matrix(object):
     # Return the next token.
     #
     # XXX Add support for input files.
-    def _get_token(self):
+    def _tokenGet(self):
         retval = ""
         start = self._i
         while self._i < len(self._input):
@@ -173,7 +172,7 @@ class dist_matrix(object):
 
     # Return distance (float), or None if the token cannot be converted to a
     # distance.
-    def _token_to_distance(self, token):
+    def _tokenToDistance(self, token):
         try:
             retval = float(token)
         except ValueError:
@@ -182,34 +181,34 @@ class dist_matrix(object):
         return retval
 
     # Merge distances into self._matrix.
-    def _merge_distances(self, distances, row):
-        if self._matrix_format == 'unknown':
+    def _distancesMerge(self, distances, row):
+        if self._matrixFormat == 'unknown':
             if len(distances) == self._ntaxa:
-                self._matrix_format = 'full'
+                self._matrixFormat = 'full'
             elif len(distances) == row:
-                self._matrix_format = 'lower'
+                self._matrixFormat = 'lower'
             elif len(distances) == self._ntaxa - row - 1:
-                self._matrix_format = 'upper'
+                self._matrixFormat = 'upper'
 
-        if self._matrix_format == 'full':
+        if self._matrixFormat == 'full':
             if len(distances) != self._ntaxa:
-                raise crux.dist_matrix.SyntaxError(row)
+                raise crux.DistMatrix.SyntaxError(row)
             i = 0
             while i < len(distances):
                 self._matrix[row * self._ntaxa + i] = distances[i]
                 i += 1
-        elif self._matrix_format == 'lower':
+        elif self._matrixFormat == 'lower':
             if len(distances) != row:
-                raise crux.dist_matrix.SyntaxError(row)
+                raise crux.DistMatrix.SyntaxError(row)
             self._matrix[row * self._ntaxa + row] = 0.0
             i = 0
             while i < len(distances):
                 self._matrix[row * self._ntaxa + i] = distances[i]
                 self._matrix[i * self._ntaxa + row] = distances[i]
                 i += 1
-        elif self._matrix_format == 'upper':
+        elif self._matrixFormat == 'upper':
             if len(distances) != self._ntaxa - row - 1:
-                raise crux.dist_matrix.SyntaxError(row)
+                raise crux.DistMatrix.SyntaxError(row)
             self._matrix[row * self._ntaxa + row] = 0.0
             i = 0
             while i < len(distances):
@@ -218,5 +217,5 @@ class dist_matrix(object):
                 i += 1
         else:
             # Invalid matrix format.
-            raise crux.dist_matrix.SyntaxError(row)
+            raise crux.DistMatrix.SyntaxError(row)
 #EOF

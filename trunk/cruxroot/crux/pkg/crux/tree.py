@@ -14,7 +14,7 @@ import _tree
 import node
 import edge
 import NewickParser
-import taxon_map
+import TaxonMap
 
 import random
 
@@ -79,9 +79,9 @@ class _NewickParser(NewickParser.NewickParser):
 
     # Helper method, called by {root,leaf}LabelAccept().
     def _labelAccept(self):
-        if self._map.ind_get(self.token()) != None:
+        if self._map.indGet(self.token()) != None:
             # Taxon mapping defined.
-            val = self._map.ind_get(self.token())
+            val = self._map.indGet(self.token())
         else:
             # No taxon mapping defined; try to convert the label to an
             # integer.
@@ -95,7 +95,7 @@ class _NewickParser(NewickParser.NewickParser):
                 # good idea?  Perhaps raising an exception is a better way to
                 # go.
                 print "Create new mapping for '%s' (dangerous)" % self.token()
-                val = self._map.ntaxa_get()
+                val = self._map.ntaxaGet()
                 self._map.map(self.token(), val)
 
         # Create a new node and push it onto the stack.
@@ -155,7 +155,7 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, node_a)
 
 class tree(_tree.Tree):
-    def __init__(self, with=None, map=taxon_map.taxon_map()):
+    def __init__(self, with=None, map=TaxonMap.TaxonMap()):
         self._map = map
 
         if type(with) == int:

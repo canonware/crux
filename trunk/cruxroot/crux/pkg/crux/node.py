@@ -26,7 +26,7 @@ class node(_node.Node):
             # Leaf node.
             if labels:
                 # Protect special characters, if necessary.
-                taxon_label = map.label_get(self.taxon_num_get())
+                taxon_label = map.labelGet(self.taxon_num_get())
                 m = re.compile("[^ ()[\]':;,]*[ ()[\]':;,]").match(taxon_label)
                 if m:
                     taxon_label = re.compile("'").sub("''", taxon_label)
