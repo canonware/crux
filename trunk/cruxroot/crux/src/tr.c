@@ -8,6 +8,25 @@
  *
  * Version: Crux <Version = crux>
  *
+ ******************************************************************************
+ *
+ * tr implements multifurcating phylogenetic trees and various operations on
+ * them.  Nodes can be manipulated via the tr_node_*() APIs, and edges can be
+ * manipulated via the tr_edge_*() APIs.
+ *
+ * Nodes and edges are allocated from per-tr internal arrays.  This allows array
+ * indices to be used for links between nodes and edges.  The primary benefit,
+ * however, is that tr_dup() does not need to traverse the tree.
+ *
+ * Each edge has two ring objects associated with it, one for each end of the
+ * edge.  These ring objects are also allocated from an internal array that has
+ * a direct correspondence to the edge array.  This provides for constant-time
+ * conversion between edges and rings.
+ *
+ * Each node optionally references a ring, which contains all the edges that
+ * connect the node to other nodes.  Each ring object in the ring refers to the
+ * node, which allows constant-time conversion from rings to nodes.
+ *
  ******************************************************************************/
 
 #include "../include/modcrux.h"
@@ -35,8 +54,12 @@ struct cw_tr_ps_s
 
     /* If this node is adjacent to the bisection edge, then this variable
      * records the bisection edge.  This is used when deciding whether to push
-     * the value of parent down to the child when recursively scoring. */
+     * the value of parent down to the child when recursively scoring.
+     *
+     * Since a tree transformation is capable of breaking this, also store the
+     * tr sequence number. */
     cw_tr_edge_t bisect;
+    uint64_t seq;
 
     /* Sum of the subtree scores, and this node's score, given particular
      * children.  In order for this to be useful, both childrens' parent
@@ -172,6 +195,11 @@ struct cw_tr_s
     /* True if this tree has been modified since the internal state (ntaxa,
      * nedges, bedges, trt, trti) was updated, false otherwise. */
     bool modified;
+
+    /* The sequence number is incremented every time the modified flag is
+     * cleared.  This provides a way way to tell when the tree has been
+     * modified. */
+    uint64_t seq;
 
     /* Base of the tree (may or may not be set). */
     cw_tr_node_t base;
@@ -991,6 +1019,7 @@ tr_p_new(cw_tr_t *a_tr, cw_mema_t *a_mema)
     a_tr->mema = a_mema;
     a_tr->aux = NULL;
     a_tr->modified = false;
+    a_tr->seq = 0;
     a_tr->base = CW_TR_NODE_NONE;
     a_tr->ntaxa = 0;
     a_tr->nedges = 0;
@@ -1549,6 +1578,7 @@ tr_p_update(cw_tr_t *a_tr)
 
 	/* Reset the modified flag. */
 	a_tr->modified = false;
+	a_tr->seq++;
 
 	/* Update bedges and trt. */
 	tr_p_bedges_update(a_tr, nedges_prev);
@@ -2317,17 +2347,17 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 
 	    /* Pass down the cached parent value, if the last time this node was
 	     * recursed through, the bisection edge was the same. */
-	    // XXX Does TBR break this?
 	    ps = a_tr->trns[tr_p_ring_node_get(a_tr, a_ring)].ps;
-	    if (ps->bisect == a_bisect)
+	    if (ps->bisect == a_bisect && ps->seq == a_tr->seq)
 	    {
 		/* Pass cached parent value to the child. */
 		ps_c->parent = ps->parent;
 	    }
 	    else
 	    {
-		/* Clear cached bisection edge. */
-		ps->bisect = CW_TR_EDGE_NONE;
+		/* Cache bisection edge. */
+		ps->bisect = a_bisect;
+		ps->seq = a_tr->seq;
 	    }
 
 	    /* Recurse. */
@@ -2782,13 +2812,8 @@ tr_canonize(cw_tr_t *a_tr)
     cw_check_ptr(a_tr);
     cw_assert(a_tr->magic == CW_TR_MAGIC);
 
-    /* Partially update internal state, if necessary.  Don't bother updating trt
-     * yet, since we will invalidate it during canonization. */
-    if (a_tr->modified)
-    {
-	tr_p_ntaxa_nedges_update(a_tr);
-	a_tr->modified = false;
-    }
+    /* Update internal state, so that ntaxa and nedges are correct. */
+    tr_p_trt_update(a_tr, a_tr->nedges);
 
     if (a_tr->base != CW_TR_NODE_NONE)
     {
