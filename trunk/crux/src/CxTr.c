@@ -274,7 +274,6 @@ CxpTrEdgeInit(CxtTr *aTr, CxtTrEdge aEdge)
 
     tre = &aTr->tres[aEdge];
 
-    tre->refcount = 3;
     tre->u.aux = NULL;
     CxpTrRingInit(aTr, (aEdge << 1));
     CxpTrRingInit(aTr, (aEdge << 1) + 1);
@@ -397,18 +396,6 @@ CxTrEdgeDelete(CxtTr *aTr, CxtTrEdge aEdge)
 	      == CxmTrNodeNone);
 
     CxpTrEdgeDealloc(aTr, aEdge);
-}
-
-void
-CxTrEdgeDecref(CxtTr *aTr, CxtTrEdge aEdge)
-{
-    CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
-
-    aTr->tres[aEdge].refcount--;
-    if (aTr->tres[aEdge].refcount == 0)
-    {
-	CxTrEdgeDelete(aTr, aEdge);
-    }
 }
 
 double

@@ -1131,12 +1131,6 @@ CxpEdgeClear(CxtEdgeObject *self)
 	Py_DECREF(self->ringA);
 	Py_DECREF(self->ringB);
 
-	/* Do refcounted delete of edge/rings. */
-	CxTrEdgeDecref(self->tree->tr, self->edge);
-
-	/* Drop reference to tree. */
-	Py_DECREF(self->tree);
-
 	self->GcCleared = true;
     }
 
@@ -1156,6 +1150,16 @@ CxpEdgeDelete(CxtEdgeObject *self)
 #endif
 
     CxpEdgeClear(self);
+
+    /* Delete the CxTrEdge (and associated CxTrRing objects).  The
+     * CxtRingObject clear/delete code held onto a reference to this
+     * CxtEdgeOjbect long enough to ensure that both CxtRingObject's
+     * associated with this CxtEdgeObject have already been deallocated. */
+    CxTrEdgeDelete(self->tree->tr, self->edge);
+
+    /* Drop reference to tree. */
+    Py_DECREF(self->tree);
+
     self->ob_type->tp_free((PyObject*) self);
 
 #ifdef CxmTreeGCVerbose
@@ -1647,12 +1651,6 @@ CxpRingClear(CxtRingObject *self)
 	    }
 	}
 
-	/* Do refcounted delete of edge/rings. */
-	CxTrEdgeDecref(self->tree->tr, self->edge->edge);
-
-	/* Drop reference to edge. */
-	Py_DECREF(self->edge);
-
 	/* Drop reference to tree. */
 	Py_DECREF(self->tree);
 
@@ -1679,6 +1677,11 @@ CxpRingDelete(CxtRingObject *self)
 #endif
 
     CxpRingClear(self);
+
+    /* Drop the reference to the associated edge, now that there is no chance of
+     * accessing it again. */
+    Py_DECREF(self->edge);
+
     self->ob_type->tp_free((PyObject*) self);
 
 #ifdef CxmTreeGCVerbose
