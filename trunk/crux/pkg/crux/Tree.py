@@ -22,11 +22,11 @@ import __builtin__
 import random
 
 class _NewickParser(NewickParser.NewickParser):
-    def __init__(self, tree, map, autoMap=False):
+    def __init__(self, tree, map, newickAutoMap=False):
         self._tree = tree
         self._map = map
         self._taxonStack = []
-        self._autoMap = autoMap
+        self._newickAutoMap = newickAutoMap
 
     # Overridden method.
     def parse(self, input):
@@ -90,7 +90,7 @@ class _NewickParser(NewickParser.NewickParser):
                 val = int(self.token())
                 self._map.map(self.token(), val)
             except __builtin__.ValueError:
-                if self._autoMap:
+                if self._newickAutoMap:
                     # Create a new mapping.
                     val = self._map.ntaxaGet()
                     self._map.map(self.token(), val)
@@ -152,24 +152,29 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, nodeA)
 
 class Tree(C_Tree):
-    def __init__(self, with=None, map=None, autoMap=False):
+    def __init__(self, with=None, map=None, newickAutoMap=False,
+                 randomBranchCallback=None):
         if type(with) == int:
-            self._randomNew(with, map)
+            self._randomNew(with, map, randomBranchCallback)
         elif type(with) == str or type(with) == file:
             if map == None:
                 map = TaxonMap.TaxonMap()
             self._map = map
-            self._newickNew(with, autoMap)
+            self._newickNew(with, newickAutoMap)
         else:
             if map == None:
                 map = TaxonMap.TaxonMap()
             self._map = map
 
-    def _randomNew(self, ntaxa, map):
+    def _randomNew(self, ntaxa, map, randomBranchCallback):
         if map == None:
             self._map = TaxonMap.TaxonMap()
         else:
             self._map = map
+
+        # By default, generate branches of length 1.0.
+        if randomBranchCallback == None:
+            randomBranchCallback = _defaultRandomBranchCallback
 
         # Create a stack of leaf nodes.
         subtrees = []
@@ -188,10 +193,10 @@ class Tree(C_Tree):
             subtreeB = subtrees.pop(random.randint(0, len(subtrees) - 1))
             nnode = Node.Node(self)
             edgeA = Edge.Edge(self)
-            edgeA.lengthSet(random.expovariate(1))
+            edgeA.lengthSet(randomBranchCallback())
             edgeA.attach(nnode, subtreeA)
             edgeB = Edge.Edge(self)
-            edgeB.lengthSet(random.expovariate(1))
+            edgeB.lengthSet(randomBranchCallback())
             edgeB.attach(nnode, subtreeB)
             subtrees.append(nnode)
 
@@ -201,13 +206,13 @@ class Tree(C_Tree):
             # constructing an unrooted tree.
             subtreeB = subtrees.pop(0)
             edge = Edge.Edge(self)
-            edge.lengthSet(random.expovariate(1))
+            edge.lengthSet(randomBranchCallback())
             edge.attach(subtreeA, subtreeB)
 
         self.baseSet(subtreeA)
 
-    def _newickNew(self, input, autoMap):
-        parser = _NewickParser(self, self._map, autoMap)
+    def _newickNew(self, input, newickAutoMap):
+        parser = _NewickParser(self, self._map, newickAutoMap)
         return parser.parse(input)
 
     def taxonMapGet(self):
@@ -284,4 +289,8 @@ class Tree(C_Tree):
     def _fileRenderCallback(self, string):
         # Print string to self._outFile.
         self._outFile.write(string)
+
+# Default branch length callback function for random tree construction.
+def _defaultRandomBranchCallback():
+    return 1.0
 #EOF
