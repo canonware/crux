@@ -13,7 +13,7 @@ import TaxonMap
 import FastaParser
 import CharacterType
 
-import crux.Exception
+import crux
 
 class Exception(crux.Exception):
     pass
@@ -69,6 +69,18 @@ class CTMatrix(object):
     def fastaFileParse(self, file, chartype='DNA'):
         parser = _FastaParser(self, self._taxonMap)
         parser.parse(file, chartype)
+
+    def fastaPrint(self, file):
+        taxa = self._taxonMap.taxaGet()
+        for taxon in taxa:
+            if self.dataGet(taxon) != None:
+                print >> file, ">%s" % taxon
+                # Break into lines of length 75.
+                for i in forints(len(self.dataGet(taxon)), step=75):
+                    if i + 75 < len(self.dataGet(taxon)):
+                        print >> file, "%s" % self.dataGet(taxon)[i:i+75]
+                    else:
+                        print >> file, "%s" % self.dataGet(taxon)[i:]
 
     def fastaPrints(self):
         retval = ""
