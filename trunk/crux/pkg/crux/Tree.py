@@ -153,14 +153,11 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, nodeA)
 
 class Tree(C_Tree):
-    def __init__(self, with=None, map=None, autoMap=False,
-                 maxLength=10, tryAdditive=True, joinRandom=False):
+    def __init__(self, with=None, map=None, autoMap=False, tryAdditive=True,
+                 joinRandom=False):
 
         if type(with) == int:
-            if map == None:
-                map = TaxonMap.TaxonMap()
-            self._map = map
-            self._randomNew(with, maxLength)
+            self._randomNew(with, map)
         elif type(with) == str or type(with) == file:
             if map == None:
                 map = TaxonMap.TaxonMap()
@@ -169,15 +166,25 @@ class Tree(C_Tree):
         elif type(with) == DistMatrix.DistMatrix:
             self._map = with.taxonMapGet()
             self._nj(with, tryAdditive, joinRandom)
+        else:
+            if map == None:
+                map = TaxonMap.TaxonMap()
+            self._map = map
 
-    def _randomNew(self, ntaxa, maxLength):
+    def _randomNew(self, ntaxa, map):
+        if map == None:
+            self._map = TaxonMap.TaxonMap()
+        else:
+            self._map = map
+
         # Create a stack of leaf nodes.
         subtrees = []
         for i in forints(ntaxa):
             nnode = Node.Node(self)
             nnode.taxonNumSet(i)
             subtrees.append(nnode)
-            self._map.map("T%d" % i, i)
+            if map == None:
+                self._map.map("T%d" % i, i)
 
         # Iteratively randomly remove two items from the stack, join them, and
         # push the result back onto the stack.  Stop when there are two subtrees
@@ -187,10 +194,10 @@ class Tree(C_Tree):
             subtreeB = subtrees.pop(random.randint(0, len(subtrees) - 1))
             nnode = Node.Node(self)
             edgeA = Edge.Edge(self)
-            edgeA.lengthSet(random.randint(1, maxLength))
+            edgeA.lengthSet(random.expovariate(1))
             edgeA.attach(nnode, subtreeA)
             edgeB = Edge.Edge(self)
-            edgeB.lengthSet(random.randint(1, maxLength))
+            edgeB.lengthSet(random.expovariate(1))
             edgeB.attach(nnode, subtreeB)
             subtrees.append(nnode)
 
@@ -200,7 +207,7 @@ class Tree(C_Tree):
             # constructing an unrooted tree.
             subtreeB = subtrees.pop(0)
             edge = Edge.Edge(self)
-            edge.lengthSet(random.randint(1, maxLength))
+            edge.lengthSet(random.expovariate(1))
             edge.attach(subtreeA, subtreeB)
 
         self.baseSet(subtreeA)
