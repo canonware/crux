@@ -548,6 +548,7 @@ trn_p_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
     cw_uint32_t edge;
 
     cw_assert(trn_p_root_get(a_trn, NULL, NULL) == a_trn);
+    cw_assert(a_edge < trn_p_nedges_get(a_trn));
 
     /* Get the nodes to either side of the edge where the bisection will be
      * done. */
@@ -993,15 +994,12 @@ tr_p_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
     cw_trn_t *trn, *trn_a, *trn_b, *spare_a, *spare_b;
 
     /* Bisect. */
-    cw_assert(a_bisect < trn_p_nedges_get(a_tr->croot));
     trn_p_bisect(a_tr->croot, a_bisect,
 		 &trn_a, r_reconnect_a,
 		 &trn_b, r_reconnect_b,
 		 &spare_a, &spare_b);
 
     /* Reconnect. */
-    cw_assert(a_reconnect_a < trn_p_nedges_get(trn_a));
-    cw_assert(a_reconnect_b < trn_p_nedges_get(trn_b));
     trn_p_connect(trn_a, a_reconnect_a,
 		  trn_b, a_reconnect_b,
 		  &spare_a, &spare_b,
@@ -1039,7 +1037,14 @@ trn_p_bisection_edge_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_other,
 	else if (a_trn->neighbors[i] == a_other)
 	{
 	    /* Store the index of the edge adjacent to the bisection. */
-	    *r_bisection_edge = prev_edge_count;
+	    if (prev_edge_count > 0)
+	    {
+		*r_bisection_edge = prev_edge_count - 1;
+	    }
+	    else
+	    {
+		*r_bisection_edge = CW_TRN_EDGE_NONE;
+	    }
 	}
     }
 }
@@ -1064,6 +1069,10 @@ trn_p_bisection_edges_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trt_t *r_trt)
     r_trt->nedges_a = 0;
     trn_p_bisection_edge_get_recurse(a_trn, adj_b, NULL, &r_trt->nedges_a,
 				     &r_trt->self_a);
+    if (r_trt->nedges_a > 0)
+    {
+	r_trt->nedges_a--;
+    }
 
     /* Get the lowest numbered taxon in the second half of the bisection. */
     trn = trn_p_root_get(adj_b, adj_a, NULL);
@@ -1073,12 +1082,16 @@ trn_p_bisection_edges_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trt_t *r_trt)
     r_trt->nedges_b = 0;
     trn_p_bisection_edge_get_recurse(trn, adj_a, NULL, &r_trt->nedges_b,
 				     &r_trt->self_b);
+    if (r_trt->nedges_b > 0)
+    {
+	r_trt->nedges_b--;
+    }
 }
 
 static void
 tr_p_tbr_trt_init(cw_tr_t *a_tr)
 {
-    cw_uint32_t i, offset, a, b;
+    cw_uint32_t i, j, n, offset, a, b;
     cw_bool_t init = FALSE;
 
     if (a_tr->trt == NULL)
@@ -1100,40 +1113,54 @@ tr_p_tbr_trt_init(cw_tr_t *a_tr)
 
     if (init)
     {
-	for (i = offset = 0; i < a_tr->nedges; i++)
+	for (i = j = offset = 0; i < a_tr->nedges; i++)
 	{
 	    /* Record offset. */
-	    a_tr->trt[i].offset = offset;
+	    a_tr->trt[j].offset = offset;
+
+	    /* Record bisection edge. */
+	    a_tr->trt[j].bisect_edge = i;
 
 	    /* Record number of subtree edges. */
-	    a_tr->trt[i].nedges_a = 0;
-	    a_tr->trt[i].nedges_b = 0;
+	    a_tr->trt[j].nedges_a = 0;
+	    a_tr->trt[j].nedges_b = 0;
 
 	    /* Set trt[i].{nedges,self}_[ab]. */
-	    trn_p_bisection_edges_get(a_tr->croot, i, &a_tr->trt[i]);
+	    trn_p_bisection_edges_get(a_tr->croot, i, &a_tr->trt[j]);
 
 	    /* Update offset. */
-	    if (a_tr->trt[i].nedges_a != 0)
+	    if (a_tr->trt[j].nedges_a != 0)
 	    {
-		a = a_tr->trt[i].nedges_a;
+		a = a_tr->trt[j].nedges_a;
 	    }
 	    else
 	    {
 		a = 1;
 	    }
 
-	    if (a_tr->trt[i].nedges_b != 0)
+	    if (a_tr->trt[j].nedges_b != 0)
 	    {
-		b = a_tr->trt[i].nedges_b;
+		b = a_tr->trt[j].nedges_b;
 	    }
 	    else
 	    {
 		b = 1;
 	    }
 
-	    offset += (a * b) - 1;
+	    n = (a * b) - 1;
+	    if (n != 0)
+	    {
+		offset += n;
+		j++;
+	    }
 	}
-	a_tr->trt[i].offset = offset;
+	a_tr->trt[j].offset = offset;
+
+	/* It may be that not all bisections result in neighbors, so the table
+	 * may not be full, so keep track of the number of valid elements (not
+	 * counting the trailing one that stores the total number of TBR
+	 * neighbors). */
+	a_tr->trtlen = j;
     }
 }
 
@@ -1621,7 +1648,7 @@ tr_tbr_nneighbors_get(cw_tr_t *a_tr)
 
     tr_p_tbr_trt_init(a_tr);
 
-    return a_tr->trt[a_tr->nedges].offset;
+    return a_tr->trt[a_tr->trtlen].offset;
 }
 
 void
@@ -1638,68 +1665,67 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 
     /* Get the bisection edge. */
     key.offset = a_neighbor;
-    trt = bsearch(&key, a_tr->trt, a_tr->nedges, sizeof(cw_trt_t),
+    trt = bsearch(&key, a_tr->trt, a_tr->trtlen, sizeof(cw_trt_t),
 		  tr_p_trt_compare);
     cw_check_ptr(trt);
-    *r_bisect = (trt - a_tr->trt);
+    *r_bisect = trt->bisect_edge;
 
     /* Get the reconnection edges. */
     rem = a_neighbor - trt->offset;
 
     nedges_a = trt->nedges_a;
-    if (nedges_a == 0)
-    {
-	nedges_a = 1;
-    }
     nedges_b = trt->nedges_b;
-    if (nedges_b == 0)
-    {
-	nedges_b = 1;
-    }
-
-    if (nedges_a > 0)
-    {
-	a = rem / nedges_b;
-	if (nedges_b > 0)
-	{
-	    b = rem % nedges_b;
-	}
-	else
-	{
-	    b = 0;
-	}
-    }
-    else
-    {
-	a = 0;
-	b = rem;
-    }
 
     /* If the reconnection edges happen to be those that would reverse the
      * bisection, instead return the last possible reconnection combination for
      * this bisection.  This results in a rather strange ordering for the
      * enumeration, but is always correct. */
-    if (a == trt->self_a && b == trt->self_b)
-    {
-	/* Avoid undoing the bisection. */
-	if (trt->nedges_a > 1)
-	{
-	    a = trt->nedges_a - 1;
-	}
-	else
-	{
-	    a = 0;
-	}
 
-	if (trt->nedges_b > 1)
+    /* No edges in one or both of the subtrees must be handled specially. */
+    if (nedges_a == 0)
+    {
+	/* {0,b}. */
+
+	/* A 2-taxon tree has no TBR neighbors. */
+	cw_assert(nedges_b != 0);
+
+	a = CW_TRN_EDGE_NONE;
+	b = rem;
+
+	if (a == trt->self_a && b == trt->self_b)
 	{
-	    b = trt->nedges_b - 1;
-	}
-	else
-	{
-	    b = 0;
+	    b = nedges_b - 1;
 	}
     }
+    else if (nedges_b == 0)
+    {
+	/* {a,0}. */
+	a = rem;
+	b = CW_TRN_EDGE_NONE;
+
+	if (a == trt->self_a && b == trt->self_b)
+	{
+	    a = nedges_a - 1;
+	}
+    }
+    else
+    {
+	/* {a,b}. */
+	a = rem / nedges_b;
+	b = rem % nedges_b;
+
+	/* (a * b) must be less than (nedges_a * nedges_b), since the last
+	 * combination is reserved to replace the combination that corresponds
+	 * to undoing the bisection. */
+	cw_assert(a * b < nedges_a * nedges_b);
+
+	if (a == trt->self_a && b == trt->self_b)
+	{
+	    a = nedges_a - 1;
+	    b = nedges_b - 1;
+	}
+    }
+
     *r_reconnect_a = a;
     *r_reconnect_b = b;
 }

@@ -48,6 +48,9 @@ struct cw_trt_s
      * reached by doing TBR on this edge. */
     cw_uint32_t offset;
 
+    /* Bisection edge. */
+    cw_uint32_t bisect_edge;
+
     /* Number of edges in the two subtrees.  Note that 0 and 1 are different
      * logical cases, but the number of connections possible for those two cases
      * is the same. */
@@ -98,8 +101,12 @@ struct cw_tr_s
      * TBR-related functions.  There is one more element in trt than there are
      * edges in the tree.  This is critical to the way binary searching on the
      * array is done, and it also makes it easy to get the total number of
-     * TBR neighbors this tree has (trt[nedges].offset). */
+     * TBR neighbors this tree has (trt[nedges].offset).
+     *
+     * Only the first trtlen elements are valid, since not all bisection edges
+     * necessarily result in neighbors. */
     cw_trt_t *trt;
+    cw_uint32_t trtlen;
 };
 
 /* trn. */
