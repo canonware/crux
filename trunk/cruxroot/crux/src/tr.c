@@ -38,8 +38,8 @@ struct cw_tr_ps_s
     /* Sum of the subtree scores, and this node's score, given particular
      * children.  In order for this to be useful, both childrens' parent
      * pointers must still point to this node. */
-    cw_uint32_t subtrees_score;
-    cw_uint32_t node_score;
+    uint32_t subtrees_score;
+    uint32_t node_score;
 
     /* chars points to an array of Fitch parsimony state sets.  Each element in
      * the array contains a bitmap representation of a subset of {ACGT} in the 4
@@ -51,7 +51,7 @@ struct cw_tr_ps_s
      * achars is the actual allocation, which is padded in order to
      * be able to guarantee that chars is 16 byte-aligned. */
     cw_trc_t *chars;
-    cw_uint32_t nchars;
+    uint32_t nchars;
     cw_trc_t *achars;
 };
 
@@ -59,7 +59,7 @@ struct cw_tr_ps_s
 struct cw_trn_s
 {
 #ifdef CW_DBG
-    cw_uint32_t magic;
+    uint32_t magic;
 #define CW_TRN_MAGIC 0x63329478
 #endif
 
@@ -68,14 +68,14 @@ struct cw_trn_s
     void *aux;
 
     /* If CW_TR_NODE_TAXON_NONE, then the node is not a leaf node. */
-    cw_uint32_t taxon_num;
+    uint32_t taxon_num;
 
     /* Pointers to neighbors.  Only the first element is used if the node is a
      * leaf node. */
     cw_tr_node_t neighbors[CW_TR_NODE_MAX_NEIGHBORS];
 
     /* Edge indices for the edges that correspond to neighbors. */
-    cw_uint32_t edges[CW_TR_NODE_MAX_NEIGHBORS];
+    uint32_t edges[CW_TR_NODE_MAX_NEIGHBORS];
 
     /* Used for Fitch parsimony scoring. */
     cw_tr_ps_t *ps;
@@ -90,7 +90,7 @@ struct cw_tre_s
 
     /* Used for Fitch parsimony scoring. */
     cw_tr_ps_t *ps;
-    cw_uint32_t pscore;
+    uint32_t pscore;
 };
 
 /* TBR neighbor. */
@@ -99,10 +99,10 @@ struct cw_trt_s
     /* Number of neighbors that can be reached by doing TBR at edges before this
      * one.  This is also the neighbor number of the first neighbor that can be
      * reached by doing TBR on this edge. */
-    cw_uint32_t offset;
+    uint32_t offset;
 
     /* Bisection edge. */
-    cw_uint32_t bisect_edge;
+    uint32_t bisect_edge;
 };
 
 
@@ -111,10 +111,10 @@ struct cw_trh_s
 {
     /* Neighbor index for the tree.  This can be passed to tr_tbr_neighbor_get()
      * to get the associated TBR parameters. */
-    cw_uint32_t neighbor;
+    uint32_t neighbor;
 
     /* Fitch parsimony score for the neighboring tree. */
-    cw_uint32_t score;
+    uint32_t score;
 };
 
 /* Specifies different tree holding strategies. */
@@ -128,7 +128,7 @@ typedef enum
 struct cw_tr_s
 {
 #ifdef CW_DBG
-    cw_uint32_t magic;
+    uint32_t magic;
 #define CW_TR_MAGIC 0x39886394
 #endif
 
@@ -139,19 +139,19 @@ struct cw_tr_s
      * for reference iteration. */
     void *aux;
 
-    /* TRUE if this tree has been modified since the internal state (ntaxa,
-     * nedges, trt, tre) was updated, FALSE otherwise. */
-    cw_bool_t modified;
+    /* true if this tree has been modified since the internal state (ntaxa,
+     * nedges, trt, tre) was updated, false otherwise. */
+    bool modified;
 
     /* Base of the tree (may or may not be set). */
     cw_tr_node_t base;
 
     /* Number of taxa in tree. */
-    cw_uint32_t ntaxa;
+    uint32_t ntaxa;
 
     /* Number of edges in tree.  This can be derived from ntaxa, but is used
      * often enough to make storing it worthwhile. */
-    cw_uint32_t nedges;
+    uint32_t nedges;
 
     /* Array of information about edges.  There are always nedges elements in
      * tre -- nedges and tre are always kept in sync. */
@@ -161,9 +161,9 @@ struct cw_tr_s
      * on each side of a logical tree bisection.  The first list starts at
      * offset 0 and has nbedges_a elements.  The second list starts at offset
      * nbedges_a and has nbedges_b elements. */
-    cw_uint32_t *bedges;
-    cw_uint32_t nbedges_a;
-    cw_uint32_t nbedges_b;
+    uint32_t *bedges;
+    uint32_t nbedges_a;
+    uint32_t nbedges_b;
 
     /* Array of triplets that store per-edge information that is used for
      * TBR-related functions.  There is one more element in trt than there are
@@ -174,14 +174,14 @@ struct cw_tr_s
      * Only the first trtused elements are valid, since not all bisection edges
      * necessarily result in neighbors. */
     cw_trt_t *trt;
-    cw_uint32_t trtused;
+    uint32_t trtused;
 
     /* Pointer to an array of trn's.  ntrns is the total number of trn's, not
      * all of which are necessarily in use.  The first element is reserved as a
      * temporary, which gets used whereever a single temporary node is briefly
      * needed. */
     cw_trn_t *trns;
-    cw_uint32_t ntrns;
+    uint32_t ntrns;
 
     /* Index of first spare trn in the spares stack.  trns[spares].neighbors[0]
      * is used for list linkage. */
@@ -191,22 +191,22 @@ struct cw_tr_s
      * necessary.  heldlen is the actual length of the array, and nheld is the
      * number of elements in use. */
     cw_trh_t *held;
-    cw_uint32_t heldlen;
-    cw_uint32_t nheld;
+    uint32_t heldlen;
+    uint32_t nheld;
 };
 
 /******************************************************************************/
 
 #ifdef CW_DBG
-static cw_bool_t
+static bool
 tr_p_validate(cw_tr_t *a_tr);
 
 /* Validate a node. */
-static cw_bool_t
+static bool
 tr_p_node_validate(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
     cw_trn_t *trn;
-    cw_uint32_t i, j, nneighbors, nloops;
+    uint32_t i, j, nneighbors, nloops;
 
     cw_check_ptr(a_tr);
     cw_assert(a_tr->magic == CW_TR_MAGIC);
@@ -241,7 +241,7 @@ tr_p_node_validate(cw_tr_t *a_tr, cw_tr_node_t a_node)
 	cw_assert(nneighbors <= 1);
     }
 
-    return TRUE;
+    return true;
 }
 #endif
 
@@ -272,7 +272,7 @@ tr_p_ps_delete(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
     {
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
-			  a_ps->achars, sizeof(cw_trc_t) * (a_ps->nchars * 8));
+			  a_ps->achars, sizeof(cw_trc_t) * (a_ps->nchars + 8));
     }
 
     cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
@@ -281,7 +281,7 @@ tr_p_ps_delete(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
 }
 
 CW_P_INLINE void
-tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_uint32_t a_nchars)
+tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 {
     /* Clean up old character vector if it isn't the right size for a_nchars
      * characters. */
@@ -329,7 +329,7 @@ CW_P_INLINE void
 tr_p_node_init(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
     cw_trn_t *trn;
-    cw_uint32_t i;
+    uint32_t i;
 
     trn = &a_tr->trns[a_node];
 
@@ -355,7 +355,7 @@ tr_p_node_alloc(cw_tr_t *a_tr)
 
     if (a_tr->spares == CW_TR_NODE_NONE)
     {
-	cw_uint32_t i, nspares;
+	uint32_t i, nspares;
 
 	/* Allocate spares. */
 	cw_check_ptr(a_tr->trns);
@@ -426,7 +426,7 @@ tr_node_delete(cw_tr_t *a_tr, cw_tr_node_t a_node)
     tr_p_node_dealloc(a_tr, a_node);
 }
 
-cw_uint32_t
+uint32_t
 tr_node_taxon_num_get(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
     cw_dassert(tr_p_node_validate(a_tr, a_node));
@@ -436,17 +436,17 @@ tr_node_taxon_num_get(cw_tr_t *a_tr, cw_tr_node_t a_node)
 
 void
 tr_node_taxon_num_set(cw_tr_t *a_tr, cw_tr_node_t a_node,
-		      cw_uint32_t a_taxon_num)
+		      uint32_t a_taxon_num)
 {
     cw_dassert(tr_p_node_validate(a_tr, a_node));
 
     a_tr->trns[a_node].taxon_num = a_taxon_num;
 
-    a_tr->modified = TRUE;
+    a_tr->modified = true;
 }
 
 cw_tr_node_t
-tr_node_neighbor_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i)
+tr_node_neighbor_get(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i)
 {
     cw_dassert(tr_p_node_validate(a_tr, a_node));
 
@@ -454,8 +454,8 @@ tr_node_neighbor_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i)
 }
 
 void
-tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i,
-		       cw_uint32_t a_j)
+tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i,
+		       uint32_t a_j)
 {
     cw_tr_node_t t_node;
 
@@ -468,14 +468,14 @@ tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i,
     a_tr->trns[a_node].neighbors[a_i] = a_tr->trns[a_node].neighbors[a_j];
     a_tr->trns[a_node].neighbors[a_j] = t_node;
 
-    a_tr->modified = TRUE;
+    a_tr->modified = true;
 }
 
 void
 tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
 {
     cw_trn_t *trn_a, *trn_b;
-    cw_uint32_t i, j;
+    uint32_t i, j;
 
     cw_dassert(tr_p_node_validate(a_tr, a_a));
     cw_dassert(tr_p_node_validate(a_tr, a_b));
@@ -508,7 +508,7 @@ tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
     trn_a->neighbors[i] = a_b;
     trn_b->neighbors[j] = a_a;
 
-    a_tr->modified = TRUE;
+    a_tr->modified = true;
 
     cw_dassert(tr_p_node_validate(a_tr, a_a));
     cw_dassert(tr_p_node_validate(a_tr, a_b));
@@ -518,7 +518,7 @@ void
 tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
 {
     cw_trn_t *trn_a, *trn_b;
-    cw_uint32_t i, j;
+    uint32_t i, j;
 
     cw_dassert(tr_p_node_validate(a_tr, a_a));
     cw_dassert(tr_p_node_validate(a_tr, a_b));
@@ -542,7 +542,7 @@ tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
     trn_a->neighbors[i] = CW_TR_NODE_NONE;
     trn_b->neighbors[j] = CW_TR_NODE_NONE;
 
-    a_tr->modified = TRUE;
+    a_tr->modified = true;
 
     cw_dassert(tr_p_node_validate(a_tr, a_a));
     cw_dassert(tr_p_node_validate(a_tr, a_b));
@@ -574,7 +574,7 @@ tr_p_new(cw_tr_t *a_tr, cw_mema_t *a_mema)
 {
     a_tr->mema = a_mema;
     a_tr->aux = NULL;
-    a_tr->modified = FALSE;
+    a_tr->modified = false;
     a_tr->base = CW_TR_NODE_NONE;
     a_tr->ntaxa = 0;
     a_tr->nedges = 0;
@@ -601,7 +601,7 @@ tr_p_root_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 {
     cw_tr_node_t retval, root, troot;
     cw_trn_t *trn;
-    cw_uint32_t i;
+    uint32_t i;
 
     cw_assert(a_node != CW_TR_NODE_NONE);
 
@@ -641,11 +641,11 @@ tr_p_root_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
  * numbered taxon. */
 static cw_tr_node_t
 tr_p_update_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
-		    cw_uint32_t *r_ntaxa, cw_tr_node_t a_root)
+		    uint32_t *r_ntaxa, cw_tr_node_t a_root)
 {
     cw_tr_node_t retval, root, troot;
     cw_trn_t *trn;
-    cw_uint32_t i;
+    uint32_t i;
 
     cw_assert(a_node != CW_TR_NODE_NONE);
 
@@ -691,18 +691,18 @@ tr_p_update_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 #ifdef CW_DBG
 /* Determine whether a_other is reachable from a_node.  This function helps to
  * make sure that no cycles are introduced. */
-static cw_bool_t
+static bool
 tr_p_reachable(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 	       cw_tr_node_t a_other)
 {
-    cw_uint32_t retval, i;
+    uint32_t retval, i;
     cw_trn_t *trn;
 
     trn = &a_tr->trns[a_node];
 
     if (a_node == a_other)
     {
-	retval = TRUE;
+	retval = true;
 	goto RETURN;
     }
 
@@ -718,18 +718,18 @@ tr_p_reachable(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 	}
     }
 
-    retval = FALSE;
+    retval = false;
     RETURN:
     return retval;
 }
 
 /* Return the number of taxa with number a_taxon_num in the subtree rooted at
  * a_node. */
-static cw_uint32_t
+static uint32_t
 tr_p_validate_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
-		      cw_uint32_t a_taxon_num)
+		      uint32_t a_taxon_num)
 {
-    cw_uint32_t retval, i;
+    uint32_t retval, i;
     cw_trn_t *trn;
 
     tr_p_node_validate(a_tr, a_node);
@@ -738,7 +738,7 @@ tr_p_validate_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 
     if (trn->taxon_num != CW_TR_NODE_TAXON_NONE)
     {
-	cw_uint32_t nneighbors;
+	uint32_t nneighbors;
 
 	/* Leaf node. */
 	cw_assert(trn->neighbors[i] != CW_TR_NODE_NONE);
@@ -780,14 +780,14 @@ tr_p_validate_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 }
 
 /* Validate a tree. */
-static cw_bool_t
+static bool
 tr_p_validate(cw_tr_t *a_tr)
 {
-    cw_uint32_t i, ntaxa;
+    uint32_t i, ntaxa;
 
     cw_check_ptr(a_tr);
     cw_assert(a_tr->magic == CW_TR_MAGIC);
-    cw_assert(a_tr->modified == FALSE);
+    cw_assert(a_tr->modified == false);
 
     ntaxa = 0;
     if (a_tr->base != CW_TR_NODE_NONE)
@@ -816,12 +816,12 @@ tr_p_validate(cw_tr_t *a_tr)
     cw_assert(a_tr->spares == CW_TR_NODE_NONE
 	      || a_tr->trns[a_tr->spares].magic != CW_TRN_MAGIC);
 
-    return TRUE;
+    return true;
 }
 #endif
 
 CW_P_INLINE void
-tr_p_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node_a,
+tr_p_edge_get(cw_tr_t *a_tr, uint32_t a_edge, cw_tr_node_t *r_node_a,
 	      cw_tr_node_t *r_node_b)
 {
     *r_node_a = a_tr->tres[a_edge].node_a;
@@ -839,10 +839,10 @@ tr_p_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node_a,
 static void
 tr_p_bisection_edge_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
 				cw_tr_node_t a_other, cw_tr_node_t a_prev,
-				cw_uint32_t *r_edge_count,
-				cw_uint32_t *r_bisection_edge)
+				uint32_t *r_edge_count,
+				uint32_t *r_bisection_edge)
 {
-    cw_uint32_t i, prev_edge_count;
+    uint32_t i, prev_edge_count;
     cw_trn_t *trn;
 
     cw_assert(a_node != CW_TR_NODE_NONE);
@@ -884,7 +884,7 @@ tr_p_bisection_edge_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
 static void
 tr_p_ntaxa_nedges_update(cw_tr_t *a_tr)
 {
-    cw_uint32_t ntaxa;
+    uint32_t ntaxa;
 
     /* Update ntaxa and nedges. */
     ntaxa = 0;
@@ -907,10 +907,10 @@ tr_p_ntaxa_nedges_update(cw_tr_t *a_tr)
 
 static void
 tr_p_bisection_edge_list_gen_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
-				     cw_tr_node_t a_prev, cw_uint32_t *ar_edges,
-				     cw_uint32_t *ar_nedges)
+				     cw_tr_node_t a_prev, uint32_t *ar_edges,
+				     uint32_t *ar_nedges)
 {
-    cw_uint32_t i;
+    uint32_t i;
     cw_trn_t *trn;
 
     trn = &a_tr->trns[a_node];
@@ -939,14 +939,14 @@ tr_p_bisection_edge_list_gen_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
  * bisection. */
 CW_P_INLINE void
 tr_p_bisection_edge_list_gen(cw_tr_t *a_tr, cw_tr_node_t a_node,
-			     cw_tr_node_t a_other, cw_uint32_t *ar_edges,
-			     cw_uint32_t *ar_nedges)
+			     cw_tr_node_t a_other, uint32_t *ar_edges,
+			     uint32_t *ar_nedges)
 {
     cw_trn_t *trn;
     cw_tr_node_t a, b;
-    cw_uint32_t i, i_a;
+    uint32_t i, i_a;
 #ifdef CW_DBG
-    cw_uint32_t i_b;
+    uint32_t i_b;
 #endif
 
     /* Initialize the length of the list before recursing. */
@@ -1012,7 +1012,7 @@ tr_p_bisection_edge_list_gen(cw_tr_t *a_tr, cw_tr_node_t a_node,
 /* Generate lists of edges in each half of a logical bisection at edge
  * a_bisect. */
 CW_P_INLINE void
-tr_p_bedges_gen(cw_tr_t *a_tr, cw_uint32_t a_bisect)
+tr_p_bedges_gen(cw_tr_t *a_tr, uint32_t a_bisect)
 {
     cw_tre_t *tre;
 
@@ -1028,11 +1028,11 @@ tr_p_bedges_gen(cw_tr_t *a_tr, cw_uint32_t a_bisect)
 }
 
 static void
-tr_p_trt_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
+tr_p_trt_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
 {
-    cw_uint32_t i, j, n, offset;
+    uint32_t i, j, n, offset;
 
-    cw_assert(a_tr->modified == FALSE);
+    cw_assert(a_tr->modified == false);
 
     /* Allocate/reallocate/deallocate trt. */
     if (a_tr->trt == NULL)
@@ -1119,10 +1119,10 @@ tr_p_trt_compare(const void *a_key, const void *a_val)
 
 static void
 tr_p_tre_update_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
-			cw_uint32_t *ar_edge_count)
+			uint32_t *ar_edge_count)
 {
     cw_trn_t *trn, *ttrn;
-    cw_uint32_t i, j;
+    uint32_t i, j;
 
     trn = &a_tr->trns[a_node];
 
@@ -1158,11 +1158,11 @@ tr_p_tre_update_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 }
 
 static void
-tr_p_tre_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
+tr_p_tre_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
 {
-    cw_uint32_t edge_count;
+    uint32_t edge_count;
 
-    cw_assert(a_tr->modified == FALSE);
+    cw_assert(a_tr->modified == false);
 
     /* Make sure that the tres array is the right size. */
     if (a_tr->nedges > a_nedges_prev)
@@ -1179,7 +1179,7 @@ tr_p_tre_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
 	}
 	else
 	{
-	    cw_uint32_t i;
+	    uint32_t i;
 
 	    a_tr->tres
 		= (cw_tre_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
@@ -1201,7 +1201,7 @@ tr_p_tre_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
     }
     else if (a_tr->nedges < a_nedges_prev)
     {
-	cw_uint32_t i;
+	uint32_t i;
 
 	/* Shrink the array, but first clean up ps's for the tre's at the
 	 * end. */
@@ -1246,7 +1246,7 @@ tr_p_tre_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
 }
 
 static void
-tr_p_bedges_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
+tr_p_bedges_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
 {
     /* Allocate/reallocate/deallocate bedges.  To keep things simple, allocate
      * as big an array as there are edges, even though not quite that many are
@@ -1255,9 +1255,9 @@ tr_p_bedges_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
     {
 	/* Allocate bedges. */
 	a_tr->bedges
-	    = (cw_uint32_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+	    = (uint32_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
 					      mema_arg_get(a_tr->mema),
-					      sizeof(cw_uint32_t)
+					      sizeof(uint32_t)
 					      * a_tr->nedges);
     }
     else if (a_tr->nedges != a_nedges_prev)
@@ -1265,12 +1265,12 @@ tr_p_bedges_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
 	if (a_tr->nedges > 0)
 	{
 	    /* Reallocate bedges. */
-	    a_tr->bedges = (cw_uint32_t *)
+	    a_tr->bedges = (uint32_t *)
 		cw_opaque_realloc(mema_realloc_get(a_tr->mema),
 				  mema_arg_get(a_tr->mema),
 				  a_tr->bedges,
-				  sizeof(cw_uint32_t) * a_tr->nedges,
-				  sizeof(cw_uint32_t) * a_nedges_prev);
+				  sizeof(uint32_t) * a_tr->nedges,
+				  sizeof(uint32_t) * a_nedges_prev);
 	}
 	else
 	{
@@ -1278,7 +1278,7 @@ tr_p_bedges_update(cw_tr_t *a_tr, cw_uint32_t a_nedges_prev)
 	    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			      mema_arg_get(a_tr->mema),
 			      a_tr->bedges,
-			      sizeof(cw_uint32_t) * a_nedges_prev);
+			      sizeof(uint32_t) * a_nedges_prev);
 	    a_tr->bedges = NULL;
 	}
     }
@@ -1293,7 +1293,7 @@ tr_p_update(cw_tr_t *a_tr)
 {
     if (a_tr->modified)
     {
-	cw_uint32_t nedges_prev;
+	uint32_t nedges_prev;
 
 	/* Store nedges before updating. */
 	nedges_prev = a_tr->nedges;
@@ -1302,7 +1302,7 @@ tr_p_update(cw_tr_t *a_tr)
 	tr_p_ntaxa_nedges_update(a_tr);
 
 	/* Reset the modified flag. */
-	a_tr->modified = FALSE;
+	a_tr->modified = false;
 
 	/* Update tre, bedges, and trt. */
 	tr_p_tre_update(a_tr, nedges_prev);
@@ -1316,17 +1316,17 @@ tr_p_update(cw_tr_t *a_tr)
 
 /* Convert a tree to canonical form by re-ordering the neighbors array such that
  * subtrees are in increasing order of minimum taxon number contained. */
-static cw_uint32_t
+static uint32_t
 tr_p_canonize(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
 {
-    cw_uint32_t retval;
-    cw_uint32_t i, j, t;
-    cw_uint32_t subtree_mins[CW_TR_NODE_MAX_NEIGHBORS - 1];
-    cw_uint32_t subtree_inds[CW_TR_NODE_MAX_NEIGHBORS - 1];
-    cw_bool_t swapped;
+    uint32_t retval;
+    uint32_t i, j, t;
+    uint32_t subtree_mins[CW_TR_NODE_MAX_NEIGHBORS - 1];
+    uint32_t subtree_inds[CW_TR_NODE_MAX_NEIGHBORS - 1];
+    bool swapped;
     cw_trn_t *trn;
 #ifdef CW_DBG
-    cw_uint32_t nneighbors = 0;
+    uint32_t nneighbors = 0;
 #endif
 
     cw_dassert(tr_p_node_validate(a_tr, a_node));
@@ -1378,13 +1378,13 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
      * couple of extra branches. */
     do
     {
-	swapped = FALSE;
+	swapped = false;
 
 	for (i = 0; i + 1 < j; i++)
 	{
 	    if (subtree_mins[i] > subtree_mins[i + 1])
 	    {
-		swapped = TRUE;
+		swapped = true;
 
 		/* Swap subtrees. */
 		tr_node_neighbors_swap(a_tr, a_node, subtree_inds[i],
@@ -1410,7 +1410,7 @@ CW_P_INLINE void
 tr_p_bisection_patch(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
     cw_trn_t *trn;
-    cw_uint32_t i;
+    uint32_t i;
     cw_tr_node_t a, b;
 
     trn = &a_tr->trns[a_node];
@@ -1445,7 +1445,7 @@ tr_p_bisection_patch(cw_tr_t *a_tr, cw_tr_node_t a_node)
 
 /* Bisect a_tr at a_edge, and return the nodes adjacent to the bisection. */
 CW_P_INLINE void
-tr_p_bisect(cw_tr_t *a_tr, cw_uint32_t a_edge,
+tr_p_bisect(cw_tr_t *a_tr, uint32_t a_edge,
 	    cw_tr_node_t *r_node_a, cw_tr_node_t *r_node_b)
 {
     cw_assert(a_edge < a_tr->nedges);
@@ -1460,14 +1460,14 @@ tr_p_bisect(cw_tr_t *a_tr, cw_uint32_t a_edge,
      * that the connection is bi-directional, if it exists, so only bother
      * checking in one direction. */
     {
-	cw_uint32_t i;
-	cw_bool_t connected;
+	uint32_t i;
+	bool connected;
 
-	for (i = 0, connected = FALSE; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+	for (i = 0, connected = false; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
 	{
 	    if (a_tr->trns[*r_node_a].neighbors[i] == *r_node_b)
 	    {
-		connected = TRUE;
+		connected = true;
 		break;
 	    }
 	}
@@ -1488,12 +1488,12 @@ tr_p_bisect(cw_tr_t *a_tr, cw_uint32_t a_edge,
  *   2 : Ready (adjacent to a_reconnect_a).
  *   3 : Ready (adjacent to a_reconnect_b).
  */
-CW_P_INLINE cw_uint32_t
+CW_P_INLINE uint32_t
 tr_p_reconnect_ready(cw_tr_t *a_tr, cw_tr_node_t a_node,
-		     cw_uint32_t a_reconnect_a, cw_uint32_t a_reconnect_b)
+		     uint32_t a_reconnect_a, uint32_t a_reconnect_b)
 {
-    cw_uint32_t retval;
-    cw_uint32_t i, nneighbors;
+    uint32_t retval;
+    uint32_t i, nneighbors;
     cw_trn_t *trn;
 
     trn = &a_tr->trns[a_node];
@@ -1537,7 +1537,7 @@ tr_p_reconnect_ready(cw_tr_t *a_tr, cw_tr_node_t a_node,
 
 CW_P_INLINE void
 tr_p_reconnect_prepare(cw_tr_t *a_tr, cw_tr_node_t a_node,
-		       cw_uint32_t a_reconnect, cw_uint32_t a_ready)
+		       uint32_t a_reconnect, uint32_t a_ready)
 {
     if (a_ready == 0 && a_reconnect != CW_TR_NODE_EDGE_NONE)
     {
@@ -1556,12 +1556,12 @@ tr_p_reconnect_prepare(cw_tr_t *a_tr, cw_tr_node_t a_node,
 
 static void
 tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
-			cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
-			cw_uint32_t a_nchars)
+			uint8_t *a_taxa[], uint32_t a_ntaxa,
+			uint32_t a_nchars)
 {
     cw_trn_t *trn;
     cw_tr_node_t node;
-    cw_uint32_t i, taxon_num;
+    uint32_t i, taxon_num;
 
     trn = &a_tr->trns[a_node];
 
@@ -1576,7 +1576,7 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
     if ((taxon_num = tr_node_taxon_num_get(a_tr, a_node))
 	!= CW_TR_NODE_TAXON_NONE)
     {
-	cw_uint8_t *chars;
+	uint8_t *chars;
 
 	cw_assert(taxon_num < a_ntaxa);
 
@@ -1712,7 +1712,7 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
 {
     cw_trn_t *trn;
     cw_tr_node_t node;
-    cw_uint32_t i;
+    uint32_t i;
 
     trn = &a_tr->trns[a_node];
 
@@ -1741,7 +1741,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     /* Only calculate the parent's node score if the cached value is invalid. */
     if (a_a->parent != a_p || a_b->parent != a_p)
     {
-	cw_uint32_t endlimit, curlimit, i, nchars, ns;
+	uint32_t endlimit, curlimit, i, nchars, ns;
 	cw_trc_t *chars_p, *chars_a, *chars_b;
 
 	/* Calculate sum of subtree scores. */
@@ -1852,7 +1852,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 	    /* Update ns and reset pns. */
 	    {
-		cw_uint32_t j;
+		uint32_t j;
 		unsigned char pns[16];
 
 		asm volatile (
@@ -1887,7 +1887,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	/* Evaluate the last 0-15 characters that weren't evaluated in the above
 	 * loop. */
 	{
-	    cw_uint32_t a, b, p, c, s;
+	    uint32_t a, b, p, c, s;
 
 	    for (; i < nchars; i++)
 	    {
@@ -1913,22 +1913,22 @@ tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 {
 //#define CW_TR_MP_PSCORE_VALIDATE
 #ifdef CW_TR_MP_PSCORE_VALIDATE
-    cw_bool_t cached;
+    bool cached;
 #endif
 
     /* Only calculate the parent's node score if the cached value is invalid. */
     if (a_a->parent != a_p || a_b->parent != a_p)
 #ifdef CW_TR_MP_PSCORE_VALIDATE
     {
-	cached = FALSE;
+	cached = false;
     }
     else
     {
-	cached = TRUE;
+	cached = true;
     }
 #endif
     {
-	cw_uint32_t i, nchars, ns, a, b, p, c, s;
+	uint32_t i, nchars, ns, a, b, p, c, s;
 	cw_trc_t *chars_p, *chars_a, *chars_b;
 
 #ifdef CW_TR_MP_PSCORE_VALIDATE
@@ -2027,7 +2027,7 @@ static void
 tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_trn_t *a_node, cw_trn_t *a_prev,
 		      cw_trn_t *a_other)
 {
-    cw_uint32_t i;
+    uint32_t i;
     cw_trn_t *trn, *a, *b, *o;
     cw_tr_node_t node;
 
@@ -2117,14 +2117,14 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_trn_t *a_node, cw_trn_t *a_prev,
     }
 }
 
-static cw_uint32_t
+static uint32_t
 tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
 	      cw_tr_node_t a_node_b, cw_tr_node_t a_other)
 {
-    cw_uint32_t retval;
-    cw_bool_t maxed;
+    uint32_t retval;
+    bool maxed;
 
-    maxed = FALSE;
+    maxed = false;
     tr_p_mp_score_recurse(a_tr, &a_tr->trns[a_node_a], &a_tr->trns[a_node_b],
 			  &a_tr->trns[a_other]);
     if (maxed)
@@ -2160,10 +2160,10 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
 }
 
 CW_P_INLINE void
-tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_uint32_t *a_edges,
-			    cw_uint32_t a_nedges, cw_tr_node_t a_other)
+tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, uint32_t *a_edges,
+			    uint32_t a_nedges, cw_tr_node_t a_other)
 {
-    cw_uint32_t i;
+    uint32_t i;
     cw_tre_t *tre;
 
     for (i = 0; i < a_nedges; i++)
@@ -2183,8 +2183,8 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_uint32_t *a_edges,
  * this an unbiased process, but there is no need for that functionality at the
  * moment. */
 CW_P_INLINE void
-tr_p_hold(cw_tr_t *a_tr, cw_uint32_t a_max_hold, cw_uint32_t a_neighbor,
-	  cw_uint32_t a_score)
+tr_p_hold(cw_tr_t *a_tr, uint32_t a_max_hold, uint32_t a_neighbor,
+	  uint32_t a_score)
 {
     if (a_tr->nheld < a_max_hold)
     {
@@ -2224,11 +2224,11 @@ tr_p_hold(cw_tr_t *a_tr, cw_uint32_t a_max_hold, cw_uint32_t a_neighbor,
 }
 
 CW_P_INLINE void
-tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
-		      cw_uint32_t a_maxscore, cw_tr_hold_how_t a_how)
+tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
+		      uint32_t a_maxscore, cw_tr_hold_how_t a_how)
 {
-    cw_uint32_t neighbor, i, j, k, edge_a, edge_b;
-    cw_uint32_t score;
+    uint32_t neighbor, i, j, k, edge_a, edge_b;
+    uint32_t score;
     cw_tre_t *tre, *tre_a, *tre_b;
     cw_tr_ps_t *ps, *ps_a, *ps_b;
 
@@ -2393,7 +2393,7 @@ tr_dup(cw_tr_t *a_tr)
     cw_tr_t *retval;
     cw_opaque_alloc_t *alloc;
     void *arg;
-    cw_uint32_t i;
+    uint32_t i;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
@@ -2459,12 +2459,12 @@ tr_delete(cw_tr_t *a_tr)
     {
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
-			  a_tr->bedges, sizeof(cw_uint32_t) * a_tr->nedges);
+			  a_tr->bedges, sizeof(uint32_t) * a_tr->nedges);
     }
 
     if (a_tr->tres != NULL)
     {
-	cw_uint32_t i;
+	uint32_t i;
 
 	for (i = 0; i < a_tr->nedges; i++)
 	{
@@ -2481,7 +2481,7 @@ tr_delete(cw_tr_t *a_tr)
     cw_opaque_dealloc(dealloc, arg, a_tr, sizeof(cw_tr_t));
 }
 
-cw_uint32_t
+uint32_t
 tr_ntaxa_get(cw_tr_t *a_tr)
 {
     tr_p_update(a_tr);
@@ -2490,7 +2490,7 @@ tr_ntaxa_get(cw_tr_t *a_tr)
     return a_tr->ntaxa;
 }
 
-cw_uint32_t
+uint32_t
 tr_nedges_get(cw_tr_t *a_tr)
 {
     tr_p_update(a_tr);
@@ -2500,7 +2500,7 @@ tr_nedges_get(cw_tr_t *a_tr)
 }
 
 void
-tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node_a,
+tr_edge_get(cw_tr_t *a_tr, uint32_t a_edge, cw_tr_node_t *r_node_a,
 	    cw_tr_node_t *r_node_b)
 {
     cw_check_ptr(r_node_a);
@@ -2512,10 +2512,10 @@ tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node_a,
     tr_p_edge_get(a_tr, a_edge, r_node_a, r_node_b);
 }
 
-cw_uint32_t
+uint32_t
 tr_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b)
 {
-    cw_uint32_t retval, i;
+    uint32_t retval, i;
     cw_trn_t *trn;
 
     cw_dassert(tr_p_node_validate(a_tr, a_node_a));
@@ -2563,7 +2563,7 @@ tr_base_set(cw_tr_t *a_tr, cw_tr_node_t a_base)
 
     a_tr->base = a_base;
 
-    a_tr->modified = TRUE;
+    a_tr->modified = true;
 }
 
 void
@@ -2577,12 +2577,12 @@ tr_canonize(cw_tr_t *a_tr)
     if (a_tr->modified)
     {
 	tr_p_ntaxa_nedges_update(a_tr);
-	a_tr->modified = FALSE;
+	a_tr->modified = false;
     }
 
     if (a_tr->base != CW_TR_NODE_NONE)
     {
-	cw_uint32_t ntaxa;
+	uint32_t ntaxa;
 
 	/* Set base to be the lowest-numbered taxon. */
 	ntaxa = 0;
@@ -2594,7 +2594,7 @@ tr_canonize(cw_tr_t *a_tr)
     }
 
     /* Reset the modified flag. */
-    a_tr->modified = FALSE;
+    a_tr->modified = false;
 
     /* Now update tre and trt. */
     tr_p_tre_update(a_tr, a_tr->nedges);
@@ -2604,11 +2604,11 @@ tr_canonize(cw_tr_t *a_tr)
 }
 
 void
-tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
-       cw_uint32_t a_reconnect_b)
+tr_tbr(cw_tr_t *a_tr, uint32_t a_bisect, uint32_t a_reconnect_a,
+       uint32_t a_reconnect_b)
 {
     cw_tr_node_t node_a, node_b;
-    cw_bool_t ready_a, ready_b;
+    uint32_t ready_a, ready_b;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
@@ -2654,7 +2654,7 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
      * matter otherwise. */
     if (ready_a == 3 || ready_b == 2)
     {
-	cw_uint32_t treconnect;
+	uint32_t treconnect;
 
 	treconnect = a_reconnect_a;
 	a_reconnect_a = a_reconnect_b;
@@ -2673,7 +2673,7 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
 
     /* All changes since the last tr_p_update() call were related to TBR, and we
      * know that this does not impact ntaxa or nedges. */
-    a_tr->modified = FALSE;
+    a_tr->modified = false;
 
     /* Update tre and trt. */
     tr_p_tre_update(a_tr, a_tr->nedges);
@@ -2682,7 +2682,7 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
     cw_dassert(tr_p_validate(a_tr));
 }
 
-cw_uint32_t
+uint32_t
 tr_tbr_nneighbors_get(cw_tr_t *a_tr)
 {
     tr_p_update(a_tr);
@@ -2692,12 +2692,12 @@ tr_tbr_nneighbors_get(cw_tr_t *a_tr)
 }
 
 void
-tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
-		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,
-		    cw_uint32_t *r_reconnect_b)
+tr_tbr_neighbor_get(cw_tr_t *a_tr, uint32_t a_neighbor,
+		    uint32_t *r_bisect, uint32_t *r_reconnect_a,
+		    uint32_t *r_reconnect_b)
 {
     cw_trt_t key, *trt;
-    cw_uint32_t rem;
+    uint32_t rem;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
@@ -2762,10 +2762,10 @@ tr_aux_set(cw_tr_t *a_tr, void *a_aux)
 }
 
 void
-tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
-	      cw_uint32_t a_nchars)
+tr_mp_prepare(cw_tr_t *a_tr, uint8_t *a_taxa[], uint32_t a_ntaxa,
+	      uint32_t a_nchars)
 {
-    cw_uint32_t i;
+    uint32_t i;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
@@ -2792,7 +2792,7 @@ tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
 void
 tr_mp_finish(cw_tr_t *a_tr)
 {
-    cw_uint32_t i;
+    uint32_t i;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
@@ -2814,7 +2814,7 @@ tr_mp_finish(cw_tr_t *a_tr)
     }
 }
 
-cw_uint32_t
+uint32_t
 tr_mp_score(cw_tr_t *a_tr)
 {
     cw_dassert(tr_p_validate(a_tr));
@@ -2825,7 +2825,7 @@ tr_mp_score(cw_tr_t *a_tr)
 }
 
 void
-tr_tbr_best_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold)
+tr_tbr_best_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold)
 {
     cw_dassert(tr_p_validate(a_tr));
 
@@ -2835,7 +2835,7 @@ tr_tbr_best_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold)
 }
 
 void
-tr_tbr_better_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold)
+tr_tbr_better_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold)
 {
     cw_dassert(tr_p_validate(a_tr));
 
@@ -2870,7 +2870,7 @@ tr_held_finish(cw_tr_t *a_tr)
     }
 }
 
-cw_uint32_t
+uint32_t
 tr_nheld_get(cw_tr_t *a_tr)
 {
     tr_p_update(a_tr);
@@ -2880,8 +2880,8 @@ tr_nheld_get(cw_tr_t *a_tr)
 }
 
 void
-tr_held_get(cw_tr_t *a_tr, cw_uint32_t a_held, cw_uint32_t *r_neighbor,
-	    cw_uint32_t *r_score)
+tr_held_get(cw_tr_t *a_tr, uint32_t a_held, uint32_t *r_neighbor,
+	    uint32_t *r_score)
 {
     cw_trh_t *trh;
 

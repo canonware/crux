@@ -12,14 +12,14 @@
 
 #include "../include/modcrux.h"
 
-cw_bool_t modcrux_ia32_use_sse2;
+bool modcrux_ia32_use_sse2;
 
 /* Check for the cpuid instruction.  If the ID bit (21) in EFLAGS is writable
  * then cpuid is supported. */
-static cw_bool_t
+static bool
 ia32_has_cpuid(void)
 {
-    cw_bool_t retval;
+    bool retval;
     int before, after;
 
     asm volatile (
@@ -44,7 +44,7 @@ ia32_has_cpuid(void)
 	: "cc" /* Clobbers condition code register. */
 	);
 
-    retval = (before != after) ? TRUE : FALSE;
+    retval = (before != after) ? true : false;
 
     return retval;
 }
@@ -76,16 +76,16 @@ modcrux_ia32_cpu_init(void)
 	/* Mask everything but bit 26 (SSE2 feature flag) of edx. */
 	if ((abcd[3] & 0x04000000) != 0)
 	{
-	    modcrux_ia32_use_sse2 = TRUE;
+	    modcrux_ia32_use_sse2 = true;
 	}
 	else
 	{
-	    modcrux_ia32_use_sse2 = FALSE;
+	    modcrux_ia32_use_sse2 = false;
 	}
     }
     else
     {
 	/* cpuid is missing.  This is an old CPU. */
-	modcrux_ia32_use_sse2 = FALSE;
+	modcrux_ia32_use_sse2 = false;
     }
 }

@@ -12,7 +12,7 @@
 
 #define MODCRUX_CPU_INIT() modcrux_ia32_cpu_init()
 
-extern cw_bool_t modcrux_ia32_use_sse2;
+extern bool modcrux_ia32_use_sse2;
 
 void
 modcrux_ia32_cpu_init(void);
