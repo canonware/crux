@@ -151,6 +151,10 @@ tree_p_nj(TreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
     /* Iteratitively join two nodes in the matrix, until only two are left. */
     for (nleft = a_ntaxa; nleft > 2; nleft--)
     {
+#ifdef XXX_NJ_VERBOSE
+	fprintf(stderr, "Size: %u\n", nleft);
+#endif
+
 	/* Calculate r (sum of distances to other nodes) and r/(nleft-2)
 	 * for each node. */
 	for (i = 0; i < nleft; i++)
@@ -182,7 +186,7 @@ tree_p_nj(TreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
 	{
 	    for (y = x + 1; y < nleft; y++)
 	    {
-		d[i].trans = d[i].dist - ((r[x].r + r[y].r) / 2);
+		d[i].trans = d[i].dist - ((r[x].r_scaled + r[y].r_scaled));
 
 		if (d[i].trans < d[i_min].trans)
 		{
@@ -208,7 +212,8 @@ tree_p_nj(TreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
 
 		i++;
 	    }
-	    fprintf(stderr, " || %8.4f (node %d)\n", r[x].r, r[x].node);
+	    fprintf(stderr, " || %8.4f (node %ld %p)\n", r[x].r,
+		    PyInt_AsLong(node_taxon_num_get(r[x].node)), r[x].node);
 
 	    fprintf(stderr, "%*s", x * 9 + (!!x), " ");
 	    for (i -= (nleft - (x + 1)), y = x + 1; y < nleft; y++)
@@ -227,14 +232,17 @@ tree_p_nj(TreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
 	/* Join the nodes with the minimum transformed distance. */
 	node = node_new(a_tree);
 #ifdef XXX_NJ_VERBOSE
-	fprintf(stderr, "New node %u\n", node);
+	fprintf(stderr, "New node %ld %p\n",
+		PyInt_AsLong(node_taxon_num_get(node)), node);
 #endif
 	edge_x = edge_new(a_tree);
 	edge_attach_cargs(edge_x, node, r[x_min].node);
 	dist_x = (d[i_min].dist + r[x_min].r_scaled - r[y_min].r_scaled) / 2;
 	edge_length_set_cargs(edge_x, dist_x);
 #ifdef XXX_NJ_VERBOSE
-	fprintf(stderr, "  Join node %u (len %.4f)\n", r[x_min].node, dist_x);
+	fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
+		PyInt_AsLong(node_taxon_num_get(r[x_min].node)), r[x_min].node,
+		dist_x);
 #endif
 
 	edge_y = edge_new(a_tree);
@@ -242,7 +250,9 @@ tree_p_nj(TreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
 	dist_y = d[i_min].dist - dist_x;
 	edge_length_set_cargs(edge_y, dist_y);
 #ifdef XXX_NJ_VERBOSE
-	fprintf(stderr, "  Join node %u (len %.4f)\n", r[y_min].node, dist_y);
+	fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
+		PyInt_AsLong(node_taxon_num_get(r[y_min].node)), r[y_min].node,
+		dist_y);
 #endif
 
 	/* Swap to new matrix. */
@@ -301,7 +311,9 @@ tree_p_nj(TreeObject *a_tree, double *a_distances, uint32_t a_ntaxa)
 
     /* Join the remaining two nodes. */
 #ifdef XXX_NJ_VERBOSE
-    fprintf(stderr, "Join last two nodes: %u and %u\n", r[0].node, r[1].node);
+    fprintf(stderr, "Join last two nodes: %ld %p and %ld %p\n",
+	    PyInt_AsLong(node_taxon_num_get(r[0].node)), r[0].node,
+	    PyInt_AsLong(node_taxon_num_get(r[1].node)), r[1].node);
 #endif
     edge = edge_new(a_tree);
     edge_attach_cargs(edge, r[0].node, r[1].node);
