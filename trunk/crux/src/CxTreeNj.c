@@ -119,9 +119,9 @@ static void
 CxpTreeNjDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 	      long aNleft)
 {
-    PyObject *result;
     float *dElm;
     long x, y;
+    uint32_t taxonNum;
      
     fprintf(stderr,
 	    "----------------------------------------"
@@ -153,16 +153,15 @@ CxpTreeNjDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 	{
 	    fprintf(stderr, " %8s", "");
 	}
-	result = CxNodeTaxonNumGet(aNodes[x]);
-	if (result != Py_None)
+	taxonNum = CxNodeTaxonNumGet(aNodes[x]);
+	if (taxonNum != CxmTrNodeTaxonNone)
 	{
-	    fprintf(stderr, " || n %ld\n", PyInt_AsLong(result));
+	    fprintf(stderr, " || n %u\n", taxonNum);
 	}
 	else
 	{
 	    fprintf(stderr, " || i %p\n", aNodes[x]);
 	}
-	Py_DECREF(result);
     }
 }
 #endif
