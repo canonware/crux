@@ -60,6 +60,7 @@ CxpFastaParserDelete(CxtFastaParserObject *self)
     {
 	free(self->buf);
     }
+    // XXX Delete i.s.string, if allocated?
     self->ob_type->tp_free((PyObject*) self);
 }
 
@@ -71,8 +72,7 @@ CxpFastaParserAppendC(CxtFastaParserObject *self, char c)
     {
 	if (self->buf == NULL)
 	{
-// XXX Make bigger after debugging.
-#define CxmpFastaParserBufLenStart 8
+#define CxmpFastaParserBufLenStart 1024
 	    self->buf = (char *) CxmMalloc(CxmpFastaParserBufLenStart);
 	    self->bufLen = CxmpFastaParserBufLenStart;
 #undef CxmpFastaParserBufLenStart
@@ -109,6 +109,7 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *r_c, int *r_line,
     else
     {
 	c = self->i.s.string[self->offset];
+	self->offset++;
 	if (c == '\0')
 	{
 	    retval = true;
@@ -137,32 +138,30 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *r_c, int *r_line,
     return retval;
 }
 
-static PyObject *
+static void
 CxpSyntaxError(CxtFastaParserObject *self, int line, int column, char c,
 	       const char *msg)
 {
     char *str;
 
-    asprintf(&str, "At %d:%d (token '%*s', char '%*s'): %s\n",
-	     line, column, self->tokenLen, self->buf, 1, &c, msg);
+    asprintf(&str, "At %d:%d (token '%.*s', char '%c'): %s\n",
+	     line, column, self->tokenLen, self->buf, c, msg);
 
     PyErr_SetString(CxgFastaParserSyntaxError, str);
     free(str);
-    Py_INCREF(CxgFastaParserSyntaxError);
-    return CxgFastaParserSyntaxError;
 }
 
 PyObject *
 CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 {
     PyObject *retval;
-    PyObject *input, *charType;
+    PyObject *input;
+    char *charType;
     bool dnaChars;
 
     if (PyArg_ParseTuple(args, "Os", &input, &charType) == 0)
     {
-	retval = NULL;
-	goto RETURN;
+	goto ERROR;
     }
 
     /* Determine input type. */
@@ -180,18 +179,15 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     {
 	PyErr_SetString(CxgFastaParserTypeError,
 			"input: file or string expected");
-	Py_INCREF(CxgFastaParserTypeError);
-	retval = CxgFastaParserTypeError;
-	goto RETURN;
+	goto ERROR;
     }
 
     /* Determine character data type. */
-    fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-    if (strcmp(PyString_AsString(charType), "DNA") == 0)
+    if (strcmp(charType, "DNA") == 0)
     {
 	dnaChars = true;
     }
-    else if (strcmp(PyString_AsString(charType), "protein") == 0)
+    else if (strcmp(charType, "protein") == 0)
     {
 	dnaChars = false;
     }
@@ -199,13 +195,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     {
 	PyErr_SetString(CxgFastaParserValueError,
 			"charType: 'DNA' or 'protein' expected");
-	Py_INCREF(CxgFastaParserValueError);
-	retval = CxgFastaParserValueError;
-	goto RETURN;
+	goto ERROR;
     }
 
     /* Parse. */
-    retval = NULL;
     CxmXepBegin();
     CxmXepTry
     {
@@ -245,13 +238,13 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			{
 			    if (self->tokenLen == 0)
 			    {
-				retval = CxpSyntaxError(self, line, column, c,
-							"Empty label");
-				goto RETURN;
+				CxpSyntaxError(self, line, column, c,
+					       "Empty label");
+				goto ERROR;
 			    }
 
 			    PyEval_CallMethod((PyObject *) self,
-					      "labelAccept", "");
+					      "labelAccept", "()");
 			    self->tokenLen = 0;
 			    state = CxpStateChars;
 			    break;
@@ -260,14 +253,14 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			{
 			    if (self->tokenLen == 0)
 			    {
-				retval = CxpSyntaxError(self, line, column, c,
-							"Empty label");
-				goto RETURN;
+				CxpSyntaxError(self, line, column, c,
+					       "Empty label");
+				goto ERROR;
 
 			    }
 
 			    PyEval_CallMethod((PyObject *) self,
-					      "labelAccept", "");
+					      "labelAccept", "()");
 			    self->tokenLen = 0;
 			    state = CxpStateComment;
 			    break;
@@ -286,7 +279,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			if (self->tokenLen > 0)
 			{
 			    PyEval_CallMethod((PyObject *) self,
-					      "commentAccept", "");
+					      "commentAccept", "()");
 			    self->tokenLen = 0;
 			    state = CxpStateChars;
 			}
@@ -307,13 +300,13 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 		    {
 			if (self->tokenLen == 0)
 			{
-			    retval = CxpSyntaxError(self, line, column, c,
-						    "Missing character data");
-			    goto RETURN;
+			    CxpSyntaxError(self, line, column, c,
+					   "Missing character data");
+			    goto ERROR;
 			}
 
 			PyEval_CallMethod((PyObject *) self,
-					  "charsAccept", "");
+					  "charsAccept", "()");
 			self->tokenLen = 0;
 			state = CxpStateLabel;
 		    }
@@ -342,11 +335,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				}
 				default:
 				{
-				    retval = CxpSyntaxError(self, line, column,
-							    c,
-							    "Invalid DNA"
-							    " character data");
-				    goto RETURN;
+				    CxpSyntaxError(self, line, column, c,
+						   "Invalid DNA"
+						   " character data");
+				    goto ERROR;
 				}
 			    }
 			}
@@ -377,11 +369,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				}
 				default:
 				{
-				    retval = CxpSyntaxError(self, line, column,
-							    c,
-							    "Invalid protein"
-							    " character data");
-				    goto RETURN;
+				    CxpSyntaxError(self, line, column, c,
+						   "Invalid protein"
+						   " character data");
+				    goto ERROR;
 				}
 			    }
 			}
@@ -394,21 +385,36 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 		}
 	    }
 	}
+
+	/* Make sure that the input ends with character data. */
+	if (state != CxpStateChars)
+	{
+	    CxpSyntaxError(self, line, column, c,
+			   "Input ended while reading label");
+	    goto ERROR;
+	}
+
+	/* Accept the last token. */
+	if (self->tokenLen == 0)
+	{
+	    CxpSyntaxError(self, line, column, c,
+			   "Missing character data");
+	    goto ERROR;
+	}
+	PyEval_CallMethod((PyObject *) self, "charsAccept", "()");
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
-	retval = PyErr_NoMemory();
+	PyErr_NoMemory();
     }
     CxmXepEnd();
 
-    if (retval == NULL)
-    {
-	Py_INCREF(Py_None);
-	retval = Py_None;
-    }
-    RETURN:
-    return retval;
+    Py_INCREF(Py_None);
+    return Py_None;
+
+    ERROR:
+    return NULL;
 }
 
 PyObject *
