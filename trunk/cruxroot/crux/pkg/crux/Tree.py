@@ -9,10 +9,10 @@
 #
 ################################################################################
 
-import _tree
+import _Tree
 
-import node
-import edge
+import Node
+import Edge
 import NewickParser
 import TaxonMap
 
@@ -47,7 +47,7 @@ class _NewickParser(NewickParser.NewickParser):
         for elm in self._taxonStack:
             if elm == None:
                 break
-            elif type(elm) == node.node:
+            elif type(elm) == Node.Node:
                 cnt += 1
         if cnt < 2:
             # Not enough neighbors on stack to join nodes together.  Remove open
@@ -55,7 +55,7 @@ class _NewickParser(NewickParser.NewickParser):
             self._taxonStack.remove(None)
         else:
             # Create new node.
-            nnode = node.node(self._tree)
+            nnode = Node.Node(self._tree)
 
             # Iteratively connect neighboring nodes to nnode.
             i = 0
@@ -66,7 +66,7 @@ class _NewickParser(NewickParser.NewickParser):
                     length = 0.0
 
                 n = self._taxonStack.pop(0)
-                e = edge.edge(self._tree)
+                e = Edge.Edge(self._tree)
                 e.attach(nnode, n)
                 e.lengthSet(length)
                 i += 1
@@ -99,7 +99,7 @@ class _NewickParser(NewickParser.NewickParser):
                 self._map.map(self.token(), val)
 
         # Create a new node and push it onto the stack.
-        nnode = node.node(self._tree)
+        nnode = Node.Node(self._tree)
         nnode.taxonNumSet(val)
         self._taxonStack.insert(0, nnode)
 
@@ -130,26 +130,26 @@ class _NewickParser(NewickParser.NewickParser):
             if n.degree() == 2:
                 self._taxonStack.pop(0)
                 # Get edges (and end that n is attached to).
-                (edge_a, end_a) = n.edge()
-                (edge_b, end_b) = edge_a.next(end_a)
+                (edgeA, endA) = n.edge()
+                (edgeB, endB) = edgeA.next(endA)
                 # Get neighboring nodes.
-                node_a = edge_a.node(end_a ^ 1)
-                node_b = edge_b.node(end_b ^ 1)
+                nodeA = edgeA.node(endA ^ 1)
+                nodeB = edgeB.node(endB ^ 1)
                 # Detach edges.
-                edge_a.detach()
-                edge_b.detach()
+                edgeA.detach()
+                edgeB.detach()
                 # Attach neighbors.
-                e = edge.edge(self._tree)
-                e.attach(node_a, node_b)
+                e = Edge.Edge(self._tree)
+                e.attach(nodeA, nodeB)
                 if length != None:
                     e.lengthSet(length)
                 else:
-                    e.lengthSet(edge_a.lengthGet() + edge_b.lengthGet())
+                    e.lengthSet(edgeA.lengthGet() + edgeB.lengthGet())
                     
                 # Push a node back onto the stack.
-                self._taxonStack.insert(0, node_a)
+                self._taxonStack.insert(0, nodeA)
 
-class tree(_tree.Tree):
+class Tree(_Tree.Tree):
     def __init__(self, with=None, map=TaxonMap.TaxonMap()):
         self._map = map
 
@@ -165,7 +165,7 @@ class tree(_tree.Tree):
         subtrees = []
         i = 0
         while i < ntaxa:
-            nnode = node.node(self)
+            nnode = Node.Node(self)
             nnode.taxonNumSet(i)
             subtrees.append(nnode)
             self._map.map(str(i), i)
@@ -176,20 +176,20 @@ class tree(_tree.Tree):
         # push the result back onto the stack.  Stop when there are two subtrees
         # left.
         while len(subtrees) > 2:
-            subtree_a = subtrees.pop(random.randint(0, len(subtrees) - 1))
-            subtree_b = subtrees.pop(random.randint(0, len(subtrees) - 1))
-            nnode = node.node(self)
-            edge.edge(self).attach(nnode, subtree_a)
-            edge.edge(self).attach(nnode, subtree_b)
+            subtreeA = subtrees.pop(random.randint(0, len(subtrees) - 1))
+            subtreeB = subtrees.pop(random.randint(0, len(subtrees) - 1))
+            nnode = Node.Node(self)
+            Edge.Edge(self).attach(nnode, subtreeA)
+            Edge.Edge(self).attach(nnode, subtreeB)
             subtrees.append(nnode)
 
         # Attach the last two subtrees directly, in order to finish constructing
         # an unrooted tree.
-        subtree_a = subtrees.pop(0)
-        subtree_b = subtrees.pop(0)
-        edge.edge(self).attach(subtree_a, subtree_b)
+        subtreeA = subtrees.pop(0)
+        subtreeB = subtrees.pop(0)
+        Edge.Edge(self).attach(subtreeA, subtreeB)
 
-        self.baseSet(subtree_a)
+        self.baseSet(subtreeA)
 
     def _newickNew(self, input):
         parser = _NewickParser(self, self._map)

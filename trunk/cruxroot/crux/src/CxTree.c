@@ -354,7 +354,7 @@ static PyTypeObject CxtTree =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
-    "_tree.Tree",	/* char *tp_name */
+    "_Tree.Tree",	/* char *tp_name */
     sizeof(CxtTreeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
     (destructor) CxpTreeDelete,	/* destructor tp_dealloc */
@@ -409,12 +409,12 @@ CxTreeInit(void)
     {
 	return;
     }
-    m = Py_InitModule3("_tree", CxpTreeFuncs, "tree extensions");
+    m = Py_InitModule3("_Tree", CxpTreeFuncs, "Tree extensions");
     Py_INCREF(&CxtTree);
     PyModule_AddObject(m, "Tree", (PyObject *) &CxtTree);
 
     /* Pre-compile Python code that is used for creating a tree. */
-    CxpTreeNewCode = Py_CompileString("tree.tree()",
+    CxpTreeNewCode = Py_CompileString("Tree.Tree()",
 				      "<string>",
 				      Py_eval_input);
 }
@@ -682,7 +682,7 @@ static PyTypeObject CxtNode =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
-    "_node.Node",	/* char *tp_name */
+    "_Node.Node",	/* char *tp_name */
     sizeof(CxtNodeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
     (destructor) CxpNodeDelete,	/* destructor tp_dealloc */
@@ -737,12 +737,12 @@ CxNodeInit(void)
     {
 	return;
     }
-    m = Py_InitModule3("_node", CxpNodeFuncs, "node extensions");
+    m = Py_InitModule3("_Node", CxpNodeFuncs, "Node extensions");
     Py_INCREF(&CxtNode);
     PyModule_AddObject(m, "Node", (PyObject *) &CxtNode);
 
     /* Pre-compile Python code that is used for creating a node. */
-    CxpNodeNewCode = Py_CompileString("node.node(tree)",
+    CxpNodeNewCode = Py_CompileString("Node.Node(tree)",
 				      "<string>",
 				      Py_eval_input);
 }
@@ -1172,7 +1172,7 @@ static PyTypeObject CxtEdge =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
-    "_edge.Edge",	/* char *tp_name */
+    "_Edge.Edge",	/* char *tp_name */
     sizeof(CxtEdgeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
     (destructor) CxpEdgeDelete,	/* destructor tp_dealloc */
@@ -1227,12 +1227,12 @@ CxEdgeInit(void)
     {
 	return;
     }
-    m = Py_InitModule3("_edge", CxpEdgeFuncs, "edge extensions");
+    m = Py_InitModule3("_Edge", CxpEdgeFuncs, "Edge extensions");
     Py_INCREF(&CxtEdge);
     PyModule_AddObject(m, "Edge", (PyObject *) &CxtEdge);
 
     /* Pre-compile Python code that is used for creating a wrapped edge. */
-    CxpEdgeNewCode = Py_CompileString("edge.edge(tree)",
+    CxpEdgeNewCode = Py_CompileString("Edge.Edge(tree)",
 				      "<string>",
 				      Py_eval_input);
 }

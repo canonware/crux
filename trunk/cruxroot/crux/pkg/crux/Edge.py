@@ -9,9 +9,9 @@
 #
 ################################################################################
 
-import _edge
+import _Edge
 
-class edge(_edge.Edge):
+class Edge(_Edge.Edge):
     def __init__(self, tree):
         pass
 #EOF

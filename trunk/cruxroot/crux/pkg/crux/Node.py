@@ -9,11 +9,11 @@
 #
 ################################################################################
 
-import _node
+import _Node
 
 import re
 
-class node(_node.Node):
+class Node(_Node.Node):
     def __init__(self, tree):
         pass
 
