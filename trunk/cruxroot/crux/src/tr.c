@@ -1742,8 +1742,8 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     /* Only calculate the parent's node score if the cached value is invalid. */
     if (a_a->parent != a_p || a_b->parent != a_p)
     {
-	cw_uint32_t nchars, ns;
-	cw_trc_t *chars_p, *chars_a, *chars_b, *pend;
+	cw_uint32_t i, nchars, ns;
+	cw_trc_t *chars_p, *chars_a, *chars_b;
 
 	/* Calculate sum of subtree scores. */
 	a_p->subtrees_score
@@ -1771,28 +1771,26 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 	/* Use SSE2 to evaluate as many of the characters as possible.  This
 	 * loop handles 16 characters per iteration. */
-
-	/* Fill xmm7 with 16 255's. */
 	{
 	    static const unsigned char ones[] =
 		"\x01\x01\x01\x01\x01\x01\x01\x01"
 		"\x01\x01\x01\x01\x01\x01\x01\x01";
 
 	    asm volatile (
+		/* Fill xmm7 with 16 1's. */
 		"movdqu %[ones], %%xmm7;"
+
+		/* Clear pns. */
+		"pxor %%xmm5, %%xmm5;"
 		:
 		: [ones] "m" (*ones)
-		: "%xmm7"
+		: "%xmm5", "%xmm7"
 		);
 	}
 
-	/* Clear pns. */
-	asm volatile ("pxor %xmm5, %xmm5;");
-
-	// XXX Use prefetch?
-	for (pend = &chars_p[nchars ^ (nchars & 0xf)];
-	     chars_p < pend;
-	     chars_p += 16, chars_a += 16, chars_b += 16)
+	for (i = 0;
+	     i < (nchars ^ (nchars & 0xf));
+	     i += 16)
 	{
 	    asm volatile (
 		/* Read character data, and'ing and or'ing them together.
@@ -1834,63 +1832,15 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		 * *chars_p = p;
 		 */
 		"movdqa %%xmm0, %[p];"
-		: [p] "=m" (*chars_p)
-		: [a] "m" (*chars_a), [b] "m" (*chars_b)
+		: [p] "=m" (chars_p[i])
+		: [a] "m" (chars_a[i]), [b] "m" (chars_b[i])
 		: "memory"
 		);
-
-#if (0) // XXX
-	    {
-		cw_uint32_t i, a, b, p, c, s;
-		unsigned char bytes[16];
-
-		asm volatile (
-		    "movdqa %%xmm3, %[bytes];"
-		    : [bytes] "=m" (*bytes)
-		    );
-
-#if (0)
-		fprintf(stderr,
-			"bytes: %02x %02x %02x %02x %02x %02x %02x %02x"
-			" %02x %02x %02x %02x %02x %02x %02x %02x \n",
-			bytes[0], bytes[1], bytes[2], bytes[3],
-			bytes[4], bytes[5], bytes[6], bytes[7],
-			bytes[8], bytes[9], bytes[10], bytes[11],
-			bytes[12], bytes[13], bytes[14], bytes[15]);
-#endif
-
-		for (i = 0; i < 16; i++)
-		{
-		    a = chars_a[i];
-		    b = chars_b[i];
-
-		    p = a & b;
-		    s = p ? 0 : 1;
-		    c = -s;
-		    p = (p | (c & (a | b)));
-
-		    if (p != chars_p[i])
-		    {
-			fprintf(stderr,
-				"set %02x, want %02x : %02x | (%02x & (%02x | %02x)) [%u]\n",
-				chars_p[i], p, a & b,
-				c, a, b, i);
-		    }
-		    if (s != bytes[i])
-		    {
-			fprintf(stderr,
-				"score %02x, want %02x : %02x | (%02x & (%02x | %02x)) [%u]\n",
-				bytes[i], s, a & b,
-				c, a, b, i);
-		    }
-		}
-	    }
-#endif
 	}
 
 	/* Update ns. */
 	{
-	    cw_uint32_t i;
+	    cw_uint32_t j;
 	    unsigned char pns[16];
 
 	    asm volatile (
@@ -1900,9 +1850,9 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		: "memory"
 	    );
 
-	    for (i = 0; i < 16; i++)
+	    for (j = 0; j < 16; j++)
 	    {
-		ns += pns[i];
+		ns += pns[j];
 	    }
 	}
 
@@ -1911,17 +1861,15 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	{
 	    cw_uint32_t a, b, p, c, s;
 
-	    for (pend += (nchars & 0xf);
-		 chars_p < pend;
-		 chars_p++, chars_a++, chars_b++)
+	    for (; i < nchars; i++)
 	    {
-		a = *chars_a;
-		b = *chars_b;
+		a = chars_a[i];
+		b = chars_b[i];
 
 		p = a & b;
 		s = p ? 0 : 1;
 		c = -s;
-		*chars_p = (p | (c & (a | b)));
+		chars_p[i] = (p | (c & (a | b)));
 		ns += s;
 	    }
 	}
