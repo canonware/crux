@@ -49,7 +49,7 @@ typedef struct
 
     PyObject *map;
     long ntaxa;
-    double *matrix;
+    float *matrix;
 } CxtDistMatrixObject;
 
 extern PyObject *CxgDistMatrixException;

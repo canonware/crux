@@ -329,10 +329,10 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
 }
 
 static bool
-CxpDistMatrixTokenToDistance(CxtDistMatrixObject *self, double *rDistance)
+CxpDistMatrixTokenToDistance(CxtDistMatrixObject *self, float *rDistance)
 {
     bool retval;
-    double distance;
+    float distance;
 
     CxpDistMatrixAppendC(self, '\0');
 
@@ -519,8 +519,8 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 		retval = true;
 		goto RETURN;
 	    }
-	    self->matrix = (double *) CxmMalloc(sizeof(double)
-						* self->ntaxa * self->ntaxa);
+	    self->matrix = (float *) CxmMalloc(sizeof(float)
+					       * self->ntaxa * self->ntaxa);
 	    break;
 	}
 	case CxtDistMatrixTokenDec:
@@ -959,9 +959,9 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 		self->ntaxa = PyInt_AsLong(result);
 		Py_DECREF(result);
 
-		self->matrix = (double *) CxmMalloc(sizeof(double)
-						    * self->ntaxa
-						    * self->ntaxa);
+		self->matrix = (float *) CxmMalloc(sizeof(float)
+						   * self->ntaxa
+						   * self->ntaxa);
 
 		for (i = 0; i < self->ntaxa * self->ntaxa; i++)
 		{
@@ -1023,7 +1023,7 @@ CxDistMatrixDistanceGet(CxtDistMatrixObject *self, PyObject *args)
     }
 
     /* Get distance. */
-    retval = Py_BuildValue("d", self->matrix[fr * self->ntaxa + to]);
+    retval = Py_BuildValue("f", self->matrix[fr * self->ntaxa + to]);
     RETURN:
     return retval;
 }
@@ -1033,10 +1033,10 @@ CxDistMatrixDistanceSet(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *retval;
     long fr, to;
-    double distance;
+    float distance;
 
     /* Parse arguments. */
-    if (PyArg_ParseTuple(args, "lld", &fr, &to, &distance) == 0)
+    if (PyArg_ParseTuple(args, "llf", &fr, &to, &distance) == 0)
     {
 	retval = NULL;
 	goto RETURN;

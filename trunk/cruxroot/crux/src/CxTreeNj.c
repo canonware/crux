@@ -17,15 +17,15 @@ typedef struct CxsTreeNjr CxtTreeNjr;
 /* Used by CxTreeNj() to represent a distance matrix cell. */
 struct CxsTreeNjd
 {
-    double dist;  /* Distance. */
-    double trans; /* Transformed distance. */
+    float dist;  /* Distance. */
+    float trans; /* Transformed distance. */
 };
 
 /* Used by CxTreeNj(). */
 struct CxsTreeNjr
 {
-    double r;
-    double rScaled;   /* r/(m-2)). */
+    float r;
+    float rScaled;   /* r/(m-2)). */
     CxtNodeObject *node; /* Associated node. */
 };
 
@@ -107,7 +107,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
     CxtTreeNjd *d, *dPrev, *tD; /* Distance matrix. */
     CxtTreeNjr *r; /* Distance sums. */
     long nleft, i, x, y, iMin, xMin, yMin, xNew, yNew;
-    double distX, distY;
+    float distX, distY;
     CxtNodeObject *node;
     CxtEdgeObject *edgeX, *edgeY, *edge;
     PyObject *result;
@@ -141,12 +141,12 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
 				       x, y);
 	    if (PyFloat_Check(result))
 	    {
-		d[i].dist = PyFloat_AsDouble(result);
+		d[i].dist = (float) PyFloat_AsDouble(result);
 		Py_DECREF(result);
 	    }
 	    else if (PyInt_Check(result))
 	    {
-		d[i].dist = (double) PyInt_AsLong(result);
+		d[i].dist = (float) PyInt_AsLong(result);
 		Py_DECREF(result);
 	    }
 	    else
