@@ -599,7 +599,7 @@ tree_mp_prepare(TreeObject *self, PyObject *args)
 		}
 	    }
 	}
-    
+
 	// XXX Recurse through the tree and make sure that the taxa are numbered
 	// correctly.
 
@@ -979,12 +979,23 @@ static PyMethodDef tree_funcs[] =
     {NULL}
 };
 
+static PyObject *tree_wrapped_new_code;
+
 static cw_tr_t *
 tree_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
 {
     TreeObject *tree;
+    PyObject *globals, *locals;
 
-    tree = (TreeObject *) tree_new(&Tree_Type, NULL, NULL);
+    globals = PyEval_GetGlobals();
+    locals = Py_BuildValue("{}");
+
+    tree = (TreeObject *)
+	PyEval_EvalCode((PyCodeObject *) tree_wrapped_new_code,
+			globals,
+			locals);
+
+    Py_DECREF(locals);
 
     return tree->tr;
 }
@@ -1000,7 +1011,12 @@ crux_tree_init(void)
     }
     m = Py_InitModule3("_tree", tree_funcs, "tree extensions");
     Py_INCREF(&Tree_Type);
-    PyModule_AddObject(m, "Tree", (PyObject *)&Tree_Type);
+    PyModule_AddObject(m, "Tree", (PyObject *) &Tree_Type);
+
+    /* Pre-compile Python code that is used for creating a wrapped tree. */
+    tree_wrapped_new_code = Py_CompileString("crux.tree()",
+					     "<string>",
+					     Py_eval_input);
 }
 
 /* End tree. */
@@ -1038,7 +1054,7 @@ node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	self->tree = tree;
 	self->node = tr_node_new(tree->tr);
 	tr_node_aux_set(tree->tr, self->node, self);
-    
+
 	retval = (PyObject *) self;
     }
     xep_catch(CW_CRUXX_OOM)
@@ -1285,15 +1301,23 @@ static PyMethodDef node_funcs[] =
     {NULL}
 };
 
+static PyObject *tree_node_wrapped_new_code;
+
 static cw_tr_node_t
 tree_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
 {
     NodeObject *node;
-    PyObject *args;
+    PyObject *globals, *locals;
 
-    args = Py_BuildValue("(O)", (TreeObject *) a_opaque);
-    node = (NodeObject *) node_new(&Node_Type, args, NULL);
-    Py_DECREF(args);
+    globals = PyEval_GetGlobals();
+    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_opaque);
+
+    node = (NodeObject *)
+	PyEval_EvalCode((PyCodeObject *) tree_node_wrapped_new_code,
+			globals,
+			locals);
+
+    Py_DECREF(locals);
 
     return node->node;
 }
@@ -1309,7 +1333,12 @@ crux_node_init(void)
     }
     m = Py_InitModule3("_node", node_funcs, "node extensions");
     Py_INCREF(&Node_Type);
-    PyModule_AddObject(m, "Node", (PyObject *)&Node_Type);
+    PyModule_AddObject(m, "Node", (PyObject *) &Node_Type);
+
+    /* Pre-compile Python code that is used for creating a wrapped node. */
+    tree_node_wrapped_new_code = Py_CompileString("crux.node(tree)",
+						  "<string>",
+						  Py_eval_input);
 }
 
 /* End node. */
@@ -1725,15 +1754,23 @@ static PyMethodDef edge_funcs[] =
     {NULL}
 };
 
+static PyObject *tree_edge_wrapped_new_code;
+
 static cw_tr_edge_t
 tree_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
 {
     EdgeObject *edge;
-    PyObject *args;
+    PyObject *globals, *locals;
 
-    args = Py_BuildValue("(O)", (TreeObject *) a_opaque);
-    edge = (EdgeObject *) edge_new(&Edge_Type, args, NULL);
-    Py_DECREF(args);
+    globals = PyEval_GetGlobals();
+    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_opaque);
+
+    edge = (EdgeObject *)
+	PyEval_EvalCode((PyCodeObject *) tree_edge_wrapped_new_code,
+			globals,
+			locals);
+
+    Py_DECREF(locals);
 
     return edge->edge;
 }
@@ -1749,7 +1786,12 @@ crux_edge_init(void)
     }
     m = Py_InitModule3("_edge", edge_funcs, "edge extensions");
     Py_INCREF(&Edge_Type);
-    PyModule_AddObject(m, "Edge", (PyObject *)&Edge_Type);
+    PyModule_AddObject(m, "Edge", (PyObject *) &Edge_Type);
+
+    /* Pre-compile Python code that is used for creating a wrapped edge. */
+    tree_edge_wrapped_new_code = Py_CompileString("crux.edge(tree)",
+						  "<string>",
+						  Py_eval_input);
 }
 
 /* End edge. */

@@ -3418,22 +3418,30 @@ tr_p_nj_xy2i(uint32_t a_n, uint32_t a_x, uint32_t a_y)
  *
  * is stored as:
  *
+ *   d:
  *   /-------+-------+-------+-------+-------+-------+-------+-------+-------...
  *   |   0   |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   
  *   | -10.5 | -12.0 | -12.5 | -13.0 | -13.5 | -14.0 | -14.5 | -14.5 | -15.0 
  *   \-------+-------+-------+-------+-------+-------+-------+-------+-------...
  *
- *   +-------++-------+-------+-------+-------+-------\
- *   |   9   ||   6   |  15   |  20   |  23   |  26   |
- *   | -15.5 ||   2.0 |   5.0 |   6.7 |   7.7 |   8.7 |
- *   +-------++-------+-------+-------+-------+-------/
+ *   +-------\
+ *   |   9   |
+ *   | -15.5 |
+ *   +-------/
+ *
+ *   r:
+ *   /-------+-------+-------+-------+-------\
+ *   |   6   |  15   |  20   |  23   |  26   |	
+ *   |   2.0 |   5.0 |   6.7 |   7.7 |   8.7 |	
+ *   \-------+-------+-------+-------+-------/
  */
+//#define XXX_NJ_VERBOSE
 void
 tr_nj(cw_tr_t *a_tr, double *a_distances, uint32_t a_ntaxa)
 {
     cw_tr_njd_t *d, *d_prev, *t_d; /* Distance matrix. */
     cw_tr_njr_t *r; /* Distance sums. */
-    uint32_t ndists, nleft, i, x, y, i_min, x_min, y_min, x_inc, y_inc;
+    uint32_t nleft, i, x, y, i_min, x_min, y_min, x_new, y_new;
     double dist_x, dist_y;
     cw_tr_node_t node;
     cw_tr_edge_t edge_x, edge_y, edge;
@@ -3444,18 +3452,28 @@ tr_nj(cw_tr_t *a_tr, double *a_distances, uint32_t a_ntaxa)
     cw_assert(a_ntaxa > 1);
 
     /* Allocate an array that is large enough to hold the distances. */
-    ndists = tr_p_nj_xy2i(a_ntaxa, a_ntaxa - 2, a_ntaxa - 1);
-    d = (cw_tr_njd_t *) cw_malloc(sizeof(cw_tr_njd_t) * ndists);
+    d = (cw_tr_njd_t *) cw_malloc(sizeof(cw_tr_njd_t)
+				  * (tr_p_nj_xy2i(a_ntaxa,
+						  a_ntaxa - 2,
+						  a_ntaxa - 1)
+				     + 1));
     /* d_prev can be smaller, since it won't be used until the matrix is shrunk
      * once. */
     d_prev = (cw_tr_njd_t *) cw_malloc(sizeof(cw_tr_njd_t)
-				       * tr_p_nj_xy2i(a_ntaxa, a_ntaxa - 3,
-						      a_ntaxa - 2));
+				       * (tr_p_nj_xy2i(a_ntaxa,
+						       a_ntaxa - 3,
+						       a_ntaxa - 2)
+					  + 1));
 
     /* Initialize untransformed distances. */
-    for (i = 0; i < ndists; i++)
+    for (x = i = 0; x < a_ntaxa; x++)
     {
-	d[i].dist = a_distances[i];
+	for (y = x + 1; y < a_ntaxa; y++)
+	{
+	    d[i].dist = a_distances[x * a_ntaxa + y];
+
+	    i++;
+	}
     }
 
     /* Allocate an array that is large enough to hold all the distance sums. */
@@ -3464,7 +3482,7 @@ tr_nj(cw_tr_t *a_tr, double *a_distances, uint32_t a_ntaxa)
     /* Create a node for each taxon in the matrix. */
     for (i = 0; i < a_ntaxa; i++)
     {
-	r[i].node = tr_node_new(a_tr);
+	r[i].node = tr_p_node_wrapped_new(a_tr);
 	tr_node_taxon_num_set(a_tr, r[i].node, i);
     }
 
@@ -3515,16 +3533,55 @@ tr_nj(cw_tr_t *a_tr, double *a_distances, uint32_t a_ntaxa)
 	    }
 	}
 
+#ifdef XXX_NJ_VERBOSE
+	fprintf(stderr,
+		"----------------------------------------"
+		"----------------------------------------\n");
+	for (x = i = 0; x < nleft; x++)
+	{
+	    fprintf(stderr, "%*s", x * 9 + (!!x), " ");
+	    for (y = x + 1; y < nleft; y++)
+	    {
+		fprintf(stderr, " %8.4f", d[i].dist);
+
+		i++;
+	    }
+	    fprintf(stderr, " || %8.4f (node %d)\n", r[x].r, r[x].node);
+
+	    fprintf(stderr, "%*s", x * 9 + (!!x), " ");
+	    for (i -= (nleft - (x + 1)), y = x + 1; y < nleft; y++)
+	    {
+		fprintf(stderr, " %8.4f", d[i].trans);
+
+		i++;
+	    }
+	    fprintf(stderr, " || %8.4f\n", r[x].r_scaled);
+
+	    fprintf(stderr, "\n");
+	}
+#endif
+	
+
 	/* Join the nodes with the minimum transformed distance. */
 	node = tr_p_node_wrapped_new(a_tr);
+#ifdef XXX_NJ_VERBOSE
+	fprintf(stderr, "New node %u\n", node);
+#endif
 	edge_x = tr_p_edge_wrapped_new(a_tr);
 	tr_edge_attach(a_tr, edge_x, node, r[x_min].node);
 	dist_x = (d[i_min].dist + r[x_min].r_scaled - r[y_min].r_scaled) / 2;
 	tr_edge_length_set(a_tr, edge_x, dist_x);
+#ifdef XXX_NJ_VERBOSE
+	fprintf(stderr, "  Join node %u (len %.4f)\n", r[x_min].node, dist_x);
+#endif
+
 	edge_y = tr_p_edge_wrapped_new(a_tr);
 	tr_edge_attach(a_tr, edge_y, node, r[y_min].node);
 	dist_y = d[i_min].dist - dist_x;
 	tr_edge_length_set(a_tr, edge_y, dist_y);
+#ifdef XXX_NJ_VERBOSE
+	fprintf(stderr, "  Join node %u (len %.4f)\n", r[y_min].node, dist_y);
+#endif
 
 	/* Swap to new matrix. */
 	t_d = d;
@@ -3532,63 +3589,68 @@ tr_nj(cw_tr_t *a_tr, double *a_distances, uint32_t a_ntaxa)
 	d_prev = t_d;
 
 	/* Create compacted matrix. */
-	for (x = i = 0, x_inc = 0; x < nleft; x++)
+	for (x = i = 0, x_new = 0; x < nleft; x++)
 	{
-	    /* Avoid rows that are being removed. */
-	    if (x == x_min || x == y_min)
+	    if (x != x_min && x != y_min)
 	    {
-		x_inc++;
-	    }
-
-	    for (y = x + 1, y_inc = 0; y < nleft; y++)
-	    {
-		/* Avoid columns that are being removed. */
-		if (y == x_min || y == y_min)
+		for (y = x + 1, y_new = x_new + 1; y < nleft; y++)
 		{
-		    y_inc++;
+		    if (y != x_min && y != y_min)
+		    {
+			d[tr_p_nj_xy2i(nleft - 1, x_new, y_new)].dist
+			    = d_prev[i].dist;
+
+			y_new++;
+		    }
+
+		    i++;
 		}
 
-		d[i].dist = d_prev[tr_p_nj_xy2i(nleft,
-						x + x_inc,
-						y + y_inc)].dist;
-
-		i++;
+		x_new++;
+	    }
+	    else
+	    {
+		i += (nleft - (x + 1));
 	    }
 	}
 
 	/* Calculate distances to new node. */
-	for (y = nleft - 1, x = x_inc = 0; x < nleft - 1; x++)
+	for (x = 0, x_new = 0; x < nleft; x++)
 	{
-	    /* Avoid rows that are being removed. */
-	    if (x == x_min || x == y_min)
+	    if (x != x_min && x != y_min)
 	    {
-		x_inc++;
-	    }
+		d[tr_p_nj_xy2i(nleft - 1, x_new, nleft - 2)].dist
+		    = ((d_prev[tr_p_nj_xy2i(nleft, x, x_min)].dist - dist_x)
+		       + (d_prev[tr_p_nj_xy2i(nleft, x, y_min)].dist - dist_y)
+		       ) / 2;
 
-	    d[tr_p_nj_xy2i(nleft - 1, x, y)].dist
-		= ((d_prev[tr_p_nj_xy2i(nleft, x + x_inc, x_min)].dist - dist_x)
-		   + (d_prev[tr_p_nj_xy2i(nleft, x + x_inc, y_min)].dist
-		      - dist_y)
-		   ) / 2;
+		x_new++;
+	    }
 	}
 
 	/* Compact and update r. */
-	memmove(&r[x_min], &r[x_min + 1],
-		sizeof(cw_tr_njr_t) * (nleft - x_min - 1));
+	// XXX Do this in a single pass?
 	memmove(&r[y_min], &r[y_min + 1],
 		sizeof(cw_tr_njr_t) * (nleft - y_min - 1));
+	memmove(&r[x_min], &r[x_min + 1],
+		sizeof(cw_tr_njr_t) * (nleft - x_min - 1));
 	r[nleft - 2].node = node;
     }
 
     /* Join the remaining two nodes. */
+#ifdef XXX_NJ_VERBOSE
+    fprintf(stderr, "Join last two nodes: %u and %u\n", r[0].node, r[1].node);
+#endif
     edge = tr_p_edge_wrapped_new(a_tr);
     tr_edge_attach(a_tr, edge, r[0].node, r[1].node);
+    tr_edge_length_set(a_tr, edge, d[0].dist);
 
     /* Set the tree base. */
     tr_base_set(a_tr, r[0].node);
 
     /* Clean up. */
     cw_free(d);
+    cw_free(d_prev);
     cw_free(r);
 }
 

@@ -9,7 +9,10 @@
  *
  ******************************************************************************/
 
+/* Python headers. */
 #include <Python.h>
+#include <compile.h>
+#include <eval.h>
 
 #include "_cruxmodule_defs.h"
 
