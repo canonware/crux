@@ -1,8 +1,10 @@
+* Rename nj() --> rnj().
+
+* Add nj().
+
 * Somehow return whether a NJ tree is additive?
 
 * Convert negative branch lengths (as a result of NJ) to zero-length branches?
-
-* Implement the Robinson-Foulds distance measure.
 
 * Add isSymmetric(), symmetricize(), and unsymmetricize() methods to DistMatrix
   class.
