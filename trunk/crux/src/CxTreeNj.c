@@ -565,7 +565,6 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	    retval = false;
 	    goto RETURN;
 	}
-	iA += aNleft - 2 - x;
 
 	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
 	if (dist < distAB)
@@ -573,6 +572,8 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	    retval = false;
 	    goto RETURN;
 	}
+
+	iA += aNleft - 2 - x;
 	iB += aNleft - 2 - x;
     }
 
@@ -632,7 +633,7 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 			     long aA, long aB)
 {
     bool retval;
-    long iAB, x, iA, iB;
+    long iAB, iA, iB;
     float distA, distB, dist;
 
     /* Calculate distances from {aA,aB} to the new node. */
@@ -675,6 +676,8 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 // 	}
     }
 #else
+    long x;
+
     /* Iterate over the row portion of distances for aA and aB. */
     for (x = aB + 1,
 	     iA = CxpTreeNjXy2i(aNleft, aA, aA + 1),
@@ -774,12 +777,10 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
  *
  * 3) If x and min can be clustered, do so, then immediately try to cluster with
  *    x again (as long as collapsing the matrix didn't move row x). */
-static bool
+static void
 CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
-		 CxtNodeObject ***arNodes, long *arNleft, CxtTreeObject *aTree,
-		 bool aAdditive)
+		 CxtNodeObject ***arNodes, long *arNleft, CxtTreeObject *aTree)
 {
-    bool retval = false;
     long x, y, min;
     float *dElm;
     float dist, minDist, distX, distY;
@@ -789,14 +790,22 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
     CxtNodeObject *node;
     CxtNodeObject **nodes = *arNodes;
     long nleft = *arNleft;
+    bool additive, clustered;
 
-    for (x = 0; x < nleft - 1 && nleft > 2;) /* y indexes one past x. */
+    additive = true;
+    clustered = true;
+    while (true)
     {
-	/* Find the minimum distance from the node on row x to any other node
-	 * that comes after it in the matrix.  This has the effect of trying
-	 * each node pairing only once. */
-	if (x < nleft - 2)
+	if (clustered == false)
 	{
+	    additive = false;
+	}
+	clustered = false;
+	for (x = 0; x < nleft - 1;) /* y indexes one past x. */
+	{
+	    /* Find the minimum distance from the node on row x to any other
+	     * node that comes after it in the matrix.  This has the effect of
+	     * trying each node pairing only once. */
 	    for (y = x + 1,
 		     dElm = &d[CxpTreeNjXy2i(nleft, x, y)],
 		     minDist = HUGE_VAL;
@@ -813,80 +822,82 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 		}
 	    }
 	    CxmAssert(minDist != HUGE_VAL);
-	}
-	else
-	{
-	    min = x + 1;
-	}
 
-	if ((aAdditive == false
-	     || CxpTreeNjPairClusterAdditive(d, rScaled, nleft, x, min))
-	    && CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min))
-	{
-	    retval = true;
-	    // XXX Move randomization to matrix initialization, and expose it as
-	    // an option.
-#ifdef CxmTreeNjRandomize
+	    if ((additive == false
+		 || CxpTreeNjPairClusterAdditive(d, rScaled, nleft, x, min))
+		&& CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min))
 	    {
-		static bool inited = false;
-
-		if (inited == false)
+		clustered = true;
+		// XXX Move randomization to matrix initialization, and expose
+		// it as an option.
+#ifdef CxmTreeNjRandomize
 		{
-		    time_t t;
-		    time(&t);
-		    srand(t);
-		    inited = true;
-		}
+		    static bool inited = false;
 
-		if ((rand() & 1) != 0)
-		{
-		    x++;
-		    continue;
+		    if (inited == false)
+		    {
+			time_t t;
+			time(&t);
+			srand(t);
+			inited = true;
+		    }
+
+		    if ((rand() & 1) != 0)
+		    {
+			x++;
+			continue;
+		    }
 		}
-	    }
 #endif
 #ifdef CxmTreeNjDump
-	    CxpTreeNjDump(d, r, rScaled, nodes, nleft);
+		CxpTreeNjDump(d, r, rScaled, nodes, nleft);
 #endif
-	    CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, x, min,
-			       &node, &distX, &distY);
-	    CxpTreeNjRSubtract(d, r, nleft, x, min);
-	    CxpTreeNjCompact(d, r, rScaled, nodes, nleft, x, min,
-			     node, distX, distY);
-	    CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
-	    nleft--;
-	    CxpTreeNjRScaledUpdate(rScaled, r, nleft);
+		CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, x, min,
+				   &node, &distX, &distY);
+		CxpTreeNjRSubtract(d, r, nleft, x, min);
+		CxpTreeNjCompact(d, r, rScaled, nodes, nleft, x, min,
+				 node, distX, distY);
+		CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
+		nleft--;
+		CxpTreeNjRScaledUpdate(rScaled, r, nleft);
 
-	    /* The indexing of the matrix is shifted as a result of having
-             * removed the first row.  Set x such that joining with this row is
-             * immediately tried again.  This isn't ideal, in that this only
-             * tries to join the new node with nodes that come after it in the
-             * matrix.  However, it probably isn't worth the cache miss penalty
-             * of finding the node that is closest to this one (requires
-             * iterating over a column).
-	     *
-	     * Note that if x is 0, then the row is now at (min - 1); in that
-	     * case, stay on row 0. */
-	    if (x > 0)
+		/* Shrinking the matrix may have reduced it to the point that
+		 * the enclosing loop will no longer function correctly.  Check
+		 * this condition here, in order to reduce branch overhead for
+		 * the case where no join is done. */
+		if (nleft == 2)
+		{
+		    goto OUT;
+		}
+
+		/* The indexing of the matrix is shifted as a result of having
+		 * removed the first row.  Set x such that joining with this row
+		 * is immediately tried again.  This isn't ideal, in that this
+		 * only tries to join the new node with nodes that come after it
+		 * in the matrix.  However, it probably isn't worth the cache
+		 * miss penalty of finding the node that is closest to this one
+		 * (requires iterating over a column).
+		 *
+		 * Note that if x is 0, then the row is now at (min - 1); in
+		 * that case, stay on row 0. */
+		if (x > 0)
+		{
+		    x--;
+		}
+	    }
+	    else
 	    {
-		x--;
+		x++;
 	    }
 	}
-	else
-	{
-	    x++;
-	}
     }
+    OUT:
 
     *arD = d;
     *arR = r;
     *arRScaled = rScaled;
     *arNodes = nodes;
     *arNleft = nleft;
-    if (aAdditive == false)
-    {
-	retval = false;
-    }
     // XXX Remove.
 //     if (retval == false)
 //     {
@@ -896,7 +907,6 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 //     {
 // 	fprintf(stderr, "Next round will be in additive mode\n");
 //     }
-    return retval;
 }
 
 /* Create a tree from a pairwise distance matrix, using the neighbor-joining
@@ -983,11 +993,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     /* Iteratively try all clusterings, until only two rows are left. */
     additive = true;
     CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-    while (nleft > 2)
-    {
-	additive = CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree,
-				    additive);
-    }
+    CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree);
 
     node = CxpTreeNjFinalJoin(d, nodes, aTree);
 
