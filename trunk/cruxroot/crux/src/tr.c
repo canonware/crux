@@ -1940,6 +1940,12 @@ tr_new(cw_mema_t *a_mema)
     return retval;
 }
 
+cw_tr_t *
+tr_dup(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+}
+
 void
 tr_delete(cw_tr_t *a_tr)
 {
