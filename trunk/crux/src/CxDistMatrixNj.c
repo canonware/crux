@@ -523,13 +523,13 @@ CxpDistMatrixNjDistCompare(float aA, float aB, unsigned aMaxUlps)
     int32_t a, b;
 
     // Convert aA and aB to lexicographically ordered ints.
-    a = *(int *) &aA;
+    a = *(int32_t *) &aA;
     if (a < 0)
     {
 	a = 0x80000000 - a;
     }
 
-    b = *(int *) &aB;
+    b = *(int32_t *) &aB;
     if (b < 0)
     {
 	b = 0x80000000 - b;
