@@ -1,0 +1,164 @@
+* Migrate cvs-->svn.
+
+* Improve regression testing (capture stderr, filter python GC messages).
+
+* Write regression tests for DistMatrix.distance[GS]et().
+
+* Use CTMatrix for MP.
+
+* Add basic MP and TBR tests.
+
+* Add true tree holding, rather than just the limited form of holding that the
+  tr code supports.
+
+================================================================================
+
+* Add aux-like facilities to tree.c.  I think the way to go is have 
+  {tree,node,edge}_aux_[gs]et(obj, a_ind, ...), where a_ind is in the range
+  [0..AUX_MAX], and AUX_MAX is a compile-time constant.  This means that each
+  tree/node/edge will have a built-in array of aux pointers, which can be
+  assigned to various tasks (MP, ML, etc.).  This wastes a bit of memory as
+  compared to some of the alternatives, but it's fast, pretty simple, and
+  doesn't require much work to add an extra aux pointer.  If it turns out way
+  down the road that there are too many aux pointer users to keep the whole
+  array around all the time, then I can switch to dynamic aux table management.
+
+* Move TBR code out of tr.c, into tree_tbr.c.  This will remove some scary
+  constraints on how nodes/edges are rearranged (constraints imposed by the MP
+  code).
+
+* Move canonization code to tree_canonize.c.
+
+* Move MP code from tr.c to tree_mp.c.
+
+* Move tree holding code out of tr.c.  It belongs with the MP code (in
+  tree_mp.c).
+
+================================================================================
+
+* Implement Lewis crossover (in tree_crossover.c).
+
+  + Try iterative hill climbing, where iteration is repeated crossovers between
+    the current best tree and another one in hand.
+
+  + Try a hybrid of crossover and TBR hill climbing iteration.  This looks
+    promising, unless the hill climbing takes too much time.
+
+  + Try a GA, where crossover is Lewis crossover, and mutation is TBR
+    transformation.  I don't have a good feeling for how well this will work.  A
+    steady-state population is probably necessary to avoid thrashing around in
+    suboptimal tree space.
+
+================================================================================
+
+* Collapse unsupported (zero-change) branches when storing trees, in order to
+  avoid storing equivalent trees.
+
+* Write tree comparison code that deals with collapsed trees (tree_equal.c)
+
+================================================================================
+
+* Implement Sankoff parsimony, in preparation for supporting protein parsimony.
+
+* Generalize character types to handle protein, as well as arbitrary characters.
+
+* Add code for calculating pairwise distances.
+
+================================================================================
+
+* Do bisection/MP during tree recursion.
+
+* Terminate scoring early if identical on a per-word basis.
+
+================================================================================
+
+* Fix edge length printing for trees (one edge length is printed in two places
+  sometimes).
+
+
+
+* Implement other heuristic tree constructors, such as sequential addition,
+  UPGMA, star decomposition, etc.
+
+* Make it possible to permanently discard uninformative characters?  In any
+  case, uninformative character elimination is rather opaque at the moment, and
+  more information needs to be made available.
+
+* Either come up with a simple command line syntax (sorta like PAUP's), or
+  provide a number of crux scripts that provide similar ease of use for typical
+  operations.
+
+* Add interactive help.
+
+* Create rpm for crux.
+
+* Add documentation infrastructure, as well as full documentation of APIs.
+
+* Look at Tr* API and inline appropriate functions.
+
+=== Sometime ===
+
+* Implement crux.Tree.Tree.dup().
+
+* Make it possible to allow cyclic graphs (currently constrained to acyclic
+  graphs).
+
+* Implement NNI and SPR.  These should be easy, since they are subsets of TBR.
+
+* Implement client-server job processing and comprehensive checkpointing
+  capabilities.  This will deal with the unreliability of the cluster, and make
+  it possible for all nodes to work cooperatively.
+
+  Use something like OPIE for authentication?  It's absolutely essential to do
+  something, since oceanus is exposed to the net.  It may be effective to simply
+  bind to the internal network interface, but this is a rather hokey solution.
+
+* Add a GUI.  GUI features:
+
+  + Load/store:
+    - NEXUS files.
+    - Newick tree files.
+    - Scripts (Python)
+
+  + Manipulate (create, modify, store, print) trees and hybridization networks
+    graphically.
+
+  + Print trees.
+
+  + Manipulate (edit) character/taxon data.
+    - Mask characters and/or taxa.
+    - Add/subtract/edit characters and/or taxa.
+
+  + Set various parameters.
+
+  + Monitor program activity:
+    - Number of trees in memory.
+    - Number of trees evaluated.
+    - Various statistics of interest.
+    - Current state of algorithm.
+
+  + Interactive command prompt window.
+
+  + Display context-specific documentation.
+
+* Implement ML scoring.
+
+* Implement Bayesian MCMC estimation.
+
+=== Maybe ===
+
+* Write a nexus parser?
+
+* Create a Parser superclass (for NewickParser, FastaParser, NexusParser, etc.)?
+
+* Come up with a better scheme for dealing with machine-specific vector
+  optimizations?
+
+* Implement the parsimony ratchet, in order to reproduce Nixon's results.  This
+  would be useful when comparing performance of my methods.
+
+* Make it possible to "constrain" nodes (or edges?), whatever that means.  I
+  suspect that it means to avoid doing TBR at certain places in the tree.
+  Perhaps constraining edges is a better way to go.
+
+EOB
