@@ -885,7 +885,9 @@ trn_p_tree_validate_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
     if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
     {
 	/* Leaf node. */
-	cw_assert(a_trn->neighbors[0] != NULL);
+	cw_assert(a_trn->neighbors[0] != NULL
+		  || (a_trn->neighbors[1] == NULL
+		      && a_trn->neighbors[1] == NULL));
 	for (i = 1; i < CW_TRN_MAX_NEIGHBORS; i++)
 	{
 	    cw_assert(a_trn->neighbors[i] == NULL);
@@ -1345,11 +1347,11 @@ trn_p_tree_edge_index_get(cw_trn_t *a_trn, cw_trn_t *a_trn_a, cw_trn_t *a_trn_b)
     return retval - 1;
 }
 
-/* a_trn must be the root of the tree. */
 void
 trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
-		cw_trn_t **r_trn_b, cw_uint32_t *r_edge_a, cw_trn_t **r_spare_a,
-		cw_trn_t **r_spare_b, cw_uint32_t *r_edge_b)
+		cw_uint32_t *r_edge_a, cw_trn_t **r_trn_b,
+		cw_uint32_t *r_edge_b, cw_trn_t **r_spare_a,
+		cw_trn_t **r_spare_b)
 {
     cw_trn_t *trn_a, *trn_b;
     cw_uint32_t edge;
