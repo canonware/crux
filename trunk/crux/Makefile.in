@@ -45,8 +45,9 @@ check: all
 			total=`expr $$total + 1`; \
 			@ECHO@ -n "$$t ... "; \
 			@objroot@/crux --batch --quiet --infile=$$t \
-			  -- @srcroot@ @objroot@ \
-			  > $${t}.out 2>/dev/null; \
+			  -- @srcroot@ @objroot@ 2>&1 \
+			  | grep -v "^\[[1-9][0-9]* refs\]$$" \
+			  > $${t}.out; \
 			if @TEST@ -e "$${t}.exp"; then \
 				diff -u $${t}.exp $${t}.out; \
 				fail=$$?; \
