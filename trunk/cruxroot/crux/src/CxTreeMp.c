@@ -312,7 +312,7 @@ CxTreeheldGet(CxtTreeObject *self, PyObject *args)
 	= NULL
 #endif
 	;
-    uint32_t held, neighbor, score, bisect, reconnect_a, reconnect_b;
+    uint32_t held, neighbor, score, bisect, reconnectA, reconnectB;
 
     if (PyArg_ParseTuple(args, "i", &held) == 0)
     {
@@ -331,10 +331,10 @@ CxTreeheldGet(CxtTreeObject *self, PyObject *args)
     {
 	CxTrHeldGet(self->tr, held, &neighbor, &score);
 	CxTrTbrNeighborGet(self->tr, neighbor,
-			    &bisect, &reconnect_a, &reconnect_b);
+			    &bisect, &reconnectA, &reconnectB);
 
 	retval = Py_BuildValue("(i(iii))", score,
-			       bisect, reconnect_a, reconnect_b);
+			       bisect, reconnectA, reconnectB);
     }
     CxmXepCatch(CxmXepOOM)
     {

@@ -13,15 +13,15 @@
 
 #include <math.h>
 
-static PyTypeObject Tree_Type;
-static PyTypeObject Node_Type;
-static PyTypeObject Edge_Type;
+static PyTypeObject CxtTree;
+static PyTypeObject CxtNode;
+static PyTypeObject CxtEdge;
 
 /******************************************************************************/
 /* Begin tree. */
 
 static PyObject *
-tree_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+CxpTreeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -39,16 +39,16 @@ tree_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     CxmXepBegin();
     CxmXepTry
-    {
-	self->tr = CxTrNew();
-	CxTrAuxSet(self->tr, self);
-	retval = (PyObject *) self;
-    }
+	{
+	    self->tr = CxTrNew();
+	    CxTrAuxSet(self->tr, self);
+	    retval = (PyObject *) self;
+	}
     CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	retval = PyErr_NoMemory();
-    }
+	{
+	    CxmXepHandled();
+	    retval = PyErr_NoMemory();
+	}
     CxmXepEnd();
 
     RETURN:
@@ -56,7 +56,7 @@ tree_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 static int
-tree_p_traverse(CxtTreeObject *self, visitproc visit, void *arg)
+CxpTreeTraverse(CxtTreeObject *self, visitproc visit, void *arg)
 {
     int retval;
     CxtTrNode base;
@@ -80,7 +80,7 @@ tree_p_traverse(CxtTreeObject *self, visitproc visit, void *arg)
 }
 
 static int
-tree_p_clear(CxtTreeObject *self)
+CxpTreeClear(CxtTreeObject *self)
 {
     CxtTrNode base;
 
@@ -98,14 +98,14 @@ tree_p_clear(CxtTreeObject *self)
 }
 
 static void
-tree_p_delete(CxtTreeObject *self)
+CxpTreeDelete(CxtTreeObject *self)
 {
-    tree_p_clear(self);
+    CxpTreeClear(self);
     CxTrDelete(self->tr);
     self->ob_type->tp_free((PyObject*) self);
 }
 
-static PyObject *tree_p_new_code;
+static PyObject *CxpTreeNewCode;
 
 CxtTreeObject *
 CxTreeNew(void)
@@ -117,7 +117,7 @@ CxTreeNew(void)
     locals = Py_BuildValue("{}");
 
     retval = (CxtTreeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_p_new_code, globals, locals);
+	PyEval_EvalCode((PyCodeObject *) CxpTreeNewCode, globals, locals);
 
     Py_DECREF(locals);
 
@@ -135,14 +135,14 @@ CxTreeNtaxaGet(CxtTreeObject *self)
 
     CxmXepBegin();
     CxmXepTry
-    {
-	retval = Py_BuildValue("i", CxTrNtaxaGet(self->tr));
-    }
+	{
+	    retval = Py_BuildValue("i", CxTrNtaxaGet(self->tr));
+	}
     CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	retval = PyErr_NoMemory();
-    }
+	{
+	    CxmXepHandled();
+	    retval = PyErr_NoMemory();
+	}
     CxmXepEnd();
 
     return retval;
@@ -159,14 +159,14 @@ CxTreeNedgesCget(CxtTreeObject *self)
 
     CxmXepBegin();
     CxmXepTry
-    {
-	retval = Py_BuildValue("i", CxTrNedgesGet(self->tr));
-    }
+	{
+	    retval = Py_BuildValue("i", CxTrNedgesGet(self->tr));
+	}
     CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	retval = PyErr_NoMemory();
-    }
+	{
+	    CxmXepHandled();
+	    retval = PyErr_NoMemory();
+	}
     CxmXepEnd();
 
     return retval;
@@ -194,25 +194,25 @@ CxTreeBaseGet(CxtTreeObject *self)
 }
 
 void
-CxTreeBaseSetCargs(CxtTreeObject *self, CxtNodeObject *a_node)
+CxTreeBaseSetCargs(CxtTreeObject *self, CxtNodeObject *aNode)
 {
-    CxtNodeObject *old_node;
-    CxtTrNode old_tr_node;
+    CxtNodeObject *oldNode;
+    CxtTrNode oldTrNode;
 
     /* Decref if clobbering an already-set base. */
-    old_tr_node = CxTrBaseGet(self->tr);
-    if (old_tr_node != CxmTrNodeNone)
+    oldTrNode = CxTrBaseGet(self->tr);
+    if (oldTrNode != CxmTrNodeNone)
     {
-	old_node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, old_tr_node);
+	oldNode = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
 	CxTrBaseSet(self->tr, CxmTrNodeNone);
-	Py_DECREF(old_node);
+	Py_DECREF(oldNode);
     }
 
-    if (a_node != NULL)
+    if (aNode != NULL)
     {
 	/* Circular reference. */
-	Py_INCREF(a_node);
-	CxTrBaseSet(self->tr, a_node->node);
+	Py_INCREF(aNode);
+	CxTrBaseSet(self->tr, aNode->node);
     }
 }
 
@@ -223,7 +223,7 @@ CxTreeBaseSet(CxtTreeObject *self, PyObject *args)
     CxtNodeObject *node;
 
     node = NULL;
-    if (PyArg_ParseTuple(args, "|O!", &Node_Type, &node) == 0)
+    if (PyArg_ParseTuple(args, "|O!", &CxtNode, &node) == 0)
     {
 	retval = NULL;
 	goto RETURN;
@@ -243,7 +243,7 @@ CxTreeBaseSet(CxtTreeObject *self, PyObject *args)
     return retval;
 }
 
-static PyMethodDef tree_p_methods[] =
+static PyMethodDef CxpTreeMethods[] =
 {
     {
 	"ntaxa_get",
@@ -350,14 +350,14 @@ static PyMethodDef tree_p_methods[] =
     {NULL, NULL}
 };
 
-static PyTypeObject Tree_Type =
+static PyTypeObject CxtTree =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
     "_tree.Tree",	/* char *tp_name */
     sizeof(CxtTreeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
-    (destructor) tree_p_delete,	/* destructor tp_dealloc */
+    (destructor) CxpTreeDelete,	/* destructor tp_dealloc */
     0,			/* printfunc tp_print */
     0,			/* getattrfunc tp_getattr */
     0,			/* setattrfunc tp_setattr */
@@ -374,13 +374,13 @@ static PyTypeObject Tree_Type =
     0,			/* PyBufferProcs *tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
     "Tree(): Create the C portion of a tree.",	/* char *tp_doc */
-    (traverseproc) tree_p_traverse,	/* traverseproc tp_traverse */
-    (inquiry) tree_p_clear,	/* inquiry tp_clear */
+    (traverseproc) CxpTreeTraverse,	/* traverseproc tp_traverse */
+    (inquiry) CxpTreeClear,	/* inquiry tp_clear */
     0,			/* richcmpfunc tp_richcompare */
     0,			/* long tp_weaklistoffset */
     0,			/* getiterfunc tp_iter */
     0,			/* iternextfunc tp_iternext */
-    tree_p_methods,	/* struct PyMethodDef *tp_methods */
+    CxpTreeMethods,	/* struct PyMethodDef *tp_methods */
     0,			/* struct PyMemberDef *tp_members */
     0,			/* struct PyGetSetDef *tp_getset */
     0,			/* struct _typeobject *tp_base */
@@ -390,12 +390,12 @@ static PyTypeObject Tree_Type =
     0,			/* long tp_dictoffset */
     0,			/* initproc tp_init */
     0,			/* allocfunc tp_alloc */
-    tree_p_new,		/* newfunc tp_new */
+    CxpTreeNew,		/* newfunc tp_new */
     _PyObject_Del,	/* freefunc tp_free */
     0			/* inquiry tp_is_gc */
 };
 
-static PyMethodDef tree_p_funcs[] =
+static PyMethodDef CxpTreeFuncs[] =
 {
     {NULL}
 };
@@ -405,18 +405,18 @@ CxTreeInit(void)
 {
     PyObject *m;
 
-    if (PyType_Ready(&Tree_Type) < 0)
+    if (PyType_Ready(&CxtTree) < 0)
     {
 	return;
     }
-    m = Py_InitModule3("_tree", tree_p_funcs, "tree extensions");
-    Py_INCREF(&Tree_Type);
-    PyModule_AddObject(m, "Tree", (PyObject *) &Tree_Type);
+    m = Py_InitModule3("_tree", CxpTreeFuncs, "tree extensions");
+    Py_INCREF(&CxtTree);
+    PyModule_AddObject(m, "Tree", (PyObject *) &CxtTree);
 
     /* Pre-compile Python code that is used for creating a tree. */
-    tree_p_new_code = Py_CompileString("tree.tree()",
-				       "<string>",
-				       Py_eval_input);
+    CxpTreeNewCode = Py_CompileString("tree.tree()",
+				      "<string>",
+				      Py_eval_input);
 }
 
 /* End tree. */
@@ -424,7 +424,7 @@ CxTreeInit(void)
 /* Begin node. */
 
 static PyObject *
-node_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -434,7 +434,7 @@ node_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     CxtNodeObject *self;
     CxtTreeObject *tree;
 
-    if (PyArg_ParseTuple(args, "O!", &Tree_Type, &tree) == 0)
+    if (PyArg_ParseTuple(args, "O!", &CxtTree, &tree) == 0)
     {
 	retval = NULL;
 	goto RETURN;
@@ -449,19 +449,19 @@ node_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     CxmXepBegin();
     CxmXepTry
-    {
-	Py_INCREF(tree);
-	self->tree = tree;
-	self->node = CxTrNodeNew(tree->tr);
-	CxTrNodeAuxSet(tree->tr, self->node, self);
+	{
+	    Py_INCREF(tree);
+	    self->tree = tree;
+	    self->node = CxTrNodeNew(tree->tr);
+	    CxTrNodeAuxSet(tree->tr, self->node, self);
 
-	retval = (PyObject *) self;
-    }
+	    retval = (PyObject *) self;
+	}
     CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	retval = PyErr_NoMemory();
-    }
+	{
+	    CxmXepHandled();
+	    retval = PyErr_NoMemory();
+	}
     CxmXepEnd();
 
     RETURN:
@@ -469,12 +469,12 @@ node_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 static int
-node_p_traverse(CxtNodeObject *self, visitproc visit, void *arg)
+CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
 {
     int retval;
-    CxtTrEdge first_edge, cur_edge;
+    CxtTrEdge firstEdge, curEdge;
     uint32_t end;
-    CxtEdgeObject *edge_obj;
+    CxtEdgeObject *edgeObj;
 
     if (visit((PyObject *) self->tree, arg) < 0)
     {
@@ -482,21 +482,21 @@ node_p_traverse(CxtNodeObject *self, visitproc visit, void *arg)
 	goto RETURN;
     }
 
-    CxTrNodeEdgeGet(self->tree->tr, self->node, &first_edge, &end);
-    if (first_edge != CxmTrEdgeNone)
+    CxTrNodeEdgeGet(self->tree->tr, self->node, &firstEdge, &end);
+    if (firstEdge != CxmTrEdgeNone)
     {
-	cur_edge = first_edge;
+	curEdge = firstEdge;
 	do
 	{
-	    edge_obj = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, cur_edge);
-	    if (visit((PyObject *) edge_obj, arg) < 0)
+	    edgeObj = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, curEdge);
+	    if (visit((PyObject *) edgeObj, arg) < 0)
 	    {
 		retval = -1;
 		goto RETURN;
 	    }
 
-	    CxTrEdgeNextGet(self->tree->tr, cur_edge, end, &cur_edge, &end);
-	} while (cur_edge != first_edge);
+	    CxTrEdgeNextGet(self->tree->tr, curEdge, end, &curEdge, &end);
+	} while (curEdge != firstEdge);
     }
 
     retval = 0;
@@ -505,10 +505,10 @@ node_p_traverse(CxtNodeObject *self, visitproc visit, void *arg)
 }
 
 static int
-node_p_clear(CxtNodeObject *self)
+CxpNodeClear(CxtNodeObject *self)
 {
     CxtTrEdge edge;
-    CxtEdgeObject *edge_obj;
+    CxtEdgeObject *edgeObj;
 
     while (true)
     {
@@ -517,9 +517,9 @@ node_p_clear(CxtNodeObject *self)
 	{
 	    break;
 	}
-	edge_obj = CxTrEdgeAuxGet(self->tree->tr, edge);
-	CxEdgeDetach(edge_obj);
-	Py_DECREF(edge_obj);
+	edgeObj = CxTrEdgeAuxGet(self->tree->tr, edge);
+	CxEdgeDetach(edgeObj);
+	Py_DECREF(edgeObj);
     }
 
     if (CxTrBaseGet(self->tree->tr) == self->node)
@@ -534,25 +534,25 @@ node_p_clear(CxtNodeObject *self)
 }
 
 static void
-node_p_delete(CxtNodeObject *self)
+CxpNodeDelete(CxtNodeObject *self)
 {
-    node_p_clear(self);
+    CxpNodeClear(self);
     self->ob_type->tp_free((PyObject*) self);
 }
 
-static PyObject *tree_p_CxNodeNew_code;
+static PyObject *CxpNodeNewCode;
 
 CxtNodeObject *
-CxNodeNew(CxtTreeObject *a_tree)
+CxNodeNew(CxtTreeObject *aTree)
 {
     CxtNodeObject *retval;
     PyObject *globals, *locals;
 
     globals = PyEval_GetGlobals();
-    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_tree);
+    locals = Py_BuildValue("{sO}", "tree", (PyObject *) aTree);
 
     retval = (CxtNodeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_p_CxNodeNew_code,
+	PyEval_EvalCode((PyCodeObject *) CxpNodeNewCode,
 			globals,
 			locals);
 
@@ -571,43 +571,43 @@ PyObject *
 CxNodeTaxonNumGet(CxtNodeObject *self)
 {
     PyObject *retval;
-    uint32_t taxon_num;
+    uint32_t taxonNum;
 
-    taxon_num = CxTrNodeTaxonNumGet(self->tree->tr, self->node);
+    taxonNum = CxTrNodeTaxonNumGet(self->tree->tr, self->node);
 
-    if (taxon_num == CxmTrNodeTaxonNone)
+    if (taxonNum == CxmTrNodeTaxonNone)
     {
 	Py_INCREF(Py_None);
 	retval = Py_None;
     }
     else
     {
-	retval = Py_BuildValue("i", taxon_num);
+	retval = Py_BuildValue("i", taxonNum);
     }
 
     return retval;
 }
 
 void
-CxNodeTaxonNumSetCargs(CxtNodeObject *self, uint32_t a_taxon_num)
+CxNodeTaxonNumSetCargs(CxtNodeObject *self, uint32_t aTaxonNum)
 {
-    CxTrNodeTaxonNumSet(self->tree->tr, self->node, a_taxon_num);
+    CxTrNodeTaxonNumSet(self->tree->tr, self->node, aTaxonNum);
 }
 
 PyObject *
 CxNodeTaxonNumSet(CxtNodeObject *self, PyObject *args)
 {
     PyObject *retval;
-    uint32_t taxon_num;
+    uint32_t taxonNum;
 
-    taxon_num = CxmTrNodeTaxonNone;
-    if (PyArg_ParseTuple(args, "|i", &taxon_num) == 0)
+    taxonNum = CxmTrNodeTaxonNone;
+    if (PyArg_ParseTuple(args, "|i", &taxonNum) == 0)
     {
 	retval = NULL;
 	goto RETURN;
     }
 
-    CxNodeTaxonNumSetCargs(self, taxon_num);
+    CxNodeTaxonNumSetCargs(self, taxonNum);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -619,15 +619,15 @@ PyObject *
 CxNodeEdge(CxtNodeObject *self)
 {
     PyObject *retval;
-    CxtEdgeObject *edge_obj;
+    CxtEdgeObject *edgeObj;
     CxtTrEdge edge;
     uint32_t end;
 
     CxTrNodeEdgeGet(self->tree->tr, self->node, &edge, &end);
     if (edge != CxmTrEdgeNone)
     {
-	edge_obj = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, edge);
-	retval = Py_BuildValue("(Oi)", edge_obj, end);
+	edgeObj = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, edge);
+	retval = Py_BuildValue("(Oi)", edgeObj, end);
     }
     else
     {
@@ -643,7 +643,7 @@ CxNodeDegree(CxtNodeObject *self)
     return Py_BuildValue("i", CxTrNodeDegree(self->tree->tr, self->node));
 }
 
-static PyMethodDef node_p_methods[] =
+static PyMethodDef CxpNodeMethods[] =
 {
     {
 	"tree",
@@ -678,14 +678,14 @@ static PyMethodDef node_p_methods[] =
     {NULL, NULL}
 };
 
-static PyTypeObject Node_Type =
+static PyTypeObject CxtNode =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
     "_node.Node",	/* char *tp_name */
     sizeof(CxtNodeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
-    (destructor) node_p_delete,	/* destructor tp_dealloc */
+    (destructor) CxpNodeDelete,	/* destructor tp_dealloc */
     0,			/* printfunc tp_print */
     0,			/* getattrfunc tp_getattr */
     0,			/* setattrfunc tp_setattr */
@@ -702,13 +702,13 @@ static PyTypeObject Node_Type =
     0,			/* PyBufferProcs *tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
     "Node(): Create the C portion of a node.",	/* char *tp_doc */
-    (traverseproc) node_p_traverse,	/* traverseproc tp_traverse */
-    (inquiry) node_p_clear,	/* inquiry tp_clear */
+    (traverseproc) CxpNodeTraverse,	/* traverseproc tp_traverse */
+    (inquiry) CxpNodeClear,	/* inquiry tp_clear */
     0,			/* richcmpfunc tp_richcompare */
     0,			/* long tp_weaklistoffset */
     0,			/* getiterfunc tp_iter */
     0,			/* iternextfunc tp_iternext */
-    node_p_methods,	/* struct PyMethodDef *tp_methods */
+    CxpNodeMethods,	/* struct PyMethodDef *tp_methods */
     0,			/* struct PyMemberDef *tp_members */
     0,			/* struct PyGetSetDef *tp_getset */
     0,			/* struct _typeobject *tp_base */
@@ -718,12 +718,12 @@ static PyTypeObject Node_Type =
     0,			/* long tp_dictoffset */
     0,			/* initproc tp_init */
     0,			/* allocfunc tp_alloc */
-    node_p_new,		/* newfunc tp_new */
+    CxpNodeNew,		/* newfunc tp_new */
     _PyObject_Del,	/* freefunc tp_free */
     0			/* inquiry tp_is_gc */
 };
 
-static PyMethodDef node_p_funcs[] =
+static PyMethodDef CxpNodeFuncs[] =
 {
     {NULL}
 };
@@ -733,18 +733,18 @@ CxNodeInit(void)
 {
     PyObject *m;
 
-    if (PyType_Ready(&Node_Type) < 0)
+    if (PyType_Ready(&CxtNode) < 0)
     {
 	return;
     }
-    m = Py_InitModule3("_node", node_p_funcs, "node extensions");
-    Py_INCREF(&Node_Type);
-    PyModule_AddObject(m, "Node", (PyObject *) &Node_Type);
+    m = Py_InitModule3("_node", CxpNodeFuncs, "node extensions");
+    Py_INCREF(&CxtNode);
+    PyModule_AddObject(m, "Node", (PyObject *) &CxtNode);
 
     /* Pre-compile Python code that is used for creating a node. */
-    tree_p_CxNodeNew_code = Py_CompileString("node.node(tree)",
-					    "<string>",
-					    Py_eval_input);
+    CxpNodeNewCode = Py_CompileString("node.node(tree)",
+				      "<string>",
+				      Py_eval_input);
 }
 
 /* End node. */
@@ -752,7 +752,7 @@ CxNodeInit(void)
 /* Begin edge. */
 
 static PyObject *
-edge_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -762,7 +762,7 @@ edge_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     CxtEdgeObject *self;
     CxtTreeObject *tree;
 
-    if (PyArg_ParseTuple(args, "O!", &Tree_Type, &tree) == 0)
+    if (PyArg_ParseTuple(args, "O!", &CxtTree, &tree) == 0)
     {
 	retval = NULL;
 	goto RETURN;
@@ -777,19 +777,19 @@ edge_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     CxmXepBegin();
     CxmXepTry
-    {
-	Py_INCREF(tree);
-	self->tree = tree;
-	self->edge = CxTrEdgeNew(tree->tr);
-	CxTrEdgeAuxSet(tree->tr, self->edge, self);
+	{
+	    Py_INCREF(tree);
+	    self->tree = tree;
+	    self->edge = CxTrEdgeNew(tree->tr);
+	    CxTrEdgeAuxSet(tree->tr, self->edge, self);
 
-	retval = (PyObject *) self;
-    }
+	    retval = (PyObject *) self;
+	}
     CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	retval = PyErr_NoMemory();
-    }
+	{
+	    CxmXepHandled();
+	    retval = PyErr_NoMemory();
+	}
     CxmXepEnd();
 
     RETURN:
@@ -797,10 +797,10 @@ edge_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 static int
-edge_p_traverse(CxtEdgeObject *self, visitproc visit, void *arg)
+CxpEdgeTraverse(CxtEdgeObject *self, visitproc visit, void *arg)
 {
     int retval;
-    CxtTrNode tr_node;
+    CxtTrNode trNode;
 
     if (visit((PyObject *) self->tree, arg) < 0)
     {
@@ -808,20 +808,20 @@ edge_p_traverse(CxtEdgeObject *self, visitproc visit, void *arg)
 	goto RETURN;
     }
 
-    tr_node = CxTrEdgeNodeGet(self->tree->tr, self->edge, 0);
-    if (tr_node != CxmTrNodeNone)
+    trNode = CxTrEdgeNodeGet(self->tree->tr, self->edge, 0);
+    if (trNode != CxmTrNodeNone)
     {
 	CxtNodeObject *node;
 
-	node = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, tr_node);
+	node = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNode);
 	if (visit((PyObject *) node, arg) < 0)
 	{
 	    retval = -1;
 	    goto RETURN;
 	}
 
-	tr_node = CxTrEdgeNodeGet(self->tree->tr, self->edge, 1);
-	node = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, tr_node);
+	trNode = CxTrEdgeNodeGet(self->tree->tr, self->edge, 1);
+	node = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNode);
 	if (visit((PyObject *) node, arg) < 0)
 	{
 	    retval = -1;
@@ -835,24 +835,24 @@ edge_p_traverse(CxtEdgeObject *self, visitproc visit, void *arg)
 }
 
 static int
-edge_p_clear(CxtEdgeObject *self)
+CxpEgeClear(CxtEdgeObject *self)
 {
-    CxtTrNode node_a;
+    CxtTrNode nodeA;
 
-    node_a = CxTrEdgeNodeGet(self->tree->tr, self->edge, 0);
-    if (node_a != CxmTrNodeNone)
+    nodeA = CxTrEdgeNodeGet(self->tree->tr, self->edge, 0);
+    if (nodeA != CxmTrNodeNone)
     {
-	CxtTrNode node_b;
-	CxtNodeObject *node_a_obj, *node_b_obj;
+	CxtTrNode nodeB;
+	CxtNodeObject *nodeAObj, *nodeBObj;
 
-	node_a_obj = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, node_a);
+	nodeAObj = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, nodeA);
 
-	node_b = CxTrEdgeNodeGet(self->tree->tr, self->edge, 1);
-	node_b_obj = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, node_b);
+	nodeB = CxTrEdgeNodeGet(self->tree->tr, self->edge, 1);
+	nodeBObj = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, nodeB);
 
 	CxTrEdgeDetach(self->tree->tr, self->edge);
-	Py_DECREF(node_a_obj);
-	Py_DECREF(node_b_obj);
+	Py_DECREF(nodeAObj);
+	Py_DECREF(nodeBObj);
     }
 
     CxTrEdgeDelete(self->tree->tr, self->edge);
@@ -862,25 +862,25 @@ edge_p_clear(CxtEdgeObject *self)
 }
 
 static void
-edge_p_delete(CxtEdgeObject *self)
+CxpEdgeDelete(CxtEdgeObject *self)
 {
-    edge_p_clear(self);
+    CxpEgeClear(self);
     self->ob_type->tp_free((PyObject*) self);
 }
 
-static PyObject *tree_p_CxEdgeNew_code;
+static PyObject *CxpEdgeNewCode;
 
 CxtEdgeObject *
-CxEdgeNew(CxtTreeObject *a_tree)
+CxEdgeNew(CxtTreeObject *aTree)
 {
     CxtEdgeObject *retval;
     PyObject *globals, *locals;
 
     globals = PyEval_GetGlobals();
-    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_tree);
+    locals = Py_BuildValue("{sO}", "tree", (PyObject *) aTree);
 
     retval = (CxtEdgeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_p_CxEdgeNew_code,
+	PyEval_EvalCode((PyCodeObject *) CxpEdgeNewCode,
 			globals,
 			locals);
 
@@ -896,12 +896,12 @@ CxEdgeTree(CxtEdgeObject *self)
 }
 
 PyObject *
-CxEdgeNodeCargs(CxtEdgeObject *self, uint32_t a_ind)
+CxEdgeNodeCargs(CxtEdgeObject *self, uint32_t aInd)
 {
     PyObject *retval;
     CxtTrNode node;
 
-    node = CxTrEdgeNodeGet(self->tree->tr, self->edge, a_ind);
+    node = CxTrEdgeNodeGet(self->tree->tr, self->edge, aInd);
     if (node != CxmTrNodeNone)
     {
 	retval = (PyObject *) CxTrNodeAuxGet(self->tree->tr, node);
@@ -941,21 +941,21 @@ CxEdgeNode(CxtEdgeObject *self, PyObject *args)
 }
 
 void
-CxEdgeNextCargs(CxtEdgeObject *self, uint32_t a_ind, CxtEdgeObject **r_edge,
-		uint32_t *r_next_end)
+CxEdgeNextCargs(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
+		uint32_t *rNextEnd)
 {
-    CxtTrEdge next_edge;
+    CxtTrEdge nextEdge;
 
-    CxTrEdgeNextGet(self->tree->tr, self->edge, a_ind, &next_edge, r_next_end);
-    *r_edge = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, next_edge);
+    CxTrEdgeNextGet(self->tree->tr, self->edge, aInd, &nextEdge, rNextEnd);
+    *rEdge = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, nextEdge);
 }
 
 PyObject *
 CxEdgeNext(CxtEdgeObject *self, PyObject *args)
 {
     PyObject *retval;
-    CxtEdgeObject *edge_obj;
-    uint32_t ind, next_end;
+    CxtEdgeObject *edgeObj;
+    uint32_t ind, nextEnd;
 
     if (PyArg_ParseTuple(args, "i", &ind) == 0)
     {
@@ -969,29 +969,29 @@ CxEdgeNext(CxtEdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxEdgeNextCargs(self, ind, &edge_obj, &next_end);
+    CxEdgeNextCargs(self, ind, &edgeObj, &nextEnd);
 
-    retval = Py_BuildValue("(Oi)", edge_obj, next_end);
+    retval = Py_BuildValue("(Oi)", edgeObj, nextEnd);
     RETURN:
     return retval;
 }
 
 void
-CxEdgePrevCargs(CxtEdgeObject *self, uint32_t a_ind, CxtEdgeObject **r_edge,
-		uint32_t *r_prev_end)
+CxEdgePrevCargs(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
+		uint32_t *rPrevEnd)
 {
-    CxtTrEdge prev_edge;
+    CxtTrEdge prevEdge;
 
-    CxTrEdgePrevGet(self->tree->tr, self->edge, a_ind, &prev_edge, r_prev_end);
-    *r_edge = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, prev_edge);
+    CxTrEdgePrevGet(self->tree->tr, self->edge, aInd, &prevEdge, rPrevEnd);
+    *rEdge = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, prevEdge);
 }
 
 PyObject *
 CxEdgePrev(CxtEdgeObject *self, PyObject *args)
 {
     PyObject *retval;
-    CxtEdgeObject *edge_obj;
-    uint32_t ind, prev_end;
+    CxtEdgeObject *edgeObj;
+    uint32_t ind, prevEnd;
 
     if (PyArg_ParseTuple(args, "i", &ind) == 0)
     {
@@ -1005,9 +1005,9 @@ CxEdgePrev(CxtEdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxEdgePrevCargs(self, ind, &edge_obj, &prev_end);
+    CxEdgePrevCargs(self, ind, &edgeObj, &prevEnd);
 
-    retval = Py_BuildValue("(Oi)", edge_obj, prev_end);
+    retval = Py_BuildValue("(Oi)", edgeObj, prevEnd);
     RETURN:
     return retval;
 }
@@ -1019,9 +1019,9 @@ CxEdgeLengthGet(CxtEdgeObject *self)
 }
 
 void
-CxEdgeLengthSetCargs(CxtEdgeObject *self, double a_length)
+CxEdgeLengthSetCargs(CxtEdgeObject *self, double aLength)
 {
-    CxTrEdgeLengthSet(self->tree->tr, self->edge, a_length);
+    CxTrEdgeLengthSet(self->tree->tr, self->edge, aLength);
 }
 
 PyObject *
@@ -1052,36 +1052,37 @@ CxEdgeLengthSet(CxtEdgeObject *self, PyObject *args)
 }
 
 void
-CxEdgeAttachCargs(CxtEdgeObject *self, CxtNodeObject *a_node_a, CxtNodeObject *a_node_b)
+CxEdgeAttachCargs(CxtEdgeObject *self, CxtNodeObject *aNodeA,
+		  CxtNodeObject *aNodeB)
 {
-    Py_INCREF(a_node_a);
-    Py_INCREF(a_node_b);
+    Py_INCREF(aNodeA);
+    Py_INCREF(aNodeB);
     /* Cyclic references (nodes refer to edge). */
     Py_INCREF(self);
     Py_INCREF(self);
-    CxTrEdgeAttach(self->tree->tr, self->edge, a_node_a->node, a_node_b->node);
+    CxTrEdgeAttach(self->tree->tr, self->edge, aNodeA->node, aNodeB->node);
 }
 
 PyObject *
 CxEdgeAttach(CxtEdgeObject *self, PyObject *args)
 {
     PyObject *retval;
-    CxtNodeObject *node_a, *node_b;
+    CxtNodeObject *nodeA, *nodeB;
 
-    if (PyArg_ParseTuple(args, "O!O!", &Node_Type, &node_a,
-			 &Node_Type, &node_b) == 0)
+    if (PyArg_ParseTuple(args, "O!O!", &CxtNode, &nodeA,
+			 &CxtNode, &nodeB) == 0)
     {
 	retval = NULL;
 	goto RETURN;
     }
-    if (node_a->tree != self->tree || node_b->tree != self->tree)
+    if (nodeA->tree != self->tree || nodeB->tree != self->tree)
     {
 	Py_INCREF(PyExc_ValueError);
 	retval = PyExc_ValueError;
 	goto RETURN;
     }
 
-    CxEdgeAttachCargs(self, node_a, node_b);
+    CxEdgeAttachCargs(self, nodeA, nodeB);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -1092,29 +1093,29 @@ CxEdgeAttach(CxtEdgeObject *self, PyObject *args)
 PyObject *
 CxEdgeDetach(CxtEdgeObject *self)
 {
-    CxtTrNode node_a;
+    CxtTrNode nodeA;
 
-    node_a = CxTrEdgeNodeGet(self->tree->tr, self->edge, 0);
-    if (node_a != CxmTrNodeNone)
+    nodeA = CxTrEdgeNodeGet(self->tree->tr, self->edge, 0);
+    if (nodeA != CxmTrNodeNone)
     {
-	CxtTrNode node_b;
-	CxtNodeObject *node_a_obj, *node_b_obj;
+	CxtTrNode nodeB;
+	CxtNodeObject *nodeAObj, *nodeBObj;
 
-	node_a_obj = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, node_a);
+	nodeAObj = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, nodeA);
 
-	node_b = CxTrEdgeNodeGet(self->tree->tr, self->edge, 1);
-	node_b_obj = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, node_b);
+	nodeB = CxTrEdgeNodeGet(self->tree->tr, self->edge, 1);
+	nodeBObj = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, nodeB);
 
 	CxTrEdgeDetach(self->tree->tr, self->edge);
-	Py_DECREF(node_a_obj);
-	Py_DECREF(node_b_obj);
+	Py_DECREF(nodeAObj);
+	Py_DECREF(nodeBObj);
     }
 
     Py_INCREF(Py_None);
     return Py_None;
 }
 
-static PyMethodDef edge_p_methods[] =
+static PyMethodDef CxpEdgeMethods[] =
 {
     {
 	"tree",
@@ -1167,14 +1168,14 @@ static PyMethodDef edge_p_methods[] =
     {NULL, NULL}
 };
 
-static PyTypeObject Edge_Type =
+static PyTypeObject CxtEdge =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
     "_edge.Edge",	/* char *tp_name */
     sizeof(CxtEdgeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
-    (destructor) edge_p_delete,	/* destructor tp_dealloc */
+    (destructor) CxpEdgeDelete,	/* destructor tp_dealloc */
     0,			/* printfunc tp_print */
     0,			/* getattrfunc tp_getattr */
     0,			/* setattrfunc tp_setattr */
@@ -1191,13 +1192,13 @@ static PyTypeObject Edge_Type =
     0,			/* PyBufferProcs *tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
     "Edge(): Create the C portion of an edge.",	/* char *tp_doc */
-    (traverseproc) edge_p_traverse,	/* traverseproc tp_traverse */
-    (inquiry) edge_p_clear,	/* inquiry tp_clear */
+    (traverseproc) CxpEdgeTraverse,	/* traverseproc tp_traverse */
+    (inquiry) CxpEgeClear,	/* inquiry tp_clear */
     0,			/* richcmpfunc tp_richcompare */
     0,			/* long tp_weaklistoffset */
     0,			/* getiterfunc tp_iter */
     0,			/* iternextfunc tp_iternext */
-    edge_p_methods,	/* struct PyMethodDef *tp_methods */
+    CxpEdgeMethods,	/* struct PyMethodDef *tp_methods */
     0,			/* struct PyMemberDef *tp_members */
     0,			/* struct PyGetSetDef *tp_getset */
     0,			/* struct _typeobject *tp_base */
@@ -1207,12 +1208,12 @@ static PyTypeObject Edge_Type =
     0,			/* long tp_dictoffset */
     0,			/* initproc tp_init */
     0,			/* allocfunc tp_alloc */
-    edge_p_new,		/* newfunc tp_new */
+    CxpEdgeNew,		/* newfunc tp_new */
     _PyObject_Del,	/* freefunc tp_free */
     0			/* inquiry tp_is_gc */
 };
 
-static PyMethodDef edge_p_funcs[] =
+static PyMethodDef CxpEdgeFuncs[] =
 {
     {NULL}
 };
@@ -1222,18 +1223,18 @@ CxEdgeInit(void)
 {
     PyObject *m;
 
-    if (PyType_Ready(&Edge_Type) < 0)
+    if (PyType_Ready(&CxtEdge) < 0)
     {
 	return;
     }
-    m = Py_InitModule3("_edge", edge_p_funcs, "edge extensions");
-    Py_INCREF(&Edge_Type);
-    PyModule_AddObject(m, "Edge", (PyObject *) &Edge_Type);
+    m = Py_InitModule3("_edge", CxpEdgeFuncs, "edge extensions");
+    Py_INCREF(&CxtEdge);
+    PyModule_AddObject(m, "Edge", (PyObject *) &CxtEdge);
 
     /* Pre-compile Python code that is used for creating a wrapped edge. */
-    tree_p_CxEdgeNew_code = Py_CompileString("edge.edge(tree)",
-					    "<string>",
-					    Py_eval_input);
+    CxpEdgeNewCode = Py_CompileString("edge.edge(tree)",
+				      "<string>",
+				      Py_eval_input);
 }
 
 /* End edge. */
