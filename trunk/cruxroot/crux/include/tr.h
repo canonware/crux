@@ -88,12 +88,16 @@ tr_aux_get(cw_tr_t *a_tr);
 void
 tr_aux_set(cw_tr_t *a_tr, void *a_aux);
 
-/* Prepare for calculating Fitch parsimony.  a_taxa points to an array of
+/* Prepare for calculating Fitch parsimony scores.  a_taxa points to an array of
  * character array pointers, where the index into a_taxa corresponds to taxon
  * number.  The character arrays need not be nil-terminated. */
 void
 tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
 	      cw_uint32_t a_nchars);
+
+/* Clear the data structures used for calculating Fitch parsimony scores. */
+void
+tr_mp_finish(cw_tr_t *a_tr);
 
 /* Calculate the Fitch parsimony score for this tree.  If a_maxscore is not
  * CW_MAXSCORE_NONE, terminate scoring if a_maxscore is reached/exceeded and
@@ -117,6 +121,10 @@ tr_tbr_better_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold);
  * neighbors. */
 void
 tr_tbr_all_neighbors_mp(cw_tr_t *a_tr);
+
+/* Clear the data structures used to store held trees. */
+void
+tr_held_finish(cw_tr_t *a_tr);
 
 /* Get the number of trees currently held. */
 cw_uint32_t
