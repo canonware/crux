@@ -2491,25 +2491,6 @@ tr_p_mp_views_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_ps_t *a_ps,
     }
 }
 
-/* Calculate the the score of a tree (or subtree, if a_bisect is set), and store
- * the result in a_root. */
-CW_P_INLINE void
-tr_p_mp_score(cw_tr_t *a_tr, cw_tr_edge_t a_root, cw_tr_edge_t a_bisect)
-{
-    cw_tr_ps_t *ps_a, *ps_b;
-
-    /* Calculate partial scores for the subtrees on each end of a_root. */
-    ps_a = tr_p_mp_score_recurse(a_tr,
-				 tr_p_edge_ring_get(a_tr, a_root, 0),
-				 a_bisect);
-    ps_b = tr_p_mp_score_recurse(a_tr,
-				 tr_p_edge_ring_get(a_tr, a_root, 1),
-				 a_bisect);
-
-    /* Calculate the final score. */
-    tr_p_mp_cache_pscore(a_tr, a_tr->tres[a_root].ps, ps_a, ps_b);
-}
-
 /* Calculate the partial score for each edge in a_edges.  a_edges[0] must either
  * be CW_TR_EDGE_NONE, or the edge connected to the node that is in turn
  * connected to the bisection edge. */
@@ -3243,12 +3224,22 @@ tr_mp_score(cw_tr_t *a_tr)
 	&& (ring = qli_first(&a_tr->trns[a_tr->base].rings)) != CW_TR_RING_NONE)
     {
 	cw_tr_edge_t edge;
-	cw_tr_ps_t *ps;
+	cw_tr_ps_t *ps, *ps_a, *ps_b;
 
 	edge = tr_p_ring_edge_get(a_tr, ring);
-	tr_p_mp_score(a_tr, edge, CW_TR_EDGE_NONE);
 
+	/* Calculate partial scores for the subtrees on each end of edge. */
+	ps_a = tr_p_mp_score_recurse(a_tr,
+				     tr_p_edge_ring_get(a_tr, edge, 0),
+				     CW_TR_EDGE_NONE);
+	ps_b = tr_p_mp_score_recurse(a_tr,
+				     tr_p_edge_ring_get(a_tr, edge, 1),
+				     CW_TR_EDGE_NONE);
+
+	/* Calculate the final score. */
 	ps = a_tr->tres[edge].ps;
+	tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
+
 	retval = ps->subtrees_score + ps->node_score;
     }
     else
