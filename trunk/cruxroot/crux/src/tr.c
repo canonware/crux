@@ -10,7 +10,7 @@
  *
  ******************************************************************************
  *
- * cw_trc_t contains a space-efficient representation of an unrooted bifurcating
+ * cw_tr_t contains a space-efficient representation of an unrooted bifurcating
  * phylogenetic tree.  The feasible duration of each iteration of tabu search is
  * bounded by the number of trees (and assoicated tabu lists) that can be
  * stored.  As such, the internal tree representation is as compact as
@@ -109,12 +109,140 @@
  *
  ******************************************************************************
  *
- * cw_tr_t contains a time-efficient representation of an unrooted bifurcating
- * phlyogenetic tree.  This data structure takes much more space than cw_trc_t
- * does, but tree operations are much more efficient than they would be for
- * cw_trc_t.
+ * cw_trn_t contains a time-efficient representation of a node of an unrooted
+ * bifurcating phlyogenetic tree.  This data structure takes much more space
+ * than cw_tr_t does, but tree operations are much more efficient than they
+ * would be for cw_tr_t.
  *
  ******************************************************************************/
 
 #include "../include/modcrux.h"
 
+/* tr. */
+static cw_uint32_t
+tr_p_len(const cw_tr_t *a_tr)
+{
+    cw_uint32_t retval;
+
+    return retval;
+}
+
+cw_tr_t *
+tr_new(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
+{
+    return NULL; /* XXX */
+}
+
+void
+tr_delete(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
+{
+    /* XXX */
+}
+
+cw_trn_t *
+tr_trn(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
+{
+    return NULL; /* XXX */
+}
+
+cw_uint32_t
+tr_hash(const void *a_key)
+{
+    cw_uint32_t retval;
+    const cw_tr_t *tr;
+    cw_uint32_t len, i;
+
+    cw_check_ptr(a_key);
+
+    tr = (const cw_tr_t *) a_key;;
+
+    len = tr_p_len(tr);
+    for (i = retval = 0; i < len; i++)
+    {
+	retval = retval * 33 + ((cw_uint8_t *) tr)[i];
+    }
+
+    return retval;
+}
+
+cw_bool_t
+tr_key_comp(const void *a_k1, const void *a_k2)
+{
+    cw_bool_t retval;
+    const cw_tr_t *tr1, *tr2;
+    cw_uint32_t len1, len2;
+
+    cw_check_ptr(a_k1);
+    cw_check_ptr(a_k2);
+
+    tr1 = (const cw_tr_t *) a_k1;
+    tr2 = (const cw_tr_t *) a_k2;
+
+    len1 = tr_p_len(tr1);
+    len2 = tr_p_len(tr2);
+    if (len1 != len2)
+    {
+	retval = FALSE;
+    }
+    else
+    {
+	retval = memcmp(tr1, tr2, len1) ? FALSE : TRUE;
+    }
+
+    return retval;
+}
+
+/* trn. */
+cw_trn_t *
+trn_new(cw_trn_t *a_trn, cw_mema_t *a_mema)
+{
+    return NULL; /* XXX */
+}
+
+void
+trn_delete(cw_trn_t *a_trn)
+{
+    /* XXX */
+}
+
+cw_tx_t *
+trn_tx_get(cw_trn_t *a_trn)
+{
+    return NULL; /* XXX */
+}
+
+void
+trn_tx_set(cw_trn_t *a_trn, cw_tx_t *a_tx)
+{
+    /* XXX */
+}
+
+cw_trn_t *
+trn_neighbor_get(cw_trn_t *a_trn, cw_uint32_t a_i)
+{
+    return NULL; /* XXX */
+}
+
+void
+trn_neighbors_swap(cw_trn_t *a_trn, cw_uint32_t a_i, cw_uint32_t a_j)
+{
+    /* XXX */
+}
+
+void
+trn_join(cw_trn_t *a_a, cw_uint32_t a_a_i, cw_trn_t *a_b, cw_uint32_t a_b_i)
+{
+    /* XXX */
+}
+
+void
+trn_detach(cw_trn_t *a_a, cw_trn_t *a_b)
+{
+    /* XXX */
+}
+
+cw_tr_t *
+trn_tr(cw_trn_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
+{
+    return NULL; /* XXX */
+}
