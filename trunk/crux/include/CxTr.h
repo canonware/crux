@@ -307,10 +307,6 @@ CxTrAuxGet(CxtTr *aTr);
 void
 CxTrAuxSet(CxtTr *aTr, void *aAux);
 
-// Clear the data structures used for calculating Fitch parsimony scores.
-void
-CxTrMpFinish(CxtTr *aTr);
-
 // Calculate the Fitch parsimony score for this tree.
 uint32_t
 CxTrMpScore(CxtTr *aTr);

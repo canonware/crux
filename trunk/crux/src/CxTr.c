@@ -1152,48 +1152,6 @@ CxpTrUpdate(CxtTr *aTr)
     }
 }
 
-static void
-CxpTrMpRingFinish(CxtTr *aTr, CxtTrRing aRing)
-{
-    CxtTrr *trr;
-
-    trr = &aTr->trrs[aRing];
-
-    if (trr->ps != NULL)
-    {
-	CxpTrPsDelete(aTr, trr->ps);
-	trr->ps = NULL;
-    }
-}
-
-static void
-CxpTrMpFinishRecurse(CxtTr *aTr, CxtTrRing aRing)
-{
-    CxtTrRing ring;
-    CxtTre *tre;
-
-    // Clean up aRing.
-    CxpTrMpRingFinish(aTr, aRing);
-
-    // Recurse into subtrees.
-    CxmQriOthersForeach(ring, aTr->trrs, aRing, link)
-	{
-	    // Clean up edge before recursing.
-	    tre = &aTr->tres[CxTrRingEdgeGet(aTr, ring)];
-	    if (tre->ps != NULL)
-	    {
-		CxpTrPsDelete(aTr, tre->ps);
-		tre->ps = NULL;
-	    }
-
-	    // Clean up ring.
-	    CxpTrMpRingFinish(aTr, ring);
-
-	    // Recurse.
-	    CxpTrMpFinishRecurse(aTr, CxTrRingOtherGet(aTr, ring));
-	}
-}
-
 #ifdef CxmCpuIa32
 CxmpInline void
 CxpTrMpIa32Pscore(CxtTr *aTr, CxtTrPs *aP, CxtTrPs *aA,
@@ -2336,40 +2294,6 @@ CxTrAuxSet(CxtTr *aTr, void *aAux)
     CxmAssert(aTr->magic == CxmTrMagic);
 
     aTr->aux = aAux;
-}
-
-void
-CxTrMpFinish(CxtTr *aTr)
-{
-
-    CxpTrUpdate(aTr);
-    CxmDassert(CxpTrValidate(aTr));
-
-    if (aTr->base != CxmTrNodeNone)
-    {
-	CxtTrn *trn;
-	CxtTrRing ring;
-	CxtTre *tre;
-
-	// Clean up the tree.
-	trn = &aTr->trns[aTr->base];
-	CxmQliForeach(ring, &trn->rings, aTr->trrs, link)
-	    {
-		// Clean up edge before recursing.
-		tre = &aTr->tres[CxTrRingEdgeGet(aTr, ring)];
-		if (tre->ps != NULL)
-		{
-		    CxpTrPsDelete(aTr, tre->ps);
-		    tre->ps = NULL;
-		}
-
-		// Clean up ring.
-		CxpTrMpRingFinish(aTr, ring);
-
-		// Recurse.
-		CxpTrMpFinishRecurse(aTr, CxTrRingOtherGet(aTr, ring));
-	    }
-    }
 }
 
 uint32_t

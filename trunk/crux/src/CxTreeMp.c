@@ -265,6 +265,7 @@ CxpTreeMpCleanupEdge(CxtEdgeObject *aEdge, void *aData, unsigned aInd)
     CxtTreeMpPs *ps = (CxtTreeMpPs *) aData;
 
     CxpTreeMpPsDelete(ps);
+    CxEdgeAuxSet(aEdge, aInd, NULL);
 }
 
 static bool
@@ -441,6 +442,7 @@ CxpTreeMpCleanupRing(CxtRingObject *aRing, void *aData, unsigned aInd)
     CxtTreeMpPs *ps = (CxtTreeMpPs *) aData;
 
     CxpTreeMpPsDelete(ps);
+    CxRingAuxSet(aRing, aInd, NULL);
 }
 
 static bool
@@ -893,13 +895,80 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
     return rVal;
 }
 
+static void
+CxpTreeMpFinishRecurse(CxtTreeMpData *aData, CxtRingObject *aRing)
+{
+    CxtRingObject *ring;
+    CxtEdgeObject *edge;
+
+    // Clean up aRing.
+    CxpTreeMpCleanupRing(aRing, CxRingAuxGet(aRing, aData->ringAuxInd),
+			 aData->ringAuxInd);
+
+    // Recurse into subtrees.
+    for (ring = CxRingNext(aRing); ring != aRing; ring = CxRingNext(ring))
+    {
+	// Clean up edge before recursing.
+	edge = CxRingEdge(ring);
+	CxpTreeMpCleanupEdge(edge, CxEdgeAuxGet(edge, aData->edgeAuxInd),
+			     aData->edgeAuxInd);
+
+	// Clean up ring.
+	CxpTreeMpCleanupRing(ring, CxRingAuxGet(ring, aData->ringAuxInd),
+			     aData->ringAuxInd);
+
+	// Recurse.
+	CxpTreeMpFinishRecurse(aData, CxRingOther(ring));
+    }
+}
+
 PyObject *
 CxTreeMpFinish(CxtTreeObject *self)
 {
-    CxTrMpFinish(self->tr);
+    PyObject *rVal;
+    CxtNodeObject *base;
+
+    base = CxTreeBaseGet(self);
+    if (base != NULL)
+    {
+	CxtTreeMpData *data;
+	CxtRingObject *ringFirst, *ring;
+	CxtEdgeObject *edge;
+
+	if (CxpTreeMpDataGet(self, &data))
+	{
+	    rVal = NULL;
+	    goto RETURN;
+	}
+
+	// Clean up the tree.
+	ringFirst = CxNodeRing(base);
+	if (ringFirst != NULL)
+	{
+	    ring = ringFirst;
+	    do
+	    {
+		// Clean up edge before recursing.
+		edge = CxRingEdge(ring);
+		CxpTreeMpCleanupEdge(edge, CxEdgeAuxGet(edge, data->edgeAuxInd),
+				     data->edgeAuxInd);
+
+		// Clean up ring.
+		CxpTreeMpCleanupRing(ring, CxRingAuxGet(ring, data->ringAuxInd),
+				     data->ringAuxInd);
+
+		// Recurse.
+		CxpTreeMpFinishRecurse(data, CxRingOther(ring));
+
+		ring = CxRingNext(ring);
+	    } while (ring != ringFirst);
+	}
+    }
 
     Py_INCREF(Py_None);
-    return Py_None;
+    rVal = Py_None;
+    RETURN:
+    return rVal;
 }
 
 PyObject *
