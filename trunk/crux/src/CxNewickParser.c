@@ -224,8 +224,6 @@ CxpNewickParserGetC(CxtNewickParserObject *self)
 	    }
 	}
     }
-//     fprintf(stderr, "%s:%d:%s(): '%c'\n",
-// 	    __FILE__, __LINE__, __func__, self->c);
 
     // Append character to token string.
     CxpNewickParserAppendC(self);
@@ -235,10 +233,6 @@ CxpNewickParserGetC(CxtNewickParserObject *self)
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -248,8 +242,6 @@ CxpNewickParserUngetC(CxtNewickParserObject *self)
     CxmAssert(self->tokenLen > 0);
     CxmAssert(self->lookaheadValid == false);
 
-//     fprintf(stderr, "%s:%d:%s(): '%c'\n", __FILE__, __LINE__, __func__,
-// 	    self->c);
     self->tokenLen--;
     self->lookaheadC = self->c;
     self->lookaheadValid = true;
@@ -262,8 +254,6 @@ CxpNewickParserTokenAccept(CxtNewickParserObject *self,
     bool rVal;
     PyObject *result;
 
-//     fprintf(stderr, "%s:%d:%s(): %s ('%.*s')\n", __FILE__, __LINE__, __func__,
-// 	    aMethodName, self->tokenLen, self->buf);
     result = PyEval_CallMethod((PyObject *) self, aMethodName, "()");
     if (result == NULL)
     {
@@ -277,10 +267,6 @@ CxpNewickParserTokenAccept(CxtNewickParserObject *self,
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -335,10 +321,6 @@ CxpNewickParserProdWhitespace(CxtNewickParserObject *self, bool *rAccepted)
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -379,13 +361,11 @@ CxpNewickParserProdComment(CxtNewickParserObject *self, bool *rAccepted)
 
 		if (accepted == false)
 		{
-// 		    fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 		    if (CxpNewickParserGetC(self))
 		    {
 			rVal = true;
 			goto RETURN;
 		    }
-// 		    fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 		}
 	    }
 	}
@@ -401,10 +381,6 @@ CxpNewickParserProdComment(CxtNewickParserObject *self, bool *rAccepted)
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -413,7 +389,6 @@ CxpNewickParserProdWs(CxtNewickParserObject *self)
 {
     bool rVal, accepted, again;
 
-// fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
     for (again = true; again;)
     {
 	again = false;
@@ -454,14 +429,9 @@ CxpNewickParserProdWs(CxtNewickParserObject *self)
 	    again = true;
 	}
     }
-// fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -714,10 +684,6 @@ CxpNewickParserProdBranchLength(CxtNewickParserObject *self)
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -760,10 +726,6 @@ CxpNewickParserProdQuotedLabelChar(CxtNewickParserObject *self, bool *rAccepted)
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -818,7 +780,6 @@ CxpNewickParserProdQuotedLabel(CxtNewickParserObject *self, char *aMethodName,
 	    }
 	}
 
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	if (CxpNewickParserTokenAccept(self, aMethodName))
 	{
 	    rVal = true;
@@ -842,10 +803,6 @@ CxpNewickParserProdQuotedLabel(CxtNewickParserObject *self, char *aMethodName,
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -885,10 +842,6 @@ CxpNewickParserProdUnquotedLabelChar(CxtNewickParserObject *self,
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -900,7 +853,6 @@ CxpNewickParserProdUnquotedLabel(CxtNewickParserObject *self, char *aMethodName,
 
     if (CxpNewickParserProdUnquotedLabelChar(self, &accepted))
     {
-// fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	rVal = true;
 	goto RETURN;
     }
@@ -933,7 +885,6 @@ CxpNewickParserProdUnquotedLabel(CxtNewickParserObject *self, char *aMethodName,
 	    }
 	}
 
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	if (CxpNewickParserTokenAccept(self, aMethodName))
 	{
 	    rVal = true;
@@ -955,10 +906,6 @@ CxpNewickParserProdUnquotedLabel(CxtNewickParserObject *self, char *aMethodName,
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -984,7 +931,6 @@ CxpNewickParserProdLabel(CxtNewickParserObject *self, char *aMethodName)
 	if (accepted == false)
 	{
 	    // Accept a zero length label.
-// 	    fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	    if (CxpNewickParserTokenAccept(self, aMethodName))
 	    {
 		rVal = true;
@@ -995,11 +941,6 @@ CxpNewickParserProdLabel(CxtNewickParserObject *self, char *aMethodName)
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s() %s\n", __FILE__, __LINE__, __func__,
-// 		aMethodName);
-//     }
     return rVal;
 }
 
@@ -1059,10 +1000,6 @@ CxpNewickParserProdSubtree(CxtNewickParserObject *self)
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -1096,8 +1033,6 @@ CxpNewickParserProdDescendantList(CxtNewickParserObject *self, bool *rAccepted)
 		goto RETURN;
 	    }
 
-// 	    fprintf(stderr, "%s:%d:%s() Got '%c'\n",
-// 		    __FILE__, __LINE__, __func__, self->c);
 	    if (self->c == ',')
 	    {
 		if (CxpNewickParserTokenAccept(self, "commaAccept")
@@ -1122,8 +1057,6 @@ CxpNewickParserProdDescendantList(CxtNewickParserObject *self, bool *rAccepted)
 	    goto RETURN;
 	}
 
-// 	fprintf(stderr, "%s:%d:%s(): Got '%c'\n", __FILE__, __LINE__, __func__,
-// 		self->c);
 	if (self->c != ')')
 	{
 	    CxError(CxgNewickParserSyntaxError,
@@ -1157,10 +1090,6 @@ CxpNewickParserProdDescendantList(CxtNewickParserObject *self, bool *rAccepted)
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -1180,7 +1109,6 @@ CxpNewickParserProdTree(CxtNewickParserObject *self)
 	goto RETURN;
     }
 
-// fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
     if (self->c == ':')
     {
 	if (CxpNewickParserTokenAccept(self, "colonAccept")
@@ -1203,8 +1131,6 @@ CxpNewickParserProdTree(CxtNewickParserObject *self)
 	goto RETURN;
     }
 
-//     fprintf(stderr, "%s:%d:%s(): Got '%c'\n", __FILE__, __LINE__, __func__,
-// 	    self->c);
     if (self->c == ';')
     {
 	if (CxpNewickParserTokenAccept(self, "semicolonAccept"))
@@ -1224,10 +1150,6 @@ CxpNewickParserProdTree(CxtNewickParserObject *self)
 
     rVal = false;
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
@@ -1302,10 +1224,6 @@ CxNewickParserParse(CxtNewickParserObject *self, PyObject *args)
     CxmXepEnd();
 
     RETURN:
-//     if (rVal)
-//     {
-// 	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
-//     }
     return rVal;
 }
 
