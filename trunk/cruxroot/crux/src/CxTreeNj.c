@@ -100,15 +100,17 @@ CxpTreeNjXy2i(uint32_t aN, uint32_t aX, uint32_t aY)
  *   \-------+-------+-------+-------+-------/
  */
 //#define CxmTreeNjVerbose
-static void
-CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
+static bool
+CxpTreeNj(CxtTreeObject *aTree, PyObject *distMatrix, long aNtaxa)
 {
+    bool retval;
     CxtTreeNjd *d, *dPrev, *tD; /* Distance matrix. */
     CxtTreeNjr *r; /* Distance sums. */
-    uint32_t nleft, i, x, y, iMin, xMin, yMin, xNew, yNew;
+    long nleft, i, x, y, iMin, xMin, yMin, xNew, yNew;
     double distX, distY;
     CxtNodeObject *node;
     CxtEdgeObject *edgeX, *edgeY, *edge;
+    PyObject *result;
 
     CxmCheckPtr(aDistances);
     CxmAssert(aNtaxa > 1);
@@ -127,19 +129,39 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
 							 aNtaxa - 2)
 					    + 1));
 
+    /* Allocate an array that is large enough to hold all the distance sums. */
+    r = (CxtTreeNjr *) CxmMalloc(sizeof(CxtTreeNjr) * aNtaxa);
+
     /* Initialize untransformed distances. */
     for (x = i = 0; x < aNtaxa; x++)
     {
 	for (y = x + 1; y < aNtaxa; y++)
 	{
-	    d[i].dist = aDistances[x * aNtaxa + y];
+	    result = PyEval_CallMethod(distMatrix, "distanceGet", "(ll)",
+				       x, y);
+	    if (PyFloat_Check(result))
+	    {
+		d[i].dist = PyFloat_AsDouble(result);
+		Py_DECREF(result);
+	    }
+	    else if (PyInt_Check(result))
+	    {
+		d[i].dist = (double) PyInt_AsLong(result);
+		Py_DECREF(result);
+	    }
+	    else
+	    {
+		Py_DECREF(result);
+		CxError(CxgTreeTypeError,
+			"Int or float distance expected (%ld, %ld)",
+			x, y);
+		retval = true;
+		goto RETURN;
+	    }
 
 	    i++;
 	}
     }
-
-    /* Allocate an array that is large enough to hold all the distance sums. */
-    r = (CxtTreeNjr *) CxmMalloc(sizeof(CxtTreeNjr) * aNtaxa);
 
     /* Create a node for each taxon in the matrix. */
     for (i = 0; i < aNtaxa; i++)
@@ -331,19 +353,20 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
     /* Set the tree base. */
     CxTreeBaseSet(aTree, r[0].node);
 
+    retval = false;
+    RETURN:
     /* Clean up. */
     CxmFree(d);
     CxmFree(dPrev);
     CxmFree(r);
+    return retval;
 }
 
 PyObject *
 CxTreeNj(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval, *result, *distMatrix;
-    double *distances;
-    long ntaxa, x, y;
-    bool okay;
+    long ntaxa;
 
     if (PyArg_ParseTuple(args, "O", &distMatrix) == 0)
     {
@@ -362,69 +385,39 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
     ntaxa = PyInt_AsLong(result);
     Py_DECREF(result);
 
+    Py_INCREF(Py_None);
+    retval = Py_None;
     CxmXepBegin();
     CxmXepTry
     {
-	distances = (double *) CxmMalloc(sizeof(double) * ntaxa * ntaxa);
+	CxtTrNode oldTrNode, trNode;
+	CxtNodeObject *node;
 
-	okay = true;
-	for (x = 0; x < ntaxa; x++)
+	oldTrNode = CxTrBaseGet(self->tr);
+
+	/* Neighbor-join. */
+	if (CxpTreeNj(self, distMatrix, ntaxa))
 	{
-	    for (y = 0; y < ntaxa; y++)
-	    {
-		result = PyEval_CallMethod(distMatrix, "distanceGet", "(ii)",
-					   x, y);
-		if (PyFloat_Check(result))
-		{
-		    distances[x * ntaxa + y] = PyFloat_AsDouble(result);
-		    Py_DECREF(result);
-		}
-		else if (PyInt_Check(result))
-		{
-		    distances[x * ntaxa + y] = PyInt_AsLong(result);
-		    Py_DECREF(result);
-		}
-		else
-		{
-		    Py_DECREF(result);
-		    CxError(CxgTreeTypeError,
-			    "Int or float distance expected (%ld, %ld)",
-			    x, y);
-		    retval = NULL;
-		    okay = false;
-		    goto OUT;
-		}
-	    }
-	}
-	OUT:
-
-	if (okay)
-	{
-	    CxtTrNode oldTrNode, trNode;
-	    CxtNodeObject *node;
-
-	    oldTrNode = CxTrBaseGet(self->tr);
-
-	    /* Neighbor-join. */
-	    CxpTreeNj(self, distances, ntaxa);
-
-	    /* Reference new base. */
-	    trNode = CxTrBaseGet(self->tr);
-	    if (trNode != CxmTrNodeNone)
-	    {
-		node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, trNode);
-		Py_INCREF(node);
-	    }
-
-	    /* Decref old base. */
-	    if (oldTrNode != CxmTrNodeNone)
-	    {
-		node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
-		Py_DECREF(node);
-	    }
+	    /* Error during neighbor join. */
+	    Py_DECREF(retval);
+	    retval = NULL;
+	    break;
 	}
 
-	CxmFree(distances);
+	/* Reference new base. */
+	trNode = CxTrBaseGet(self->tr);
+	if (trNode != CxmTrNodeNone)
+	{
+	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, trNode);
+	    Py_INCREF(node);
+	}
+
+	/* Decref old base. */
+	if (oldTrNode != CxmTrNodeNone)
+	{
+	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
+	    Py_DECREF(node);
+	}
     }
     CxmXepCatch(CxmXepOOM)
     {
@@ -433,8 +426,6 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
     }
     CxmXepEnd();
 
-    Py_INCREF(Py_None);
-    retval = Py_None;
     RETURN:
     return retval;
 }
