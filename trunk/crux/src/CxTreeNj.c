@@ -194,7 +194,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	{
 	    for (y = x + 1; y < nleft; y++)
 	    {
-		transCur = d[i] - ((rScaled[x] + rScaled[y]));
+		transCur = d[i] - (rScaled[x] + rScaled[y]);
 
 		if (transCur < transMin)
 		{
@@ -335,7 +335,6 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 
 	/* Calculate distances to the new node, and add them to r.  This
 	 * clobbers old distances, just after the last time they are needed. */
-	// XXX
 	for (x = 0; x < nleft; x++)
 	{
 	    if (x < xMin)
@@ -370,7 +369,8 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	/* Fill in the remaining gap (yMin row/column), by moving the first row
 	 * into the gap.  The first row can be removed from the matrix in
 	 * constant time, whereas collapsing the gap directly would require a
-	 * series of memmove() calls. */
+	 * series of memmove() calls, and leaving the gap would result in
+	 * increased cache misses. */
 	for (x = 1; x < nleft; x++)
 	{
 	    if (x < yMin)
