@@ -14,6 +14,11 @@ typedef struct CxsNodeObject CxtNodeObject;
 typedef struct CxsEdgeObject CxtEdgeObject;
 typedef struct CxsRingObject CxtRingObject;
 
+extern PyTypeObject CxtTree;
+extern PyTypeObject CxtNode;
+extern PyTypeObject CxtEdge;
+extern PyTypeObject CxtRing;
+
 struct CxsTreeObject
 {
     PyObject_HEAD
@@ -92,8 +97,12 @@ PyObject *
 CxTreeNtaxaGet(CxtTreeObject *self);
 PyObject *
 CxTreeNedgesCget(CxtTreeObject *self);
-PyObject *
+
+CxtNodeObject *
 CxTreeBaseGet(CxtTreeObject *self);
+PyObject *
+CxTreeBaseGetPargs(CxtTreeObject *self);
+
 void
 CxTreeBaseSet(CxtTreeObject *self, CxtNodeObject *aNode);
 PyObject *
@@ -126,16 +135,25 @@ CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux)
 /* Node. */
 CxtNodeObject *
 CxNodeNew(CxtTreeObject *a_tree);
+
 PyObject *
 CxNodeTree(CxtNodeObject *self);
-PyObject *
+
+uint32_t
 CxNodeTaxonNumGet(CxtNodeObject *self);
+PyObject *
+CxNodeTaxonNumGetPargs(CxtNodeObject *self);
+
 void
 CxNodeTaxonNumSet(CxtNodeObject *self, uint32_t a_taxon_num);
 PyObject *
 CxNodeTaxonNumSetPargs(CxtNodeObject *self, PyObject *args);
-PyObject *
+
+CxtRingObject *
 CxNodeRing(CxtNodeObject *self);
+PyObject *
+CxNodeRingPargs(CxtNodeObject *self);
+
 PyObject *
 CxNodeDegree(CxtNodeObject *self);
 
@@ -211,18 +229,36 @@ CxEdgeAuxSet(CxtEdgeObject *self, unsigned aInd, void *aAux)
 /* Ring. */
 CxtRingObject *
 CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd);
-PyObject *
+
+CxtTreeObject *
 CxRingTree(CxtRingObject *self);
 PyObject *
+CxRingTreePargs(CxtRingObject *self);
+
+CxtNodeObject *
 CxRingNode(CxtRingObject *self);
 PyObject *
+CxRingNodePargs(CxtRingObject *self);
+
+CxtEdgeObject *
 CxRingEdge(CxtRingObject *self);
 PyObject *
+CxRingEdgePargs(CxtRingObject *self);
+
+CxtRingObject *
 CxRingOther(CxtRingObject *self);
 PyObject *
+CxRingOtherPargs(CxtRingObject *self);
+
+CxtRingObject *
 CxRingNext(CxtRingObject *self);
 PyObject *
+CxRingNextPargs(CxtRingObject *self);
+
+CxtRingObject *
 CxRingPrev(CxtRingObject *self);
+PyObject *
+CxRingPrevPargs(CxtRingObject *self);
 
 #if (!defined(CxmUseInlines))
 void *

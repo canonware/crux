@@ -36,11 +36,6 @@
 		_Py_Dealloc((PyObject *)(op))
 #endif
 
-static PyTypeObject CxtTree;
-static PyTypeObject CxtNode;
-static PyTypeObject CxtEdge;
-static PyTypeObject CxtRing;
-
 /******************************************************************************/
 /* Begin Tree. */
 
@@ -262,8 +257,27 @@ CxTreeNedgesCget(CxtTreeObject *self)
     return retval;
 }
 
-PyObject *
+CxtNodeObject *
 CxTreeBaseGet(CxtTreeObject *self)
+{
+    CxtNodeObject *retval;
+    CxtTrNode base;
+
+    base = CxTrBaseGet(self->tr);
+    if (base == CxmTrNodeNone)
+    {
+	retval = NULL;
+    }
+    else
+    {
+	retval = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, base);
+    }
+
+    return retval;
+}
+
+PyObject *
+CxTreeBaseGetPargs(CxtTreeObject *self)
 {
     PyObject *retval;
     CxtTrNode base;
@@ -357,7 +371,7 @@ static PyMethodDef CxpTreeMethods[] =
     },
     {
 	"baseGet",
-	(PyCFunction) CxTreeBaseGet,
+	(PyCFunction) CxTreeBaseGetPargs,
 	METH_NOARGS,
 	"baseGet"
     },
@@ -378,6 +392,18 @@ static PyMethodDef CxpTreeMethods[] =
 	(PyCFunction) CxTreeNj,
 	METH_VARARGS,
 	"_nj"
+    },
+    {
+	"_rfTuple",
+	(PyCFunction) CxTreeRfTuple,
+	METH_VARARGS,
+	"_rfTuple"
+    },
+    {
+	"_rfPair",
+	(PyCFunction) CxTreeRfPair,
+	METH_VARARGS,
+	"_rfPair"
     },
     {
 	"tbr",
@@ -448,7 +474,7 @@ static PyMethodDef CxpTreeMethods[] =
     {NULL, NULL}
 };
 
-static PyTypeObject CxtTree =
+PyTypeObject CxtTree =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
@@ -783,8 +809,14 @@ CxNodeTree(CxtNodeObject *self)
     return Py_BuildValue("O", self->tree);
 }
 
-PyObject *
+uint32_t
 CxNodeTaxonNumGet(CxtNodeObject *self)
+{
+    return CxTrNodeTaxonNumGet(self->tree->tr, self->node);
+}
+
+PyObject *
+CxNodeTaxonNumGetPargs(CxtNodeObject *self)
 {
     PyObject *retval;
     uint32_t taxonNum;
@@ -831,8 +863,27 @@ CxNodeTaxonNumSetPargs(CxtNodeObject *self, PyObject *args)
     return retval;
 }
 
-PyObject *
+CxtRingObject *
 CxNodeRing(CxtNodeObject *self)
+{
+    CxtRingObject *retval;
+    CxtTrRing trRing;
+
+    trRing = CxTrNodeRingGet(self->tree->tr, self->node);
+    if (trRing != CxmTrRingNone)
+    {
+	retval = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
+    }
+    else
+    {
+	retval = NULL;
+    }
+
+    return retval;
+}
+
+PyObject *
+CxNodeRingPargs(CxtNodeObject *self)
 {
     PyObject *retval;
     CxtRingObject *ring;
@@ -870,7 +921,7 @@ static PyMethodDef CxpNodeMethods[] =
     },
     {
 	"taxonNumGet",
-	(PyCFunction) CxNodeTaxonNumGet,
+	(PyCFunction) CxNodeTaxonNumGetPargs,
 	METH_NOARGS,
 	"taxonNumGet"
     },
@@ -882,7 +933,7 @@ static PyMethodDef CxpNodeMethods[] =
     },
     {
 	"ring",
-	(PyCFunction) CxNodeRing,
+	(PyCFunction) CxNodeRingPargs,
 	METH_NOARGS,
 	"ring"
     },
@@ -895,7 +946,7 @@ static PyMethodDef CxpNodeMethods[] =
     {NULL, NULL}
 };
 
-static PyTypeObject CxtNode =
+PyTypeObject CxtNode =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
@@ -1397,7 +1448,7 @@ static PyMethodDef CxpEdgeMethods[] =
     {NULL, NULL}
 };
 
-static PyTypeObject CxtEdge =
+PyTypeObject CxtEdge =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
@@ -1740,14 +1791,39 @@ CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd)
     return retval;
 }
 
-PyObject *
+CxtTreeObject *
 CxRingTree(CxtRingObject *self)
+{
+    return self->tree;
+}
+
+PyObject *
+CxRingTreePargs(CxtRingObject *self)
 {
     return Py_BuildValue("O", self->tree);
 }
 
-PyObject *
+CxtNodeObject *
 CxRingNode(CxtRingObject *self)
+{
+    CxtNodeObject *retval;
+    CxtTrNode node;
+
+    node = CxTrRingNodeGet(self->tree->tr, self->ring);
+    if (node != CxmTrNodeNone)
+    {
+	retval = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, node);
+    }
+    else
+    {
+	retval = NULL;
+    }
+
+    return retval;
+}
+
+PyObject *
+CxRingNodePargs(CxtRingObject *self)
 {
     PyObject *retval;
     CxtTrNode node;
@@ -1767,8 +1843,20 @@ CxRingNode(CxtRingObject *self)
     return retval;
 }
 
-PyObject *
+CxtEdgeObject *
 CxRingEdge(CxtRingObject *self)
+{
+    CxtEdgeObject *retval;
+    CxtTrEdge edge;
+
+    edge = CxTrRingEdgeGet(self->tree->tr, self->ring);
+    retval = (CxtEdgeObject *) CxTrEdgeAuxGet(self->tree->tr, edge);
+
+    return retval;
+}
+
+PyObject *
+CxRingEdgePargs(CxtRingObject *self)
 {
     PyObject *retval;
     CxtTrEdge edge;
@@ -1780,8 +1868,20 @@ CxRingEdge(CxtRingObject *self)
     return retval;
 }
 
-PyObject *
+CxtRingObject *
 CxRingOther(CxtRingObject *self)
+{
+    CxtRingObject *retval;
+    CxtTrRing other;
+
+    other = CxTrRingOtherGet(self->tree->tr, self->ring);
+    retval = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, other);
+
+    return retval;
+}
+
+PyObject *
+CxRingOtherPargs(CxtRingObject *self)
 {
     PyObject *retval;
     CxtTrRing other;
@@ -1793,8 +1893,20 @@ CxRingOther(CxtRingObject *self)
     return retval;
 }
 
-PyObject *
+CxtRingObject *
 CxRingNext(CxtRingObject *self)
+{
+    CxtRingObject *retval;
+    CxtTrRing nextRing;
+
+    nextRing = CxTrRingNextGet(self->tree->tr, self->ring);
+    retval = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, nextRing);
+
+    return retval;
+}
+
+PyObject *
+CxRingNextPargs(CxtRingObject *self)
 {
     PyObject *retval;
     CxtTrRing nextRing;
@@ -1806,8 +1918,20 @@ CxRingNext(CxtRingObject *self)
     return retval;
 }
 
-PyObject *
+CxtRingObject *
 CxRingPrev(CxtRingObject *self)
+{
+    CxtRingObject *retval;
+    CxtTrRing prevRing;
+
+    prevRing = CxTrRingPrevGet(self->tree->tr, self->ring);
+    retval = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, prevRing);
+
+    return retval;
+}
+
+PyObject *
+CxRingPrevPargs(CxtRingObject *self)
 {
     PyObject *retval;
     CxtTrRing prevRing;
@@ -1823,44 +1947,44 @@ static PyMethodDef CxpRingMethods[] =
 {
     {
 	"tree",
-	(PyCFunction) CxRingTree,
+	(PyCFunction) CxRingTreePargs,
 	METH_NOARGS,
 	"tree"
     },
     {
 	"node",
-	(PyCFunction) CxRingNode,
+	(PyCFunction) CxRingNodePargs,
 	METH_NOARGS,
 	"node"
     },
     {
 	"edge",
-	(PyCFunction) CxRingEdge,
+	(PyCFunction) CxRingEdgePargs,
 	METH_NOARGS,
 	"edge"
     },
     {
 	"other",
-	(PyCFunction) CxRingOther,
+	(PyCFunction) CxRingOtherPargs,
 	METH_NOARGS,
 	"other"
     },
     {
 	"next",
-	(PyCFunction) CxRingNext,
+	(PyCFunction) CxRingNextPargs,
 	METH_NOARGS,
 	"next"
     },
     {
 	"prev",
-	(PyCFunction) CxRingPrev,
+	(PyCFunction) CxRingPrevPargs,
 	METH_NOARGS,
 	"prev"
     },
     {NULL, NULL}
 };
 
-static PyTypeObject CxtRing =
+PyTypeObject CxtRing =
 {
     PyObject_HEAD_INIT(NULL)
     0,			/* int ob_size */
