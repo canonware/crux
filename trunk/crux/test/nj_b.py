@@ -23,6 +23,7 @@ D
 matrix = crux.DistMatrix.DistMatrix(testMatrix)
 t = crux.Tree.Tree(matrix)
 t.canonize()
+t.render(labels=True, lengths=True, outFile=sys.stdout)
 print t.render(labels=True, lengths=True)
 
 print "Test end"

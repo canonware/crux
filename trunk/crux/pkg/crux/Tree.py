@@ -209,9 +209,25 @@ class Tree(C_Tree):
         n = self.baseGet()
         if n != None:
             if n.taxonNumGet() != None:
-                # Leaf node.
-                retval = "(%s);" % \
-                         n.rrender(None, self._map, labels, lengths)
+                # Leaf node.  If this node's neighbor is an internal node, start
+                # rendering with it, in order to unroot the tree.
+                ring = n.ring()
+                if ring != None:
+                    neighbor = ring.other().node()
+                    if neighbor.taxonNumGet() == None:
+                        # Start with the internal node.
+                        retval = "%s;" % \
+                                 neighbor.rrender(None, self._map, labels,
+                                                  lengths)
+                    else:
+                        # This tree only has two taxa; start with the tree base.
+                        retval = "(%s);" % \
+                             n.rrender(None, self._map, labels, lengths,
+                                       twoTaxa=True)
+                else:
+                    # There is only one node in the tree.
+                    retval = "%s;" % \
+                             n.rrender(None, self._map, labels, lengths)
             else:
                 # Internal node.
                 retval = "%s;" % \
@@ -225,10 +241,26 @@ class Tree(C_Tree):
         n = self.baseGet()
         if n != None:
             if n.taxonNumGet() != None:
-                # Leaf node.
-                outFile.write("(")
-                n.rrender(None, self._map, labels, lengths, outFile)
-                outFile.write(");\n")
+                # Leaf node.  If this node's neighbor is an internal node, start
+                # rendering with it, in order to unroot the tree.
+                ring = n.ring()
+                if ring != None:
+                    neighbor = ring.other().node()
+                    if neighbor.taxonNumGet() == None:
+                        # Start with the internal node.
+                        neighbor.rrender(None, self._map, labels, lengths,
+                                         outFile)
+                        outFile.write(";\n")
+                    else:
+                        # This tree only has two taxa; start with the tree base.
+                        outFile.write("(")
+                        n.rrender(None, self._map, labels, lengths, outFile,
+                                  twoTaxa=True)
+                        outFile.write(");\n")
+                else:
+                    # There is only one node in the tree.
+                    n.rrender(None, self._map, labels, lengths, outFile)
+                    outFile.write(";\n")
             else:
                 # Internal node.
                 n.rrender(None, self._map, labels, lengths, outFile)
