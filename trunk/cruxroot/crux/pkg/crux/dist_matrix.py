@@ -111,14 +111,10 @@ class dist_matrix(object):
 
         x = 0
         while True:
-            #sys.stderr.write("A")
             token = self._get_token()
-            #sys.stderr.write("B")
             distance = self._token_to_distance(token)
-            #sys.stderr.write("C")
             if distance != None:
                 # Get distance for taxon.
-                #sys.stderr.write("D")
                 distances.append(distance)
             else:
                 # Merge distances into the matrix.
