@@ -18,6 +18,7 @@ import NewickParser
 import TaxonMap
 import DistMatrix
 import crux
+import __builtin__
 
 import random
 
@@ -89,11 +90,9 @@ class _NewickParser(NewickParser.NewickParser):
             try:
                 val = int(self.token())
                 self._map.map(self.token(), val)
-            except ValueError:
+            except __builtin__.ValueError:
                 if self._autoMap:
                     # Create a new mapping.
-                    print "Create new mapping for '%s' (dangerous)" \
-                          % self.token()
                     val = self._map.ntaxaGet()
                     self._map.map(self.token(), val)
                 else:
