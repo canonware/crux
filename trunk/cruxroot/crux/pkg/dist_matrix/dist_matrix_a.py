@@ -1,13 +1,12 @@
 import dist_matrix
 import sys
 
-def matrix_print(matrix):
-    ntaxa = len(matrix[0])
+def matrix_print(matrix, ntaxa):
     x = 0
     while x < ntaxa:
         y = 0
         while y < ntaxa:
-            sys.stdout.write(" %1.3f" % matrix[x][y])
+            sys.stdout.write(" %1.3f" % matrix[x * ntaxa + y])
             y += 1
         sys.stdout.write("\n")
         x += 1
@@ -48,4 +47,4 @@ for matrix in (matrix_0, matrix_1, matrix_2, matrix_3):
     (labels, matrix) = dist_matrix.dist_matrix().parse(matrix)
 
     print labels
-    matrix_print(matrix)
+    matrix_print(matrix, len(labels))

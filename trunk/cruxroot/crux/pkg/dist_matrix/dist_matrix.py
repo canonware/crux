@@ -64,7 +64,7 @@ class dist_matrix(object):
 
     # Parse input (file or string) and return a tuple, where the first element
     # in the tuple is a list of taxon label strings, and the second element is a
-    # row-major matrix (list of rows).
+    # row-major matrix.
     #
     # Example input:
     #
@@ -78,11 +78,11 @@ class dist_matrix(object):
     # Corresponding return value:
     #
     # (['Taxon_A', 'Taxon_B', 'Taxon_C', 'Taxon_D', 'Taxon_E'],
-    #  [[0.0, 1.0, 2.0, 3.0, 4.0]
-    #   [1.0, 0.0, 1.5, 2.5, 3.5]
-    #   [2.0, 1.5, 0.0, 2.2, 3.2]
-    #   [3.0, 2.5, 2.2, 0.0, 3.1]
-    #   [4.0, 3.5, 3.2, 3.1, 0.0]])
+    #  [0.0, 1.0, 2.0, 3.0, 4.0,
+    #   1.0, 0.0, 1.5, 2.5, 3.5,
+    #   2.0, 1.5, 0.0, 2.2, 3.2,
+    #   3.0, 2.5, 2.2, 0.0, 3.1,
+    #   4.0, 3.5, 3.2, 3.1, 0.0])
     #
     def parse(self, input):
         self._input = input
@@ -97,15 +97,10 @@ class dist_matrix(object):
 
         # Create an empty distance matrix (fourth quadrant coordinates).
         self._matrix = []
-        x = 0
-        while x < self._ntaxa:
-            y = 0
-            row = []
-            while y < self._ntaxa:
-                row.append(None)
-                y += 1
-            self._matrix.append(row)
-            x += 1
+        i = 0
+        while i < self._ntaxa * self._ntaxa:
+            self._matrix.append(None)
+            i += 1
 
         # Get the first taxon label.
         token = self._get_token()
@@ -197,25 +192,25 @@ class dist_matrix(object):
                 raise ValueError
             i = 0
             while i < len(distances):
-                self._matrix[row][i] = distances[i]
+                self._matrix[row * self._ntaxa + i] = distances[i]
                 i += 1
         elif self._matrix_format == 'lower':
             if len(distances) != row:
                 raise ValueError
-            self._matrix[row][row] = 0.0
+            self._matrix[row * self._ntaxa + row] = 0.0
             i = 0
             while i < len(distances):
-                self._matrix[row][i] = distances[i]
-                self._matrix[i][row] = distances[i]
+                self._matrix[row * self._ntaxa + i] = distances[i]
+                self._matrix[i * self._ntaxa + row] = distances[i]
                 i += 1
         elif self._matrix_format == 'upper':
             if len(distances) != self._ntaxa - row - 1:
                 raise ValueError
-            self._matrix[row][row] = 0.0
+            self._matrix[row * self._ntaxa + row] = 0.0
             i = 0
             while i < len(distances):
-                self._matrix[i + row + 1][row] = distances[i]
-                self._matrix[row][i + row + 1] = distances[i]
+                self._matrix[(i + row + 1) * self._ntaxa + row] = distances[i]
+                self._matrix[row * self._ntaxa + (i + row + 1)] = distances[i]
                 i += 1
         else:
             # Invalid matrix format.
