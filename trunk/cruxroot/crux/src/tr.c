@@ -730,17 +730,6 @@ trn_p_connection_patch(cw_trn_t *a_trn, cw_uint32_t a_edge,
 	*ar_spare = NULL;
 
 	trn_p_edge_get(a_trn, a_edge, &a, &edge);
-// XXX Remove.
-//	if (a == NULL
-//	    || edge > 2
-//	    || a->neighbors[edge] == NULL)
-//	{
-//	    fprintf(stderr, "a_trn: %p, a: %p, a_edge: %u, edge: %u\n",
-//		    a_trn, a, a_edge, edge);
-//	    fprintf(stderr, "Sleeping...\n");
-//	    sleep(3600);
-//	    abort();
-//	}
 	b = a->neighbors[edge];
 
 	/* Detach a and b. */
@@ -1150,106 +1139,30 @@ tr_p_trt_compare(const void *a_key, const void *a_val)
     return retval;
 }
 
-/* This function initializes both trt and trr. */
+/* This function initializes both trt and ri. */
 static void
-tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_trr)
+tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_ri)
 {
     cw_bool_t init;
 
     /* This function depends on knowing how many TBR neighbors there are, which
      * is calculated by the trt machinery.  If the trt machinery has to
-     * initialize itself here, then the trr machinery also needs initialized. */
+     * initialize itself here, then the ri machinery also needs initialized. */
     init = tr_p_tbr_trt_init(a_tr);
 
-    if (a_tr->trr == NULL)
+    if (a_tr->ri == NULL)
     {
-	/* Once trr has been used, it must always be kept up to date. */
-	if (a_use_trr)
+	/* Once ri has been used, it must always be kept up to date. */
+	if (a_use_ri)
 	{
-	    /* Allocate an array with one slot per TBR neighbor. */
-	    a_tr->trrlen = a_tr->trt[a_tr->trtused].offset;
-	    if (a_tr->nedges > 0)
-	    {
-		a_tr->trr = (cw_uint32_t *) nxa_malloc(sizeof(cw_uint32_t)
-						       * a_tr->trrlen);
-	    }
-
-	    /* Initialize the array. */
-	    memset(a_tr->trr, 0xff, sizeof(cw_uint32_t) * a_tr->trrlen);
-
-	    /* trri was already initialized to 0, so there is no need to do so
-	     * here. */
-	    cw_assert(a_tr->trri == 0);
-	    cw_check_ptr(a_tr->trr);
-	    cw_assert(a_tr->trrlen >= a_tr->trt[a_tr->trtused].offset);
+	    a_tr->ri = ri_new(NULL, cw_g_nxaa);
+	    ri_init(a_tr->ri, a_tr->trt[a_tr->trtused].offset);
 	}
     }
     else if (init)
     {
-	cw_uint32_t i;
-
-	/* Undo damage to trr. */
-	for (i = 0; i < a_tr->trri; i++)
-	{
-	    cw_assert(i < a_tr->trrlen);
-	    cw_assert(a_tr->trr[i] < a_tr->trrlen);
-	    if (a_tr->trr[i] >= a_tr->trri)
-	    {
-		a_tr->trr[a_tr->trr[i]] = 0xffffffffU;
-	    }
-	    a_tr->trr[i] = 0xffffffffU;
-	}
-
-	/* Reset trri. */
-	a_tr->trri = 0;
-
-	/* Make sure that trr is big enough. */
-	if (a_tr->trrlen < a_tr->trt[a_tr->trtused].offset)
-	{
-	    /* This could result in lots of incrementally larger realloc's, but
-	     * it isn't reasonable to do iterative doubling here, unless we want
-	     * to potentially waste a lot of space.  Over the long run, the cost
-	     * of the realloc's should get lost in the noise. */
-	    a_tr->trr = nxa_realloc(a_tr->trr,
-				    sizeof(cw_uint32_t)
-				    * a_tr->trt[a_tr->trtused].offset,
-				    sizeof(cw_uint32_t) * a_tr->trrlen);
-
-	    /* Initialize the new trailing elements. */
-	    memset(&a_tr->trr[a_tr->trrlen], 0xff,
-		   sizeof(cw_uint32_t) * (a_tr->trt[a_tr->trtused].offset
-					  - a_tr->trrlen));
-
-	    /* Store the new trrlen. */
-	    a_tr->trrlen = a_tr->trt[a_tr->trtused].offset;
-	}
-
-	cw_check_ptr(a_tr->trr);
-	cw_assert(a_tr->trrlen >= a_tr->trt[a_tr->trtused].offset);
+	ri_init(a_tr->ri, a_tr->trt[a_tr->trtused].offset);
     }
-    else if (a_tr->trri == a_tr->trt[a_tr->trtused].offset)
-    {
-	/* All neighbors have been iterated over.  Re-initialize. */
-	memset(a_tr->trr, 0xff, sizeof(cw_uint32_t) * a_tr->trri);
-	a_tr->trri = 0;
-    }
-    cw_assert(a_tr->trri < a_tr->trt[a_tr->trtused].offset);
-
-#ifdef CW_DBG
-    if (a_tr->trri == 0 && a_tr->trr != NULL)
-    {
-	cw_uint32_t i;
-
-	for (i = 0; i < a_tr->trt[a_tr->trtused].offset; i++)
-	{
-	    if (a_tr->trr[i] != 0xffffffffU)
-	    {
-		fprintf(stderr, "%s:%d:%s(): Cell %u is %u\n",
-			__FILE__, __LINE__, __FUNCTION__, i, a_tr->trr[i]);
-	    }
-	}
-    }
-#endif
 }
 
 /*           __         __
@@ -1536,9 +1449,9 @@ tr_delete(cw_tr_t *a_tr, cw_bool_t a_delete_trns)
 	nxa_free(a_tr->trt, sizeof(cw_trt_t) * (a_tr->nedges + 1));
     }
 
-    if (a_tr->trr != NULL)
+    if (a_tr->ri != NULL)
     {
-	nxa_free(a_tr->trr, sizeof(cw_uint32_t) * (a_tr->trrlen));
+	ri_delete(a_tr->ri);
     }
 
 #ifdef CW_DBG
@@ -1882,63 +1795,17 @@ tr_tbr_rneighbor_nchosen_get(cw_tr_t *a_tr)
 
     tr_p_tbr_init(a_tr, TRUE);
 
-    return a_tr->trri;
+    return ri_ind_get(a_tr->ri);
 }
 
 cw_uint32_t
 tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt)
 {
-    cw_uint32_t retval, r;
-
     cw_dassert(tr_p_validate(a_tr, TRUE));
 
-    /* 1)
-     * 2) */
     tr_p_tbr_init(a_tr, TRUE);
 
-    /* This algorithm is explained in tr.h. */
-
-    /* 3) */
-    r = a_tr->trri + mt_uint32_range_get(a_mt,
-					 a_tr->trt[a_tr->trtused].offset
-					 - a_tr->trri);
-    cw_assert(r >= a_tr->trri);
-    cw_assert(r < a_tr->trt[a_tr->trtused].offset);
-
-    /* 4) */
-    if (a_tr->trr[r] == 0xffffffffU)
-    {
-	a_tr->trr[r] = r;
-    }
-
-    /* 5) */
-    cw_assert(a_tr->trri < a_tr->trt[a_tr->trtused].offset);
-    if (a_tr->trr[a_tr->trri] == 0xffffffffU)
-    {
-	a_tr->trr[a_tr->trri] = a_tr->trri;
-    }
-
-    /* 6) */
-    retval = a_tr->trr[r];
-    a_tr->trr[r] = a_tr->trr[a_tr->trri];
-    a_tr->trr[a_tr->trri] = retval;
-
-    /* 7) */
-    a_tr->trri++;
-
-    cw_assert(retval < a_tr->trt[a_tr->trtused].offset);
-    cw_assert(retval != 0xffffffff);
-#ifdef CW_DBG
-    {
-	cw_uint32_t i;
-
-	for (i = 0; i < a_tr->trri - 1; i++)
-	{
-	    cw_assert(a_tr->trr[i] != retval);
-	}
-    }
-#endif
-    return retval;
+    return ri_random_get(a_tr->ri, a_mt);
 }
 
 void

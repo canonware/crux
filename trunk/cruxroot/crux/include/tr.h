@@ -114,35 +114,7 @@ struct cw_tr_s
     cw_trt_t *trt;
     cw_uint32_t trtused;
 
-    /* Array of integers that is used for randomly iterating over all TBR
-     * neighbors (which are enumerated by trt).  The following algorithm is used
-     * for the random iteration:
-     *
-     *   1) memset(trr, 0xff, trt[nedges].offset * sizeof(cw_uint32_t)).
-     *
-     *   2) Initialize trri <-- 0.
-     * 
-     *   3) Choose a random slot r in [trri,trt[nedges].offset).
-     *
-     *   4) If trr[r] == 0xffffffff, set trr[r] <-- r.
-     *
-     *   5) If trr[trri] == 0xffffffff, set trr[trri] <-- trri.
-     *
-     *   6) Swap trr[trri] <--> trr[r].  trr[trri] contains the choice.
-     *
-     *   7) Increment trri.
-     *
-     *   8) If trri < trt[nedges].offset, go to step 3.
-     *
-     * trr can be re-initialized by iterating over the first trri elements and
-     * clearing the elements associated with the values stored, then clearing
-     * the first trri elements. */
-    cw_uint32_t *trr;
-    /* Number of elements in trr.  This is not necessarily the number of
-     * elements that are actually being used. */
-    cw_uint32_t trrlen;
-    /* Number of integers that have been chosen from trr. */
-    cw_uint32_t trri;
+    cw_ri_t *ri;
 };
 
 /* trn. */
