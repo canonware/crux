@@ -151,18 +151,17 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
     /* Iteratitively join two nodes in the matrix, until only two are left. */
     for (nleft = aNtaxa; nleft > 2; nleft--)
     {
-	// XXX Remove.
-	if (true)
+#ifdef CxmTreeNjVerbose
 	{
 	    time_t t;
 	    struct tm *tm;
+
 	    time(&t);
 	    tm = localtime(&t);
 	    fprintf(stderr, "%d/%02d/%02d %02d:%02d:%02d\n",
 		    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday + 1,
 		    tm->tm_hour, tm->tm_min, tm->tm_sec);
 	}
-#ifdef CxmTreeNjVerbose
 	fprintf(stderr, "Size: %u\n", nleft);
 #endif
 
@@ -312,11 +311,10 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
 	}
 
 	/* Compact and update r. */
-	// XXX Do this in a single pass?
-	memmove(&r[yMin], &r[yMin + 1],
-		sizeof(CxtTreeNjr) * (nleft - yMin - 1));
 	memmove(&r[xMin], &r[xMin + 1],
-		sizeof(CxtTreeNjr) * (nleft - xMin - 1));
+		sizeof(CxtTreeNjr) * (yMin - xMin - 1));
+	memmove(&r[yMin - 1], &r[yMin + 1],
+		sizeof(CxtTreeNjr) * (nleft - yMin - 1));
 	r[nleft - 2].node = node;
     }
 
@@ -354,7 +352,13 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
     }
 
     result = PyEval_CallMethod(distMatrix, "ntaxaGet", "()");
-    // XXX Check typ of result.
+    if (PyInt_Check(result) == false)
+    {
+	CxError(CxgDistMatrixTypeError,
+		"Integer expected from distMatrix.ntaxaGet()");
+	retval = NULL;
+	goto RETURN;
+    }
     ntaxa = PyInt_AsLong(result);
     Py_DECREF(result);
 
@@ -383,10 +387,10 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
 		else
 		{
 		    Py_DECREF(result);
-		    // XXX Raise tree-specific ValueError, throughout the code
-		    // in this file.
-		    Py_INCREF(PyExc_ValueError);
-		    retval = PyExc_ValueError;
+		    CxError(CxgTreeTypeError,
+			    "Int or float distance expected (%ld, %ld)",
+			    x, y);
+		    retval = NULL;
 		    okay = false;
 		    goto OUT;
 		}
