@@ -385,6 +385,11 @@ CxpDistMatrixSetLabel(CxtDistMatrixObject *self, long index,
 	    /* Insert label into map. */
 	    result = PyEval_CallMethod(self->map, "map", "s#i", self->buf,
 				       self->tokenLen, index);
+	    if (result == NULL)
+	    {
+		retval = true;
+		goto RETURN;
+	    }
 	    Py_DECREF(result);
 	    break;
 	}

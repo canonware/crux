@@ -1,6 +1,3 @@
-* Add validation code in the DistMatrix parser that detects duplicate taxon
-  labels and raises an exception.
-
 * Fix crashes due to not catching eval errors in the tree wrapper code.
 
 * Modify DistMatrix so that the token and distance accept methods are

@@ -72,7 +72,13 @@ class TaxonMap(object):
     # Map a label to an index.  Typical usage is something like:
     #
     #   m.map('Label', m.ntaxaGet())
-    def map(self, label, ind):
+    def map(self, label, ind, replace=False):
+        if replace == False:
+            # Make sure that label hasn't already been mapped to an index.
+            if self._label2ind.has_key(label):
+                raise crux.TaxonMap.ValueError(
+                    "Label '%s' already mapped" % label)
+
         self._label2ind[label] = ind
         self._ind2label[ind] = label
 #EOF
