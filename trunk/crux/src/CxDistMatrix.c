@@ -1146,12 +1146,12 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 		    nelms = CxpDistMatrixXy2i(self,
 					      self->ntaxa - 2,
 					      self->ntaxa - 1) + 1;
-		    self->symmetric = false;
+		    self->symmetric = true;
 		}
 		else
 		{
 		    nelms = self->ntaxa * self->ntaxa;
-		    self->symmetric = true;
+		    self->symmetric = false;
 		}
 
 		self->matrix = (float *) CxmMalloc(sizeof(float) * nelms);
