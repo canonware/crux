@@ -53,7 +53,11 @@ edge_detach(EdgeObject *self);
 static PyObject *
 tree_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
     TreeObject *self;
 
     self = (TreeObject *) type->tp_alloc(type, 0);
@@ -135,7 +139,11 @@ tree_delete(TreeObject *self)
 static PyObject *
 tree_ntaxa_get(TreeObject *self)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
 
     xep_begin();
     xep_try
@@ -155,7 +163,11 @@ tree_ntaxa_get(TreeObject *self)
 static PyObject *
 tree_nedges_get(TreeObject *self)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
 
     xep_begin();
     xep_try
@@ -238,7 +250,11 @@ tree_base_set(TreeObject *self, PyObject *args)
 static PyObject *
 tree_canonize(TreeObject *self)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
 
     xep_begin();
     xep_try
@@ -328,7 +344,28 @@ tree__nj(TreeObject *self, PyObject *args)
 
 	if (okay)
 	{
+	    cw_tr_node_t old_tr_node, tr_node;
+	    NodeObject *node;
+
+	    old_tr_node = tr_base_get(self->tr);
+
+	    /* Neighbor-join. */
 	    tr_nj(self->tr, distances, ntaxa);
+	    
+	    /* Reference new base. */
+	    tr_node = tr_base_get(self->tr);
+	    if (tr_node != CW_TR_NODE_NONE)
+	    {
+		node = (NodeObject *) tr_node_aux_get(self->tr, tr_node);
+		Py_INCREF(node);
+	    }
+
+	    /* Decref old base. */
+	    if (old_tr_node != CW_TR_NODE_NONE)
+	    {
+		node = (NodeObject *) tr_node_aux_get(self->tr, old_tr_node);
+		Py_DECREF(node);
+	    }
 	}
 
 	cw_free(distances);
@@ -349,7 +386,11 @@ tree__nj(TreeObject *self, PyObject *args)
 static PyObject *
 tree_tbr(TreeObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
     uint32_t bisect, reconnect_a, reconnect_b;
 
     if (PyArg_ParseTuple(args, "(iii)", &bisect, &reconnect_a, &reconnect_b)
@@ -381,7 +422,11 @@ tree_tbr(TreeObject *self, PyObject *args)
 static PyObject *
 tree_tbr_nneighbors_get(TreeObject *self)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
 
     xep_begin();
     xep_try
@@ -401,7 +446,11 @@ tree_tbr_nneighbors_get(TreeObject *self)
 static PyObject *
 tree_tbr_neighbor_get(TreeObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
     uint32_t neighbor, bisect, reconnect_a, reconnect_b;
 
     if (PyArg_ParseTuple(args, "i", &neighbor) == 0)
@@ -440,9 +489,23 @@ tree_tbr_neighbor_get(TreeObject *self, PyObject *args)
 static PyObject *
 tree_mp_prepare(TreeObject *self, PyObject *args)
 {
-    PyObject *retval, *taxa, *tobj;
-    uint32_t elim, ntaxa, nchars, i, j;
-    char **tarr;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
+    PyObject *taxa, *tobj;
+    uint32_t elim, ntaxa, i, j;
+    uint32_t nchars
+#ifdef CW_CC_SILENCE
+	= 0
+#endif
+	;
+    char **tarr
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
 
     elim = 1;
     if (PyArg_ParseTuple(args, "O!|i", &PyList_Type, &taxa, &elim) == 0)
@@ -584,7 +647,11 @@ tree_mp(TreeObject *self)
 static PyObject *
 tree_tbr_best_neighbors_mp(TreeObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
     uint32_t maxhold;
 
     maxhold = CW_TR_HOLD_ALL;
@@ -622,7 +689,11 @@ tree_tbr_best_neighbors_mp(TreeObject *self, PyObject *args)
 static PyObject *
 tree_tbr_better_neighbors_mp(TreeObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
     uint32_t maxhold;
 
     maxhold = CW_TR_HOLD_ALL;
@@ -660,7 +731,11 @@ tree_tbr_better_neighbors_mp(TreeObject *self, PyObject *args)
 static PyObject *
 tree_tbr_all_neighbors_mp(TreeObject *self)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
 
     xep_begin();
     xep_try
@@ -683,7 +758,11 @@ tree_tbr_all_neighbors_mp(TreeObject *self)
 static PyObject *
 tree_nheld_get(TreeObject *self)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
 
     xep_begin();
     xep_try
@@ -703,7 +782,11 @@ tree_nheld_get(TreeObject *self)
 static PyObject *
 tree_held_get(TreeObject *self, PyObject *args)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
     uint32_t held, neighbor, score, bisect, reconnect_a, reconnect_b;
 
     if (PyArg_ParseTuple(args, "i", &held) == 0)
@@ -927,7 +1010,11 @@ crux_tree_init(void)
 static PyObject *
 node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
     NodeObject *self;
     TreeObject *tree;
 
@@ -1232,7 +1319,11 @@ crux_node_init(void)
 static PyObject *
 edge_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject *retval;
+    PyObject *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
     EdgeObject *self;
     TreeObject *tree;
 

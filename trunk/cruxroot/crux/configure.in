@@ -104,6 +104,21 @@ if test "x$enable_debug" = "x1" ; then
 fi
 AC_SUBST([enable_debug])
 
+dnl Do not silence irrelevant compiler warnings by default.
+AC_ARG_ENABLE([cc-silence], [  --enable-cc-silence     Silence irrelevant compiler warnings],
+[if test "x$enable_cc_silence" = "xno" ; then
+  enable_cc_silence="0"
+else
+  enable_cc_silence="1"
+fi
+],
+[enable_cc_silence="0"]
+)
+if test "x$enable_cc_silence" = "x1" ; then
+  AC_DEFINE([CW_CC_SILENCE])
+fi
+AC_SUBST([enable_cc_silence])
+
 dnl 
 dnl Dependency configuration.
 dnl 
@@ -239,4 +254,6 @@ AC_MSG_RESULT([objroot       : ${objroot}])
 AC_MSG_RESULT([abs_objroot   : ${abs_objroot}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([autogen       : ${enable_autogen}])
+AC_MSG_RESULT([debug         : ${enable_debug}])
+AC_MSG_RESULT([cc-silence    : ${enable_cc_silence}])
 AC_MSG_RESULT([===============================================================================])

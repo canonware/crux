@@ -11,6 +11,8 @@
 
 #undef CW_DBG
 
+#undef CW_CC_SILENCE
+
 #ifndef CW_ASSERT
 #undef CW_ASSERT
 #endif
