@@ -62,8 +62,6 @@ CxpTreeTraverse(CxtTreeObject *self, visitproc visit, void *arg)
     int retval;
     CxtTrNode base;
 
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     base = CxTrBaseGet(self->tr);
     if (base != CxmTrNodeNone)
     {
@@ -79,8 +77,6 @@ CxpTreeTraverse(CxtTreeObject *self, visitproc visit, void *arg)
 
     retval = 0;
     RETURN:
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     return retval;
 }
 
@@ -89,8 +85,6 @@ CxpTreeClear(CxtTreeObject *self)
 {
     CxtTrNode base;
 
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     base = CxTrBaseGet(self->tr);
     if (base != CxmTrNodeNone)
     {
@@ -101,21 +95,15 @@ CxpTreeClear(CxtTreeObject *self)
 	Py_DECREF(node);
     }
 
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     return 0;
 }
 
 static void
 CxpTreeDelete(CxtTreeObject *self)
 {
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     CxpTreeClear(self);
     CxTrDelete(self->tr);
     self->ob_type->tp_free((PyObject*) self);
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 }
 
 static PyObject *CxpTreeNewCode;
@@ -537,8 +525,6 @@ CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
     CxtTrRing trRing;
     CxtRingObject *ring;
 
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     if (self->valid)
     {
 	if (visit((PyObject *) self->tree, arg) < 0)
@@ -561,8 +547,6 @@ CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
 
     retval = 0;
     RETURN:
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     return retval;
 }
 
@@ -574,8 +558,6 @@ CxpNodeClear(CxtNodeObject *self)
     CxtEdgeObject *edge;
     PyObject *obj;
 
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     if (self->valid)
     {
 	while (true)
@@ -602,20 +584,14 @@ CxpNodeClear(CxtNodeObject *self)
 	self->valid = false;
     }
 
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     return 0;
 }
 
 static void
 CxpNodeDelete(CxtNodeObject *self)
 {
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     CxpNodeClear(self);
     self->ob_type->tp_free((PyObject*) self);
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 }
 
 static PyObject *CxpNodeNewCode;
@@ -927,8 +903,6 @@ CxpEdgeTraverse(CxtEdgeObject *self, visitproc visit, void *arg)
     CxtTrRing trRing;
     CxtRingObject *ring;
 
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     if (self->valid)
     {
 	if (visit((PyObject *) self->tree, arg) < 0)
@@ -951,8 +925,6 @@ CxpEdgeTraverse(CxtEdgeObject *self, visitproc visit, void *arg)
 
     retval = 0;
     RETURN:
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     return retval;
 }
 
@@ -964,10 +936,6 @@ CxpEdgeRingClear(CxtEdgeObject *aEdge, CxtRingObject *aRingA,
 {
     CxtTrRing trRing;
     PyObject *obj;
-
-//    fprintf(stderr, "%s:%d:%s(%p, %p, %p) Enter (%d, %d, %d)\n",
-//	    __FILE__, __LINE__, __func__, aEdge, aRingA, aRingB,
-//	    aEdge->ob_refcnt, aRingA->ob_refcnt, aRingB->ob_refcnt);
 
     /* Detach from nodes, if necessary. */
     trRing = CxTrEdgeRingGet(aEdge->tree->tr, aEdge->edge, 0);
@@ -1001,9 +969,6 @@ CxpEdgeRingClear(CxtEdgeObject *aEdge, CxtRingObject *aRingA,
     Py_DECREF(aEdge->tree);
     Py_DECREF(aEdge->tree);
 
-//    fprintf(stderr, "%s:%d:%s(%p, %p, %p) Leave (%d, %d, %d)\n",
-//	    __FILE__, __LINE__, __func__, aEdge, aRingA, aRingB,
-//	    aEdge->ob_refcnt, aRingA->ob_refcnt, aRingB->ob_refcnt);
     return 0;
 }
 
@@ -1012,8 +977,6 @@ CxpEdgeClear(CxtEdgeObject *self)
 {
     int retval;
 
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     if (self->valid)
     {
 	CxtTrRing trRingA, trRingB;
@@ -1032,20 +995,14 @@ CxpEdgeClear(CxtEdgeObject *self)
 	retval = 0;
     }
 
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     return retval;
 }
 
 static void
 CxpEdgeDelete(CxtEdgeObject *self)
 {
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     CxpEdgeClear(self);
     self->ob_type->tp_free((PyObject*) self);
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 }
 
 static PyObject *CxpEdgeNewCode;
@@ -1432,8 +1389,6 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
     CxtEdgeObject *edge;
     CxtRingObject *ring;
 
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     if (self->edge->valid)
     {
 	if (visit((PyObject *) self->tree, arg) < 0)
@@ -1484,8 +1439,6 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
 
     retval = 0;
     RETURN:
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     return retval;
 }
 
@@ -1494,8 +1447,6 @@ CxpRingClear(CxtRingObject *self)
 {
     int retval;
 
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     if (self->edge->valid)
     {
 	CxtTrRing trRingA, trRingB;
@@ -1514,20 +1465,14 @@ CxpRingClear(CxtRingObject *self)
 	retval = 0;
     }
 
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     return retval;
 }
 
 static void
 CxpRingDelete(CxtRingObject *self)
 {
-//    fprintf(stderr, "%s:%d:%s(%p) Enter (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
     CxpRingClear(self);
     self->ob_type->tp_free((PyObject*) self);
-//    fprintf(stderr, "%s:%d:%s(%p) Leave (%d)\n",
-//	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
 }
 
 static PyObject *CxpRingNewCode;
