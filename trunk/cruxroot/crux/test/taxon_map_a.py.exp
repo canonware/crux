@@ -1,0 +1,25 @@
+Test begin
+
+map: []
+ntaxa: 0
+
+map: ['A']
+ntaxa: 1
+label 'A' 'A' at index 0 0
+
+map: ['A', 'B', 'C', 'D']
+ntaxa: 4
+label 'A' 'A' at index 0 0
+label 'B' 'B' at index 1 1
+label 'C' 'C' at index 2 2
+label 'D' 'D' at index 3 3
+
+map: []
+ntaxa: 0
+map: ['A', 'B']
+ntaxa: 2
+map: ValueError in m.taxa_get()
+ntaxa: 3
+map: ['A', 'B', 'C', 'D']
+ntaxa: 4
+Test end
