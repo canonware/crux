@@ -130,6 +130,16 @@ CxpTreeCollapseRecurse(CxtTreeObject *self, CxtRingObject *aRing,
     }
     else
     {
+	CxtEdgeObject *edge;
+
+	edge = CxRingEdge(aRing);
+
+	if (CxEdgeLengthGet(edge) < 0.0)
+	{
+	    // Clamp leaf edge length at 0.0.
+	    CxEdgeLengthSet(edge, 0.0);
+	}
+
 	rVal = false;
     }
 
@@ -145,19 +155,62 @@ CxTreeCollapse(CxtTreeObject *self)
 
     if ((base = CxTreeBaseGet(self)) != NULL)
     {
-	CxtRingObject *ring;
+	unsigned degree;
+	CxtRingObject *startRing;
+
+	degree = CxNodeDegree(base);
 
 	// Get base's ring.
-	if ((ring = CxNodeRing(base)) != NULL)
+	if ((startRing = CxNodeRing(base)) != NULL)
 	{
-	    // Recurse.  Collapse negative/zero-length branch only if base isn't
-	    // a leaf node, and its neighbor isn't a leaf node.
-	    if (CxpTreeCollapseRecurse(self, CxRingOther(ring), &ncollapsed)
-		&& CxNodeDegree(base) > 1)
+	    // Create an array of ring pointers that will contain pointers to
+	    // rings that will be collapsed.
+	    CxtRingObject *ring, *ringOther;
+	    CxtRingObject *ringsCollapse[degree];
+	    unsigned i, nRingsCollapse = 0;
+
+	    ring = startRing;
+	    do
 	    {
-		// XXX Isn't it okay for base to be a leaf node?
-		CxpTreeCollapse(base, ring);
+		ringOther = CxRingOther(ring);
+		if (CxpTreeCollapseRecurse(self, ringOther, &ncollapsed)
+		    && degree > 1)
+		{
+		    if (CxEdgeLengthGet(CxRingEdge(ring)) <= 0.0)
+		    {
+			// Make a note to collapse the edge that ring is
+			// part of.  Don't do it until later though, since
+			// edge collapsing will change aNode's ring such
+			// that iterative recursion would be confused about
+			// which subtrees had already been recursed into.
+			ringsCollapse[nRingsCollapse] = ring;
+			nRingsCollapse++;
+		    }
+		}
+
+		ring = CxRingNext(ring);
+	    } while (ring != startRing);
+
+	    // Collapse edges, now that all collapsable edges have been found.
+	    for (i = 0; i < nRingsCollapse; i++)
+	    {
+		CxpTreeCollapse(base, ringsCollapse[i]);
 		ncollapsed++;
+	    }
+
+	    // If base is a leaf node, then clamping of the attached edge must
+	    // be done here.
+	    if (degree == 1)
+	    {
+		CxtEdgeObject *edge;
+
+		edge = CxRingEdge(ring);
+
+		if (CxEdgeLengthGet(edge) < 0.0)
+		{
+		    // Clamp leaf edge length at 0.0.
+		    CxEdgeLengthSet(edge, 0.0);
+		}
 	    }
 	}
     }
