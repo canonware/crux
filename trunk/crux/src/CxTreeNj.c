@@ -481,7 +481,7 @@ static void
 CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 		 CxtNodeObject ***arNodes, long *arNleft, CxtTreeObject *aTree)
 {
-    long x, y, min, prevJoin;
+    long x, y, min;
     float *dElm;
     float dist, minDist, distX, distY;
     float *d = *arD;
@@ -535,16 +535,17 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 	    CxpTreeNjRScaledUpdate(rScaled, r, nleft);
 
 	    /* The indexing of the matrix is shifted as a result of having
-             * removed the first row.  Set prevJoin accordingly, and do not
-             * increment x.  Note that if x is 0, then the row is now at
-	     * (min - 1). */
+             * removed the first row.  Set x such that joining this row is
+             * immediately tried again.  This isn't ideal, in that this only
+             * tries to join the new node with nodes that come after it.
+             * However, it probably isn't worth the cache miss penalty of
+             * finding the node that is closest to this one (requires iterating
+             * over a column).
+	     *
+	     * Note that if x is 0, then the row is now at (min - 1). */
 	    if (x > 0)
 	    {
-		prevJoin = x - 1;
-	    }
-	    else
-	    {
-		prevJoin = min - 1;
+		x--;
 	    }
 	}
 	else
