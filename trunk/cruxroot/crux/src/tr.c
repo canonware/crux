@@ -1723,39 +1723,62 @@ tr_p_mp_nopscore(cw_tr_t *a_tr, cw_tr_node_t a_p, cw_tr_node_t a_a,
     }
 }
 
+CW_P_INLINE void
+tr_p_mp_passpscore(cw_tr_t *a_tr, cw_tr_node_t a_p, cw_tr_node_t a_a)
+{
+    cw_tr_ps_t *ps_p, *ps_a;
+
+    ps_p = a_tr->trns[a_p].ps;
+    ps_a = a_tr->trns[a_a].ps;
+
+    ps_p->subtrees_score = ps_a->subtrees_score;
+    ps_p->node_score = ps_a->node_score;
+}
+
 static void
 tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
-		      cw_uint32_t a_maxscore, cw_bool_t *ar_maxed)
+		      cw_tr_node_t a_other, cw_uint32_t a_maxscore,
+		      cw_bool_t *ar_maxed)
 {
     cw_uint32_t i;
-    cw_tr_node_t node, a, b;
+    cw_tr_node_t node, a, b, o;
 
     a = CW_TR_NODE_NONE;
     b = CW_TR_NODE_NONE;
+    o = CW_TR_NODE_NONE;
 
     /* Recurse into subtrees. */
     for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
 	node = tr_node_neighbor_get(a_tr, a_node, i);
-	if (node != CW_TR_NODE_NONE && node != a_prev)
+	if (node != CW_TR_NODE_NONE)
 	{
-	    if (a == CW_TR_NODE_NONE)
+	    if (node == a_other)
 	    {
-		a = node;
+		o = node;
 	    }
-	    else
+	    else if (node != a_prev)
 	    {
-		cw_assert(b == CW_TR_NODE_NONE);
-		b = node;
-	    }
+		if (a == CW_TR_NODE_NONE)
+		{
+		    a = node;
+		}
+		else
+		{
+		    cw_assert(b == CW_TR_NODE_NONE);
+		    b = node;
+		}
 
-	    tr_p_mp_score_recurse(a_tr, node, a_node, a_maxscore, ar_maxed);
+		tr_p_mp_score_recurse(a_tr, node, a_node, a_other, a_maxscore,
+				      ar_maxed);
+	    }
 	}
     }
 
-    /* Now calculate this node's partial score (unless this is a leaf node). */
     if (b != CW_TR_NODE_NONE)
     {
+	/* Calculate this node's partial score. */
+
 	cw_assert(a != CW_TR_NODE_NONE);
 	if (*ar_maxed == FALSE)
 	{
@@ -1774,6 +1797,13 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 	    tr_p_mp_nopscore(a_tr, a_node, a, b);
 	}
     }
+    else if (o != CW_TR_NODE_NONE)
+    {
+	/* Copy a's scores to this node, rather than calculating a partial
+	 * score.  This node is merely a filler node, as far as scoring is
+	 * concerned. */
+	tr_p_mp_passpscore(a_tr, a_node, a);
+    }
 }
 
 static cw_uint32_t
@@ -1784,14 +1814,16 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b,
     cw_bool_t maxed;
 
     maxed = FALSE;
-    tr_p_mp_score_recurse(a_tr, a_node_a, a_node_b, a_maxscore, &maxed);
+    tr_p_mp_score_recurse(a_tr, a_node_a, a_node_b, CW_TR_NODE_NONE, a_maxscore,
+			  &maxed);
     if (maxed)
     {
 	retval = CW_TR_MAXSCORE_NONE;
 	goto RETURN;
     }
 
-    tr_p_mp_score_recurse(a_tr, a_node_b, a_node_a, a_maxscore, &maxed);
+    tr_p_mp_score_recurse(a_tr, a_node_b, a_node_a, CW_TR_NODE_NONE, a_maxscore,
+			  &maxed);
     if (maxed)
     {
 	retval = CW_TR_MAXSCORE_NONE;
