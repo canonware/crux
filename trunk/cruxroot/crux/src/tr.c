@@ -10,7 +10,6 @@
  *
  ******************************************************************************/
 
-// XXX Remove spare node (trns[0]); it isn't needed at all.
 #include "../include/modcrux.h"
 
 typedef struct cw_tr_ps_s cw_tr_ps_t;
@@ -550,6 +549,12 @@ tr_p_edge_dealloc(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
     a_tr->sparetres = a_edge;
 }
 
+CW_P_INLINE cw_tr_ring_t
+tr_p_edge_ring_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_end)
+{
+    return ((a_edge << 1) + a_end);
+}
+
 cw_tr_edge_t
 tr_edge_new(cw_tr_t *a_tr)
 {
@@ -560,51 +565,49 @@ void
 tr_edge_delete(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
+    cw_assert(tr_p_ring_node_get(a_tr, tr_p_edge_ring_get(a_tr, a_edge, 0))
+	      == CW_TR_NODE_NONE);
+    cw_assert(tr_p_ring_node_get(a_tr, tr_p_edge_ring_get(a_tr, a_edge, 1))
+	      == CW_TR_NODE_NONE);
 
     tr_p_edge_dealloc(a_tr, a_edge);
 }
 
-CW_P_INLINE cw_tr_ring_t
-tr_p_edge_ring_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_end)
-{
-    return ((a_edge << 1) + a_end);
-}
-
 cw_tr_node_t
-tr_edge_node_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i)
+tr_edge_node_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_end)
 {
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
-    cw_assert(a_i == 0 || a_i == 1);
+    cw_assert(a_end == 0 || a_end == 1);
 
-    return a_tr->trrs[(a_edge << 1) + a_i].node;
+    return a_tr->trrs[(a_edge << 1) + a_end].node;
 }
 
 void
-tr_edge_next_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
-		 cw_tr_edge_t *r_next, uint32_t *r_i)
+tr_edge_next_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_end,
+		 cw_tr_edge_t *r_next, uint32_t *r_end)
 {
     cw_tr_ring_t ringind;
 
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
-    cw_assert(a_i == 0 || a_i == 1);
+    cw_assert(a_end == 0 || a_end == 1);
 
-    ringind = qri_next(a_tr->trrs, (a_edge << 1) + a_i, link);
+    ringind = qri_next(a_tr->trrs, (a_edge << 1) + a_end, link);
     *r_next = a_tr->trrs[ringind].node;
-    *r_i = (ringind & 1);
+    *r_end = (ringind & 1);
 }
 
 void
-tr_edge_prev_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
-		 cw_tr_edge_t *r_prev, uint32_t *r_i)
+tr_edge_prev_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_end,
+		 cw_tr_edge_t *r_prev, uint32_t *r_end)
 {
     cw_tr_ring_t ringind;
 
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
-    cw_assert(a_i == 0 || a_i == 1);
+    cw_assert(a_end == 0 || a_end == 1);
 
-    ringind = qri_prev(a_tr->trrs, (a_edge << 1) + a_i, link);
+    ringind = qri_prev(a_tr->trrs, (a_edge << 1) + a_end, link);
     *r_prev = a_tr->trrs[ringind].node;
-    *r_i = (ringind & 1);
+    *r_end = (ringind & 1);
 }
 
 double
@@ -652,23 +655,10 @@ tr_edge_attach(cw_tr_t *a_tr, cw_tr_edge_t a_edge, cw_tr_node_t a_node_a,
     cw_dassert(tr_p_node_validate(a_tr, a_node_a));
     cw_dassert(tr_p_node_validate(a_tr, a_node_b));
     cw_assert(a_node_a != a_node_b);
+    cw_assert(tr_node_distance(a_tr, a_node_a, a_node_b) == 0);
 
     trn_a = &a_tr->trns[a_node_a];
     trn_b = &a_tr->trns[a_node_b];
-
-#ifdef CW_DBG
-    /* Make sure that the nodes aren't already connected. */
-    qli_foreach(ring, &trn_a->rings, a_tr->trrs, link)
-    {
-	cw_assert(tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring))
-		  != a_node_b);
-    }
-    qli_foreach(ring, &trn_b->rings, a_tr->trrs, link)
-    {
-	cw_assert(tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring))
-		  != a_node_a);
-    }
-#endif
 
     /* First end. */
     ring = tr_p_edge_ring_get(a_tr, a_edge, 0);
@@ -686,23 +676,31 @@ tr_edge_attach(cw_tr_t *a_tr, cw_tr_edge_t a_edge, cw_tr_node_t a_node_a,
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
     cw_dassert(tr_p_node_validate(a_tr, a_node_a));
     cw_dassert(tr_p_node_validate(a_tr, a_node_b));
+    cw_assert(tr_node_distance(a_tr, a_node_a, a_node_b) == 1);
 }
 
 void
 tr_edge_detach(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
     cw_tr_ring_t ring;
+    cw_trn_t *trn;
 
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
     cw_dassert(tr_edge_node_get(a_tr, a_edge, 0) != CW_TR_NODE_NONE);
     cw_dassert(tr_edge_node_get(a_tr, a_edge, 1) != CW_TR_NODE_NONE);
+    cw_assert(tr_node_distance(a_tr, tr_edge_node_get(a_tr, a_edge, 0),
+			       tr_edge_node_get(a_tr, a_edge, 1)) == 1);
 
+    /* Detach from neighboring nodes.  Take care to patch up the internals of
+     * the nodes, so that they still point to their rings. */
     ring = tr_p_edge_ring_get(a_tr, a_edge, 0);
-    qri_remove(a_tr->trrs, ring, link);
+    trn = &a_tr->trns[tr_p_ring_node_get(a_tr, ring)];
+    qli_remove(&trn->rings, a_tr->trrs, ring, link);
     a_tr->trrs[ring].node = CW_TR_NODE_NONE;
 
     ring = tr_p_edge_ring_get(a_tr, a_edge, 1);
-    qri_remove(a_tr->trrs, ring, link);
+    trn = &a_tr->trns[tr_p_ring_node_get(a_tr, ring)];
+    qli_remove(&trn->rings, a_tr->trrs, ring, link);
     a_tr->trrs[ring].node = CW_TR_NODE_NONE;
 
     /* Mark tree as modified. */
@@ -742,17 +740,28 @@ tr_p_node_alloc(cw_tr_t *a_tr)
 	uint32_t i, nspares;
 
 	/* Allocate spares. */
-	cw_check_ptr(a_tr->trns);
-	a_tr->trns
-	    = (cw_trn_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
-					     mema_arg_get(a_tr->mema),
-					     a_tr->trns,
-					     sizeof(cw_trn_t)
-					     * a_tr->ntrns * 2,
-					     sizeof(cw_trn_t)
-					     * a_tr->ntrns);
-	nspares = a_tr->ntrns;
-	a_tr->ntrns *= 2;
+	if (a_tr->trns == NULL)
+	{
+	    a_tr->trns
+		= (cw_trn_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+					       mema_arg_get(a_tr->mema),
+					       sizeof(cw_trn_t));
+	    nspares = 1;
+	    a_tr->ntrns = 1;
+	}
+	else
+	{
+	    a_tr->trns
+		= (cw_trn_t *) cw_opaque_realloc(mema_realloc_get(a_tr->mema),
+						 mema_arg_get(a_tr->mema),
+						 a_tr->trns,
+						 sizeof(cw_trn_t)
+						 * a_tr->ntrns * 2,
+						 sizeof(cw_trn_t)
+						 * a_tr->ntrns);
+	    nspares = a_tr->ntrns;
+	    a_tr->ntrns *= 2;
+	}
 
 	/* Initialize last spare. */
 	a_tr->sparetrns = a_tr->ntrns - 1;
@@ -782,6 +791,11 @@ tr_p_node_dealloc(cw_tr_t *a_tr, cw_tr_node_t a_node)
     cw_trn_t *trn;
 
     trn = &a_tr->trns[a_node];
+
+    if (trn->ps != NULL)
+    {
+	tr_p_ps_delete(a_tr, trn->ps);
+    }
     
 #ifdef CW_DBG
     memset(&a_tr->trns[a_node], 0x5a, sizeof(cw_trn_t));
@@ -789,6 +803,48 @@ tr_p_node_dealloc(cw_tr_t *a_tr, cw_tr_node_t a_node)
 
     a_tr->trns[a_node].u.link = a_tr->sparetrns;
     a_tr->sparetrns = a_node;
+}
+
+CW_P_INLINE uint32_t
+tr_p_node_degree(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
+{
+    uint32_t retval;
+    cw_tr_ring_t ring;
+
+    retval = 1;
+    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
+    {
+	retval++;
+    }
+
+    return retval;
+}
+
+static uint32_t
+tr_p_node_distance(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_node_t a_other,
+		   uint32_t a_distance)
+{
+    uint32_t retval;
+    cw_tr_ring_t ring;
+
+    if (tr_p_ring_node_get(a_tr, a_ring) == a_other)
+    {
+	retval = a_distance;
+	goto RETURN;
+    }
+
+    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
+    {
+	if ((retval = tr_p_node_distance(a_tr, tr_p_ring_node_get(a_tr, ring),
+					 a_other, a_distance + 1)) != 0)
+	{
+	    goto RETURN;
+	}
+    }
+
+    retval = 0;
+    RETURN:
+    return retval;
 }
 
 cw_tr_node_t
@@ -801,7 +857,6 @@ void
 tr_node_delete(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
     cw_dassert(tr_p_node_validate(a_tr, a_node));
-    // XXX Assert no edges?
     cw_assert(qli_first(&a_tr->trns[a_node].rings) == CW_TR_RING_NONE);
 
     tr_p_node_dealloc(a_tr, a_node);
@@ -828,7 +883,7 @@ tr_node_taxon_num_set(cw_tr_t *a_tr, cw_tr_node_t a_node,
 
 void
 tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node,
-		 cw_tr_edge_t *r_edge, uint32_t *r_i)
+		 cw_tr_edge_t *r_edge, uint32_t *r_end)
 {
     cw_trn_t *trn;
     cw_tr_ring_t ringind;
@@ -841,7 +896,10 @@ tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node,
     if (ringind != CW_TR_EDGE_NONE)
     {
 	*r_edge = (ringind >> 1);
-	*r_i = (ringind & 1);
+	if (r_end != NULL)
+	{
+	    *r_end = (ringind & 1);
+	}
     }
     else
     {
@@ -865,6 +923,38 @@ tr_node_aux_set(cw_tr_t *a_tr, cw_tr_node_t a_node, void *a_aux)
     a_tr->trns[a_node].u.aux = a_aux;
 }
 
+uint32_t
+tr_node_degree(cw_tr_t *a_tr, cw_tr_node_t a_node)
+{
+    uint32_t retval;
+    cw_tr_ring_t ring;
+
+    cw_dassert(tr_p_node_validate(a_tr, a_node));
+
+    ring = qli_first(&a_tr->trns[a_node].rings);
+    if (ring != CW_TR_RING_NONE)
+    {
+	retval = tr_p_node_degree(a_tr, ring);
+    }
+    else
+    {
+	retval = 0;
+    }
+
+    return retval;
+}
+
+uint32_t
+tr_node_distance(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_other)
+{
+    cw_dassert(tr_p_node_validate(a_tr, a_node));
+    cw_dassert(tr_p_node_validate(a_tr, a_other));
+    cw_assert(a_node != a_other);
+
+    return tr_p_node_distance(a_tr, qli_first(&a_tr->trns[a_node].rings),
+			      a_other, 1);
+}
+
 /******************************************************************************/
 
 /* tr. */
@@ -879,16 +969,23 @@ tr_p_new(cw_tr_t *a_tr, cw_mema_t *a_mema)
     a_tr->base = CW_TR_NODE_NONE;
     a_tr->ntaxa = 0;
     a_tr->nedges = 0;
-    a_tr->tres = NULL;
     a_tr->bedges = NULL;
     a_tr->nbedges_a = 0;
     a_tr->nbedges_b = 0;
     a_tr->trt = NULL;
     a_tr->trtused = 0;
     a_tr->trti = NULL;
+    a_tr->trns = NULL;
+    a_tr->ntrns = 0;
+    a_tr->sparetrns = CW_TR_NODE_NONE;
+    a_tr->ntrns = 0;
+    a_tr->tres = NULL;
+    a_tr->ntres = 0;
+    a_tr->sparetres = CW_TR_EDGE_NONE;
+    a_tr->trrs = NULL;
     a_tr->held = NULL;
     a_tr->heldlen = 0;
-    a_tr->nheld = 1;
+    a_tr->nheld = 0;
 
 #ifdef CW_DBG
     a_tr->magic = CW_TR_MAGIC;
@@ -898,8 +995,8 @@ tr_p_new(cw_tr_t *a_tr, cw_mema_t *a_mema)
 /* Recursively traverse the tree, count the number of taxa, and find the lowest
  * numbered taxon. */
 static cw_tr_node_t
-tr_p_lowest_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
-		    uint32_t *r_ntaxa, cw_tr_node_t a_root)
+tr_p_lowest_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, uint32_t *r_ntaxa,
+		    uint32_t *r_nedges, cw_tr_node_t a_root)
 {
     cw_tr_node_t retval, node, root, troot;
     cw_tr_ring_t ring;
@@ -930,8 +1027,11 @@ tr_p_lowest_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
     /* Iterate over neighbors. */
     qri_others_foreach(ring, a_tr->trrs, a_ring, link)
     {
+	/* Count edge. */
+	(*r_nedges)++;
+
 	troot = tr_p_lowest_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
-				    r_ntaxa, root);
+				    r_ntaxa, r_nedges, root);
 	if (troot != CW_TR_NODE_NONE)
 	{
 	    retval = troot;
@@ -946,7 +1046,7 @@ tr_p_lowest_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
  * numbered taxon. */
 static cw_tr_node_t
 tr_p_lowest(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t *r_ntaxa,
-	    cw_tr_node_t a_root)
+	    uint32_t *r_nedges, cw_tr_node_t a_root)
 {
     cw_tr_node_t retval, root, troot;
     cw_tr_ring_t ring;
@@ -978,8 +1078,11 @@ tr_p_lowest(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t *r_ntaxa,
     /* Iterate over neighbors. */
     qli_foreach(ring, &trn->rings, a_tr->trrs, link)
     {
+	/* Count edge. */
+	(*r_nedges)++;
+	
 	troot = tr_p_lowest_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
-				    r_ntaxa, root);
+				    r_ntaxa, r_nedges, root);
 	if (troot != CW_TR_NODE_NONE)
 	{
 	    retval = troot;
@@ -991,40 +1094,6 @@ tr_p_lowest(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t *r_ntaxa,
 }
 
 #ifdef CW_DBG
-/* Determine whether a_other is reachable from a_node.  This function helps to
- * make sure that no cycles are introduced. */
-static bool
-tr_p_reachable(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
-	       cw_tr_node_t a_other)
-{
-    uint32_t retval;
-    cw_trn_t *trn;
-    cw_tr_ring_t ring;
-
-    trn = &a_tr->trns[a_node];
-
-    if (a_node == a_other)
-    {
-	retval = true;
-	goto RETURN;
-    }
-
-    qli_foreach(ring, &trn->rings, a_tr->trrs, link)
-    {
-	if (tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring)) != a_prev)
-	{
-	    if ((retval = tr_p_reachable(a_tr, tr_p_ring_node_get(a_tr, ring),
-					 a_node, a_other)))
-	    {
-		goto RETURN;
-	    }
-	}
-    }
-
-    retval = false;
-    RETURN:
-    return retval;
-}
 
 /* Return the number of taxa with number a_taxon_num in the subtree rooted at
  * a_node. */
@@ -1075,18 +1144,20 @@ tr_p_validate_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 static bool
 tr_p_validate(cw_tr_t *a_tr)
 {
-    uint32_t i, ntaxa;
+    uint32_t i, ntaxa, nedges;
 
     cw_check_ptr(a_tr);
     cw_assert(a_tr->magic == CW_TR_MAGIC);
     cw_assert(a_tr->modified == false);
 
     ntaxa = 0;
+    nedges = 0;
     if (a_tr->base != CW_TR_NODE_NONE)
     {
-	tr_p_lowest(a_tr, a_tr->base, &ntaxa, CW_TR_NODE_NONE);
+	tr_p_lowest(a_tr, a_tr->base, &ntaxa, &nedges, CW_TR_NODE_NONE);
     }
     cw_assert(a_tr->ntaxa == ntaxa);
+    cw_assert(a_tr->nedges == nedges);
 
     /* Iterate over trns and do some basic sanity checks. */
     for (i = 0; i < a_tr->ntrns; i++)
@@ -1110,14 +1181,6 @@ tr_p_validate(cw_tr_t *a_tr)
     return true;
 }
 #endif
-
-CW_P_INLINE void
-tr_p_trti_nodes_get(cw_tr_t *a_tr, uint32_t a_trti, cw_tr_node_t *r_node_a,
-		    cw_tr_node_t *r_node_b)
-{
-    *r_node_a = tr_edge_node_get(a_tr, a_tr->trti[a_trti], 0);
-    *r_node_b = tr_edge_node_get(a_tr, a_tr->trti[a_trti], 1);
-}
 
 /* Pretend that the tree is bisected at the edge between a_node and a_other.
  * Count the number of edges that are in the subtree that contains a_node.  Also
@@ -1178,26 +1241,18 @@ tr_p_bisection_edge_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
 static void
 tr_p_ntaxa_nedges_update(cw_tr_t *a_tr)
 {
-    uint32_t ntaxa;
+    uint32_t ntaxa, nedges;
 
     /* Update ntaxa and nedges. */
     ntaxa = 0;
+    nedges = 0;
     if (a_tr->base != CW_TR_NODE_NONE)
     {
-	tr_p_lowest(a_tr, a_tr->base, &ntaxa, CW_TR_NODE_NONE);
+	tr_p_lowest(a_tr, a_tr->base, &ntaxa, &nedges, CW_TR_NODE_NONE);
     }
 
-    // XXX This doesn't work for multifurcating trees.  Actually count the
-    // edges in tr_p_lowest() recursion.
     a_tr->ntaxa = ntaxa;
-    if (ntaxa > 1)
-    {
-	a_tr->nedges = (ntaxa * 2) - 3;
-    }
-    else
-    {
-	a_tr->nedges = 0;
-    }
+    a_tr->nedges = nedges;
 }
 
 static void
@@ -1225,31 +1280,25 @@ tr_p_bisection_edge_list_gen_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
  * The first element in the list is always the edge that is adjacent to the
  * bisection.  This facilitates recognition of reconnections that would reverse
  * bisection. */
-CW_P_INLINE void
+CW_P_INLINE cw_tr_node_t
 tr_p_bisection_edge_list_gen(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 			     cw_tr_edge_t *ar_edges, uint32_t *ar_nedges)
 {
-    uint32_t degree;
+    cw_tr_node_t retval;
     cw_tr_ring_t ring;
 
     /* Initialize the length of the list before recursing. */
     *ar_nedges = 0;
 
-    /* Get the degree of the node adjacent to the bisection edge. */
-    degree = 1;
-    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
-    {
-	degree++;
-    }
-
-    switch (degree)
+    switch (tr_p_node_degree(a_tr, a_ring))
     {
 	case 1:
 	{
 	    /* A subtree that is composed of a single node has no edges.  Add a
-	     * single entry to the list. */
+	     * single entry to the list, and return the node. */
 	    ar_edges[0] = CW_TR_EDGE_NONE;
 	    (*ar_nedges)++;
+	    retval = tr_p_ring_node_get(a_tr, a_ring);
 	    break;
 	}
 	case 2:
@@ -1280,6 +1329,8 @@ tr_p_bisection_edge_list_gen(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 						 tr_p_ring_other_get(a_tr,
 								     ring),
 						 ar_edges, ar_nedges);
+
+	    retval = CW_TR_NODE_NONE;
 	    break;
 	}
 	default:
@@ -1294,23 +1345,41 @@ tr_p_bisection_edge_list_gen(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 									 ring),
 						     ar_edges, ar_nedges);
 	    }
+
+	    retval = CW_TR_NODE_NONE;
 	    break;
 	}
     }
+
+    return retval;
 }
 
 /* Generate lists of edges in each half of a logical bisection at edge
  * a_bisect. */
 CW_P_INLINE void
-tr_p_bedges_gen(cw_tr_t *a_tr, cw_tr_edge_t a_bisect)
+tr_p_bedges_gen(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_node_t *r_node_a,
+		cw_tr_node_t *r_node_b)
 {
+    cw_tr_node_t node_a, node_b;
+
     cw_dassert(tr_p_edge_validate(a_tr, a_bisect));
 
-    tr_p_bisection_edge_list_gen(a_tr, tr_p_edge_ring_get(a_tr, a_bisect, 0),
-				 a_tr->bedges, &a_tr->nbedges_a);
-    tr_p_bisection_edge_list_gen(a_tr, tr_p_edge_ring_get(a_tr, a_bisect, 1),
-				 &a_tr->bedges[a_tr->nbedges_a],
-				 &a_tr->nbedges_b);
+    node_a = tr_p_bisection_edge_list_gen(a_tr,
+					  tr_p_edge_ring_get(a_tr, a_bisect, 0),
+					  a_tr->bedges, &a_tr->nbedges_a);
+    node_b = tr_p_bisection_edge_list_gen(a_tr,
+					  tr_p_edge_ring_get(a_tr, a_bisect, 1),
+					  &a_tr->bedges[a_tr->nbedges_a],
+					  &a_tr->nbedges_b);
+
+    if (r_node_a != NULL)
+    {
+	*r_node_a = node_a;
+    }
+    if (r_node_b != NULL)
+    {
+	*r_node_b = node_b;
+    }
 }
 
 static void
@@ -1340,16 +1409,14 @@ tr_p_trti_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
     /* Make sure that the trti array is the right size. */
     if (a_tr->nedges > a_nedges_prev)
     {
-	// XXX Why calloc/memset?
 	if (a_tr->trti == NULL)
 	{
 	    cw_assert(a_nedges_prev == 0);
 
 	    a_tr->trti = (cw_tr_edge_t *)
-		cw_opaque_calloc(mema_calloc_get(a_tr->mema),
-				 mema_arg_get(a_tr->mema),
-				 a_tr->nedges,
-				 sizeof(cw_tr_edge_t));
+		cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+				mema_arg_get(a_tr->mema),
+				sizeof(cw_tr_edge_t) * a_tr->nedges);
 	}
 	else
 	{
@@ -1359,8 +1426,6 @@ tr_p_trti_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
 				  a_tr->trti,
 				  sizeof(cw_tr_edge_t) * a_tr->nedges,
 				  sizeof(cw_tr_edge_t) * a_nedges_prev);
-	    memset(&a_tr->trti[a_nedges_prev], 0,
-		   (a_tr->nedges - a_nedges_prev) * sizeof(cw_tr_edge_t));
 	}
     }
     else if (a_tr->nedges < a_nedges_prev)
@@ -1453,7 +1518,7 @@ tr_p_trt_update(cw_tr_t *a_tr, uint32_t a_nedges_prev)
 	a_tr->trt[j].bisect_edge = i;
 
 	/* Update offset. */
-	tr_p_bedges_gen(a_tr, i);
+	tr_p_bedges_gen(a_tr, i, NULL, NULL);
 	n = (a_tr->nbedges_a * a_tr->nbedges_b) - 1;
 	if (n != 0)
 	{
@@ -1654,17 +1719,8 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 		      cw_tr_node_t *ar_tnodes, uint32_t *ar_ntnodes)
 {
     cw_tr_node_t retval;
-    cw_tr_ring_t ring;
-    cw_trn_t *trn;
-    uint32_t degree;
 
-    trn = &a_tr->trns[a_node];
-    degree = 0;
-    qli_foreach(ring, &trn->rings, a_tr->trrs, link)
-    {
-	degree++;
-    }
-    switch (degree)
+    switch (tr_node_degree(a_tr, a_node))
     {
 	case 0:
 	{
@@ -1683,7 +1739,7 @@ tr_p_tbr_node_extract(cw_tr_t *a_tr, cw_tr_node_t a_node,
 	    cw_tr_edge_t edge_lose, edge_keep;
 	    cw_tr_node_t tnode_a, tnode_b;
 
-	    ring = qli_first(&trn->rings);
+	    ring = qli_first(&a_tr->trns[a_node].rings);
 	    edge_lose = tr_p_ring_edge_get(a_tr, ring);
 	    tnode_a = tr_p_ring_node_get(a_tr, tr_p_ring_other_get(a_tr, ring));
 
@@ -2399,18 +2455,15 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_edge_t a_root, cw_tr_edge_t a_bisect)
 
 CW_P_INLINE void
 tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, uint32_t *a_edges,
-			    uint32_t a_nedges, cw_tr_node_t a_other)
+			    uint32_t a_nedges, cw_tr_edge_t a_bisect)
 {
     uint32_t i;
-    cw_tre_t *tre;
 
     for (i = 0; i < a_nedges; i++)
     {
 	if (a_edges[i] != CW_TR_EDGE_NONE)
 	{
-	    tre = &a_tr->tresXXX[a_edges[i]];
-
-	    tr_p_mp_score(a_tr, tre->ps, tre->node_a, tre->node_b, a_other);
+	    tr_p_mp_score(a_tr, a_edges[i], a_bisect);
 	}
     }
 }
@@ -2464,9 +2517,10 @@ CW_P_INLINE void
 tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 		      uint32_t a_maxscore, cw_tr_hold_how_t a_how)
 {
-    uint32_t neighbor, i, j, k, edge_a, edge_b;
+    uint32_t neighbor, i, j, k;
     uint32_t score;
-    cw_tre_t *tre, *tre_a, *tre_b;
+    cw_tr_edge_t bisect, edge_a, edge_b;
+    cw_tr_node_t node_a, node_b;
     cw_tr_ps_t *ps, *ps_a, *ps_b;
 
     cw_dassert(tr_p_validate(a_tr));
@@ -2475,29 +2529,20 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
     a_tr->nheld = 0;
 
     /* Iteratively (logically) bisect at each edge in the tree. */
-    ps = a_tr->trns[0].ps;
     neighbor = 0;
     for (i = 0; i < a_tr->nedges; i++)
     {
-	tre = &a_tr->tresXXX[i];
+	bisect = a_tr->trti[i];
+	ps = a_tr->tres[bisect].ps;
 
 	/* Determine which edges are in each subtree. */
-	tr_p_bedges_gen(a_tr, i);
-
-	cw_assert((a_tr->nbedges_a == 1 && (a_tr->nbedges_b == a_tr->nedges - 2
-				     || a_tr->nbedges_b == a_tr->nedges - 4))
-		  || (a_tr->nbedges_b == 1
-		      && (a_tr->nbedges_a == a_tr->nedges - 2
-			  || a_tr->nbedges_a == a_tr->nedges - 4))
-		  || (a_tr->nbedges_a != 1 && a_tr->nbedges_b != 1
-		      && a_tr->nbedges_a + a_tr->nbedges_b
-		      == a_tr->nedges - 3));
+	tr_p_bedges_gen(a_tr, a_tr->trti[i], &node_a, &node_b);
 
 	/* Calculate the partial score for each edge in the edge lists. */
-	tr_p_bisection_edge_list_mp(a_tr, a_tr->bedges, a_tr->nbedges_a,
-				    tre->node_b);
+	tr_p_bisection_edge_list_mp(a_tr, a_tr->bedges,
+				    a_tr->nbedges_a, bisect);
 	tr_p_bisection_edge_list_mp(a_tr, &a_tr->bedges[a_tr->nbedges_a],
-				    a_tr->nbedges_b, tre->node_a);
+				    a_tr->nbedges_b, bisect);
 
 	/* Iteratively (logically) reconnect every legitimate pairing of edges
 	 * between the two subtrees and calculate final parsimony scores. */
@@ -2506,29 +2551,15 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 	    edge_a = a_tr->bedges[j];
 	    if (edge_a != CW_TR_EDGE_NONE)
 	    {
-		tre_a = &a_tr->tresXXX[edge_a];
-		ps_a = a_tr->tresXXX[edge_a].ps;
+		ps_a = a_tr->tres[edge_a].ps;
 	    }
 	    else
 	    {
-		tre_a = NULL;
-		ps_a = a_tr->trns[tre->node_a].ps;
+		ps_a = a_tr->trns[node_a].ps;
 	    }
 
 	    for (k = 0; k < a_tr->nbedges_b; k++)
 	    {
-		edge_b = a_tr->bedges[a_tr->nbedges_a + k];
-		if (edge_b != CW_TR_EDGE_NONE)
-		{
-		    tre_b = &a_tr->tresXXX[edge_b];
-		    ps_b = a_tr->tresXXX[edge_b].ps;
-		}
-		else
-		{
-		    tre_b = NULL;
-		    ps_b = a_tr->trns[tre->node_b].ps;
-		}
-
 		/* Skip this iteration if the reconnection would result in
 		 * reversing the bisection. */
 		if (j == 0 && k == 0)
@@ -2536,11 +2567,17 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 		    continue;
 		}
 
-		/* Calculate the final parsimony score for this reconnection.
-		 * Clear the parent pointers of ps_[ab], to make sure that the
-		 * score is actually calculated. */
-		ps_a->parent = NULL;
-		ps_b->parent = NULL;
+		edge_b = a_tr->bedges[a_tr->nbedges_a + k];
+		if (edge_b != CW_TR_EDGE_NONE)
+		{
+		    ps_b = a_tr->tres[edge_b].ps;
+		}
+		else
+		{
+		    ps_b = a_tr->trns[node_b].ps;
+		}
+
+		/* Calculate the final parsimony score for this reconnection. */
 		tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
 		score = (ps->subtrees_score + ps->node_score);
 
@@ -2611,16 +2648,6 @@ tr_new(cw_mema_t *a_mema)
 
     tr_p_new(retval, a_mema);
 
-    /* Allocate trns with one node.  This is the spare node, which gets used in
-     * tr_p_mp_score(). */
-    retval->trns = (cw_trn_t *) cw_opaque_alloc(alloc, arg, sizeof(cw_trn_t));
-    retval->ntrns = 1;
-
-    /* Initialize spare node. */
-    tr_p_node_init(retval, 0);
-
-    retval->sparetrns = CW_TR_NODE_NONE;
-
     return retval;
 }
 
@@ -2642,22 +2669,64 @@ tr_dup(cw_tr_t *a_tr)
 
     tr_p_new(retval, a_tr->mema);
 
-    /* Allocate trns the same size as a_tr's, then copy. */
-    retval->trns = (cw_trn_t *) cw_opaque_alloc(alloc, arg,
-						sizeof(cw_trn_t) * a_tr->ntrns);
-    memcpy(retval->trns, a_tr->trns, sizeof(cw_trn_t) * a_tr->ntrns);
-    retval->ntrns = a_tr->ntrns;
+    retval->base = a_tr->base;
+    retval->ntaxa = a_tr->ntaxa;
+    retval->nedges = a_tr->nedges;
 
-    /* Clean up the copied trn's. */
-    for (i = 0; i < retval->ntrns; i++)
+    /*
+     * Copy trn-related data structures.
+     */
+
+    /* Allocate trns the same size as a_tr's, then copy. */
+    if (a_tr->trns != NULL)
     {
-	a_tr->trns[i].aux = NULL;
-	a_tr->trns[i].ps = NULL;
+	retval->trns
+	    = (cw_trn_t *) cw_opaque_alloc(alloc, arg,
+					   sizeof(cw_trn_t) * a_tr->ntrns);
+	memcpy(retval->trns, a_tr->trns, sizeof(cw_trn_t) * a_tr->ntrns);
+	retval->ntrns = a_tr->ntrns;
+
+	/* Clean up the copied trn's. */
+	for (i = 0; i < retval->ntrns; i++)
+	{
+	    a_tr->trns[i].u.aux = NULL;
+	    a_tr->trns[i].ps = NULL;
+	}
+
+	/* The spare trns list is the same as for a_tr. */
+	retval->sparetrns = a_tr->sparetrns;
     }
 
-    /* The spares list is the same as for a_tr. */
-    retval->sparetrns = a_tr->sparetrns;
+    /*
+     * Copy tre-related data structures.
+     */
 
+    if (a_tr->tres != NULL)
+    {
+	/* Allocate tres the same size as a_tr's, then copy. */
+	retval->tres
+	    = (cw_tre_t *) cw_opaque_alloc(alloc, arg,
+					   sizeof(cw_tre_t) * a_tr->ntres);
+	memcpy(retval->tres, a_tr->tres, sizeof(cw_tre_t) * a_tr->ntres);
+	retval->ntres = a_tr->ntres;
+
+	/* Clean up the copied tre's. */
+	for (i = 0; i < retval->ntres; i++)
+	{
+	    a_tr->tres[i].u.aux = NULL;
+	    a_tr->tres[i].ps = NULL;
+	}
+
+	/* The spare tres list is the same as for a_tr. */
+	retval->sparetres = a_tr->sparetres;
+
+	/* Alocate trrs the same size as a_tr's, then copy. */
+	retval->trrs
+	    = (cw_trr_t *) cw_opaque_alloc(alloc, arg,
+					   sizeof(cw_trr_t) * a_tr->ntres * 2);
+	memcpy(retval->trrs, a_tr->trrs, sizeof(cw_trr_t *) * a_tr->ntres * 2);
+    }
+    
     return retval;
 }
 
@@ -2684,7 +2753,11 @@ tr_delete(cw_tr_t *a_tr)
 
     /* This assumes that all nodes are deallocated before tr_delete() is
      * called. */
-    cw_opaque_dealloc(dealloc, arg, a_tr->trns, sizeof(cw_trn_t) * a_tr->ntrns);
+    if (a_tr->trns != NULL)
+    {
+	cw_opaque_dealloc(dealloc, arg, a_tr->trns,
+			  sizeof(cw_trn_t) * a_tr->ntrns);
+    }
 
     if (a_tr->trt != NULL)
     {
@@ -2701,20 +2774,14 @@ tr_delete(cw_tr_t *a_tr)
 			  a_tr->bedges, sizeof(uint32_t) * a_tr->nedges);
     }
 
-    if (a_tr->tresXXX != NULL)
+    /* This assumes that all edges are deallocated before tr_delete() is
+     * called. */
+    if (a_tr->tres != NULL)
     {
-	uint32_t i;
-
-	for (i = 0; i < a_tr->nedges; i++)
-	{
-	    if (a_tr->tresXXX[i].ps != NULL)
-	    {
-		tr_p_ps_delete(a_tr, a_tr->tresXXX[i].ps);
-	    }
-	}
-
-	cw_opaque_dealloc(dealloc, arg, a_tr->tresXXX,
-			  sizeof(cw_tre_t) * a_tr->nedges);
+	cw_opaque_dealloc(dealloc, arg, a_tr->tres,
+			  sizeof(cw_tre_t) * a_tr->ntres);
+	cw_opaque_dealloc(dealloc, arg, a_tr->trrs,
+			  sizeof(cw_trr_t) * a_tr->ntres * 2);
     }
 
     cw_opaque_dealloc(dealloc, arg, a_tr, sizeof(cw_tr_t));
@@ -2780,15 +2847,17 @@ tr_canonize(cw_tr_t *a_tr)
 
     if (a_tr->base != CW_TR_NODE_NONE)
     {
-	uint32_t ntaxa;
+	uint32_t ntaxa, nedges;
 	cw_tr_ring_t ring;
 
 	/* Set base to be the lowest-numbered taxon. */
 	ntaxa = 0;
-	a_tr->base = tr_p_lowest(a_tr, a_tr->base, &ntaxa, CW_TR_NODE_NONE);
+	nedges = 0;
+	a_tr->base = tr_p_lowest(a_tr, a_tr->base, &ntaxa, &nedges,
+				 CW_TR_NODE_NONE);
 
 	/* Get base's ring. */
-	ring = qli_first(&a_tr->tns[a_tr->base].rings);
+	ring = qli_first(&a_tr->trns[a_tr->base].rings);
 	if (ring != CW_TR_RING_NONE)
 	{
 	    /* Canonize the tree. */
@@ -2802,31 +2871,6 @@ tr_canonize(cw_tr_t *a_tr)
     cw_dassert(tr_p_validate(a_tr));
 }
 
-// XXX TBR can change the number of nodes and edges in a multifurcating tree.
-// This throws a monkey wrench in things, since nodes and edges need to be
-// allocated in Onyx code.
-//
-// One partial solution would be to pass spares in.  However, what do we do with
-// unused or discarded nodes/edges?  We can't deallocate them (that's the
-// GC's job), but leaving them laying around makes this code unsuitable for use
-// outside the context of GC.  (Well, there is never a case where discarding
-// nodes/edges is necessary.  Additionally, it's possible to return whether
-// spares were actually used.)
-//
-// Another solution is to provide a C-level TBR API that returns pointers to any
-// newly allocated nodes/edges.  These can then be wrapped by the glue code
-// after the fact.  The main disadvantage I see for this is that there are GC
-// races; a GC must not occur while there are nodes/edges without corresponding
-// Onyx objects, since reference iteration becomes *much* harder to get right.
-//
-// Is there a reasonable way to provide an allocation callback function?  Yes,
-// this can be done.  This is the cleanest solution, from an Onyx-level
-// perspective.  It also avoids extra work in the common case (trifurcating
-// trees).  It's rather gross (and slow) though.  A C function will have to call
-// (assuming tree is on ostack):
-//
-//   cw_onyx_code(a_thread, "dup treenode:new");
-//
 void
 tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
        cw_tr_edge_t a_reconnect_b,
@@ -2835,8 +2879,8 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
        void *a_arg)
 {
     cw_tr_node_t node_a, node_b;
-    cw_tr_edge_t tedges[3];
-    uint32_t ntedges = 0
+    cw_tr_edge_t edge, tedges[3];
+    uint32_t ntedges = 0;
     cw_tr_node_t tnodes[2];
     uint32_t ntnodes = 0;
 
@@ -2845,12 +2889,12 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
 
     /* Get the nodes to either side of the edge where the bisection will be
      * done. */
-    node_a = tr_edge_node_get(a_tr, a_edge, 0);
-    node_b = tr_edge_node_get(a_tr, a_edge, 1);
+    node_a = tr_edge_node_get(a_tr, a_bisect, 0);
+    node_b = tr_edge_node_get(a_tr, a_bisect, 1);
 
     /* Bisect and save edge as a spare. */
-    tr_edge_detach(a_tr, a_edge);
-    tedges[ntedges] = a_edge;
+    tr_edge_detach(a_tr, a_bisect);
+    tedges[ntedges] = a_bisect;
     ntedges++;
 
     /* For node_[ab], extract the node if it has only two neighbors.  If one of
@@ -2861,16 +2905,16 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
      * one node in the subtree, in which case that node is returned so that it
      * can be used directly during reconnection. */
     node_a = tr_p_tbr_node_extract(a_tr, node_a, a_reconnect_a, a_reconnect_b,
-				   tedges, &ntedges, tnodes &ntnodes);
+				   tedges, &ntedges, tnodes, &ntnodes);
     node_b = tr_p_tbr_node_extract(a_tr, node_b, a_reconnect_a, a_reconnect_b,
-				   tedges, &ntedges, tnodes &ntnodes);
+				   tedges, &ntedges, tnodes, &ntnodes);
 
     /* For each reconnection edge, splice a node into the edge (if the subtree
      * has more than one node). */
     if (node_a == CW_TR_NODE_NONE)
     {
 	node_a = tr_p_tbr_node_splice(a_tr, a_reconnect_a,
-				      tedges, &ntedges, tnodes &ntnodes,
+				      tedges, &ntedges, tnodes, &ntnodes,
 				      a_edge_alloc_callback,
 				      a_node_alloc_callback,
 				      a_arg);
@@ -2878,7 +2922,7 @@ tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
     if (node_b == CW_TR_NODE_NONE)
     {
 	node_b = tr_p_tbr_node_splice(a_tr, a_reconnect_b,
-				      tedges, &ntedges, tnodes &ntnodes,
+				      tedges, &ntedges, tnodes, &ntnodes,
 				      a_edge_alloc_callback,
 				      a_node_alloc_callback,
 				      a_arg);
@@ -2949,7 +2993,7 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, uint32_t a_neighbor,
      */
 
     /* Generate the edge lists. */
-    tr_p_bedges_gen(a_tr, trt->bisect_edge);
+    tr_p_bedges_gen(a_tr, trt->bisect_edge, NULL, NULL);
 
     /* Calculate the offset of the neighbor from the beginning of this edge's
      * reconnection combination enumeration. */
@@ -2990,7 +3034,7 @@ tr_mp_prepare(cw_tr_t *a_tr, char *a_taxa[], uint32_t a_ntaxa,
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
 
-    trn = a_tr->trns[a_tr->base];
+    trn = &a_tr->trns[a_tr->base];
 
     /* Prepare the tree. */
     tr_p_mp_trn_prepare(a_tr, trn, a_taxa, a_ntaxa, a_nchars);
@@ -3002,9 +3046,6 @@ tr_mp_prepare(cw_tr_t *a_tr, char *a_taxa[], uint32_t a_ntaxa,
 				    a_taxa, a_ntaxa, a_nchars);
 	}
     }
-
-    /* Prepare the temporary node. */
-    tr_p_mp_trn_prepare(a_tr, &a_tr->trns[0], a_taxa, a_ntaxa, a_nchars);
 }
 
 void
@@ -3016,7 +3057,7 @@ tr_mp_finish(cw_tr_t *a_tr)
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
 
-    trn = a_tr->trns[a_tr->base];
+    trn = &a_tr->trns[a_tr->base];
 
     /* Clean up the tree. */
     tr_p_mp_trn_finish(a_tr, trn);
@@ -3024,7 +3065,7 @@ tr_mp_finish(cw_tr_t *a_tr)
     {
 	qli_foreach(ring, &trn->rings, a_tr->trrs, link)
 	{
-	    tr_p_mp_finish_recurse(a_tr, tr_p_ring_other_get(a_tr, ring))
+	    tr_p_mp_finish_recurse(a_tr, tr_p_ring_other_get(a_tr, ring));
 	}
     }
 
@@ -3048,10 +3089,10 @@ tr_mp_score(cw_tr_t *a_tr)
 	cw_tr_edge_t edge;
 	cw_tr_ps_t *ps;
 
-	edge = tr_p_ring_edge_get(a_tr, ring)
+	edge = tr_p_ring_edge_get(a_tr, ring);
 	tr_p_mp_score(a_tr, edge, CW_TR_RING_NONE);
 
-	ps = &a_tr->tres[edge].ps;
+	ps = a_tr->tres[edge].ps;
 	retval = ps->subtrees_score + ps->node_score;
     }
     else

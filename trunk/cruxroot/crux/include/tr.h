@@ -57,10 +57,14 @@ tr_base_set(cw_tr_t *a_tr, cw_tr_node_t a_base);
 void
 tr_canonize(cw_tr_t *a_tr);
 
-/* Perform TBR. */
+/* Perform TBR.  The callback functions are called when new edges or nodes are
+ * needed; this never happens for strictly trifurcating trees. */
 void
 tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
-       cw_tr_edge_t a_reconnect_b);
+       cw_tr_edge_t a_reconnect_b,
+       cw_tr_edge_t (*a_edge_alloc_callback)(cw_tr_t *, void *),
+       cw_tr_node_t (*a_node_alloc_callback)(cw_tr_t *, void *),
+       void *a_arg);
 
 /* Get the number of neighboring trees reachable via TBR. */
 uint32_t
@@ -153,7 +157,7 @@ tr_node_taxon_num_set(cw_tr_t *a_tr, cw_tr_node_t a_node,
 /* Get the first edge in a_node's edge ring. */
 void
 tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node,
-		 cw_tr_edge_t *r_edge, uint32_t *r_i);
+		 cw_tr_edge_t *r_edge, uint32_t *r_end);
 
 /* Get the value of the auxiliary pointer associated with the node. */
 void *
@@ -162,6 +166,15 @@ tr_node_aux_get(cw_tr_t *a_tr, cw_tr_node_t a_node);
 /* Set the value of the auxiliary pointer associated with the node. */
 void
 tr_node_aux_set(cw_tr_t *a_tr, cw_tr_node_t a_node, void *a_aux);
+
+/* Get the degree (number of edges) of the node. */
+uint32_t
+tr_node_degree(cw_tr_t *a_tr, cw_tr_node_t a_node);
+
+/* Get the number of edges between a_node and a_other.  0 means that there is
+ * no path between the two nodes. */
+uint32_t
+tr_node_distance(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_other);
 
 /******************************************************************************/
 
@@ -182,12 +195,12 @@ tr_edge_node_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i);
 /* Get the next edge in the edge ring at the a_i end of a_edge. */
 void
 tr_edge_next_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
-		 cw_tr_edge_t *r_next, uint32_t *r_i);
+		 cw_tr_edge_t *r_next, uint32_t *r_end);
 
 /* Get the previous edge in the edge ring at the a_i end of a_edge. */
 void
 tr_edge_prev_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i,
-		 cw_tr_edge_t *r_prev, uint32_t *r_i);
+		 cw_tr_edge_t *r_prev, uint32_t *r_end);
 
 /* Get the edge length. */
 double
