@@ -11,6 +11,7 @@
 
 #include "../include/_cruxmodule.h"
 
+//#define CxmTreeNjRandomize
 //#define CxmTreeNjVerbose
 //#define CxmTreeNjDump
 
@@ -445,8 +446,7 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     }
 
     retval = true;
-#if (0)
-    // XXX Remove.
+#ifdef CxmTreeNjRandomize
     {
 	static bool inited = false;
 
@@ -642,7 +642,6 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
     time_t t;
     struct tm *tm;
     time_t starttime;
-    time(&starttime);
 #endif
 
     CxmCheckPtr(aDistMatrix);
@@ -654,6 +653,10 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	retval = true;
 	goto RETURN;
     }
+
+#ifdef CxmTreeNjVerbose
+    time(&starttime);
+#endif
 
     rOrig = r = CxpTreeNjRInit(d, aNtaxa);
     rScaledOrig = rScaled = CxpTreeNjRScaledInit(aNtaxa);
