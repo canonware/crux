@@ -62,7 +62,7 @@ CxXepShutdown(void);
 #define CxmXepAcatch							\
 		break;							\
 	    default:							\
-		if (_xep.state != CxeXepsCatch)			\
+		if (_xep.state != CxeXepsCatch)				\
 		{							\
 		    break;						\
 		}
