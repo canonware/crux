@@ -1158,7 +1158,7 @@ tr_p_update(cw_tr_t *a_tr)
     }
 }
 
-// Check for malformed trees during recursion.
+// XXX Check for malformed trees during recursion.
 /* Convert a tree to canonical form by re-ordering the neighbors array such that
  * subtrees are in increasing order of minimum taxon number contained. */
 static cw_uint32_t
@@ -1652,15 +1652,45 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 CW_P_INLINE cw_uint32_t
 tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
-    /* Calculate sum of subtree scores. */
-    a_p->subtrees_score
-	= a_a->subtrees_score + a_a->node_score
-	+ a_b->subtrees_score + a_b->node_score;
+#ifdef CW_DBG
+    cw_bool_t cached;
+#endif
 
     /* Only calculate the parent's node score if the cached value is invalid. */
     if (a_a->parent != a_p || a_b->parent != a_p)
+#ifdef CW_DBG
+    {
+	cached = FALSE;
+    }
+    else
+    {
+	cached = TRUE;
+    }
+#endif
     {
 	cw_uint32_t i, nchars, ns, a, b, p, c, s;
+
+#ifdef CW_DBG
+	if (cached)
+	{
+	    if (a_p->subtrees_score
+		!= (a_a->subtrees_score + a_a->node_score
+		    + a_b->subtrees_score + a_b->node_score))
+	    {
+		fprintf(stderr,
+			"%s:%d:%s(): subtrees_score %u (should be %u)\n",
+			__FILE__, __LINE__, __FUNCTION__,
+			a_p->subtrees_score,
+			a_a->subtrees_score + a_a->node_score
+			+ a_b->subtrees_score + a_b->node_score);
+		abort();
+	    }
+	}
+#endif
+	/* Calculate sum of subtree scores. */
+	a_p->subtrees_score
+	    = a_a->subtrees_score + a_a->node_score
+	    + a_b->subtrees_score + a_b->node_score;
 
 	/* (Re-)calculate node score. */
 	ns = 0;
@@ -1689,8 +1719,35 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	    ns += s;
 	}
 
+#ifdef CW_DBG
+	if (cached)
+	{
+	    if (ns != a_p->node_score)
+	    {
+		fprintf(stderr, "%s:%d:%s(): node_score %u (should be %u)\n",
+			__FILE__, __LINE__, __FUNCTION__,
+			ns, a_p->node_score);
+		abort();
+	    }
+	}
+#endif
 	a_p->node_score = ns;
     }
+
+//    if (cached)
+//    {
+//	fprintf(stderr, ".");
+//    }
+//    else
+//    {
+//	fprintf(stderr, "+");
+//    }
+//    fprintf(stderr, "[(%u + %u) + (%u + %u)] + %u --> %u\n",
+//	    a_a->subtrees_score, a_a->node_score,
+//	    a_b->subtrees_score, a_b->node_score,
+//	    a_p->node_score,
+//	    a_p->subtrees_score + a_p->node_score
+//	    );
 
     return (a_p->subtrees_score + a_p->node_score);
 }
@@ -1716,6 +1773,7 @@ tr_p_mp_passpscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a)
 {
     a_p->subtrees_score = a_a->subtrees_score;
     a_p->node_score = a_a->node_score;
+    memcpy(a_p->chars, a_a->chars, a_p->nchars);
 }
 
 static void
@@ -1726,6 +1784,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
     cw_uint32_t i;
     cw_tr_node_t node, a, b, o;
 
+//    fprintf(stderr, "==> %u\n", a_node);
     a = CW_TR_NODE_NONE;
     b = CW_TR_NODE_NONE;
     o = CW_TR_NODE_NONE;
@@ -1765,6 +1824,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 	cw_assert(a != CW_TR_NODE_NONE);
 	if (*ar_maxed == FALSE)
 	{
+//	    fprintf(stderr, "score\n");
 	    /* Calculate the partial score for this node. */
 	    if (tr_p_mp_pscore(a_tr, a_tr->trns[a_node].ps,
 			       a_tr->trns[a].ps, a_tr->trns[b].ps)
@@ -1779,6 +1839,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 	{
 	    /* Clear invalid cached parial score if necessary, but do not
 	     * calculate the partial score. */
+//	    fprintf(stderr, "none\n");
 	    tr_p_mp_nopscore(a_tr, a_tr->trns[a_node].ps, a_tr->trns[a].ps,
 			     a_tr->trns[b].ps);
 	}
@@ -1790,9 +1851,11 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 	 * concerned. */
 	if (a != CW_TR_NODE_NONE)
 	{
+//	    fprintf(stderr, "pass\n");
 	    tr_p_mp_passpscore(a_tr, a_tr->trns[a_node].ps, a_tr->trns[a].ps);
 	}
     }
+//    fprintf(stderr, "<== %u\n", a_node);
 }
 
 static cw_uint32_t
@@ -2302,12 +2365,21 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_uint32_t *a_edges,
 	{
 	    tre = &a_tr->tres[a_edges[i]];
 
+//	    fprintf(stderr,
+//		    "%s:%d:%s() p %u, a %u (%d), b %u (%d), o %u (%d)\n",
+//		    __FILE__, __LINE__, __FUNCTION__,
+//		    a_edges[i],
+//		    tre->node_a, a_tr->trns[tre->node_a].taxon_num,
+//		    tre->node_b, a_tr->trns[tre->node_b].taxon_num,
+//		    a_other, a_tr->trns[a_other].taxon_num
+//		    );
 	    tre->pscore = tr_p_mp_score(a_tr, tre->ps, tre->node_a, tre->node_b,
 					a_other, a_maxscore);
 	}
     }
 }
 
+// XXX Move up.
 static void
 tr_p_bisection_edge_list_gen_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
 				     cw_tr_node_t a_prev, cw_uint32_t *ar_edges,
@@ -2334,8 +2406,13 @@ tr_p_bisection_edge_list_gen_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
     }
 }
 
+// XXX Move up.
 /* Pretend that the tree is bisected at the edge between a_node and a_other.
- * Construct a list of edges that are in the subtree that contains a_node. */
+ * Construct a list of edges that are in the subtree that contains a_node.
+ *
+ * The first element in the list is always the edge that is adjacent to the
+ * bisection.  This facilitates recognition of reconnections that would reverse
+ * bisection. */
 CW_P_INLINE void
 tr_p_bisection_edge_list_gen(cw_tr_t *a_tr, cw_tr_node_t a_node,
 			     cw_tr_node_t a_other, cw_uint32_t *ar_edges,
@@ -2405,7 +2482,7 @@ CW_P_INLINE void
 tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 		      cw_uint32_t a_maxscore, cw_uint32_t a_best_only)
 {
-    cw_uint32_t i, j, k, adj_a, adj_b, nedges_a, nedges_b, edge_a, edge_b;
+    cw_uint32_t i, j, k, nedges_a, nedges_b, edge_a, edge_b;
     cw_uint32_t score;
     cw_uint32_t *edges_a, *edges_b;
     cw_tre_t *tre, *tre_a, *tre_b;
@@ -2424,28 +2501,44 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 					      sizeof(cw_uint32_t)
 					      * a_tr->nedges);
 
+    // XXX
+    cw_uint32_t nneighbors = 0;
+    static cw_uint32_t bestscore = CW_TR_MAXSCORE_NONE;
+    static cw_uint32_t count = 0;
+
     /* Iteratively (logically) bisect at each edge in the tree. */
     ps = a_tr->trns[0].ps;
     for (i = 0; i < a_tr->nedges; i++)
     {
 	tre = &a_tr->tres[i];
 
-	// XXX Is this correctly ordered?
-	adj_a = tre->node_a;
-	adj_b = tre->node_b;
-
-	/* Determine which edges are in each subtree.  Make sure that edges_[ab]
-	 * and adj_[ab] correspond to the subtrees that contain
-	 * tre->node_[ab]. */
-	tr_p_bisection_edge_list_gen(a_tr, adj_a, adj_b, edges_a, &nedges_a);
+	fprintf(stderr, "%s:%d:%s(): Edge %u\n",
+		__FILE__, __LINE__, __FUNCTION__, i);
+	/* Determine which edges are in each subtree.  Make sure that
+	 * tre->node_[ab] and edges_[ab] correspond. */
+	tr_p_bisection_edge_list_gen(a_tr, tre->node_a, tre->node_b,
+				     edges_a, &nedges_a);
 	edges_b = &edges_a[nedges_a];
-	tr_p_bisection_edge_list_gen(a_tr, adj_b, adj_a, edges_b, &nedges_b);
+	tr_p_bisection_edge_list_gen(a_tr, tre->node_b, tre->node_a,
+				     edges_b, &nedges_b);
+
+	fprintf(stderr, "%s:%d:%s(): nedges_[ab]: %u %u\n",
+		__FILE__, __LINE__, __FUNCTION__,
+		nedges_a, nedges_b);
+	cw_assert((nedges_a == 1 && (nedges_b == a_tr->nedges - 2
+				     || nedges_b == a_tr->nedges - 4))
+		  || (nedges_b == 1 && (nedges_a == a_tr->nedges - 2
+					|| nedges_a == a_tr->nedges - 4))
+		  || (nedges_a != 1 && nedges_b != 1
+		      && nedges_a + nedges_b == a_tr->nedges - 3));
 
 	/* Calculate the partial score for each edge in the edge lists. */
+//	fprintf(stderr, "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
 	tr_p_bisection_edge_list_mp(a_tr, edges_a, nedges_a, tre->node_b,
 				    a_maxscore);
 	tr_p_bisection_edge_list_mp(a_tr, edges_b, nedges_b, tre->node_a,
 				    a_maxscore);
+//	fprintf(stderr, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
 
 	/* Iteratively (logically) reconnect every legitimate pairing of edges
 	 * between the two subtrees and calculate final parsimony scores. */
@@ -2460,13 +2553,16 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 	    else
 	    {
 		tre_a = NULL;
-		ps_a = a_tr->trns[adj_a].ps;
+		ps_a = a_tr->trns[tre->node_a].ps;
 	    }
 
 	    /* Skip this iteration if edge_a's partial score exceeded
 	     * a_maxscore. */
 	    if (tre_a != NULL && tre_a->pscore == CW_TR_MAXSCORE_NONE)
 	    {
+		fprintf(stderr, "%s:%d:%s(): Skip (%u %d *)\n",
+			__FILE__, __LINE__, __FUNCTION__,
+			i, edge_a);
 		continue;
 	    }
 
@@ -2481,32 +2577,56 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 		else
 		{
 		    tre_b = NULL;
-		    ps_b = a_tr->trns[adj_b].ps;
+		    ps_b = a_tr->trns[tre->node_b].ps;
 		}
 
 		/* Skip this iteration if the reconnection would result in
 		 * reversing the bisection, or if edge_b's partial score
 		 * exceeded a_maxscore. */
-		if ((adj_a == edge_a && adj_b == edge_b)
+		if ((j == 0 && k == 0)
 		    || (tre_b != NULL && tre_b->pscore == CW_TR_MAXSCORE_NONE))
 		{
+		    fprintf(stderr, "%s:%d:%s(): Skip (%u %d %d)[%u %u %u]\n",
+			    __FILE__, __LINE__, __FUNCTION__,
+			    i, edge_a, edge_b,
+			    i, j, k);
 		    continue;
 		}
 
+		nneighbors++;
 		/* Calculate the final parsimony score for this reconnection. */
+		fprintf(stderr, ".");
 		score = tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
 
+		fprintf(stderr,
+			"%s:%d:%s(): Score (%u %d %d)[%u %u %u] --> %u\n",
+			__FILE__, __LINE__, __FUNCTION__,
+			i, edge_a, edge_b,
+			i, j, k,
+			score);
+
 		// XXX Do something with the score.
-		static cw_uint32_t bestscore = CW_TR_MAXSCORE_NONE;
-		static cw_uint32_t count = 0;
+		if (k == 0)
+		{
+		    fprintf(stderr,
+			    "\nScore (bisect %u, reconnect %u %u)[%u,%u,%u]: %u"
+			    "\n",
+			    i, edge_a, edge_b,
+			    i, j, k,
+			    score);
+		}
+
 		if (score < bestscore)
 		{
 		    bestscore = score;
 		    fprintf(stderr,
-			    "Score (bisect %u, reconnect %u %u): %u"
+			    "\nScore (bisect %u, reconnect %u %u)[%u,%u,%u]: %u"
 			    " (prev count %u)\n",
-			    i, edge_a, edge_b, score, count);
+			    i, edge_a, edge_b,
+			    i, j, k,
+			    score, count);
 		    count = 1;
+//		    abort();//XXX
 		}
 		else if (score == bestscore)
 		{
@@ -2515,7 +2635,11 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 		// XXX
 	    }
 	}
+	fprintf(stderr, "\n");
     }
+    fprintf(stderr, "Score: %u (count %u)\n", bestscore, count);
+    fprintf(stderr, "%s:%d:%s(): nneighbors: %u (should be %u)\n", __FILE__, __LINE__, __FUNCTION__, nneighbors, a_tr->trt[a_tr->trtused].offset);
+
 
     /* Clean up. */
     cw_opaque_dealloc(mema_dealloc_get(a_tr->mema), mema_arg_get(a_tr->mema),
