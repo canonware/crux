@@ -916,13 +916,12 @@ trn_aux_set(cw_trn_t *a_trn, void *a_aux)
 static cw_bool_t
 tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
 {
-    cw_trn_t *root;
     cw_uint32_t i, j, n;
 
     cw_check_ptr(a_tr);
     cw_assert(a_tr->magic == CW_TR_MAGIC);
     cw_assert(trn_p_root_get(a_tr->croot, NULL, NULL) == a_tr->croot);
-    cw_assert(a_tr->ntaxa == trn_p_ntaxa_get_recurse(a_tr->root, NULL));
+    cw_assert(a_tr->ntaxa == trn_p_ntaxa_get_recurse(a_tr->croot, NULL));
     cw_assert((a_tr->rooted == FALSE
 	       && a_tr->nedges == trn_p_nedges_get(a_tr->croot) - 1)
 	      || a_tr->nedges == trn_p_nedges_get(a_tr->croot));
@@ -943,7 +942,7 @@ tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
      * but requiring contiguous taxon numbering would make validating tree
      * bisections impossible.  Therefore, contiguous taxon numbering is only
      * optionally validated. */
-    if (a_tr->root != NULL)
+    if (a_tr->rooted)
     {
 	cw_trn_t *left, *right;
 
@@ -978,7 +977,7 @@ tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
 	/* Unrooted tree. */
 	for (i = j = 0; j < a_tr->ntaxa; i++, j += n)
 	{
-	    n = trn_p_validate_recurse(root, NULL, i);
+	    n = trn_p_validate_recurse(a_tr->croot, NULL, i);
 	    cw_assert(n <= 1);
 	}
     }
@@ -1537,6 +1536,8 @@ tr_root(cw_tr_t *a_tr, cw_trn_t *a_trn_a, cw_trn_t *a_trn_b)
     trn_detach(a_trn_a, a_trn_b);
     trn_join(a_tr->root, a_trn_a);
     trn_join(a_tr->root, a_trn_b);
+
+    a_tr->rooted = TRUE;
 }
 
 void
@@ -1571,6 +1572,8 @@ tr_unroot(cw_tr_t *a_tr)
     trn_detach(a_tr->root, trn_a);
     trn_detach(a_tr->root, trn_b);
     trn_join(trn_a, trn_b);
+
+    a_tr->rooted = FALSE;
 }
 
 void
