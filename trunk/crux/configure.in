@@ -212,7 +212,7 @@ AC_SUBST([crux_sources])
 dnl C headers.
 crux_headers=""
 for h in `find ${srcroot}/include -type f |grep "\.h$"` \
-         $objroot/_cruxmodule_defs.h.in ; do
+         $objroot/_cruxmodule_defs.h.in ${srcroot}/src/asprintf_c ; do
   crux_headers="${crux_headers} ${h}"
 done
 AC_SUBST([crux_headers])
