@@ -99,13 +99,11 @@
 // comment ::= \[ [<comment_chars>] [<comment>] [<comment_chars>] \]
 //
 // comment_chars ::= /[^[]/
-//                 | 
+//                 |
 //
 // e ::= <epsilon (empty production)>
 //
 //==============================================================================
-
-// XXX Remove (if rAccepted != NULL) checks where safe.
 
 #include "../include/_cruxmodule.h"
 
@@ -197,6 +195,9 @@ CxpNewickParserGetC(CxtNewickParserObject *self)
     }
     else
     {
+	// Update offset.
+	self->offset++;
+
 	if (self->fileInput)
 	{
 	    if (fread(&self->c, 1, 1, self->i.f.file) == 0)
@@ -204,7 +205,7 @@ CxpNewickParserGetC(CxtNewickParserObject *self)
 		CxError(CxgNewickParserSyntaxError,
 			"At offset %d (token '%.*s'):"
 			" End of input reached",
-			self->i.s.offset - 1, self->tokenLen, self->buf);
+			self->offset - 1, self->tokenLen, self->buf);
 		rVal = true;
 		goto RETURN;
 	    }
@@ -218,7 +219,7 @@ CxpNewickParserGetC(CxtNewickParserObject *self)
 		CxError(CxgNewickParserSyntaxError,
 			"At offset %d (token '%.*s'):"
 			" End of input reached",
-			self->i.s.offset - 1, self->tokenLen, self->buf);
+			self->offset - 1, self->tokenLen, self->buf);
 		rVal = true;
 		goto RETURN;
 	    }
@@ -227,9 +228,6 @@ CxpNewickParserGetC(CxtNewickParserObject *self)
 
     // Append character to token string.
     CxpNewickParserAppendC(self);
-
-    // Update offset.
-    self->offset++;
 
     rVal = false;
     RETURN:
@@ -482,7 +480,7 @@ CxpNewickParserProdBranchLength(CxtNewickParserObject *self)
 			CxError(CxgNewickParserSyntaxError,
 				"At offset %d (token '%.*s', char '%c'):"
 				" Expected digit",
-				self->i.s.offset - 1, self->tokenLen, self->buf,
+				self->offset - 1, self->tokenLen, self->buf,
 				self->c);
 			rVal = true;
 			goto RETURN;
@@ -505,7 +503,7 @@ CxpNewickParserProdBranchLength(CxtNewickParserObject *self)
 			CxError(CxgNewickParserSyntaxError,
 				"At offset %d (token '%.*s', char '%c'):"
 				" Expected digit",
-				self->i.s.offset - 1, self->tokenLen, self->buf,
+				self->offset - 1, self->tokenLen, self->buf,
 				self->c);
 			rVal = true;
 			goto RETURN;
@@ -562,7 +560,7 @@ CxpNewickParserProdBranchLength(CxtNewickParserObject *self)
 			CxError(CxgNewickParserSyntaxError,
 				"At offset %d (token '%.*s', char '%c'):"
 				" Expected digit",
-				self->i.s.offset - 1, self->tokenLen, self->buf,
+				self->offset - 1, self->tokenLen, self->buf,
 				self->c);
 			rVal = true;
 			goto RETURN;
@@ -619,7 +617,7 @@ CxpNewickParserProdBranchLength(CxtNewickParserObject *self)
 			CxError(CxgNewickParserSyntaxError,
 				"At offset %d (token '%.*s', char '%c'):"
 				" Expected digit",
-				self->i.s.offset - 1, self->tokenLen, self->buf,
+				self->offset - 1, self->tokenLen, self->buf,
 				self->c);
 			rVal = true;
 			goto RETURN;
@@ -642,7 +640,7 @@ CxpNewickParserProdBranchLength(CxtNewickParserObject *self)
 			CxError(CxgNewickParserSyntaxError,
 				"At offset %d (token '%.*s', char '%c'):"
 				" Expected digit",
-				self->i.s.offset - 1, self->tokenLen, self->buf,
+				self->offset - 1, self->tokenLen, self->buf,
 				self->c);
 			rVal = true;
 			goto RETURN;
@@ -708,19 +706,13 @@ CxpNewickParserProdQuotedLabelChar(CxtNewickParserObject *self, bool *rAccepted)
 
 	if (self->c == '\'')
 	{
-	    if (rAccepted != NULL)
-	    {
-		*rAccepted = true;
-	    }
+	    *rAccepted = true;
 	}
 	else
 	{
 	    CxpNewickParserUngetC(self);
 
-	    if (rAccepted != NULL)
-	    {
-		*rAccepted = false;
-	    }
+	    *rAccepted = false;
 	}
     }
 
@@ -786,19 +778,13 @@ CxpNewickParserProdQuotedLabel(CxtNewickParserObject *self, char *aMethodName,
 	    goto RETURN;
 	}
 
-	if (rAccepted != NULL)
-	{
-	    *rAccepted = true;
-	}
+	*rAccepted = true;
     }
     else
     {
 	CxpNewickParserUngetC(self);
 
-	if (rAccepted != NULL)
-	{
-	    *rAccepted = false;
-	}
+	*rAccepted = false;
     }
 
     rVal = false;
@@ -825,18 +811,12 @@ CxpNewickParserProdUnquotedLabelChar(CxtNewickParserObject *self,
 	{
 	    CxpNewickParserUngetC(self);
 
-	    if (rAccepted != NULL)
-	    {
-		*rAccepted = false;
-	    }
+	    *rAccepted = false;
 	    break;
 	}
 	default:
 	{
-	    if (rAccepted != NULL)
-	    {
-		*rAccepted = true;
-	    }
+	    *rAccepted = true;
 	}
     }
 
@@ -891,17 +871,11 @@ CxpNewickParserProdUnquotedLabel(CxtNewickParserObject *self, char *aMethodName,
 	    goto RETURN;
 	}
 
-	if (rAccepted != NULL)
-	{
-	    *rAccepted = true;
-	}
+	*rAccepted = true;
     }
     else
     {
-	if (rAccepted != NULL)
-	{
-	    *rAccepted = false;
-	}
+	*rAccepted = false;
     }
 
     rVal = false;
@@ -1036,7 +1010,7 @@ CxpNewickParserProdDescendantList(CxtNewickParserObject *self, bool *rAccepted)
 	    CxError(CxgNewickParserSyntaxError,
 		    "At offset %d (token '%.*s', char '%c'):"
 		    " ',' expected",
-		    self->i.s.offset - 1, self->tokenLen, self->buf, self->c);
+		    self->offset - 1, self->tokenLen, self->buf, self->c);
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -1087,7 +1061,7 @@ CxpNewickParserProdDescendantList(CxtNewickParserObject *self, bool *rAccepted)
 	    CxError(CxgNewickParserSyntaxError,
 		    "At offset %d (token '%.*s', char '%c'):"
 		    " ',' or ')' expected",
-		    self->i.s.offset - 1, self->tokenLen, self->buf, self->c);
+		    self->offset - 1, self->tokenLen, self->buf, self->c);
 	    rVal = true;
 	    goto RETURN;
 	}
@@ -1168,7 +1142,7 @@ CxpNewickParserProdTree(CxtNewickParserObject *self)
     {
 	CxError(CxgNewickParserSyntaxError,
 		"At offset %d (token '%.*s', char '%c'): ';' expected",
-		self->i.s.offset - 1, self->tokenLen, self->buf, self->c);
+		self->offset - 1, self->tokenLen, self->buf, self->c);
 	rVal = true;
 	goto RETURN;
     }
