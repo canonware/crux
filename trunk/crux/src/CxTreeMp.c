@@ -128,14 +128,17 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	    }
 	}
 
-	// XXX Recurse through the tree and make sure that the taxa are numbered
-	// correctly.
+	if (ntaxa > 0)
+	{
+	    // XXX Recurse through the tree and make sure that the taxa are
+	    // numbered correctly.
 
-	/* Do preparation. */
-	CxTrMpPrepare(self->tr, elim, tarr, ntaxa, nchars);
+	    /* Do preparation. */
+	    CxTrMpPrepare(self->tr, elim, tarr, ntaxa, nchars);
 
-	/* Clean up. */
-	CxmFree(tarr);
+	    /* Clean up. */
+	    CxmFree(tarr);
+	}
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
