@@ -11,7 +11,7 @@
 
 print "Test begin"
 
-t = crux.tree("(A,('B B','C''C'));", {'A': 0, 'B B':1, "C'C":2})
+t = crux.tree("(A,('B B','C''C'));", crux.taxon_map(['A', 'B B', "C'C"]))
 t.canonize()
 print t.prints(labels=True)
 

@@ -17,7 +17,7 @@ class node(_node.Node):
     def __init__(self, tree):
         pass
 
-    def rprints(self, prev, rmap, labels, lengths):
+    def rprints(self, prev, map, labels, lengths):
         retval = ""
         did_something = False
         did_paren = False
@@ -26,7 +26,7 @@ class node(_node.Node):
             # Leaf node.
             if labels:
                 # Protect special characters, if necessary.
-                taxon_label = rmap[self.taxon_num_get()]
+                taxon_label = map.label_get(self.taxon_num_get())
                 m = re.compile("[^ ()[\]':;,]*[ ()[\]':;,]").match(taxon_label)
                 if m:
                     taxon_label = re.compile("'").sub("''", taxon_label)
@@ -60,7 +60,7 @@ class node(_node.Node):
 
                     retval = "%s%s" % \
                              (retval,
-                              neighbor.rprints(self, rmap, labels, lengths))
+                              neighbor.rprints(self, map, labels, lengths))
                     if lengths:
                         if neighbor.taxon_num_get() == None:
                             retval = "%s:%f" % (retval, edge.length_get())

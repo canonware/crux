@@ -11,8 +11,11 @@
 
 import _tree
 
-import crux
+import node
+import edge
 import newick
+import taxon_map
+
 import random
 
 class _newick_parser(newick.newick):
@@ -44,7 +47,7 @@ class _newick_parser(newick.newick):
         for elm in self._taxon_stack:
             if elm == None:
                 break
-            elif type(elm) == crux.node:
+            elif type(elm) == node.node:
                 cnt += 1
         if cnt < 2:
             # Not enough neighbors on stack to join nodes together.  Remove open
@@ -52,7 +55,7 @@ class _newick_parser(newick.newick):
             self._taxon_stack.remove(None)
         else:
             # Create new node.
-            nnode = crux.node(self._tree)
+            nnode = node.node(self._tree)
 
             # Iteratively connect neighboring nodes to nnode.
             i = 0
@@ -63,7 +66,7 @@ class _newick_parser(newick.newick):
                     length = 0.0
 
                 n = self._taxon_stack.pop(0)
-                e = crux.edge(self._tree)
+                e = edge.edge(self._tree)
                 e.attach(nnode, n)
                 e.length_set(length)
                 i += 1
@@ -76,22 +79,21 @@ class _newick_parser(newick.newick):
 
     # Helper method, called by {root,leaf}_label_accept().
     def _label_accept(self):
-        if self._map.has_key(self.token()):
+        if self._map.ind_get(self.token()) != None:
             # Taxon mapping defined.
-            val = self._map[self.token()]
+            val = self._map.ind_get(self.token())
         else:
             # No taxon mapping defined; try to convert the label to an
             # integer.
             try:
                 val = int(self.token())
+                self._map.map(self.token(), val)
             except ValueError:
-                # Failed conversion.
-                self.error_raise("Unable to convert label '%s' to integer" \
-                                 % self.token())
-            self._map[self.token()] = val
+                # Failed conversion.  Create a new mapping.
+                self._map.map(self.token(), self._map.ntaxa_get())
 
         # Create a new node and push it onto the stack.
-        nnode = crux.node(self._tree)
+        nnode = node.node(self._tree)
         nnode.taxon_num_set(val)
         self._taxon_stack.insert(0, nnode)
 
@@ -136,7 +138,7 @@ class _newick_parser(newick.newick):
                 edge_a.detach()
                 edge_b.detach()
                 # Attach neighbors.
-                e = crux.edge(self._tree)
+                e = edge.edge(self._tree)
                 e.attach(node_a, node_b)
                 if length != None:
                     e.length_set(length)
@@ -147,27 +149,25 @@ class _newick_parser(newick.newick):
                 self._taxon_stack.insert(0, node_a)
 
 class tree(_tree.Tree):
-    def __init__(self, with=None, map=None):
+    def __init__(self, with=None, map=taxon_map.taxon_map()):
+        self._map = map
+
         if type(with) == int:
             self._random_new(with)
         elif type(with) == str or type(with) == file:
-            self._newick_new(with, map)
+            self._newick_new(with)
         elif type(with) == list:
-            self._nj_new(with, map)
-
-        self._rmap = None
+            self._nj_new(with)
 
     def _random_new(self, ntaxa):
-        self._map = {}
-
         # Create a stack of leaf nodes.
         subtrees = []
         i = 0
         while i < ntaxa:
-            nnode = crux.node(self)
+            nnode = node.node(self)
             nnode.taxon_num_set(i)
             subtrees.append(nnode)
-            self._map[str(i)] = i
+            self._map.map(str(i), i)
 
             i += 1
 
@@ -177,49 +177,30 @@ class tree(_tree.Tree):
         while len(subtrees) > 2:
             subtree_a = subtrees.pop(random.randint(0, len(subtrees) - 1))
             subtree_b = subtrees.pop(random.randint(0, len(subtrees) - 1))
-            nnode = crux.node(self)
-            crux.edge(self).attach(nnode, subtree_a)
-            crux.edge(self).attach(nnode, subtree_b)
+            nnode = node.node(self)
+            edge.edge(self).attach(nnode, subtree_a)
+            edge.edge(self).attach(nnode, subtree_b)
             subtrees.append(nnode)
 
         # Attach the last two subtrees directly, in order to finish constructing
         # an unrooted tree.
         subtree_a = subtrees.pop(0)
         subtree_b = subtrees.pop(0)
-        crux.edge(self).attach(subtree_a, subtree_b)
+        edge.edge(self).attach(subtree_a, subtree_b)
 
         self.base_set(subtree_a)
 
-    def _newick_new(self, input, map=None):
-        if map != None:
-            self._map = map.copy()
-        else:
-            self._map = {}
+    def _newick_new(self, input):
         parser = _newick_parser(self, self._map)
         return parser.parse(input, self)
 
-    def _nj_new(self, input, map=None):
-        if map != None:
-            self._map = map.copy()
-        else:
-            self._map = {}
+    def _nj_new(self, input):
         self._nj(input)
 
-    def prints(self, labels=False, lengths=False, map=None):
-        if map != None:
-            self._map = map.copy()
-            self._rmap = None
-
+    def prints(self, labels=False, lengths=False):
         n = self.base_get()
         if n != None:
-            if labels:
-                if self._rmap == None:
-                    # Build a reverse map.
-                    self._rmap = {}
-                    for key in self._map.keys():
-                        self._rmap[self._map[key]] = key
-
-            retval = n.rprints(None, self._rmap, labels, lengths)
+            retval = n.rprints(None, self._map, labels, lengths)
 
             if n.taxon_num_get() == None:
                 # Internal node.
