@@ -35,6 +35,7 @@ CxpFastaParserNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self->tokenLen = 0;
     self->line = 0;
 
+    retval = (PyObject *) self;
     RETURN:
     return retval;
 }
@@ -185,6 +186,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     }
 
     /* Determine character data type. */
+    fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
     if (strcmp(PyString_AsString(charType), "DNA") == 0)
     {
 	dnaChars = true;
@@ -248,7 +250,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				goto RETURN;
 			    }
 
-			    // XXX self._tokenAccept(self.labelAccept, 'chars')
+			    PyEval_CallMethod((PyObject *) self,
+					      "labelAccept", "");
+			    self->tokenLen = 0;
+			    state = CxpStateChars;
 			    break;
 			}
 			case ' ': case '\t':
@@ -261,7 +266,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 
 			    }
 
-			    // XXX self._tokenAccept(self.labelAccept, 'comment')
+			    PyEval_CallMethod((PyObject *) self,
+					      "labelAccept", "");
+			    self->tokenLen = 0;
+			    state = CxpStateComment;
 			    break;
 			}
 			default:
@@ -277,7 +285,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 		    {
 			if (self->tokenLen > 0)
 			{
-			    // XXX self._tokenAccept(self.commentAccept, 'chars')
+			    PyEval_CallMethod((PyObject *) self,
+					      "commentAccept", "");
+			    self->tokenLen = 0;
+			    state = CxpStateChars;
 			}
 			else
 			{
@@ -301,7 +312,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			    goto RETURN;
 			}
 
-			// XXX self._tokenAccept(self.charsAccept, 'label')
+			PyEval_CallMethod((PyObject *) self,
+					  "charsAccept", "");
+			self->tokenLen = 0;
+			state = CxpStateLabel;
 		    }
 		    else
 		    {
