@@ -18,5 +18,5 @@ import node
 import edge
 
 import dist_matrix
-import newick
+import NewickParser
 import taxon_map

@@ -13,23 +13,23 @@ import _tree
 
 import node
 import edge
-import newick
+import NewickParser
 import taxon_map
 
 import random
 
-class _newick_parser(newick.newick):
+class _NewickParser(NewickParser.NewickParser):
     def __init__(self, tree, map):
         self._tree = tree
         self._map = map
-        self._taxon_stack = []
+        self._taxonStack = []
         pass
 
     # Overridden method.
     def parse(self, input, tree):
-        if not newick.newick.parse(self, input):
-            if len(self._taxon_stack) > 0:
-                tree.base_set(self._taxon_stack[0])
+        if not NewickParser.NewickParser.parse(self, input):
+            if len(self._taxonStack) > 0:
+                tree.base_set(self._taxonStack[0])
             retval = False
         else:
             retval = True
@@ -37,14 +37,14 @@ class _newick_parser(newick.newick):
         return retval
 
     # Overridden method.
-    def open_paren_accept(self):
-        self._taxon_stack.insert(0, None)
+    def openParenAccept(self):
+        self._taxonStack.insert(0, None)
 
     # Overridden method.
-    def close_paren_accept(self):
+    def closeParenAccept(self):
         # Create an internal node, and join the top nodes to it.
         cnt = 0
-        for elm in self._taxon_stack:
+        for elm in self._taxonStack:
             if elm == None:
                 break
             elif type(elm) == node.node:
@@ -52,7 +52,7 @@ class _newick_parser(newick.newick):
         if cnt < 2:
             # Not enough neighbors on stack to join nodes together.  Remove open
             # paren (represented as None) from stack.
-            self._taxon_stack.remove(None)
+            self._taxonStack.remove(None)
         else:
             # Create new node.
             nnode = node.node(self._tree)
@@ -60,25 +60,25 @@ class _newick_parser(newick.newick):
             # Iteratively connect neighboring nodes to nnode.
             i = 0
             while i < cnt:
-                if type(self._taxon_stack[0]) == float:
-                    length = self._taxon_stack.pop(0)
+                if type(self._taxonStack[0]) == float:
+                    length = self._taxonStack.pop(0)
                 else:
                     length = 0.0
 
-                n = self._taxon_stack.pop(0)
+                n = self._taxonStack.pop(0)
                 e = edge.edge(self._tree)
                 e.attach(nnode, n)
                 e.length_set(length)
                 i += 1
 
             # Pop paren (None).
-            self._taxon_stack.pop(0)
+            self._taxonStack.pop(0)
 
             # Push nnode onto the stack.
-            self._taxon_stack.insert(0, nnode)
+            self._taxonStack.insert(0, nnode)
 
-    # Helper method, called by {root,leaf}_label_accept().
-    def _label_accept(self):
+    # Helper method, called by {root,leaf}LabelAccept().
+    def _labelAccept(self):
         if self._map.ind_get(self.token()) != None:
             # Taxon mapping defined.
             val = self._map.ind_get(self.token())
@@ -101,39 +101,39 @@ class _newick_parser(newick.newick):
         # Create a new node and push it onto the stack.
         nnode = node.node(self._tree)
         nnode.taxon_num_set(val)
-        self._taxon_stack.insert(0, nnode)
+        self._taxonStack.insert(0, nnode)
 
     # Overridden method.
-    def root_label_accept(self):
+    def rootLabelAccept(self):
         # A tree with only one node can be written as a single root label.  This
         # is the only case that we allow root labels here.
         if len(self.token()) > 0:
-            if len(self._taxon_stack) > 0:
+            if len(self._taxonStack) > 0:
                 self.error_raise("Trailing root label not supported")
             else:
-                self._label_accept()
+                self._labelAccept()
 
     # Overridden method.
-    def leaf_label_accept(self):
-        self._label_accept()
+    def leafLabelAccept(self):
+        self._labelAccept()
 
     # Overridden method.
-    def length_accept(self):
-        self._taxon_stack.insert(0, float(self.token()))
+    def lengthAccept(self):
+        self._taxonStack.insert(0, float(self.token()))
 
     # Overridden method.
-    def semicolon_accept(self):
+    def semicolonAccept(self):
         # If there is an internal node with only two neighbors on the stack,
         # splice it out of the tree.
-        if len(self._taxon_stack) != 0:
-            if type(self._taxon_stack[0]) == float:
-                length = self._taxon_stack.pop(0)
+        if len(self._taxonStack) != 0:
+            if type(self._taxonStack[0]) == float:
+                length = self._taxonStack.pop(0)
             else:
                 length = None
 
-            n = self._taxon_stack[0]
+            n = self._taxonStack[0]
             if n.degree() == 2:
-                self._taxon_stack.pop(0)
+                self._taxonStack.pop(0)
                 # Get edges (and end that n is attached to).
                 (edge_a, end_a) = n.edge()
                 (edge_b, end_b) = edge_a.next(end_a)
@@ -152,20 +152,20 @@ class _newick_parser(newick.newick):
                     e.length_set(edge_a.length_get() + edge_b.length_get())
                     
                 # Push a node back onto the stack.
-                self._taxon_stack.insert(0, node_a)
+                self._taxonStack.insert(0, node_a)
 
 class tree(_tree.Tree):
     def __init__(self, with=None, map=taxon_map.taxon_map()):
         self._map = map
 
         if type(with) == int:
-            self._random_new(with)
+            self._randomNew(with)
         elif type(with) == str or type(with) == file:
-            self._newick_new(with)
+            self._newickNew(with)
         elif type(with) == list:
-            self._nj_new(with)
+            self._njNew(with)
 
-    def _random_new(self, ntaxa):
+    def _randomNew(self, ntaxa):
         # Create a stack of leaf nodes.
         subtrees = []
         i = 0
@@ -196,11 +196,11 @@ class tree(_tree.Tree):
 
         self.base_set(subtree_a)
 
-    def _newick_new(self, input):
-        parser = _newick_parser(self, self._map)
+    def _newickNew(self, input):
+        parser = _NewickParser(self, self._map)
         return parser.parse(input, self)
 
-    def _nj_new(self, input):
+    def _njNew(self, input):
         self._nj(input)
 
     def prints(self, labels=False, lengths=False):

@@ -11,42 +11,42 @@
 
 import sys
 
-class testclass(crux.newick.newick):
+class testclass(crux.NewickParser.NewickParser):
     def vprint(self, str):
         print "--%s--: %r" % (str, self.token())
         sys.stdout.flush()
 
-    def open_paren_accept(self):
+    def openParenAccept(self):
         self.vprint("(")
 
-    def close_paren_accept(self):
+    def closeParenAccept(self):
         self.vprint(")")
 
-    def root_label_accept(self):
-        self.vprint("root_label")
+    def rootLabelAccept(self):
+        self.vprint("rootLabel")
 
-    def internal_label_accept(self):
-        self.vprint("internal_label")
+    def internalLabelAccept(self):
+        self.vprint("internalLabel")
 
-    def leaf_label_accept(self):
-        self.vprint("leaf_label")
+    def leafLabelAccept(self):
+        self.vprint("leafLabel")
 
-    def colon_accept(self):
+    def colonAccept(self):
         self.vprint(":")
 
-    def length_accept(self):
+    def lengthAccept(self):
         self.vprint("length")
 
-    def comma_accept(self):
+    def commaAccept(self):
         self.vprint(",")
 
-    def semicolon_accept(self):
+    def semicolonAccept(self):
         self.vprint(";")
 
-    def comment_accept(self):
+    def commentAccept(self):
         self.vprint("[]")
 
-    def whitespace_accept(self):
+    def whitespaceAccept(self):
         self.vprint(" ")
 
 teststrs = (
@@ -149,6 +149,11 @@ print "Test begin"
 
 for str in teststrs:
     print "\n=== %r ===" % str
-    test.parse(str)
+    try:
+        test.parse(str)
+    except crux.NewickParser.Exception, x:
+        import sys
+
+        print "Exception %s: %s" % (sys.exc_type, x.__str__())
 
 print "Test end"

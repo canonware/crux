@@ -218,7 +218,7 @@ AC_SUBST([crux_scripts])
 
 dnl Crux tests.
 crux_tests=""
-for t in newick_a.py newick_b.py dist_matrix_a.py taxon_map_a.py; do
+for t in NewickParser_a.py NewickParser_b.py dist_matrix_a.py taxon_map_a.py; do
   crux_tests="${crux_tests} test/${t}"
 done
 AC_SUBST([crux_tests])

@@ -107,27 +107,40 @@
 import sys
 import re
 
-class _newick_error: pass
+import crux.Exception
 
-class newick(object):
+class Exception(crux.Exception):
+    pass
+
+class SyntaxError(Exception, SyntaxError):
+    def __init__(self, message, offset=None, char=None, token=None):
+        self._message = message
+        self._offset = offset
+        self._char = char
+        self._token = token
+
+    def __str__(self):
+        if self._offset != None:
+            retval = "At offset %d (char '%s') (token \"%s\"): %s" \
+                     % (self._offset, self._char, self._token, self._message)
+        else:
+            retval = self._message
+
+        return retval
+
+class NewickParser(object):
     def __init__(self):
         pass
 
-    # Parse input and call the *_accept methods for each token that is accepted.
+    # Parse input and call the *Accept methods for each token that is accepted.
     def parse(self, input):
         self._src = input
-        self._src_offset = -1
+        self._srcOffset = -1
         self._c = "?"
-        self._lookahead_c = None
+        self._lookaheadC = None
         self._token = ""
 
-        try:
-            self._p_tree()
-            retval = False
-        except _newick_error:
-            retval = True
-
-        return retval
+        self._treeProduction()
 
     # Return the current token (string).
     def token(self):
@@ -135,61 +148,49 @@ class newick(object):
 
     # Return the current offset within the input.
     def offset(self):
-        return self._src_offset
+        return self._srcOffset
 
-    # Handle an error, and unwind to the parse method.
-    def error_raise(self, str):
-        self.error_print(str)
-
-        X = _newick_error()
-        raise X
-
-    # Print an error message.
-    def error_print(self, str):
-        print >> sys.stderr, "At offset %d (char '%s') (token \"%s\"): %s" \
-              % (self._src_offset, self._c, self._token, str)
-
-    def open_paren_accept(self):
+    def openParenAccept(self):
         # Virtual method.
         pass
 
-    def close_paren_accept(self):
+    def closeParenAccept(self):
         # Virtual method.
         pass
 
-    def root_label_accept(self):
+    def rootLabelAccept(self):
         # Virtual method.
         pass
 
-    def internal_label_accept(self):
+    def internalLabelAccept(self):
         # Virtual method.
         pass
 
-    def leaf_label_accept(self):
+    def leafLabelAccept(self):
         # Virtual method.
         pass
 
-    def colon_accept(self):
+    def colonAccept(self):
         # Virtual method.
         pass
 
-    def length_accept(self):
+    def lengthAccept(self):
         # Virtual method.
         pass
 
-    def comma_accept(self):
+    def commaAccept(self):
         # Virtual method.
         pass
 
-    def semicolon_accept(self):
+    def semicolonAccept(self):
         # Virtual method.
         pass
 
-    def comment_accept(self):
+    def commentAccept(self):
         # Virtual method.
         pass
 
-    def whitespace_accept(self):
+    def whitespaceAccept(self):
         # Virtual method.
         pass
 
@@ -198,13 +199,13 @@ class newick(object):
     #
     # _src : Source, either a file or a string.
     #
-    # _src_offset : Byte offset from the beginning of the source, starting at 0.
+    # _srcOffset : Byte offset from the beginning of the source, starting at 0.
     #
     # _c : Current character, stored as a one byte string.  Rather than
     #      re-defining this for every character, the current character is put
     #      into one string which is used over and over.
     #
-    # _lookahead_c : Lookahead character, stored as a one byte string.  This
+    # _lookaheadC : Lookahead character, stored as a one byte string.  This
     #                supports :p_ungetc.
     #
     # _token : Current token (or partial token, if not yet accepted).
@@ -214,26 +215,32 @@ class newick(object):
     #
 
     # Get a character.
-    def _p_getc(self):
-        if self._lookahead_c != None:
+    def _getc(self):
+        if self._lookaheadC != None:
 	    # Lookahead character defined.
-            retval = self._lookahead_c
-            self._lookahead_c = None
+            retval = self._lookaheadC
+            self._lookaheadC = None
         else:
             # Increment the offset.
-            self._src_offset += 1
+            self._srcOffset += 1
 
             if type(self._src) == str:
                 # String input.
-                if self._src_offset >= len(self._src):
-                    self.error_raise("End of input reached")
+                if self._srcOffset >= len(self._src):
+                    raise crux.NewickParser.SyntaxError("End of input reached",
+                                                        self._srcOffset,
+                                                        self._c,
+                                                        self._token)
 
-                self._c = self._src[self._src_offset]
+                self._c = self._src[self._srcOffset]
             else:
                 # File input.
                 self._c = read(self._src, 1)
                 if self._c == "":
-                    self.error_raise("End of input reached")
+                    raise crux.NewickParser.SyntaxError("End of input reached",
+                                                        self._srcOffset,
+                                                        self._c,
+                                                        self._token)
 
             retval = self._c
 
@@ -242,112 +249,118 @@ class newick(object):
 
         return retval
 
-    # Set lookahead_c so that it will be used by the next _p_getc call.
-    def _p_ungetc(self):
-        self._lookahead_c = self._c
+    # Set lookahead_c so that it will be used by the next _getc call.
+    def _ungetc(self):
+        self._lookaheadC = self._c
 
         # Remove character from token.
         self._token = self._token[:-1]
 
-    # Call the *_accept specified method, then reset the internal state in
+    # Call the *Accept specified method, then reset the internal state in
     # preparation for the next token.
-    def _p_token_accept(self, method):
+    def _tokenAccept(self, method):
         method()
 
         self._token = ""
 
     # Top level production.
-    def _p_tree(self):
-        self._p_ws()
-        self._p_descendant_list()
-        self._p_ws()
-        self._p_label(self.root_label_accept)
-        self._p_ws()
+    def _treeProduction(self):
+        self._wsProduction()
+        self._descendantListProduction()
+        self._wsProduction()
+        self._labelProduction(self.rootLabelAccept)
+        self._wsProduction()
 
-        if self._p_getc() == ":":
-            self._p_token_accept(self.colon_accept)
-            self._p_ws()
-            self._p_branch_length()
-            self._p_ws()
+        if self._getc() == ":":
+            self._tokenAccept(self.colonAccept)
+            self._wsProduction()
+            self._branchLengthProduction()
+            self._wsProduction()
         else:
-            self._p_ungetc()
+            self._ungetc()
 
-        if self._p_getc() != ";":
-            self.error_raise("';' expected")
+        if self._getc() != ";":
+            raise crux.NewickParser.SyntaxError("';' expected",
+                                                self._srcOffset,
+                                                self._c,
+                                                self._token)
 
-        self._p_token_accept(self.semicolon_accept)
+        self._tokenAccept(self.semicolonAccept)
 
     # Return True if a descendant_list is accepted, False otherwise.
     #
-    # accepted _p_descendant_list()
-    def _p_descendant_list(self):
-        if self._p_getc() == "(":
-            self._p_token_accept(self.open_paren_accept)
+    # accepted _descendantListProduction()
+    def _descendantListProduction(self):
+        if self._getc() == "(":
+            self._tokenAccept(self.openParenAccept)
 
-            self._p_ws()
-            self._p_subtree()
-            self._p_ws()
+            self._wsProduction()
+            self._subtree()
+            self._wsProduction()
 
             while True:
-                if self._p_getc() == ",":
-                    self._p_token_accept(self.comma_accept)
-                    self._p_ws()
-                    self._p_subtree()
-                    self._p_ws()
+                if self._getc() == ",":
+                    self._tokenAccept(self.commaAccept)
+                    self._wsProduction()
+                    self._subtree()
+                    self._wsProduction()
                 else:
-                    self._p_ungetc()
+                    self._ungetc()
                     break
 
-            if self._p_getc() != ")":
-                self.error_raise("',' or ')' expected")
+            if self._getc() != ")":
+                raise crux.NewickParser.SyntaxError("',' or ')' expected",
+                                                    self._srcOffset,
+                                                    self._c,
+                                                    self._token)
 
-            self._p_token_accept(self.close_paren_accept)
+            self._tokenAccept(self.closeParenAccept)
 
             retval = True
         else:
-            self._p_ungetc()
+            self._ungetc()
             retval = False
 
         return retval
 
-    def _p_subtree(self):
-        self._p_ws()
-        accepted = self._p_descendant_list()
-        self._p_ws()
+    def _subtree(self):
+        self._wsProduction()
+        accepted = self._descendantListProduction()
+        self._wsProduction()
         if accepted:
-            self._p_label(self.internal_label_accept)
+            self._labelProduction(self.internalLabelAccept)
         else:
-            self._p_label(self.leaf_label_accept)
-        self._p_ws()
+            self._labelProduction(self.leafLabelAccept)
+        self._wsProduction()
 
-        if self._p_getc() == ":":
-            self._p_token_accept(self.colon_accept)
-            self._p_ws()
-            self._p_branch_length()
+        if self._getc() == ":":
+            self._tokenAccept(self.colonAccept)
+            self._wsProduction()
+            self._branchLengthProduction()
         else:
-            self._p_ungetc()
+            self._ungetc()
 
-    def _p_label(self, accept_method):
-        if not self._p_quoted_label(accept_method):
-            if not self._p_unquoted_label(accept_method):
+    def _labelProduction(self, accept_method):
+        if not self._quotedLabelProduction(accept_method):
+            if not self._unquotedLabelProduction(accept_method):
                 # Accept a zero length label.
-                self._p_token_accept(accept_method)
+                self._tokenAccept(accept_method)
 
     # If an unquoted label is accepted, return True, otherwise return False.
     #
-    # accepted _p_unquoted_label(accept_method)
-    def _p_unquoted_label(self, accept_method):
-        if self._p_ulabel_char():
+    # accepted _unquotedLabelProduction(accept_method)
+    def _unquotedLabelProduction(self, accept_method):
+        if self._ulabelCharProduction():
             # Consume all ulabel_char characters.
             while True:
-                if not self._p_ulabel_char():
+                if not self._ulabelCharProduction():
                     break
 
             # Convert '_' to ' ' before accepting the token.
             uscore = re.compile(r'_')
             self._token = uscore.sub(' ', self._token)
 
-            self._p_token_accept(accept_method)
+            self._tokenAccept(accept_method)
             retval = True
         else:
             retval = False
@@ -357,24 +370,24 @@ class newick(object):
     # If an unquoted label character is accepted, return True, otherwise return
     # False.
     #
-    # accepted _p_ulabel_char()
-    def _p_ulabel_char(self):
+    # accepted _ulabelCharProduction()
+    def _ulabelCharProduction(self):
         ulabel_char = re.compile(r'[^ ()[\]\':;,]')
-        if ulabel_char.match(self._p_getc()):
+        if ulabel_char.match(self._getc()):
             retval = True
         else:
-            self._p_ungetc()
+            self._ungetc()
             retval = False
 
         return retval
 
     # If a quoted label is accepted, return True, otherwise return False.
     #
-    # accepted _p_quoted_label(accept_method)
-    def _p_quoted_label(self, accept_method):
-        if self._p_getc() == "'":
+    # accepted _quotedLabelProduction(accept_method)
+    def _quotedLabelProduction(self, accept_method):
+        if self._getc() == "'":
             while True:
-                if not self._p_qlabel_char():
+                if not self._qlabelCharProduction():
                     break
 
             # Remove quotes before accepting the token.
@@ -384,11 +397,11 @@ class newick(object):
             qcollapse = re.compile("''")
             self._token = qcollapse.sub("'", self._token)
 
-            self._p_token_accept(accept_method)
+            self._tokenAccept(accept_method)
 
             retval = True
         else:
-            self._p_ungetc()
+            self._ungetc()
             retval = False
 
         return retval
@@ -396,96 +409,99 @@ class newick(object):
     # Since there is only one lookahead character, this method is responsible
     # for reading the ' that terminates the quoted label.
     #
-    # accepted _p_qlabel_char()
-    def _p_qlabel_char(self):
-        if self._p_getc() == "'":
-            if self._p_getc() == "'":
+    # accepted _qlabelCharProduction()
+    def _qlabelCharProduction(self):
+        if self._getc() == "'":
+            if self._getc() == "'":
                 retval = True
             else:
-                self._p_ungetc()
+                self._ungetc()
                 retval = False
         else:
             retval = True
 
         return retval
 
-    def _p_branch_length(self):
+    def _branchLengthProduction(self):
         sign = re.compile(r'[+-]')
-        if not sign.match(self._p_getc()):
-            self._p_ungetc()
+        if not sign.match(self._getc()):
+            self._ungetc()
 
-        self._p_int()
+        self._intProduction()
 
-        if self._p_getc() == ".":
-            self._p_int()
+        if self._getc() == ".":
+            self._intProduction()
         else:
-            self._p_ungetc()
+            self._ungetc()
 
-        self._p_token_accept(self.length_accept)
+        self._tokenAccept(self.lengthAccept)
 
-    def _p_int(self):
-        if not self._p_digit():
-            self.error_raise("Expected digit")
+    def _intProduction(self):
+        if not self._digitProduction():
+            raise crux.NewickParser.SyntaxError("Expected digit",
+                                                self._srcOffset,
+                                                self._c,
+                                                self._token)
 
         while True:
-            if not self._p_digit():
+            if not self._digitProduction():
                 break
 
-    # accepted _p_digit()
-    def _p_digit(self):
+    # accepted _digitProduction()
+    def _digitProduction(self):
         digit = re.compile(r'\d')
-        if digit.match(self._p_getc()):
+        if digit.match(self._getc()):
             retval = True
         else:
-            self._p_ungetc()
+            self._ungetc()
             retval = False
 
         return retval
 
-    # accepted _p_comment()
-    def _p_comment(self):
-        if self._p_getc() == "[":
+    # accepted _commentProduction()
+    def _commentProduction(self):
+        if self._getc() == "[":
             while True:
-                if self._p_getc() == "]":
+                if self._getc() == "]":
                     break
                 else:
-                    self._p_ungetc()
-                    if not self._p_comment():
-                        self._p_getc()
+                    self._ungetc()
+                    if not self._commentProduction():
+                        self._getc()
             retval = True
         else:
-            self._p_ungetc()
+            self._ungetc()
             retval = False
 
         return retval
 
-    # accepted _p_whitespace()
-    def _p_whitespace(self):
+    # accepted _whitespaceProduction()
+    def _whitespaceProduction(self):
         whitespace = re.compile(r'\s')
-        if whitespace.match(self._p_getc()):
+        if whitespace.match(self._getc()):
             while True:
-                if not whitespace.match(self._p_getc()):
-                    self._p_ungetc()
+                if not whitespace.match(self._getc()):
+                    self._ungetc()
                     break
             retval = True
         else:
-            self._p_ungetc()
+            self._ungetc()
             retval = False
 
         return retval
 
-    def _p_ws(self):
+    def _wsProduction(self):
         again = True
         while again:
             again = False
 
             # Match a comment.
-            if self._p_comment():
-                self._p_token_accept(self.comment_accept)
+            if self._commentProduction():
+                self._tokenAccept(self.commentAccept)
                 again = True
 
             # Match whitespace.
-            if self._p_whitespace():
-                self._p_token_accept(self.whitespace_accept)
+            if self._whitespaceProduction():
+                self._tokenAccept(self.whitespaceAccept)
                 again = True
 #EOF
