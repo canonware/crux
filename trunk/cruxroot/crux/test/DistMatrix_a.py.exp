@@ -1,4 +1,5 @@
 Test begin
+===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
@@ -6,12 +7,28 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
- 0.000 1.000 2.000 3.000 3.000
- 1.000 0.000 2.000 3.000 3.000
- 2.000 2.000 0.000 3.000 3.000
- 3.000 3.000 0.000 0.000 1.000
- 3.000 3.000 3.000 1.000 0.000
+5
+Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
+Beta       1.00000 0.00000 2.00000 3.00000 3.00000
+Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
+Delta      3.00000 3.00000 0.00000 0.00000 1.00000
+Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
+
+5
+Alpha              1.00000 2.00000 3.00000 3.00000
+Beta                       2.00000 3.00000 3.00000
+Gamma                              3.00000 3.00000
+Delta                                      1.00000
+Epsilon                                           
+
+5
+Alpha     
+Beta       1.00000
+Gamma      2.00000 2.00000
+Delta      3.00000 3.00000 0.00000
+Epsilon    3.00000 3.00000 3.00000 1.00000
+
+===
 5
 Taxon_A 0.0 1.0 2.0 3.0 4.0
 Taxon_B 1.0 0.0 1.5 2.5 3.5
@@ -19,12 +36,28 @@ Taxon_C 2.0 1.5 0.0 2.2 3.2
 Taxon_D 3.0 2.5 2.2 0.0 3.1
 Taxon_E 4.0 3.5 3.2 3.1 0.0
 
-['Taxon_A', 'Taxon_B', 'Taxon_C', 'Taxon_D', 'Taxon_E']
- 0.000 1.000 2.000 3.000 4.000
- 1.000 0.000 1.500 2.500 3.500
- 2.000 1.500 0.000 2.200 3.200
- 3.000 2.500 2.200 0.000 3.100
- 4.000 3.500 3.200 3.100 0.000
+5
+Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
+Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
+Taxon_C    2.00000 1.50000 0.00000 2.20000 3.20000
+Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
+Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
+
+5
+Taxon_A            1.00000 2.00000 3.00000 4.00000
+Taxon_B                    1.50000 2.50000 3.50000
+Taxon_C                            2.20000 3.20000
+Taxon_D                                    3.10000
+Taxon_E                                           
+
+5
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 1.50000
+Taxon_D    3.00000 2.50000 2.20000
+Taxon_E    4.00000 3.50000 3.20000 3.10000
+
+===
 5
 Taxon_A     1.0 2.0 3.0 4.0
 Taxon_B         1.5 2.5 3.5
@@ -32,12 +65,28 @@ Taxon_C             2.2 3.2
 Taxon_D                 3.1
 Taxon_E
 
-['Taxon_A', 'Taxon_B', 'Taxon_C', 'Taxon_D', 'Taxon_E']
- 0.000 1.000 2.000 3.000 4.000
- 1.000 0.000 1.500 2.500 3.500
- 2.000 1.500 0.000 2.200 3.200
- 3.000 2.500 2.200 0.000 3.100
- 4.000 3.500 3.200 3.100 0.000
+5
+Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
+Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
+Taxon_C    2.00000 1.50000 0.00000 2.20000 3.20000
+Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
+Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
+
+5
+Taxon_A            1.00000 2.00000 3.00000 4.00000
+Taxon_B                    1.50000 2.50000 3.50000
+Taxon_C                            2.20000 3.20000
+Taxon_D                                    3.10000
+Taxon_E                                           
+
+5
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 1.50000
+Taxon_D    3.00000 2.50000 2.20000
+Taxon_E    4.00000 3.50000 3.20000 3.10000
+
+===
 5
 Taxon_A
 Taxon_B 1.0
@@ -45,20 +94,169 @@ Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2 3.1
 
-['Taxon_A', 'Taxon_B', 'Taxon_C', 'Taxon_D', 'Taxon_E']
- 0.000 1.000 2.000 3.000 4.000
- 1.000 0.000 1.500 2.500 3.500
- 2.000 1.500 0.000 2.200 3.200
- 3.000 2.500 2.200 0.000 3.100
- 4.000 3.500 3.200 3.100 0.000
+5
+Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
+Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
+Taxon_C    2.00000 1.50000 0.00000 2.20000 3.20000
+Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
+Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
+
+5
+Taxon_A            1.00000 2.00000 3.00000 4.00000
+Taxon_B                    1.50000 2.50000 3.50000
+Taxon_C                            2.20000 3.20000
+Taxon_D                                    3.10000
+Taxon_E                                           
+
+5
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 1.50000
+Taxon_D    3.00000 2.50000 2.20000
+Taxon_E    4.00000 3.50000 3.20000 3.10000
+
+===
+2
+Taxon_A 0.0 1.0
+Taxon_B 1.0 0.0
+
+2
+Taxon_A    0.00000 1.00000
+Taxon_B    1.00000 0.00000
+
+2
+Taxon_A            1.00000
+Taxon_B                   
+
+2
+Taxon_A   
+Taxon_B    1.00000
+
+===
+2
+Taxon_A     1.0
+Taxon_B
+
+2
+Taxon_A    0.00000 1.00000
+Taxon_B    1.00000 0.00000
+
+2
+Taxon_A            1.00000
+Taxon_B                   
+
+2
+Taxon_A   
+Taxon_B    1.00000
+
+===
+2
+Taxon_A
+Taxon_B 1.0
+
+2
+Taxon_A    0.00000 1.00000
+Taxon_B    1.00000 0.00000
+
+2
+Taxon_A            1.00000
+Taxon_B                   
+
+2
+Taxon_A   
+Taxon_B    1.00000
+
+===
+3
+Taxon_A 0.0 1.0 2.0
+Taxon_B 1.0 0.0 3.0
+Taxon_C 2.0 3.0 0.0
+
+3
+Taxon_A    0.00000 1.00000 2.00000
+Taxon_B    1.00000 0.00000 3.00000
+Taxon_C    2.00000 3.00000 0.00000
+
+3
+Taxon_A            1.00000 2.00000
+Taxon_B                    3.00000
+Taxon_C                           
+
+3
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 3.00000
+
+===
+3
+Taxon_A     1.0 2.0
+Taxon_B         3.0
+Taxon_C
+
+3
+Taxon_A    0.00000 1.00000 2.00000
+Taxon_B    1.00000 0.00000 3.00000
+Taxon_C    2.00000 3.00000 0.00000
+
+3
+Taxon_A            1.00000 2.00000
+Taxon_B                    3.00000
+Taxon_C                           
+
+3
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 3.00000
+
+===
+3
+Taxon_A
+Taxon_B 1.0
+Taxon_C 2.0 3.0
+
+3
+Taxon_A    0.00000 1.00000 2.00000
+Taxon_B    1.00000 0.00000 3.00000
+Taxon_C    2.00000 3.00000 0.00000
+
+3
+Taxon_A            1.00000 2.00000
+Taxon_B                    3.00000
+Taxon_C                           
+
+3
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 3.00000
+
+===
 
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
-Epsilon    3.000 3.000 3.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Taxon count specification: Syntax error
+Exception crux.DistMatrix.SyntaxError: Line 1: Unspecified number of taxa
+===
+5
+           0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
+
+Exception crux.DistMatrix.SyntaxError: Line 2: Missing taxon label
+===
+5
+Alpha            1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
+
+Exception crux.DistMatrix.SyntaxError: Line 3 (upper matrix format): Missing taxon label
+===
 5
 Alpha      0.000 1.000 2.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
@@ -66,21 +264,60 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Row 1: Syntax error
+Exception crux.DistMatrix.SyntaxError: Line 3 (upper matrix format): Missing taxon label
+===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
-Beta       1.000 0.000 2.000 3.000
+           1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Row 1: Syntax error
+Exception crux.DistMatrix.SyntaxError: Line 3 (full matrix format): Missing taxon label
+===
+5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta             0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
+
+Exception crux.DistMatrix.SyntaxError: Line 3 (full matrix format): Missing distance (1, 4)
+===
+5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
+
+Exception crux.DistMatrix.SyntaxError: Line 3 (full matrix format): Missing distance (1, 4)
+===
+5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000
+2.000 3.000 
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
+
+Exception crux.DistMatrix.SyntaxError: Line 4 (full matrix format): Missing distance (1, 4)
+===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
-Epsilon    3.000 3.000 3.000 1.000
+           3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Row 4: Syntax error
+Exception crux.DistMatrix.SyntaxError: Line 6 (full matrix format): Missing taxon label
+===
+5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 
+
+Exception crux.DistMatrix.SyntaxError: Line 6 (full matrix format): Missing distance (4, 4)
 Test end

@@ -65,24 +65,124 @@ class Exception(crux.Exception):
     pass
 
 class SyntaxError(Exception, SyntaxError):
-    def __init__(self, row):
-        self._row = row
+    def __init__(self, line, message, format=None):
+        self._line = line
+        self._format = format
+        self._message = message
 
     def __str__(self):
-        if self._row >= 0:
-            retval = "Row %d: Syntax error" % self._row
+        if self._format != None:
+            retval = "Line %d (%s matrix format): %s" \
+                     % (self._line, self._format, self._message)
         else:
-            retval = "Taxon count specification: Syntax error"
+            retval = "Line %d: %s" \
+                     % (self._line, self._message)
 
         return retval
 
-class DistMatrix(object):
-    def __init__(self):
-        pass
+class ValueError(Exception, ValueError):
+    def __init__(self, str):
+        self._str = str
 
-    # Parse input (file or string) and return a tuple, where the first element
-    # in the tuple is a TaxonMmap, and the second element is a
-    # row-major matrix.
+    def __str__(self):
+        return self._str
+
+class DistMatrix(object):
+    # Construct a DistMatrix from one of the following inputs:
+    #
+    #   str : Parse the string as a distance matrix.
+    #
+    #   file : Parse the file as a distance matrix.
+    #
+    #   TaxonMap : Create an uninitialized distance matrix of the appropriate
+    #              size, given the number of taxa in the TaxonMap.
+    def __init__(self, input=None):
+        self._ntaxa = 0
+        self._map = None
+        self._matrix = None
+
+        if type(input) == crux.TaxonMap.TaxonMap:
+            self._taxonMapNew(input)
+        elif type(input) == str:
+            self._strNew(input)
+        elif type(input) == file:
+            self._fileNew(input)
+        elif input != None:
+            raise crux.DistMatrix.ValueError("Input must be string or file")
+
+        return (self._map, self._matrix)
+
+    def ntaxaGet(self):
+        return self._ntaxa
+
+    def taxonMapGet(self):
+        return self._map
+
+    def distanceGet(self, fr, to):
+        if fr >= self._ntaxa or to >= self._ntaxa:
+            raise crux.DistMatrix.ValueError("Out of bounds matrix access")
+
+        return self._distanceGet(fr, to)
+
+    def _distanceGet(self, fr, to):
+        return self._matrix[fr * self._ntaxa + to]
+
+    def distanceSet(self, fr, to, distance):
+        if fr >= self._ntaxa or to >= self._ntaxa:
+            raise crux.DistMatrix.ValueError("Out of bounds matrix access")
+
+        if type(distance) != float and type(distance) != int:
+            raise crux.DistMatrix.ValueError("Distance must be a number")
+
+        self._distanceSet(fr, to, distance)
+
+    def _distanceSet(self, fr, to, distance):
+        self._matrix[fr * self._ntaxa + to] = distance
+
+    # Print the matrix to a string in 'full', 'upper', or 'lower' format.
+    def prints(self, format='full'):
+        retval = "%d\n" % self._ntaxa
+        if format == 'full':
+            for x in forints(self._ntaxa):
+                retval += "%-10s" % self._map.labelGet(x)
+                for y in forints(self._ntaxa):
+                    retval += " %1.5f" % self._distanceGet(x, y)
+                retval += "\n"
+        elif format == 'upper':
+            for x in forints(self._ntaxa):
+                retval += "%-10s" % self._map.labelGet(x)
+                for y in forints(x + 1):
+                    retval += "%8s" % ""
+                for y in forints(self._ntaxa, start=x+1):
+                    retval += " %1.5f" % self._distanceGet(x, y)
+                retval += "\n"
+        elif format == 'lower':
+            for x in forints(self._ntaxa):
+                retval += "%-10s" % self._map.labelGet(x)
+                for y in forints(x):
+                    retval += " %1.5f" % self._distanceGet(x, y)
+                retval += "\n"
+        else:
+            raise crux.DistMatrix\
+                  .ValueError("Format must be 'full', 'upper', or 'lower'")
+
+        return retval
+
+    # Create an empty distance matrix that is the right size for the TaxonMap
+    # that was passed in to the constructor.
+    def _taxonMapNew(self, input):
+        # The size of the distance matrix corresponds to the number of taxa in
+        # the TaxonMap that was passed in.
+        self._ntaxa = input.ntaxaGet()
+
+        # Use the TaxonMap that was passed in as the map.
+        self._map = input
+
+        # Create an uninitialized distance matrix.
+        self._matrix = [None] * (self._ntaxa * self._ntaxa)
+
+    # Parse input (string) and return a tuple, where the first element in the
+    # tuple is a TaxonMmap, and the second element is a row-major matrix.
     #
     # Example input:
     #
@@ -102,120 +202,216 @@ class DistMatrix(object):
     #   3.0, 2.5, 2.2, 0.0, 3.1,
     #   4.0, 3.5, 3.2, 3.1, 0.0])
     #
-    def parse(self, input):
+    def _strNew(self, input):
+        import __builtin__
+
         self._input = input
         self._i = 0
+        self._line = 1
         self._matrixFormat = 'unknown' # 'unknown', 'full', 'upper', 'lower'
 
         # Get the number of taxa.
-        token = self._tokenGet()
+        (token, line) = self._strTokenGet()
         try:
             self._ntaxa = int(token)
-        except ValueError:
-            raise crux.DistMatrix.SyntaxError(-1)
+        except __builtin__.ValueError:
+            raise crux.DistMatrix.SyntaxError(line,
+                                              "Unspecified number of taxa")
+        if self._ntaxa < 2:
+            raise crux.DistMatrix.SyntaxError(line,
+                                              "Too few taxa")
 
         # Create an empty TaxonMap.
         self._map = TaxonMap.TaxonMap()
 
-        # Create an empty distance matrix (fourth quadrant coordinates).
-        self._matrix = [None] * (self._ntaxa * self._ntaxa);
+        # Create an empty distance matrix.
+        self._matrix = [None] * (self._ntaxa * self._ntaxa)
 
         # Get the first taxon label.
-        token = self._tokenGet()
+        (token, line) = self._strTokenGet()
         distance = self._tokenToDistance(token)
         if distance != None:
-            raise crux.DistMatrix.SyntaxError(0)
+            raise crux.DistMatrix.SyntaxError(line, "Missing taxon label")
         self._map.map(token, self._map.ntaxaGet())
-        distances = []
 
-        x = 0
-        while True:
-            token = self._tokenGet()
+        # Get the next token; if it is a taxon label, then this matrix is in
+        # lower triangle format.
+        (token, line) = self._strTokenGet()
+        distance = self._tokenToDistance(token)
+        if distance == None:
+            # This is a lower-triangle matrix.
+            self._map.map(token, self._map.ntaxaGet())
+
+            # Get second row of distances.
+            for y in forints(1):
+                (token, line) = self._strTokenGet()
+                distance = self._tokenToDistance(token)
+                if distance == None:
+                    raise crux.DistMatrix\
+                          .SyntaxError(line,
+                                       "Missing distance (%d, %d)" % (1, y),
+                                       'lower')
+                self._distanceSet(1, y, distance)
+
+            # Get remaining rows.
+            for x in forints(self._ntaxa, start=2):
+                # Get taxon label.
+                (token, line) = self._strTokenGet()
+                distance = self._tokenToDistance(token)
+                if distance != None:
+                    raise crux.DistMatrix.SyntaxError(line,
+                                                      "Missing taxon label",
+                                                      'lower')
+                self._map.map(token, self._map.ntaxaGet())
+
+                # Get distances.
+                for y in forints(x):
+                    (token, line) = self._strTokenGet()
+                    distance = self._tokenToDistance(token)
+                    if distance == None:
+                        raise crux.DistMatrix\
+                              .SyntaxError(line,
+                                           "Missing distance (%d, %d)" % (x, y),
+                                           'lower')
+                    self._distanceSet(x, y, distance)
+
+            # Reflect matrix contents.
+            for x in forints(self._ntaxa):
+                for y in forints(self._ntaxa, x + 1):
+                    self._distanceSet(x, y, self._distanceGet(y, x))
+            # Initialize diagonal.
+            for x in forints(self._ntaxa):
+                self._distanceSet(x, x, 0.0)
+        else:
+            # Get the first row of distances, and insert them into the matrix
+            # as though parsing an upper-triangle matrix.
+            self._distanceSet(0, 1, distance)
+
+            for y in forints(self._ntaxa, start=2):
+                (token, line) = self._strTokenGet()
+                distance = self._tokenToDistance(token)
+                if distance == None:
+                    raise crux.DistMatrix\
+                          .SyntaxError(line,
+                                       "Missing distance (%d, %d)" % (0, y))
+                self._distanceSet(0, y, distance)
+
+            # Determine whether this is a full or upper-triangle matrix.
+            (token, line) = self._strTokenGet()
             distance = self._tokenToDistance(token)
-            if distance != None:
-                # Get distance for taxon.
-                distances.append(distance)
-            else:
-                # Merge distances into the matrix.
-                self._distancesMerge(distances, x)
-                distances = []
+            if distance == None:
+                # This is an upper-triangle matrix.
+                self._map.map(token, self._map.ntaxaGet())
 
-                # Get taxon label, unless all taxon labels have already been
-                # read.
-                if self._map.ntaxaGet() == self._ntaxa:
-                    break
-                else:
+                # Get second row of distances.
+                for y in forints(self._ntaxa, start=2):
+                    (token, line) = self._strTokenGet()
+                    distance = self._tokenToDistance(token)
+                    if distance == None:
+                        raise crux.DistMatrix\
+                              .SyntaxError(line,
+                                           "Missing distance (%d, %d)" % (1, y),
+                                           'upper')
+                    self._distanceSet(1, y, distance)
+
+                # Get remaining rows.
+                for x in forints(self._ntaxa, start=2):
+                    # Get taxon label.
+                    (token, line) = self._strTokenGet()
+                    distance = self._tokenToDistance(token)
+                    if distance != None:
+                        raise crux.DistMatrix.SyntaxError(line,
+                                                          "Missing taxon label",
+                                                          'upper')
                     self._map.map(token, self._map.ntaxaGet())
-                    x += 1
 
-        return (self._map, self._matrix)
+                    # Get distances.
+                    for y in forints(self._ntaxa, start=x+1):
+                        (token, line) = self._strTokenGet()
+                        distance = self._tokenToDistance(token)
+                        if distance == None:
+                            raise crux.DistMatrix\
+                                  .SyntaxError(line,
+                                               "Missing distance (%d, %d)"
+                                               % (x, y),
+                                               'upper')
+                        self._distanceSet(x, y, distance)
+
+                # Reflect matrix contents.
+                for x in forints(self._ntaxa):
+                    for y in forints(self._ntaxa, x + 1):
+                        self._distanceSet(y, x, self._distanceGet(x, y))
+                # Initialize diagonal.
+                for x in forints(self._ntaxa):
+                    self._distanceSet(x, x, 0.0)
+            else:
+                # This is a full matrix.
+
+                # Shift the contents of the first row back one position.
+                for y in forints(self._ntaxa - 1):
+                    self._distanceSet(0, y, self._distanceGet(0, y + 1))
+
+                # Set last distance on first row.
+                self._distanceSet(0, self._ntaxa - 1, distance)
+
+                # Get remaining rows.
+                for x in forints(self._ntaxa, start=1):
+                    # Get taxon label.
+                    (token, line) = self._strTokenGet()
+                    distance = self._tokenToDistance(token)
+                    if distance != None:
+                        raise crux.DistMatrix.SyntaxError(line,
+                                                          "Missing taxon label",
+                                                          'full')
+                    self._map.map(token, self._map.ntaxaGet())
+
+                    # Get distances.
+                    for y in forints(self._ntaxa):
+                        (token, line) = self._strTokenGet()
+                        distance = self._tokenToDistance(token)
+                        if distance == None:
+                            raise crux.DistMatrix\
+                                  .SyntaxError(line,
+                                               "Missing distance (%d, %d)"
+                                               % (x, y),
+                                               'full')
+                        self._distanceSet(x, y, distance)
+
+    def _fileNew(self, input):
+        pass # XXX Implement.
 
     # Return the next token.
-    #
-    # XXX Add support for input files.
-    def _tokenGet(self):
-        retval = ""
+    def _strTokenGet(self):
+        token = ""
         start = self._i
+        line = self._line
         while self._i < len(self._input):
             if self._input[self._i] == " " \
                    or self._input[self._i] == "\n" \
                    or self._input[self._i] == "\t":
                 if self._i == start:
+                    line = self._line
                     start = self._i + 1
                 else:
-                    retval = self._input[start:self._i]
+                    token = self._input[start:self._i]
                     break
+
+            if self._input[self._i] == "\n":
+                self._line += 1
 
             self._i += 1
 
-        return retval
+        return (token, line)
 
     # Return distance (float), or None if the token cannot be converted to a
     # distance.
     def _tokenToDistance(self, token):
+        import __builtin__
+
         try:
             retval = float(token)
-        except ValueError:
+        except __builtin__.ValueError:
             retval = None
 
         return retval
-
-    # Merge distances into self._matrix.
-    def _distancesMerge(self, distances, row):
-        if self._matrixFormat == 'unknown':
-            if len(distances) == self._ntaxa:
-                self._matrixFormat = 'full'
-            elif len(distances) == row:
-                self._matrixFormat = 'lower'
-            elif len(distances) == self._ntaxa - row - 1:
-                self._matrixFormat = 'upper'
-
-        if self._matrixFormat == 'full':
-            if len(distances) != self._ntaxa:
-                raise crux.DistMatrix.SyntaxError(row)
-            i = 0
-            while i < len(distances):
-                self._matrix[row * self._ntaxa + i] = distances[i]
-                i += 1
-        elif self._matrixFormat == 'lower':
-            if len(distances) != row:
-                raise crux.DistMatrix.SyntaxError(row)
-            self._matrix[row * self._ntaxa + row] = 0.0
-            i = 0
-            while i < len(distances):
-                self._matrix[row * self._ntaxa + i] = distances[i]
-                self._matrix[i * self._ntaxa + row] = distances[i]
-                i += 1
-        elif self._matrixFormat == 'upper':
-            if len(distances) != self._ntaxa - row - 1:
-                raise crux.DistMatrix.SyntaxError(row)
-            self._matrix[row * self._ntaxa + row] = 0.0
-            i = 0
-            while i < len(distances):
-                self._matrix[(i + row + 1) * self._ntaxa + row] = distances[i]
-                self._matrix[row * self._ntaxa + (i + row + 1)] = distances[i]
-                i += 1
-        else:
-            # Invalid matrix format.
-            raise crux.DistMatrix.SyntaxError(row)
 #EOF
