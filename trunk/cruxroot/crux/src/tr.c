@@ -10,6 +10,8 @@
  *
  ******************************************************************************/
 
+// XXX Maintain modified flag.
+
 #include "../include/modcrux.h"
 
 typedef struct cw_tr_ps_s cw_tr_ps_t;
@@ -413,6 +415,8 @@ tr_node_taxon_num_set(cw_tr_t *a_tr, cw_tr_node_t a_node,
     cw_dassert(tr_p_node_validate(a_tr, a_node));
 
     a_tr->trns[a_node].taxon_num = a_taxon_num;
+
+    a_tr->modified = TRUE;
 }
 
 cw_tr_node_t
@@ -439,6 +443,8 @@ tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i,
     t_node = a_tr->trns[a_node].neighbors[a_i];
     a_tr->trns[a_node].neighbors[a_i] = a_tr->trns[a_node].neighbors[a_j];
     a_tr->trns[a_node].neighbors[a_j] = t_node;
+
+    a_tr->modified = TRUE;
 }
 
 void
@@ -479,6 +485,8 @@ tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
     trn_a->neighbors[i] = a_b;
     trn_b->neighbors[j] = a_a;
 
+    a_tr->modified = TRUE;
+
     cw_dassert(tr_p_node_validate(a_tr, a_a));
     cw_dassert(tr_p_node_validate(a_tr, a_b));
 }
@@ -511,6 +519,8 @@ tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
     /* Detach the two nodes. */
     trn_a->neighbors[i] = CW_TR_NODE_NONE;
     trn_b->neighbors[j] = CW_TR_NODE_NONE;
+
+    a_tr->modified = TRUE;
 
     cw_dassert(tr_p_node_validate(a_tr, a_a));
     cw_dassert(tr_p_node_validate(a_tr, a_b));
@@ -1745,6 +1755,8 @@ tr_base_set(cw_tr_t *a_tr, cw_tr_node_t a_base)
 #endif
 
     a_tr->base = a_base;
+
+    a_tr->modified = TRUE;
 }
 
 void
@@ -1940,6 +1952,7 @@ tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
     }
 }
 
+// XXX Move up.
 CW_P_INLINE cw_uint32_t
 tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_node_t a_p, cw_tr_node_t a_a,
 	       cw_tr_node_t a_b)
