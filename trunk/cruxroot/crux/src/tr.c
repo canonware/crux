@@ -419,10 +419,24 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
     /* Allocate character vector if necessary. */
     if (a_ps->chars == NULL)
     {
+	uint32_t npad, i;
+
+	/* Calculate the number of pad characters to append, such that the total
+	 * number of characters is a multiple of 16. */
+	if ((a_nchars & 0xf) != 0)
+	{
+	    npad = 16 - (a_nchars & 0xf);
+	}
+	else
+	{
+	    npad = 0;
+	}
+
 	a_ps->achars
 	    = (cw_trc_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
 					   mema_arg_get(a_tr->mema),
-					   sizeof(cw_trc_t) * (a_nchars + 8));
+					   sizeof(cw_trc_t)
+					   * (a_nchars + 8 + npad));
 
 	/* Make sure that chars is 16 byte-aligned. */
 	if ((((unsigned) a_ps->achars) & 0xfU) == 0)
@@ -439,7 +453,15 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 	    a_ps->chars = &a_ps->achars[8];
 	}
 
-	a_ps->nchars = a_nchars;
+	/* Set all pad characters to {ACGT}.  This allows the pad characters to
+	 * be calculated along with the actual characters, without affecting the
+	 * score. */
+	for (i = a_nchars; i < a_nchars + npad; i++)
+	{
+	    a_ps->chars[i] = 0xfU;
+	}
+
+	a_ps->nchars = a_nchars + npad;
     }
 }
 
@@ -2078,7 +2100,7 @@ CW_P_INLINE void
 tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		    cw_tr_ps_t *a_b)
 {
-    uint32_t endlimit, curlimit, i, nchars, ns;
+    uint32_t curlimit, i, nchars, ns;
     cw_trc_t *chars_p, *chars_a, *chars_b;
 
     /* Calculate sum of subtree scores. */
@@ -2118,11 +2140,10 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
      * score results (stored in %xmm5) are added to ns (otherwise, overflow
      * could occur).  Therefore, the outer loop calculates the upper bound for
      * the inner loop, thereby avoiding extra computation in the inner loop. */
-    endlimit = nchars ^ (nchars & 0xf);
     curlimit = 255 * 16;
-    if (curlimit > endlimit)
+    if (curlimit > nchars)
     {
-	curlimit = endlimit;
+	curlimit = nchars;
     }
     for (;;)
     {
@@ -2197,34 +2218,16 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 	/* Break out of the loop if the bound for the inner loop was the maximum
 	 * possible. */
-	if (curlimit == endlimit)
+	if (curlimit == nchars)
 	{
 	    break;
 	}
 	/* Update the bound for the inner loop, taking care not to exceed the
 	 * maximum possible bound. */
 	curlimit += 255 * 16;
-	if (curlimit > endlimit)
+	if (curlimit > nchars)
 	{
-	    curlimit = endlimit;
-	}
-    }
-
-    /* Evaluate the last 0-15 characters that weren't evaluated in the above
-     * loop. */
-    {
-	uint32_t a, b, p, c, s;
-
-	for (; i < nchars; i++)
-	{
-	    a = chars_a[i];
-	    b = chars_b[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    chars_p[i] = (p | (c & (a | b)));
-	    ns += s;
+	    curlimit = nchars;
 	}
     }
 
