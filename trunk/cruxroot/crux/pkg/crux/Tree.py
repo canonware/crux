@@ -65,8 +65,7 @@ class _NewickParser(NewickParser.NewickParser):
             nnode = Node.Node(self._tree)
 
             # Iteratively connect neighboring nodes to nnode.
-            i = 0
-            while i < cnt:
+            for i in forints(cnt):
                 if type(self._taxonStack[0]) == float:
                     length = self._taxonStack.pop(0)
                 else:
@@ -76,7 +75,6 @@ class _NewickParser(NewickParser.NewickParser):
                 e = Edge.Edge(self._tree)
                 e.attach(nnode, n)
                 e.lengthSet(length)
-                i += 1
 
             # Pop paren (None).
             self._taxonStack.pop(0)
@@ -171,14 +169,11 @@ class Tree(_Tree.Tree):
     def _randomNew(self, ntaxa):
         # Create a stack of leaf nodes.
         subtrees = []
-        i = 0
-        while i < ntaxa:
+        for i in forints(ntaxa):
             nnode = Node.Node(self)
             nnode.taxonNumSet(i)
             subtrees.append(nnode)
             self._map.map(str(i), i)
-
-            i += 1
 
         # Iteratively randomly remove two items from the stack, join them, and
         # push the result back onto the stack.  Stop when there are two subtrees

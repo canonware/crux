@@ -45,8 +45,7 @@ class Node(_Node.Node):
         # Iterate through neighbors.
         ring = self.ring()
         if ring != None:
-            i = 0
-            while i < self.degree():
+            for i in forints(self.degree()):
                 # Get the node on the other end of the edge.  If it isn't prev,
                 # recurse.
                 neighbor = ring.other().node()
@@ -66,7 +65,6 @@ class Node(_Node.Node):
                             retval = "%s:%f" % (retval, ring.edge().lengthGet())
 
                 ring = ring.next()
-                i += 1
 
             if did_paren:
                 retval = "%s)" % retval

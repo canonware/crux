@@ -1,5 +1,16 @@
 #!@PYTHON@@python_opts@
 
+# This generator is used throughout crux to make it possible to cleanly and
+# efficiently do indexed iteration in for loops.  Yes, this is gross, but worse
+# is the otherwise lack of clean integer iteration in Python.
+import __builtin__
+def forints(n, start=0, step=1):
+    i = start
+    while i < n:
+        yield i
+        i += step
+__builtin__.__dict__['forints'] = forints
+
 import crux
 
 import sys
