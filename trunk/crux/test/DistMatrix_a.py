@@ -186,9 +186,9 @@ for matrix in matrices:
         print "==="
         print matrix
         distMatrix = crux.DistMatrix.DistMatrix(matrix)
-        print distMatrix.render('full')
-        print distMatrix.render('upper')
-        print distMatrix.render('lower')
+        print distMatrix.render('full', '%.5f')
+        print distMatrix.render('upper', '%.5f')
+        print distMatrix.render('lower', '%.5f')
     except:
         import sys
 
@@ -203,7 +203,7 @@ for matrix in matrices:
         f.write(matrix)
         f.seek(0, 0)
         distMatrix = crux.DistMatrix.DistMatrix(f)
-        print distMatrix.render('full')
+        print distMatrix.render('full', '%.5f')
     except:
         import sys
 
@@ -214,7 +214,7 @@ try:
     print "==="
     taxonMap = crux.TaxonMap.TaxonMap(['A', 'B', 'C'])
     distMatrix = crux.DistMatrix.DistMatrix(taxonMap)
-    print distMatrix.render('full')
+    print distMatrix.render('full', '%.5f')
 except:
     import sys
 

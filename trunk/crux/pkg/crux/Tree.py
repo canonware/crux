@@ -206,16 +206,17 @@ class Tree(C_Tree):
     def taxonMapGet(self):
         return self._map
 
-    def render(self, labels=False, lengths=False, nDigits=6, outFile=None):
+    def render(self, labels=False, lengths=False, lengthFormat="%.5e",
+               outFile=None):
         if outFile == None:
-            retval = self._stringRender(labels, lengths, nDigits)
+            retval = self._stringRender(labels, lengths, lengthFormat)
         else:
-            self._fileRender(labels, lengths, nDigits, outFile)
+            self._fileRender(labels, lengths, lengthFormat, outFile)
             retval = None
 
         return retval
 
-    def _stringRender(self, labels, lengths, nDigits):
+    def _stringRender(self, labels, lengths, lengthFormat):
         n = self.baseGet()
         if n != None:
             if n.taxonNumGet() != None:
@@ -228,27 +229,27 @@ class Tree(C_Tree):
                         # Start with the internal node.
                         retval = "%s;" % \
                                  neighbor.rrender(None, self._map, labels,
-                                                  lengths, nDigits)
+                                                  lengths, lengthFormat)
                     else:
                         # This tree only has two taxa; start with the tree base.
                         retval = "(%s);" % \
                              n.rrender(None, self._map, labels, lengths,
-                                       nDigits, twoTaxa=True)
+                                       lengthFormat, twoTaxa=True)
                 else:
                     # There is only one node in the tree.
                     retval = "%s;" % \
                              n.rrender(None, self._map, labels, lengths,
-                                       nDigits)
+                                       lengthFormat)
             else:
                 # Internal node.
                 retval = "%s;" % \
-                         n.rrender(None, self._map, labels, lengths, nDigits)
+                         n.rrender(None, self._map, labels, lengths, lengthFormat)
         else:
             retval = ";"
 
         return retval
 
-    def _fileRender(self, labels, lengths, nDigits, outFile):
+    def _fileRender(self, labels, lengths, lengthFormat, outFile):
         n = self.baseGet()
         if n != None:
             if n.taxonNumGet() != None:
@@ -260,22 +261,23 @@ class Tree(C_Tree):
                     if neighbor.taxonNumGet() == None:
                         # Start with the internal node.
                         neighbor.rrender(None, self._map, labels, lengths,
-                                         nDigits, outFile)
+                                         lengthFormat, outFile)
                         outFile.write(";\n")
                     else:
                         # This tree only has two taxa; start with the tree base.
                         outFile.write("(")
-                        n.rrender(None, self._map, labels, lengths, nDigits,
+                        n.rrender(None, self._map, labels, lengths, lengthFormat,
                                   outFile, twoTaxa=True)
                         outFile.write(");\n")
                 else:
                     # There is only one node in the tree.
-                    n.rrender(None, self._map, labels, lengths, nDigits,
+                    n.rrender(None, self._map, labels, lengths, lengthFormat,
                               outFile)
                     outFile.write(";\n")
             else:
                 # Internal node.
-                n.rrender(None, self._map, labels, lengths, nDigits, outFile)
+                n.rrender(None, self._map, labels, lengths, lengthFormat,
+                          outFile)
                 outFile.write(";\n")
         else:
             outFile.write(";\n")

@@ -29,8 +29,9 @@ for str in teststrs:
     try:
         t = crux.Tree.Tree(str, autoMap=True)
         t.canonize()
-        print t.render(labels=True, lengths=True)
-        t.render(labels=True, lengths=True, outFile=sys.stdout)
+        print t.render(labels=True, lengths=True, lengthFormat="%.6f")
+        t.render(labels=True, lengths=True, lengthFormat="%.6f",
+                 outFile=sys.stdout)
     except:
         error = sys.exc_info()
         print "Exception %s: %s" % (error[0], error[1])
