@@ -22,7 +22,11 @@ struct CxsTreeNjr
 };
 
 /* The following function can be used to convert from row/column matrix
- * coordinates to array offsets (n is ntaxa, and x < y) for neighbor-joining:
+ * coordinates to array offsets for neighbor-joining:
+ *
+ *   n : Number of nodes currently in the matrix.
+ *   x : Row.
+ *   y : Column.
  *
  *                        2
  *                       x  + 3x
@@ -49,7 +53,7 @@ CxpTreeNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
  *
  *                             |  r  ||
  *                             | --- ||
- *   | A | B | C | D | E ||  r | m-2 ||
+ *   | A | B | C | D | E ||  r | n-2 ||
  *   +===+===+===+===+===++====+=====++===
  *       | 0 | 1 | 2 | 3 ||  6 | 2.0 || A
  *       +---+---+---+---++----+-----++---
