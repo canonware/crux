@@ -45,10 +45,11 @@ print "ntaxa: %d" % m.ntaxaGet()
 m.map('D', 3)
 try:
     print "map:", m.taxaGet()
-except crux.TaxonMap.Exception, x:
+except:
     import sys
 
-    print "Exception %s: %s" % (sys.exc_type, x.__str__())
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 print "ntaxa: %d" % m.ntaxaGet()
 
 m.map('C', 2)

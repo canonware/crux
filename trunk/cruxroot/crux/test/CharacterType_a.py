@@ -61,33 +61,51 @@ print "nstates: %d" % c.nstates()
 # Error conditions.
 try:
     c.stateCodeAdd('A')
-except crux.CharacterType.Exception, x:
-    print "Exception %s: %s" % (sys.exc_type, x.__str__())
+except:
+    import sys
+
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 
 try:
     c.ambiguityCodeAdd('A', ['B', 'C'])
-except crux.CharacterType.Exception, x:
-    print "Exception %s: %s" % (sys.exc_type, x.__str__())
+except:
+    import sys
+
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 
 try:
     c.aliasCodeAdd('A', 'B')
-except crux.CharacterType.Exception, x:
-    print "Exception %s: %s" % (sys.exc_type, x.__str__())
+except:
+    import sys
+
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 
 try:
     c.aliasCodeAdd('j', 'J')
-except crux.CharacterType.Exception, x:
-    print "Exception %s: %s" % (sys.exc_type, x.__str__())
+except:
+    import sys
+
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 
 try:
     c.code2val('a')
-except crux.CharacterType.Exception, x:
-    print "Exception %s: %s" % (sys.exc_type, x.__str__())
+except:
+    import sys
+
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 
 try:
     c.val2code(42)
-except crux.CharacterType.Exception, x:
-    print "Exception %s: %s" % (sys.exc_type, x.__str__())
+except:
+    import sys
+
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 
 #
 # DnaCharacterType tests.

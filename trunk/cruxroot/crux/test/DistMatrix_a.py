@@ -175,10 +175,11 @@ for matrix in matrices:
         print distMatrix.prints('full')
         print distMatrix.prints('upper')
         print distMatrix.prints('lower')
-    except crux.DistMatrix.Exception, x:
+    except:
         import sys
-      
-        print "Exception %s: %s" % (sys.exc_type, x.__str__())
+
+        error = sys.exc_info()
+        print "Exception %s: %s" % (error[0], error[1])
 
 for matrix in matrices:
     try:
@@ -189,9 +190,10 @@ for matrix in matrices:
         f.seek(0, 0)
         distMatrix = crux.DistMatrix.DistMatrix(f)
         print distMatrix.prints('full')
-    except crux.DistMatrix.Exception, x:
+    except:
         import sys
-        
-        print "Exception %s: %s" % (sys.exc_type, x.__str__())
+
+        error = sys.exc_info()
+        print "Exception %s: %s" % (error[0], error[1])
 
 print "Test end"

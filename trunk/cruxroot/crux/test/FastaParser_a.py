@@ -113,8 +113,9 @@ def testStrs(strs, charType):
         print "\n=== %r ===" % str
         try:
             test.parse(str, charType)
-        except crux.FastaParser.Exception, x:
-            print "Exception %s: %s" % (sys.exc_type, x.__str__())
+        except:
+            error = sys.exc_info()
+            print "Exception %s: %s" % (error[0], error[1])
 
     for str in strs:
         print "\n=== %r ===" % str
@@ -123,8 +124,9 @@ def testStrs(strs, charType):
             f.write(str)
             f.seek(0, 0)
             test.parse(f, charType)
-        except crux.FastaParser.Exception, x:
-            print "Exception %s: %s" % (sys.exc_type, x.__str__())
+        except:
+            error = sys.exc_info()
+            print "Exception %s: %s" % (error[0], error[1])
 
 test = testclass()
 

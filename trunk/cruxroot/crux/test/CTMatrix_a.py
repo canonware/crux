@@ -29,16 +29,18 @@ matrix.dataSet("Taxon_A", "AAAAA")
 
 try:
     matrix.dataSet("Taxon_C", "GGGG")
-except crux.CTMatrix.Exception, x:
+except:
     import sys
 
-    print "Exception %s: %s" % (sys.exc_type, x.__str__())
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 
 try:
     matrix.dataSet("Taxon_D", "TTTTT")
-except crux.CTMatrix.Exception, x:
+except:
     import sys
 
-    print "Exception %s: %s" % (sys.exc_type, x.__str__())
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 
 print "Test end"

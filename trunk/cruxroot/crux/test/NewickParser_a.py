@@ -154,7 +154,8 @@ for str in teststrs:
     print "\n=== %r ===" % str
     try:
         test.parse(str)
-    except crux.NewickParser.Exception, x:
-        print "Exception %s: %s" % (sys.exc_type, x.__str__())
+    except:
+        error = sys.exc_info()
+        print "Exception %s: %s" % (error[0], error[1])
 
 print "Test end"
