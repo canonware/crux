@@ -10,6 +10,11 @@
 //==============================================================================
 
 bool
+CxTreeTbrBEdgeSetsGet(CxtTreeObject *self, CxtEdgeObject *aEdge,
+		      CxtEdgeObject ***rSetA, unsigned *rNSetA,
+		      CxtEdgeObject ***rSetB, unsigned *rNSetB);
+
+bool
 CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
 	  CxtEdgeObject *aReconnectA, CxtEdgeObject *aReconnectB);
 PyObject *
