@@ -1561,6 +1561,178 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
     }
 }
 
+CW_P_INLINE cw_uint32_t
+tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_node_t a_p, cw_tr_node_t a_a,
+	       cw_tr_node_t a_b)
+{
+    cw_tr_ps_t *ps_p, *ps_a, *ps_b;
+
+    ps_p = a_tr->trns[a_p].ps;
+    ps_a = a_tr->trns[a_a].ps;
+    ps_b = a_tr->trns[a_b].ps;
+
+    /* Calculate sum of subtree scores. */
+    ps_p->subtrees_score
+	= ps_a->subtrees_score + ps_a->node_score
+	+ ps_b->subtrees_score + ps_b->node_score;
+
+    /* Only calculate the parent's node score if the cached value is invalid. */
+    if (ps_a->parent != a_p || ps_b->parent != a_p)
+    {
+	cw_uint32_t i, nchars, ns, a, b, p, c, s;
+
+	/* (Re-)calculate node score. */
+	ns = 0;
+
+	/* Reset this node's parent pointer, to keep the parent from using an
+	 * invalid cached value. */
+	ps_p->parent = CW_TR_NODE_NONE;
+
+	/* Set parent pointers, so that cached values may be used in future
+	 * runs. */
+	ps_a->parent = a_p;
+	ps_b->parent = a_p;
+
+	/* Calculate partial Fitch parsimony scores for each character.  The
+	 * code inside the loop is written such that the compiler can optimize
+	 * out all branches (at least for ia32). */
+	for (i = 0, nchars = ps_p->nchars; i < nchars; i++)
+	{
+	    a = ps_a->chars[i];
+	    b = ps_b->chars[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    ps_p->chars[i] = (p | (c & (a | b)));
+	    ns += s;
+	}
+
+	ps_p->node_score = ns;
+    }
+
+    return (ps_p->subtrees_score + ps_p->node_score);
+}
+
+CW_P_INLINE void
+tr_p_mp_nopscore(cw_tr_t *a_tr, cw_tr_node_t a_p, cw_tr_node_t a_a,
+		 cw_tr_node_t a_b)
+{
+    cw_tr_ps_t *ps_p, *ps_a, *ps_b;
+
+    ps_p = a_tr->trns[a_p].ps;
+    ps_a = a_tr->trns[a_a].ps;
+    ps_b = a_tr->trns[a_b].ps;
+
+    /* Clear parent pointers if necessary, in order to avoid a situation where
+     * more than two nodes end up claiming the same parent, due to a combination
+     * of tree transformations and short-circuited MP scores (due to max score
+     * being exceeded). */
+    if (ps_a->parent != a_p || ps_b->parent != a_p)
+    {
+	ps_p->parent = CW_TR_NODE_NONE;
+	ps_a->parent = CW_TR_NODE_NONE;
+	ps_b->parent = CW_TR_NODE_NONE;
+    }
+}
+
+static void
+tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
+		      cw_uint32_t a_maxscore, cw_bool_t *ar_maxed)
+{
+    cw_uint32_t i;
+    cw_tr_node_t node, a, b;
+
+    a = CW_TR_NODE_NONE;
+    b = CW_TR_NODE_NONE;
+
+    /* Recurse into subtrees. */
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    {
+	node = tr_node_neighbor_get(a_tr, a_node, i);
+	if (node != CW_TR_NODE_NONE && node != a_prev)
+	{
+	    if (a == CW_TR_NODE_NONE)
+	    {
+		a = node;
+	    }
+	    else
+	    {
+		cw_assert(b == CW_TR_NODE_NONE);
+		b = node;
+	    }
+
+	    tr_p_mp_score_recurse(a_tr, node, a_node, a_maxscore, ar_maxed);
+	}
+    }
+
+    /* Now calculate this node's partial score (unless this is a leaf node). */
+    if (b != CW_TR_NODE_NONE)
+    {
+	cw_assert(a != CW_TR_NODE_NONE);
+	if (*ar_maxed == FALSE)
+	{
+	    /* Calculate the partial score for this node. */
+	    if (tr_p_mp_pscore(a_tr, a_node, a, b) >= a_maxscore)
+	    {
+		/* Maximum score met or exceeded; prevent further score
+		 * calculations. */
+		*ar_maxed = TRUE;
+	    }
+	}
+	else
+	{
+	    /* Clear invalid cached parial score if necessary, but do not
+	     * calculate the partial score. */
+	    tr_p_mp_nopscore(a_tr, a_node, a, b);
+	}
+    }
+}
+
+static cw_uint32_t
+tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
+	      cw_tr_node_t a_node_b, cw_uint32_t a_maxscore)
+{
+    cw_uint32_t retval;
+    cw_trn_t *trn;
+    cw_bool_t maxed;
+
+    maxed = FALSE;
+    tr_p_mp_score_recurse(a_tr, a_node_a, a_node_b, a_maxscore, &maxed);
+    if (maxed)
+    {
+	retval = CW_TR_MAXSCORE_NONE;
+	goto RETURN;
+    }
+
+    tr_p_mp_score_recurse(a_tr, a_node_b, a_node_a, a_maxscore, &maxed);
+    if (maxed)
+    {
+	retval = CW_TR_MAXSCORE_NONE;
+	goto RETURN;
+    }
+
+    /* Initialize the temporary node enough so that it can be used by
+     * tr_p_mp_pscore(). */
+    a_tr->trns[0].ps = a_ps;
+
+    /* Clear the parent pointers of a_node_[ab], to make sure that the score is
+     * actually calculated.  This is necessary since the "root" node is always
+     * the temporary node.  One artifact of this is that repeating precisely the
+     * same score calculation will always result in the final score being
+     * recalculated. */
+    a_tr->trns[a_node_a].ps->parent = CW_TR_NODE_NONE;
+    a_tr->trns[a_node_b].ps->parent = CW_TR_NODE_NONE;
+
+    /* Calculate the final score, using the temporary node. */
+    tr_p_mp_pscore(a_tr, 0, a_node_a, a_node_b);
+
+    /* Add up the final score. */
+    retval = trn->ps->subtrees_score + trn->ps->node_score;
+    RETURN:
+    return retval;
+}
+
 cw_tr_t *
 tr_new(cw_mema_t *a_mema)
 {
@@ -1924,179 +2096,6 @@ tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
     {
 	tr_p_ps_prepare(a_tr, a_tr->tres[i].ps, a_nchars);
     }
-}
-
-// XXX Move up.
-CW_P_INLINE cw_uint32_t
-tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_node_t a_p, cw_tr_node_t a_a,
-	       cw_tr_node_t a_b)
-{
-    cw_tr_ps_t *ps_p, *ps_a, *ps_b;
-
-    ps_p = a_tr->trns[a_p].ps;
-    ps_a = a_tr->trns[a_a].ps;
-    ps_b = a_tr->trns[a_b].ps;
-
-    /* Calculate sum of subtree scores. */
-    ps_p->subtrees_score
-	= ps_a->subtrees_score + ps_a->node_score
-	+ ps_b->subtrees_score + ps_b->node_score;
-
-    /* Only calculate the parent's node score if the cached value is invalid. */
-    if (ps_a->parent != a_p || ps_b->parent != a_p)
-    {
-	cw_uint32_t i, nchars, ns, a, b, p, c, s;
-
-	/* (Re-)calculate node score. */
-	ns = 0;
-
-	/* Reset this node's parent pointer, to keep the parent from using an
-	 * invalid cached value. */
-	ps_p->parent = CW_TR_NODE_NONE;
-
-	/* Set parent pointers, so that cached values may be used in future
-	 * runs. */
-	ps_a->parent = a_p;
-	ps_b->parent = a_p;
-
-	/* Calculate partial Fitch parsimony scores for each character.  The
-	 * code inside the loop is written such that the compiler can optimize
-	 * out all branches (at least for ia32). */
-	for (i = 0, nchars = ps_p->nchars; i < nchars; i++)
-	{
-	    a = ps_a->chars[i];
-	    b = ps_b->chars[i];
-
-	    p = a & b;
-	    s = p ? 0 : 1;
-	    c = -s;
-	    ps_p->chars[i] = (p | (c & (a | b)));
-	    ns += s;
-	}
-
-	ps_p->node_score = ns;
-    }
-
-    return (ps_p->subtrees_score + ps_p->node_score);
-}
-
-CW_P_INLINE void
-tr_p_mp_nopscore(cw_tr_t *a_tr, cw_tr_node_t a_p, cw_tr_node_t a_a,
-		 cw_tr_node_t a_b)
-{
-    cw_tr_ps_t *ps_p, *ps_a, *ps_b;
-
-    ps_p = a_tr->trns[a_p].ps;
-    ps_a = a_tr->trns[a_a].ps;
-    ps_b = a_tr->trns[a_b].ps;
-
-    /* Clear parent pointers if necessary, in order to avoid a situation where
-     * more than two nodes end up claiming the same parent, due to a combination
-     * of tree transformations and short-circuited MP scores (due to max score
-     * being exceeded). */
-    if (ps_a->parent != a_p || ps_b->parent != a_p)
-    {
-	ps_p->parent = CW_TR_NODE_NONE;
-	ps_a->parent = CW_TR_NODE_NONE;
-	ps_b->parent = CW_TR_NODE_NONE;
-    }
-}
-
-static void
-tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
-		      cw_uint32_t a_maxscore, cw_bool_t *ar_maxed)
-{
-    cw_uint32_t i;
-    cw_tr_node_t node, a, b;
-
-    a = CW_TR_NODE_NONE;
-    b = CW_TR_NODE_NONE;
-
-    /* Recurse into subtrees. */
-    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
-    {
-	node = tr_node_neighbor_get(a_tr, a_node, i);
-	if (node != CW_TR_NODE_NONE && node != a_prev)
-	{
-	    if (a == CW_TR_NODE_NONE)
-	    {
-		a = node;
-	    }
-	    else
-	    {
-		cw_assert(b == CW_TR_NODE_NONE);
-		b = node;
-	    }
-
-	    tr_p_mp_score_recurse(a_tr, node, a_node, a_maxscore, ar_maxed);
-	}
-    }
-
-    /* Now calculate this node's partial score (unless this is a leaf node). */
-    if (b != CW_TR_NODE_NONE)
-    {
-	cw_assert(a != CW_TR_NODE_NONE);
-	if (*ar_maxed == FALSE)
-	{
-	    /* Calculate the partial score for this node. */
-	    if (tr_p_mp_pscore(a_tr, a_node, a, b) >= a_maxscore)
-	    {
-		/* Maximum score met or exceeded; prevent further score
-		 * calculations. */
-		*ar_maxed = TRUE;
-	    }
-	}
-	else
-	{
-	    /* Clear invalid cached parial score if necessary, but do not
-	     * calculate the partial score. */
-	    tr_p_mp_nopscore(a_tr, a_node, a, b);
-	}
-    }
-}
-
-static cw_uint32_t
-tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
-	      cw_tr_node_t a_node_b, cw_uint32_t a_maxscore)
-{
-    cw_uint32_t retval;
-    cw_trn_t *trn;
-    cw_bool_t maxed;
-
-    maxed = FALSE;
-    tr_p_mp_score_recurse(a_tr, a_node_a, a_node_b, a_maxscore, &maxed);
-    if (maxed)
-    {
-	retval = CW_TR_MAXSCORE_NONE;
-	goto RETURN;
-    }
-
-    tr_p_mp_score_recurse(a_tr, a_node_b, a_node_a, a_maxscore, &maxed);
-    if (maxed)
-    {
-	retval = CW_TR_MAXSCORE_NONE;
-	goto RETURN;
-    }
-
-    /* Initialize the temporary node enough so that it can be used by
-     * tr_p_mp_pscore(). */
-    a_tr->trns[0].ps = a_ps;
-
-    /* Clear the parent pointers of a_node_[ab], to make sure that the score is
-     * actually calculated.  This is necessary since the "root" node is always
-     * the temporary node.  One artifact of this is that repeating precisely the
-     * same score calculation will always result in the final score being
-     * recalculated. */
-    a_tr->trns[a_node_a].ps->parent = CW_TR_NODE_NONE;
-    a_tr->trns[a_node_b].ps->parent = CW_TR_NODE_NONE;
-
-    /* Calculate the final score, using the temporary node. */
-    tr_p_mp_pscore(a_tr, 0, a_node_a, a_node_b);
-
-    /* Add up the final score. */
-    retval = trn->ps->subtrees_score + trn->ps->node_score;
-    RETURN:
-    return retval;
 }
 
 cw_uint32_t
