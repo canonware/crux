@@ -65,9 +65,6 @@ trn_new(cw_trn_t *a_trn, cw_mema_t *a_mema);
 void
 trn_delete(cw_trn_t *a_trn);
 
-void
-trn_delete_recurse(cw_trn_t *a_trn);
-
 cw_uint32_t
 trn_taxon_num_get(cw_trn_t *a_trn);
 
@@ -93,6 +90,9 @@ void
 trn_aux_set(cw_trn_t *a_trn, void *a_aux);
 
 /* Functions that operate on trn-based trees. */
+void
+trn_tree_delete(cw_trn_t *a_trn);
+
 cw_uint32_t
 trn_tree_ntaxa_get(cw_trn_t *a_trn);
 
