@@ -8,28 +8,339 @@
  *
  * Version: Crux <Version = crux>
  *
- ******************************************************************************
- *
- * cw_tr_t encapsulates an (optionally) unrooted bifurcating tree, and nodes are
- * represented by cw_trn_t.
- *
- ******************************************************************************
- *
- * cw_trn_t contains a time-efficient representation of a node of an
- * (optionally) unrooted bifurcating phlyogenetic tree.
- *
  ******************************************************************************/
 
 #include "../include/modcrux.h"
 
+typedef struct cw_trps_s cw_trps_t;
+typedef struct cw_trn_s cw_trn_t;
+typedef struct cw_trt_s cw_trt_t;
+typedef struct cw_tre_s cw_tre_t;
+
+/* Partial parsimony score information. */
+struct cw_trps_s
+{
+    /* Parent which most recently used this node's partial score when caching
+     * its results.  Both children must still point to the parent in order for
+     * the cached results to be valid. */
+    cw_tr_node_t parent;
+
+    /* Sum of the subtree scores, and this node's score, given particular
+     * children.  In order for this to be useful, both childrens' parent
+     * pointers must still point to this node. */
+    cw_uint32_t subtrees_score;
+    cw_uint32_t node_score;
+
+    /* chars points to an array of Fitch parsimony state sets.  Each element in
+     * the array contains a bitmap representation of a subset of {ACGT} in the 4
+     * least significant bits.  T is the least significant bit.  1 means that a
+     * nucleotide is in the set. */
+    cw_uint32_t *chars;
+    cw_uint32_t nchars;
+};
+
+/* Tree node for an unrooted bifurcating phylogenetic tree. */
+struct cw_trn_s
+{
+#ifdef CW_DBG
+    cw_uint32_t magic;
+#define CW_TRN_MAGIC 0x63329478
+#endif
+
+    /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
+     * for reference iteration. */
+    void *aux;
+
+    /* If CW_TR_NODE_TAXON_NONE, then the node is not a leaf node. */
+    cw_uint32_t taxon_num;
+
+    /* Pointers to neighbors.  Only the first element is used if the node is a
+     * leaf node. */
+    cw_tr_node_t neighbors[CW_TR_NODE_MAX_NEIGHBORS];
+
+    /* Used for Fitch parsimony scoring. */
+    cw_trps_t trps;
+};
+
+/* TBR neighbor. */
+struct cw_trt_s
+{
+    /* Number of neighbors that can be reached by doing TBR at edges before this
+     * one.  This is also the neighbor number of the first neighbor that can be
+     * reached by doing TBR on this edge. */
+    cw_uint32_t offset;
+
+    /* Bisection edge. */
+    cw_uint32_t bisect_edge;
+
+    /* Number of edges in the two subtrees.  Note that 0 and 1 are different
+     * logical cases, but the number of connections possible for those two cases
+     * is the same. */
+    cw_uint32_t nedges_a;
+    cw_uint32_t nedges_b;
+
+    /* Edge indices for the edges that will reverse bisection.  This is used to
+     * avoid enumerating reconnections that undo the bisections. */
+    cw_uint32_t self_a;
+    cw_uint32_t self_b;
+};
+
+/* Tree edge information. */
+struct cw_tre_s
+{
+    /* Node adjacent to this edge. */
+    cw_tr_node_t node;
+
+    /* Neighbor index of other node adjacent to this edge.  The other node is
+     * trns[trns[node].neighbors[neighbor]]. */
+    cw_tr_node_t neighbor;
+
+    /* Used for Fitch parsimony scoring. */
+    cw_trps_t trps;
+};
+
+struct cw_tr_s
+{
+#ifdef CW_DBG
+    cw_uint32_t magic;
+#define CW_TR_MAGIC 0x39886394
+#endif
+
+    /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
+     * for reference iteration. */
+    void *aux;
+
+    /* TRUE if this tree has been modified since the internal state (ntaxa,
+     * nedges, trt, etc.) was updated, FALSE otherwise. */
+    cw_bool_t modified;
+
+    /* Lowest-numbered taxon (canonical tree root). */
+    cw_tr_node_t croot;
+
+    /* Number of taxa in tree. */
+    cw_uint32_t ntaxa;
+
+    /* Number of edges in tree.  This can be derived from ntaxa, but is used
+     * often enough to make storing it worthwhile. */
+    cw_uint32_t nedges;
+
+    /* Array of triplets that store per-edge information that is used for
+     * TBR-related functions.  There is one more element in trt than there are
+     * edges in the tree.  This is critical to the way binary searching on the
+     * array is done, and it also makes it easy to get the total number of
+     * TBR neighbors this tree has (trt[nedges].offset).
+     *
+     * Only the first trtused elements are valid, since not all bisection edges
+     * necessarily result in neighbors. */
+    cw_trt_t *trt;
+    cw_uint32_t trtused;
+
+    /* Pointer to an array of trn's.  ntrns is the total number of trn's, not
+     * all of which are necessarily in use. */
+    cw_trn_t **trns;
+    cw_uint32_t ntrns;
+
+    /* Index of first spare trn in the spares stack.  trns[spares].neighbors[0]
+     * is used for list linkage.  nspares is the current number of spares.  If
+     * nspares is 0, then spares is invalid. */
+    cw_tr_node_t spares;
+    cw_uint32_t nspares;
+
+    /* Array of information about edges.  There are always nedges elements in
+     * tre -- nedges and tre are always updated at the same time. */
+    cw_tre_t *tre;
+};
+
+/******************************************************************************/
+
+/* tr. */
+
+cw_tr_t *
+tr_new(void)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_delete(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+}
+
+cw_tr_node_t
+tr_nodes_iterate(cw_tr_t *a_tr, cw_tr_node_t a_prev)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+cw_uint32_t
+tr_ntaxa_get(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+cw_uint32_t
+tr_nedges_get(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+void
+tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node,
+	    cw_uint32_t *r_neighbor)
+{
+    cw_error("XXX Not implemented");
+}
+
+cw_uint32_t
+tr_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+cw_tr_node_t
+tr_croot_get(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+void
+tr_canonize(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
+       cw_uint32_t a_reconnect_b, cw_uint32_t *r_bisect,
+       cw_uint32_t *r_reconnect_a, cw_uint32_t *r_reconnect_b)
+{
+    cw_error("XXX Not implemented");
+}
+
+cw_uint32_t
+tr_tbr_nneighbors_get(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+void
+tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
+		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,
+		    cw_uint32_t *r_reconnect_b)
+{
+    cw_error("XXX Not implemented");
+}
+
+void *
+tr_aux_get(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+    return NULL; // XXX
+}
+
+void
+tr_aux_set(cw_tr_t *a_tr, void *a_aux)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
+	      cw_uint32_t a_nchars)
+{
+    cw_error("XXX Not implemented");
+}
+
+cw_uint32_t
+tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+/******************************************************************************/
+
+/* tr_node. */
+
+cw_tr_node_t
+tr_node_new(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_node_delete(cw_tr_t *a_tr, cw_tr_node_t a_node)
+{
+    cw_error("XXX Not implemented");
+}
+
+cw_uint32_t
+tr_node_taxon_num_get(cw_tr_t *a_tr, cw_tr_node_t a_node)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_node_taxon_num_set(cw_tr_t *a_tr, cw_tr_node_t a_node,
+		      cw_uint32_t a_taxon_num)
+{
+    cw_error("XXX Not implemented");
+}
+
+cw_tr_node_t
+tr_node_neighbor_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i,
+		       cw_uint32_t a_j)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
+{
+    cw_error("XXX Not implemented");
+}
+
+void *
+tr_node_aux_get(cw_tr_t *a_tr, cw_tr_node_t a_node)
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_node_aux_set(cw_tr_t *a_tr, cw_tr_node_t a_node, void *a_aux)
+{
+    cw_error("XXX Not implemented");
+}
+
+/******************************************************************************/
+
+#if (0) // XXX
 #ifdef CW_DBG
 /* Validate an individual trn. */
 static cw_bool_t
 trn_p_validate(cw_trn_t *a_trn)
 {
     cw_check_ptr(a_trn);
-    cw_assert(a_trn->magic_a == CW_TRN_MAGIC_A);
-    cw_assert(a_trn->magic_b == CW_TRN_MAGIC_B);
+    cw_assert(a_trn->magic == CW_TRN_MAGIC);
 
     /* A trn must either be a leaf node, an internal node, or a root node.
      *
@@ -38,16 +349,16 @@ trn_p_validate(cw_trn_t *a_trn)
      * also allows root nodes, which have two neighbors.
      *
      * A leaf node is not required to have a neighbor. */
-    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    if (a_trn->taxon_num != CW_TR_NODE_TAXON_NONE)
     {
 	cw_uint32_t i, j, nneighbors, nloops;
 
-	for (i = nneighbors = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	for (i = nneighbors = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
 	{
-	    if (a_trn->neighbors[i] != NULL)
+	    if (a_trn->neighbors[i] != CW_TR_NODE_NONE)
 	    {
 		nneighbors++;
-		for (j = nloops = 0; j < CW_TRN_MAX_NEIGHBORS; j++)
+		for (j = nloops = 0; j < CW_TR_NODE_MAX_NEIGHBORS; j++)
 		{
 		    if (a_trn->neighbors[i]->neighbors[j] == a_trn)
 		    {
@@ -70,9 +381,9 @@ trn_p_delete_recurse(cw_trn_t *a_trn)
     cw_uint32_t i;
     cw_trn_t *trn;
 
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
-	if (a_trn->neighbors[i] != NULL)
+	if (a_trn->neighbors[i] != CW_TR_NODE_NONE)
 	{
 	    trn = a_trn->neighbors[i];
 	    trn_detach(a_trn, trn);
@@ -95,15 +406,15 @@ trn_p_validate_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
 
     trn_p_validate(a_trn);
 
-    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    if (a_trn->taxon_num != CW_TR_NODE_TAXON_NONE)
     {
 	/* Leaf node. */
-	cw_assert(a_trn->neighbors[0] != NULL
-		  || (a_trn->neighbors[1] == NULL
-		      && a_trn->neighbors[1] == NULL));
-	for (i = 1; i < CW_TRN_MAX_NEIGHBORS; i++)
+	cw_assert(a_trn->neighbors[0] != CW_TR_NODE_NONE
+		  || (a_trn->neighbors[1] == CW_TR_NODE_NONE
+		      && a_trn->neighbors[2] == CW_TR_NODE_NONE));
+	for (i = 1; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
 	{
-	    cw_assert(a_trn->neighbors[i] == NULL);
+	    cw_assert(a_trn->neighbors[i] == CW_TR_NODE_NONE);
 	}
 
 	if (a_trn->taxon_num == a_taxon_num)
@@ -118,17 +429,18 @@ trn_p_validate_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
     else
     {
 	/* Internal node. */
-	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
 	{
-	    cw_assert(a_trn->neighbors[i] != NULL);
+	    cw_assert(a_trn->neighbors[i] != CW_TR_NODE_NONE);
 	}
 
 	retval = 0;
     }
 
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
-	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
+	if (a_trn->neighbors[i] != CW_TR_NODE_NONE
+	    && a_trn->neighbors[i] != a_prev)
 	{
 	    retval += trn_p_validate_recurse(a_trn->neighbors[i],
 					     a_trn, a_taxon_num);
@@ -146,7 +458,7 @@ trn_p_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev, cw_trn_t *a_root)
     cw_trn_t *retval, *root, *troot;
     cw_uint32_t i;
 
-    if (a_trn->taxon_num != CW_TRN_TAXON_NONE
+    if (a_trn->taxon_num != CW_TR_NODE_TAXON_NONE
 	&& (a_root == NULL || a_trn->taxon_num < a_root->taxon_num))
     {
 	retval = a_trn;
@@ -159,7 +471,7 @@ trn_p_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev, cw_trn_t *a_root)
     }
 
     /* Iterate over neighbors. */
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
 	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
 	{
@@ -184,7 +496,7 @@ trn_p_ntaxa_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev)
 
     cw_dassert(trn_p_validate(a_trn));
 
-    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    if (a_trn->taxon_num != CW_TR_NODE_TAXON_NONE)
     {
 	/* Leaf node. */
 	retval = 1;
@@ -195,7 +507,7 @@ trn_p_ntaxa_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev)
 	retval = 0;
     }
 
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
 	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
 	{
@@ -237,7 +549,7 @@ trn_p_edge_get_recurse(cw_trn_t *a_trn, cw_uint32_t a_edge,
     cw_bool_t retval;
     cw_uint32_t i;
 
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
 	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
 	{
@@ -295,7 +607,7 @@ trn_p_bisection_edge_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_other,
      * edge adjacent to the bisection. */
     prev_edge_count = *r_edge_count;
 
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
 	if (a_trn->neighbors[i] != NULL
 	    && a_trn->neighbors[i] != a_prev
@@ -318,7 +630,7 @@ trn_p_bisection_edge_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_other,
 	    }
 	    else
 	    {
-		*r_bisection_edge = CW_TRN_EDGE_NONE;
+		*r_bisection_edge = CW_TR_NODE_EDGE_NONE;
 	    }
 	}
     }
@@ -370,7 +682,7 @@ trn_p_edge_index_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
     cw_bool_t retval;
     cw_uint32_t i;
 
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
 	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
 	{
@@ -417,14 +729,14 @@ trn_p_canonize(cw_trn_t *a_trn, cw_trn_t *a_prev)
 {
     cw_uint32_t retval;
     cw_uint32_t i, j, t;
-    cw_uint32_t subtree_mins[CW_TRN_MAX_NEIGHBORS - 1];
-    cw_uint32_t subtree_inds[CW_TRN_MAX_NEIGHBORS - 1];
+    cw_uint32_t subtree_mins[CW_TR_NODE_MAX_NEIGHBORS - 1];
+    cw_uint32_t subtree_inds[CW_TR_NODE_MAX_NEIGHBORS - 1];
     cw_bool_t swapped;
 
     cw_assert(a_prev != NULL
 	      || trn_p_root_get(a_trn, NULL, NULL) == a_trn);
 
-    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    if (a_trn->taxon_num != CW_TR_NODE_TAXON_NONE)
     {
 	/* Leaf node. */
 	retval = a_trn->taxon_num;
@@ -432,17 +744,17 @@ trn_p_canonize(cw_trn_t *a_trn, cw_trn_t *a_prev)
     else
     {
 	/* Internal node. */
-	retval = CW_TRN_TAXON_NONE;
+	retval = CW_TR_NODE_TAXON_NONE;
     }
 
     /* Iteratively canonize subtrees, keeping track of the minimum taxon
      * number seen overall, as well as for each subtree. */
-    for (i = j = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = j = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
 	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
 	{
 	    /* A neighboring subtree that hasn't been visited yet. */
-	    cw_assert(j < (CW_TRN_MAX_NEIGHBORS - 1));
+	    cw_assert(j < (CW_TR_NODE_MAX_NEIGHBORS - 1));
 	    subtree_mins[j] = trn_p_canonize(a_trn->neighbors[i], a_trn);
 	    if (subtree_mins[j] < retval)
 	    {
@@ -492,7 +804,7 @@ trn_p_bisection_patch(cw_trn_t *a_trn, cw_trn_t **r_trn, cw_uint32_t *r_edge,
      * It is either a leaf node or an internal node.  For a leaf node, do
      * nothing.  For an internal node, join its neighbors together, and return
      * the node as a spare. */
-    if (a_trn->taxon_num == CW_TRN_TAXON_NONE)
+    if (a_trn->taxon_num == CW_TR_NODE_TAXON_NONE)
     {
 	cw_trn_t *a, *b;
 	cw_uint32_t i;
@@ -500,7 +812,7 @@ trn_p_bisection_patch(cw_trn_t *a_trn, cw_trn_t **r_trn, cw_uint32_t *r_edge,
 	/* Get a_trn's neighbors. */
 	for (i = 0, a = b = NULL; b == NULL; i++)
 	{
-	    cw_assert(i < CW_TRN_MAX_NEIGHBORS);
+	    cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
 
 	    if (a_trn->neighbors[i] != NULL)
 	    {
@@ -530,7 +842,7 @@ trn_p_bisection_patch(cw_trn_t *a_trn, cw_trn_t **r_trn, cw_uint32_t *r_edge,
     else
     {
 	*r_trn = a_trn;
-	*r_edge = CW_TRN_EDGE_NONE;
+	*r_edge = CW_TR_NODE_EDGE_NONE;
 	*r_spare = NULL;
     }
 }
@@ -576,7 +888,7 @@ trn_p_connection_patch(cw_trn_t *a_trn, cw_uint32_t a_edge,
     /* There are two cases possible.  a_trn is either a single leaf node, or a
      * larger subtree.  For a leaf node, do nothing.  For a larger subtree,
      * splice in the spare. */
-    if (a_edge != CW_TRN_EDGE_NONE)
+    if (a_edge != CW_TR_NODE_EDGE_NONE)
     {
 	cw_trn_t *a, *b;
 	cw_uint32_t edge;
@@ -612,11 +924,11 @@ trn_p_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
     cw_trn_t *trn_a, *trn_b;
 
     cw_assert(trn_p_root_get(a_trn_a, NULL, NULL) == a_trn_a);
-    cw_dassert((a_edge_a == CW_TRN_EDGE_NONE
+    cw_dassert((a_edge_a == CW_TR_NODE_EDGE_NONE
 		&& trn_p_ntaxa_get_recurse(a_trn_a, NULL) == 1)
 	       || (a_edge_a < trn_p_nedges_get(a_trn_a)));
     cw_assert(trn_p_root_get(a_trn_b, NULL, NULL) == a_trn_b);
-    cw_dassert((a_edge_b == CW_TRN_EDGE_NONE
+    cw_dassert((a_edge_b == CW_TR_NODE_EDGE_NONE
 		&& trn_p_ntaxa_get_recurse(a_trn_b, NULL) == 1)
 	       || (a_edge_b < trn_p_nedges_get(a_trn_b)));
 
@@ -652,11 +964,10 @@ trn_new(cw_trn_t *a_trn)
     cw_check_ptr(a_trn);
 
     memset(a_trn, 0, sizeof(cw_trn_t));
-    a_trn->taxon_num = CW_TRN_TAXON_NONE;
+    a_trn->taxon_num = CW_TR_NODE_TAXON_NONE;
 
 #ifdef CW_DBG
-    a_trn->magic_a = CW_TRN_MAGIC_A;
-    a_trn->magic_b = CW_TRN_MAGIC_B;
+    a_trn->magic = CW_TRN_MAGIC;
 #endif
 }
 
@@ -688,7 +999,7 @@ cw_trn_t *
 trn_neighbor_get(cw_trn_t *a_trn, cw_uint32_t a_i)
 {
     cw_dassert(trn_p_validate(a_trn));
-    cw_assert(a_i < CW_TRN_MAX_NEIGHBORS);
+    cw_assert(a_i < CW_TR_NODE_MAX_NEIGHBORS);
 
     return a_trn->neighbors[a_i];
 }
@@ -699,8 +1010,8 @@ trn_neighbors_swap(cw_trn_t *a_trn, cw_uint32_t a_i, cw_uint32_t a_j)
     cw_trn_t *t_trn;
 
     cw_dassert(trn_p_validate(a_trn));
-    cw_assert(a_i < CW_TRN_MAX_NEIGHBORS);
-    cw_assert(a_j < CW_TRN_MAX_NEIGHBORS);
+    cw_assert(a_i < CW_TR_NODE_MAX_NEIGHBORS);
+    cw_assert(a_j < CW_TR_NODE_MAX_NEIGHBORS);
     cw_assert(a_i != a_j);
 
     t_trn = a_trn->neighbors[a_i];
@@ -717,7 +1028,7 @@ trn_join(cw_trn_t *a_a, cw_trn_t *a_b)
     cw_dassert(trn_p_validate(a_b));
     cw_assert(a_a != a_b);
 #ifdef CW_DBG
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
 	cw_assert(a_a->neighbors[i] != a_b);
 	cw_assert(a_b->neighbors[i] != a_a);
@@ -727,13 +1038,13 @@ trn_join(cw_trn_t *a_a, cw_trn_t *a_b)
     /* Find an empty slot in a_a. */
     for (i = 0; a_a->neighbors[i] != NULL; i++)
     {
-	cw_assert(i < CW_TRN_MAX_NEIGHBORS);
+	cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
     }
 
     /* Find an empty slot in a_b. */
     for (j = 0; a_b->neighbors[j] != NULL; j++)
     {
-	cw_assert(j < CW_TRN_MAX_NEIGHBORS);
+	cw_assert(j < CW_TR_NODE_MAX_NEIGHBORS);
     }
 
     /* Join the two nodes. */
@@ -755,13 +1066,13 @@ trn_detach(cw_trn_t *a_a, cw_trn_t *a_b)
     /* Find the slot in a_a that points to a_b. */
     for (i = 0; a_a->neighbors[i] != a_b; i++)
     {
-	cw_assert(i < CW_TRN_MAX_NEIGHBORS);
+	cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
     }
 
     /* Find the slot in a_b that points to a_a. */
     for (j = 0; a_b->neighbors[j] != a_a; j++)
     {
-	cw_assert(j < CW_TRN_MAX_NEIGHBORS);
+	cw_assert(j < CW_TR_NODE_MAX_NEIGHBORS);
     }
 
     /* Detach the two nodes. */
@@ -827,7 +1138,7 @@ tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
 	/* Rooted tree. */
 
 	/* Get left and right subtrees. */
-	for (i = 0, left = right = NULL; i < CW_TRN_MAX_NEIGHBORS; i++)
+	for (i = 0, left = right = NULL; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
 	{
 	    if (a_tr->root->neighbors[i] != NULL)
 	    {
@@ -932,6 +1243,8 @@ tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_ri)
 	}
     }
 
+    // XXX This is currently happening way more often than necessary.  Add a
+    // flag so that this gratuitous work can be avoided.
     for (i = j = offset = 0; i < a_tr->nedges; i++)
     {
 	/* Record offset. */
@@ -994,7 +1307,7 @@ tr_new(cw_tr_t *a_tr, cw_trn_t *a_trn)
 	cw_uint32_t i, nneighbors;
 
 	/* Make sure this is a rooted tree. */
-	for (i = nneighbors = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	for (i = nneighbors = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
 	{
 	    if (a_trn->neighbors[i] != NULL)
 	    {
@@ -1002,7 +1315,7 @@ tr_new(cw_tr_t *a_tr, cw_trn_t *a_trn)
 	    }
 	}
 	cw_assert(nneighbors == 2);
-	cw_assert(a_trn->taxon_num == CW_TRN_TAXON_NONE);
+	cw_assert(a_trn->taxon_num == CW_TR_NODE_TAXON_NONE);
     }
 #endif
     a_tr->rooted = TRUE;
@@ -1029,19 +1342,8 @@ tr_new(cw_tr_t *a_tr, cw_trn_t *a_trn)
 }
 
 void
-tr_delete(cw_tr_t *a_tr, cw_bool_t a_delete_trns)
+tr_delete(cw_tr_t *a_tr)
 {
-    if (a_delete_trns)
-    {
-	cw_dassert(tr_p_validate(a_tr, TRUE));
-	if (a_tr->rooted == FALSE)
-	{
-	    trn_delete(a_tr->root);
-	}
-
-	trn_p_delete_recurse(a_tr->croot);
-    }
-
     if (a_tr->trt != NULL)
     {
 	nxa_free(a_tr->trt, sizeof(cw_trt_t) * (a_tr->nedges + 1));
@@ -1077,7 +1379,7 @@ tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_trn_t **r_trn,
 {
     cw_dassert(tr_p_validate(a_tr, TRUE));
 
-    if (a_edge != CW_TRN_EDGE_NONE)
+    if (a_edge != CW_TR_NODE_EDGE_NONE)
     {
 	cw_assert(a_tr->rooted == FALSE);
 	cw_assert(trn_p_ntaxa_get_recurse(a_tr->croot, NULL) > 1);
@@ -1100,71 +1402,6 @@ tr_croot_get(cw_tr_t *a_tr)
     cw_dassert(tr_p_validate(a_tr, TRUE));
 
     return a_tr->croot;
-}
-
-cw_trn_t *
-tr_root_get(cw_tr_t *a_tr)
-{
-    cw_dassert(tr_p_validate(a_tr, TRUE));
-
-    return a_tr->root;
-}
-
-cw_bool_t
-tr_rooted(cw_tr_t *a_tr)
-{
-    cw_dassert(tr_p_validate(a_tr, TRUE));
-
-    return a_tr->rooted;
-}
-
-void
-tr_root(cw_tr_t *a_tr, cw_trn_t *a_trn_a, cw_trn_t *a_trn_b)
-{
-    cw_dassert(tr_p_validate(a_tr, TRUE));
-    cw_assert(a_tr->rooted == FALSE);
-
-    trn_detach(a_trn_a, a_trn_b);
-    trn_join(a_tr->root, a_trn_a);
-    trn_join(a_tr->root, a_trn_b);
-
-    a_tr->rooted = TRUE;
-}
-
-void
-tr_unroot(cw_tr_t *a_tr)
-{
-    cw_uint32_t i;
-    cw_trn_t *trn_a, *trn_b;
-
-    cw_dassert(tr_p_validate(a_tr, TRUE));
-    cw_assert(a_tr->rooted);
-
-    trn_a = NULL;
-    trn_b = NULL;
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
-    {
-	if (a_tr->root->neighbors[i] != NULL)
-	{
-	    if (trn_a == NULL)
-	    {
-		trn_a = a_tr->root->neighbors[i];
-	    }
-	    else
-	    {
-		trn_b = a_tr->root->neighbors[i];
-		break;
-	    }
-	}
-    }
-    cw_check_ptr(trn_a);
-    cw_check_ptr(trn_b);
-
-    trn_detach(a_tr->root, trn_a);
-    trn_detach(a_tr->root, trn_b);
-    trn_join(trn_a, trn_b);
-
-    a_tr->rooted = FALSE;
 }
 
 void
@@ -1238,7 +1475,7 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 	/* A 2-taxon tree has no TBR neighbors. */
 	cw_assert(nedges_b != 0);
 
-	a = CW_TRN_EDGE_NONE;
+	a = CW_TR_NODE_EDGE_NONE;
 	b = rem;
 
 	if (a == trt->self_a && b == trt->self_b)
@@ -1250,7 +1487,7 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
     {
 	/* {a,0}. */
 	a = rem;
-	b = CW_TRN_EDGE_NONE;
+	b = CW_TR_NODE_EDGE_NONE;
 
 	if (a == trt->self_a && b == trt->self_b)
 	{
@@ -1294,3 +1531,4 @@ tr_aux_set(cw_tr_t *a_tr, void *a_aux)
 
     a_tr->aux = a_aux;
 }
+#endif // XXX

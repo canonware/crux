@@ -10,154 +10,31 @@
  *
  ******************************************************************************/
 
-typedef struct cw_trn_s cw_trn_t;
-typedef struct cw_trt_s cw_trt_t;
 typedef struct cw_tr_s cw_tr_t;
+#define CW_TR_MAXSCORE_NONE 0xffffffffU
 
-/* Tree node for an unrooted bifurcating phylogenetic tree. */
-struct cw_trn_s
-{
-#ifdef CW_DBG
-    cw_uint32_t magic_a;
-#define CW_TRN_MAGIC_A 0x63329478
-#endif
+typedef cw_uint32_t cw_tr_node_t;
+#define CW_TR_NODE_NONE 0xffffffffU
+#define CW_TR_NODE_TAXON_NONE 0xffffffffU
+#define CW_TR_NODE_MAX_NEIGHBORS 3
+#define CW_TR_NODE_EDGE_NONE 0xffffffffU
 
-    /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
-     * for reference iteration. */
-    void *aux;
-
-    /* If 0xffffffff, then the node is not a leaf node. */
-#define CW_TRN_TAXON_NONE 0xffffffffU
-    cw_uint32_t taxon_num;
-
-    /* Pointers to neighbors.  Only the first element is used if the node is a
-     * leaf node. */
-#define CW_TRN_MAX_NEIGHBORS 3
-    cw_trn_t *neighbors[CW_TRN_MAX_NEIGHBORS];
-#define CW_TRN_EDGE_NONE 0xffffffffU
-
-#ifdef CW_DBG
-    cw_uint32_t magic_b;
-#define CW_TRN_MAGIC_B 0x543b1ca7
-#endif
-};
-
-/* TBR neighbor. */
-struct cw_trt_s
-{
-    /* Number of neighbors that can be reached by doing TBR at edges before this
-     * one.  This is also the neighbor number of the first neighbor that can be
-     * reached by doing TBR on this edge. */
-    cw_uint32_t offset;
-
-    /* Bisection edge. */
-    cw_uint32_t bisect_edge;
-
-    /* Number of edges in the two subtrees.  Note that 0 and 1 are different
-     * logical cases, but the number of connections possible for those two cases
-     * is the same. */
-    cw_uint32_t nedges_a;
-    cw_uint32_t nedges_b;
-
-    /* Edge indices for the edges that will reverse bisection.  This is used to
-     * avoid enumerating reconnections that undo the bisections. */
-    cw_uint32_t self_a;
-    cw_uint32_t self_b;
-};
-
-struct cw_tr_s
-{
-#ifdef CW_DBG
-    cw_uint32_t magic;
-#define CW_TR_MAGIC 0x39886394
-#endif
-
-    /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
-     * for reference iteration. */
-    void *aux;
-
-    /* TRUE if this is a rooted tree, false otherwise. */
-    cw_bool_t rooted;
-
-    /* Root node.  If this tree is unrooted, the root node has no neighbors. */
-    cw_trn_t *root;
-
-    /* Taxon 0 (canonical tree root). */
-    cw_trn_t *croot;
-
-    /* Number of taxa in tree. */
-    cw_uint32_t ntaxa;
-
-    /* Number of edges in tree, assuming that the tree is unrooted.  This can be
-     * derived from ntaxa, but is used often enough to make storing it
-     * worthwhile. */
-    cw_uint32_t nedges;
-
-    /* Array of triplets that store per-edge information that is used for
-     * TBR-related functions.  There is one more element in trt than there are
-     * edges in the tree.  This is critical to the way binary searching on the
-     * array is done, and it also makes it easy to get the total number of
-     * TBR neighbors this tree has (trt[nedges].offset).
-     *
-     * Only the first trtused elements are valid, since not all bisection edges
-     * necessarily result in neighbors. */
-    cw_trt_t *trt;
-    cw_uint32_t trtused;
-};
-
-/* trn. */
-
-/* Constructor. */
-void
-trn_new(cw_trn_t *a_trn);
-
-/* Destructor. */
-void
-trn_delete(cw_trn_t *a_trn);
-
-/* Get the taxon number associated with a_trn.  Return CW_TRN_TAXON_NONE if no
- * taxon number is set. */
-cw_uint32_t
-trn_taxon_num_get(cw_trn_t *a_trn);
-
-/* Set the taxon number associated with a_trn (use CW_TRN_TAXON_NONE to unset
- * the taxon number. */
-void
-trn_taxon_num_set(cw_trn_t *a_trn, cw_uint32_t a_taxon_num);
-
-/* Get neighbor a_i of the trn. */
-cw_trn_t *
-trn_neighbor_get(cw_trn_t *a_trn, cw_uint32_t a_i);
-
-/* Swap two neighbors of a trn. */
-void
-trn_neighbors_swap(cw_trn_t *a_trn, cw_uint32_t a_i, cw_uint32_t a_j);
-
-/* Join two trn's. */
-void
-trn_join(cw_trn_t *a_a, cw_trn_t *a_b);
-
-/* Detatch two trn's. */
-void
-trn_detach(cw_trn_t *a_a, cw_trn_t *a_b);
-
-/* Get the value of the auxiliary pointer associated with the trn. */
-void *
-trn_aux_get(cw_trn_t *a_trn);
-
-/* Set the value of the auxiliary pointer associated with the trn. */
-void
-trn_aux_set(cw_trn_t *a_trn, void *a_aux);
+/******************************************************************************/
 
 /* tr. */
 
 /* Constructor. */
-void
-tr_new(cw_tr_t *a_tr, cw_trn_t *a_root);
+cw_tr_t *
+tr_new(void);
 
 /* Destructor. */
 void
-tr_delete(cw_tr_t *a_tr, cw_bool_t a_delete_trns);
+tr_delete(cw_tr_t *a_tr);
+
+/* Iterate over nodes.  Pass CW_TR_NODE_NONE the first time, and stop when
+ * CW_TR_NODE_NONE is returned. */
+cw_tr_node_t
+tr_nodes_iterate(cw_tr_t *a_tr, cw_tr_node_t a_prev);
 
 /* Get the number of taxa in the tree. */
 cw_uint32_t
@@ -169,36 +46,20 @@ tr_nedges_get(cw_tr_t *a_tr);
 
 /* Get edge a_edge. */
 void
-tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_trn_t **r_trn,
+tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node,
 	    cw_uint32_t *r_neighbor);
 
-/* Get the edge index of the edge between two trn's. */
+// XXX Remove?
+/* Get the edge index of the edge between two nodes. */
 cw_uint32_t
-tr_edge_index_get(cw_tr_t *a_tr, cw_trn_t *a_trn_a, cw_trn_t *a_trn_b);
+tr_edge_index_get(cw_tr_t *a_tr, cw_tr_node_t a_node_a, cw_tr_node_t a_node_b);
 
 /* Get the root of the tree, were this a canonical tree (may or may not be).
  * This is always the lowest numbered taxon node. */
-cw_trn_t *
+cw_tr_node_t
 tr_croot_get(cw_tr_t *a_tr);
 
-/* Get the root of the tree.  If the tree is rooted, this node will not have
- * any neighbors. */
-cw_trn_t *
-tr_root_get(cw_tr_t *a_tr);
-
-/* Return whether the tree is rooted. */
-cw_bool_t
-tr_rooted(cw_tr_t *a_tr);
-
-/* Root the tree at the edge between a_trn_a and a_trn_b. */
-void
-tr_root(cw_tr_t *a_tr, cw_trn_t *a_trn_a, cw_trn_t *a_trn_b);
-
-/* Unroot the tree. */
-void
-tr_unroot(cw_tr_t *a_tr);
-
-/* Canonize the tree.  The tree must be unrooted. */
+/* Canonize the tree. */
 void
 tr_canonize(cw_tr_t *a_tr);
 
@@ -225,3 +86,64 @@ tr_aux_get(cw_tr_t *a_tr);
 /* Set the value of the auxiliary pointer associated with the tr. */
 void
 tr_aux_set(cw_tr_t *a_tr, void *a_aux);
+
+/* Prepare for calculating Fitch parsimony.  a_taxa points to an array of
+ * character array pointers, where the index into a_taxa corresponds to taxon
+ * number.  The character arrays need not be nil-terminated. */
+void
+tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
+	      cw_uint32_t a_nchars);
+
+/* Calculate the Fitch parsimony score for this tree.  If a_maxscore is not
+ * CW_MAXSCORE_NONE, terminate scoring if a_maxscore is reached/exceeded and
+ * return CW_TR_MAXSCORE_NONE. */
+cw_uint32_t
+tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore);
+
+/******************************************************************************/
+
+/* tr_node. */
+
+/* Constructor. */
+cw_tr_node_t
+tr_node_new(cw_tr_t *a_tr);
+
+/* Destructor. */
+void
+tr_node_delete(cw_tr_t *a_tr, cw_tr_node_t a_node);
+
+/* Get the taxon number associated with a_node.  Return CW_TR_NODE_TAXON_NONE if
+ * no taxon number is set. */
+cw_uint32_t
+tr_node_taxon_num_get(cw_tr_t *a_tr, cw_tr_node_t a_node);
+
+/* Set the taxon number associated with a_node (use CW_TR_NODE_TAXON_NONE to
+ * unset the taxon number. */
+void
+tr_node_taxon_num_set(cw_tr_t *a_tr, cw_tr_node_t a_node,
+		      cw_uint32_t a_taxon_num);
+
+/* Get neighbor a_i of the node. */
+cw_tr_node_t
+tr_node_neighbor_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i);
+
+/* Swap two neighbors of a node. */
+void
+tr_node_neighbors_swap(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_i,
+		       cw_uint32_t a_j);
+
+/* Join two nodes. */
+void
+tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b);
+
+/* Detatch two nodes. */
+void
+tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b);
+
+/* Get the value of the auxiliary pointer associated with the node. */
+void *
+tr_node_aux_get(cw_tr_t *a_tr, cw_tr_node_t a_node);
+
+/* Set the value of the auxiliary pointer associated with the node. */
+void
+tr_node_aux_set(cw_tr_t *a_tr, cw_tr_node_t a_node, void *a_aux);
