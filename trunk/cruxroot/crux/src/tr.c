@@ -2219,6 +2219,17 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
     }
 }
 
+/* The sole purpose of this function is to assure that the contents of
+ * tr_p_mp_pscore() are not inlined in tr_p_mp_cache_pscore.  Most of the time,
+ * the cache should be usable, so the actual scoring code doesn't usually get
+ * called. */
+static void
+tr_p_no_inline_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
+			cw_tr_ps_t *a_b)
+{
+    tr_p_mp_pscore(a_tr, a_p, a_a, a_b);
+}
+
 /* Calculate the partial score for a_p, using a_a and a_b as children.  However,
  * do some extra bookkeeping in order to be able to cache the results, and later
  * recognize that precisely the same calculation was cached. */
@@ -2272,7 +2283,7 @@ tr_p_mp_cache_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	a_b->parent = a_p;
 
 	/* Calculate the partial score. */
-	tr_p_mp_pscore(a_tr, a_p, a_a, a_b);
+	tr_p_no_inline_mp_pscore(a_tr, a_p, a_a, a_b);
     }
 
 #ifdef CW_TR_MP_PSCORE_VALIDATE
