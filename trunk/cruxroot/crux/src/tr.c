@@ -2333,7 +2333,7 @@ static void
 tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		 cw_tr_ps_t *a_b)
 {
-    uint32_t i, niters, ns, a, b, p, r;
+    uint32_t i, nbytes, ns, a, b, p, r;
     cw_trc_t *chars_p, *chars_a, *chars_b;
 
     /* Calculate node score. */
@@ -2343,7 +2343,7 @@ tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
     chars_p = a_p->chars;
     chars_a = a_a->chars;
     chars_b = a_b->chars;
-    for (i = 0, niters = (a_p->nchars >> 1); i < niters; i++)
+    for (i = 0, nbytes = (a_p->nchars >> 1); i < nbytes; i++)
     {
 	a = chars_a[i];
 	b = chars_b[i];
@@ -2661,14 +2661,14 @@ tr_p_mp_ia32_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 static uint32_t
 tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
-    uint32_t retval, i, niters, a, b;
+    uint32_t retval, i, nbytes, a, b;
     cw_trc_t *chars_a, *chars_b;
 
     /* Calculate partial Fitch parsimony scores for each character. */
     retval = 0;
     chars_a = a_a->chars;
     chars_b = a_b->chars;
-    for (i = 0, niters = (a_a->nchars >> 1); i < niters; i++)
+    for (i = 0, nbytes = (a_a->nchars >> 1); i < nbytes; i++)
     {
 	a = chars_a[i];
 	b = chars_b[i];
