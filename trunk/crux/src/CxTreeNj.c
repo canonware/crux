@@ -86,6 +86,7 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 {
     bool retval;
     float *dOrig, *d; /* Distance matrix. */
+    float dist;
     CxtTreeNjr *rOrig, *r; /* Distance sums. */
     long nleft, i, x, y, iMin, xMin, yMin;
     float transMin, transCur;
@@ -172,8 +173,9 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	{
 	    for (y = x + 1; y < nleft; y++)
 	    {
-		r[x].r += d[i];
-		r[y].r += d[i];
+		dist = d[i];
+		r[x].r += dist;
+		r[y].r += dist;
 
 		i++;
 	    }
