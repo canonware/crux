@@ -172,9 +172,17 @@ CxTreeNew(void)
     PyObject *globals, *locals, *obj;
 
     globals = PyEval_GetGlobals();
+    if (globals == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
     locals = Py_BuildValue("{}");
-    // XXX globals and locals may be NULL!  Catch this error, here and
-    // elsewhere.
+    if (locals == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
 
     obj = PyEval_EvalCode((PyCodeObject *) CxpTreeNewCode,
 			  globals,
@@ -721,7 +729,17 @@ CxNodeNew(CxtTreeObject *aTree)
     PyObject *globals, *locals, *obj;
 
     globals = PyEval_GetGlobals();
+    if (globals == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
     locals = Py_BuildValue("{sO}", "tree", (PyObject *) aTree);
+    if (locals == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
 
     obj = PyEval_EvalCode((PyCodeObject *) CxpNodeNewCode,
 			  globals,
@@ -1139,7 +1157,17 @@ CxEdgeNew(CxtTreeObject *aTree)
     PyObject *globals, *locals, *obj;
 
     globals = PyEval_GetGlobals();
+    if (globals == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
     locals = Py_BuildValue("{sO}", "tree", (PyObject *) aTree);
+    if (locals == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
 
     obj = PyEval_EvalCode((PyCodeObject *) CxpEdgeNewCode,
 			  globals,
@@ -1837,9 +1865,19 @@ CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd)
     PyObject *globals, *locals, *obj;
 
     globals = PyEval_GetGlobals();
+    if (globals == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
     locals = Py_BuildValue("{sOsi}",
 			   "edge", (PyObject *) aEdge,
 			   "end", aEnd);
+    if (locals == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
 
     obj = PyEval_EvalCode((PyCodeObject *) CxpRingNewCode,
 			  globals,
