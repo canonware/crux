@@ -1581,68 +1581,68 @@ tr_p_update(cw_tr_t *a_tr)
 }
 
 CW_P_INLINE void
-tr_p_dup(cw_tr_t *a_tr)
+tr_p_dup(cw_tr_t *a_tr, cw_tr_t *a_orig)
 {
-    cw_tr_t *retval;
     uint32_t i;
 
-    tr_p_update(a_tr);
-    cw_dassert(tr_p_validate(a_tr));
+    tr_p_update(a_orig);
+    cw_dassert(tr_p_validate(a_orig));
 
-    retval->base = a_tr->base;
-    retval->ntaxa = a_tr->ntaxa;
-    retval->nedges = a_tr->nedges;
+    a_tr->base = a_orig->base;
+    a_tr->ntaxa = a_orig->ntaxa;
+    a_tr->nedges = a_orig->nedges;
 
     /*
      * Copy trn-related data structures.
      */
 
-    /* Allocate trns the same size as a_tr's, then copy. */
-    if (a_tr->trns != NULL)
+    /* Allocate trns the same size as a_orig's, then copy. */
+    if (a_orig->trns != NULL)
     {
-	retval->trns = (cw_trn_t *) cw_malloc(sizeof(cw_trn_t) * a_tr->ntrns);
-	memcpy(retval->trns, a_tr->trns, sizeof(cw_trn_t) * a_tr->ntrns);
-	retval->ntrns = a_tr->ntrns;
+	a_tr->trns = (cw_trn_t *) cw_malloc(sizeof(cw_trn_t) * a_orig->ntrns);
+	memcpy(a_tr->trns, a_orig->trns, sizeof(cw_trn_t) * a_orig->ntrns);
+	a_tr->ntrns = a_orig->ntrns;
 
 	/* Clean up the copied trn's. */
-	for (i = 0; i < retval->ntrns; i++)
+	for (i = 0; i < a_tr->ntrns; i++)
 	{
-	    a_tr->trns[i].u.aux = NULL;
+	    a_orig->trns[i].u.aux = NULL;
 	}
 
-	/* The spare trns list is the same as for a_tr. */
-	retval->sparetrns = a_tr->sparetrns;
+	/* The spare trns list is the same as for a_orig. */
+	a_tr->sparetrns = a_orig->sparetrns;
     }
 
     /*
      * Copy tre-related data structures.
      */
 
-    if (a_tr->tres != NULL)
+    if (a_orig->tres != NULL)
     {
-	/* Allocate tres the same size as a_tr's, then copy. */
-	retval->tres = (cw_tre_t *) cw_malloc(sizeof(cw_tre_t) * a_tr->ntres);
-	memcpy(retval->tres, a_tr->tres, sizeof(cw_tre_t) * a_tr->ntres);
-	retval->ntres = a_tr->ntres;
+	/* Allocate tres the same size as a_orig's, then copy. */
+	a_tr->tres = (cw_tre_t *) cw_malloc(sizeof(cw_tre_t) * a_orig->ntres);
+	memcpy(a_tr->tres, a_orig->tres, sizeof(cw_tre_t) * a_orig->ntres);
+	a_tr->ntres = a_orig->ntres;
 
 	/* Clean up the copied tre's. */
-	for (i = 0; i < retval->ntres; i++)
+	for (i = 0; i < a_tr->ntres; i++)
 	{
-	    a_tr->tres[i].u.aux = NULL;
-	    a_tr->tres[i].ps = NULL;
+	    a_orig->tres[i].u.aux = NULL;
+	    a_orig->tres[i].ps = NULL;
 	}
 
-	/* The spare tres list is the same as for a_tr. */
-	retval->sparetres = a_tr->sparetres;
+	/* The spare tres list is the same as for a_orig. */
+	a_tr->sparetres = a_orig->sparetres;
 
-	/* Alocate trrs the same size as a_tr's, then copy. */
-	retval->trrs = (cw_trr_t *) cw_malloc(sizeof(cw_trr_t)
-					      * a_tr->ntres * 2);
-	memcpy(retval->trrs, a_tr->trrs, sizeof(cw_trr_t *) * a_tr->ntres * 2);
+	/* Alocate trrs the same size as a_orig's, then copy. */
+	a_tr->trrs = (cw_trr_t *) cw_malloc(sizeof(cw_trr_t)
+					      * a_orig->ntres * 2);
+	memcpy(a_tr->trrs, a_orig->trrs,
+	       sizeof(cw_trr_t *) * a_orig->ntres * 2);
 
-	for (i = 0; i < retval->ntres * 2; i++)
+	for (i = 0; i < a_tr->ntres * 2; i++)
 	{
-	    a_tr->trrs[i].ps = NULL;
+	    a_orig->trrs[i].ps = NULL;
 	}
     }
 }
@@ -1662,7 +1662,7 @@ tr_p_wrapped_dup(cw_tr_t *a_tr)
 	retval = tr_new(NULL, NULL, NULL, NULL);
     }
 
-    tr_p_dup(a_tr);
+    tr_p_dup(retval, a_tr);
 
     return retval;
 }
@@ -2820,6 +2820,7 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	default:
 	{
 	    /* This is a multifurcating node. */
+	    retval = NULL; // XXX
 	    cw_error("XXX Not implemented");
 	}
     }
@@ -3225,7 +3226,7 @@ tr_dup(cw_tr_t *a_tr)
     retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
     tr_p_new(retval, a_tr->tr_new, a_tr->tr_node_new, a_tr->tr_edge_new,
 	     a_tr->opaque);
-    tr_p_dup(retval);
+    tr_p_dup(retval, a_tr);
 
     return retval;
 }
@@ -3342,6 +3343,12 @@ tr_canonize(cw_tr_t *a_tr)
     /* Re-update internal state. */
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
+}
+
+void
+tr_nj(cw_tr_t *a_tr, double *a_distances, uint32_t a_ntaxa)
+{
+    cw_error("XXX Not implemented");
 }
 
 void

@@ -11,6 +11,8 @@
 
 #include "../include/_cruxmodule.h"
 
+#include <math.h>
+
 static PyTypeObject Tree_Type;
 static PyTypeObject Node_Type;
 static PyTypeObject Edge_Type;
@@ -273,6 +275,74 @@ tree_canonize(TreeObject *self)
     }
     xep_end();
 
+    return retval;
+}
+
+static PyObject *
+tree__nj(TreeObject *self, PyObject *args)
+{
+    PyObject *retval, *dist_list, *tobj;
+    double *distances;
+    uint32_t ntaxa, nelms, i;
+    bool okay;
+
+    if (PyArg_ParseTuple(args, "O!", &PyList_Type, &dist_list) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+
+    nelms = PyList_Size(dist_list);
+    ntaxa = sqrt(nelms);
+    if (ntaxa * ntaxa != nelms)
+    {
+	Py_INCREF(PyExc_ValueError);
+	retval = PyExc_ValueError;
+	goto RETURN;
+    }
+
+    xep_begin();
+    xep_try
+    {
+	distances = (double *) cw_malloc(sizeof(double) * nelms);
+
+	okay = true;
+	for (i = 0; i < nelms; i++)
+	{
+	    tobj = PyList_GetItem(dist_list, i);
+	    if (PyFloat_Check(tobj))
+	    {
+		distances[i] = PyFloat_AsDouble(tobj);
+	    }
+	    else if (PyInt_Check(tobj))
+	    {
+		distances[i] = PyInt_AsLong(tobj);
+	    }
+	    else
+	    {
+		Py_INCREF(PyExc_ValueError);
+		retval = PyExc_ValueError;
+		okay = false;
+	    }
+	}
+
+	if (okay)
+	{
+	    tr_nj(self->tr, distances, ntaxa);
+	}
+
+	cw_free(distances);
+    }
+    xep_catch(CW_CRUXX_OOM)
+    {
+	xep_handled();
+	retval = PyErr_NoMemory();
+    }
+    xep_end();
+
+    Py_INCREF(Py_None);
+    retval = Py_None;
+    RETURN:
     return retval;
 }
 
@@ -700,6 +770,12 @@ static PyMethodDef tree_methods[] =
 	(PyCFunction) tree_canonize,
 	METH_NOARGS,
 	"canonize"
+    },
+    {
+	"_nj",
+	(PyCFunction) tree__nj,
+	METH_VARARGS,
+	"_nj"
     },
     {
 	"tbr",

@@ -66,6 +66,15 @@ tr_base_set(cw_tr_t *a_tr, cw_tr_node_t a_base);
 void
 tr_canonize(cw_tr_t *a_tr);
 
+/* Create a tree from a symmetric pair-wise distance matrix, using the
+ * neighbor-joining algorithm.
+ *
+ * distances : Row-major matrix of pair-wise distances.  Only the upper right
+ *             triangle is actually used.
+ * ntaxa : Number of taxa (dimensions of matrix). */
+void
+tr_nj(cw_tr_t *a_tr, double *a_distances, uint32_t a_ntaxa);
+
 /* Perform TBR. */
 void
 tr_tbr(cw_tr_t *a_tr, cw_tr_edge_t a_bisect, cw_tr_edge_t a_reconnect_a,
