@@ -17,13 +17,6 @@ static PyTypeObject Tree_Type;
 static PyTypeObject Node_Type;
 static PyTypeObject Edge_Type;
 
-static cw_tr_t *
-tree_p_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
-static cw_tr_node_t
-tree_p_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
-static cw_tr_edge_t
-tree_p_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
-
 /******************************************************************************/
 /* Begin tree. */
 
@@ -47,8 +40,7 @@ tree_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     xep_begin();
     xep_try
     {
-	self->tr = tr_new(tree_p_wrapped_new, tree_p_node_wrapped_new,
-			  tree_p_edge_wrapped_new, self);
+	self->tr = tr_new(NULL, NULL, NULL, NULL);//XXX Remove args to tr_new().
 	tr_aux_set(self->tr, self);
 	retval = (PyObject *) self;
     }
@@ -182,12 +174,34 @@ tree_base_get(TreeObject *self)
     return retval;
 }
 
+void
+tree_base_set_cargs(TreeObject *self, NodeObject *a_node)
+{
+    NodeObject *old_node;
+    cw_tr_node_t old_tr_node;
+
+    /* Decref if clobbering an already-set base. */
+    old_tr_node = tr_base_get(self->tr);
+    if (old_tr_node != CW_TR_NODE_NONE)
+    {
+	old_node = (NodeObject *) tr_node_aux_get(self->tr, old_tr_node);
+	tr_base_set(self->tr, CW_TR_NODE_NONE);
+	Py_DECREF(old_node);
+    }
+
+    if (a_node != NULL)
+    {
+	/* Circular reference. */
+	Py_INCREF(a_node);
+	tr_base_set(self->tr, a_node->node);
+    }
+}
+
 PyObject *
 tree_base_set(TreeObject *self, PyObject *args)
 {
     PyObject *retval;
-    NodeObject *node, *old_node;
-    cw_tr_node_t old_tr_node;
+    NodeObject *node;
 
     node = NULL;
     if (PyArg_ParseTuple(args, "|O!", &Node_Type, &node) == 0)
@@ -202,21 +216,7 @@ tree_base_set(TreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    /* Decref if clobbering an already-set base. */
-    old_tr_node = tr_base_get(self->tr);
-    if (old_tr_node != CW_TR_NODE_NONE)
-    {
-	old_node = (NodeObject *) tr_node_aux_get(self->tr, old_tr_node);
-	tr_base_set(self->tr, CW_TR_NODE_NONE);
-	Py_DECREF(old_node);
-    }
-
-    if (node != NULL)
-    {
-	/* Circular reference. */
-	Py_INCREF(node);
-	tr_base_set(self->tr, node->node);
-    }
+    tree_base_set_cargs(self, node);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -381,25 +381,23 @@ static PyMethodDef tree_p_funcs[] =
     {NULL}
 };
 
-static PyObject *tree_p_wrapped_new_code;
+static PyObject *tree_p_new_code;
 
-static cw_tr_t *
-tree_p_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
+TreeObject *
+tree_new(void)
 {
-    TreeObject *tree;
+    TreeObject *retval;
     PyObject *globals, *locals;
 
     globals = PyEval_GetGlobals();
     locals = Py_BuildValue("{}");
 
-    tree = (TreeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_p_wrapped_new_code,
-			globals,
-			locals);
+    retval = (TreeObject *)
+	PyEval_EvalCode((PyCodeObject *) tree_p_new_code, globals, locals);
 
     Py_DECREF(locals);
 
-    return tree->tr;
+    return retval;
 }
 
 void
@@ -415,10 +413,10 @@ crux_tree_init(void)
     Py_INCREF(&Tree_Type);
     PyModule_AddObject(m, "Tree", (PyObject *) &Tree_Type);
 
-    /* Pre-compile Python code that is used for creating a wrapped tree. */
-    tree_p_wrapped_new_code = Py_CompileString("crux.tree()",
-					       "<string>",
-					       Py_eval_input);
+    /* Pre-compile Python code that is used for creating a tree. */
+    tree_p_new_code = Py_CompileString("crux.tree()",
+				       "<string>",
+				       Py_eval_input);
 }
 
 /* End tree. */
@@ -569,6 +567,12 @@ node_taxon_num_get(NodeObject *self)
     return retval;
 }
 
+void
+node_taxon_num_set_cargs(NodeObject *self, uint32_t a_taxon_num)
+{
+    tr_node_taxon_num_set(self->tree->tr, self->node, a_taxon_num);
+}
+
 PyObject *
 node_taxon_num_set(NodeObject *self, PyObject *args)
 {
@@ -582,7 +586,7 @@ node_taxon_num_set(NodeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    tr_node_taxon_num_set(self->tree->tr, self->node, taxon_num);
+    node_taxon_num_set_cargs(self, taxon_num);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -703,25 +707,26 @@ static PyMethodDef node_p_funcs[] =
     {NULL}
 };
 
-static PyObject *tree_p_node_wrapped_new_code;
+static PyObject *tree_p_node_new_code;
 
-static cw_tr_node_t
-tree_p_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
+// XXX Move in file (do tree and edge as well).
+NodeObject *
+node_new(TreeObject *a_tree)
 {
-    NodeObject *node;
+    NodeObject *retval;
     PyObject *globals, *locals;
 
     globals = PyEval_GetGlobals();
-    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_opaque);
+    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_tree);
 
-    node = (NodeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_p_node_wrapped_new_code,
+    retval = (NodeObject *)
+	PyEval_EvalCode((PyCodeObject *) tree_p_node_new_code,
 			globals,
 			locals);
 
     Py_DECREF(locals);
 
-    return node->node;
+    return retval;
 }
 
 void
@@ -737,10 +742,10 @@ crux_node_init(void)
     Py_INCREF(&Node_Type);
     PyModule_AddObject(m, "Node", (PyObject *) &Node_Type);
 
-    /* Pre-compile Python code that is used for creating a wrapped node. */
-    tree_p_node_wrapped_new_code = Py_CompileString("crux.node(tree)",
-						    "<string>",
-						    Py_eval_input);
+    /* Pre-compile Python code that is used for creating a node. */
+    tree_p_node_new_code = Py_CompileString("crux.node(tree)",
+					    "<string>",
+					    Py_eval_input);
 }
 
 /* End node. */
@@ -871,25 +876,12 @@ edge_tree(EdgeObject *self)
 }
 
 PyObject *
-edge_node(EdgeObject *self, PyObject *args)
+edge_node_cargs(EdgeObject *self, uint32_t a_ind)
 {
     PyObject *retval;
-    uint32_t ind;
     cw_tr_node_t node;
 
-    if (PyArg_ParseTuple(args, "i", &ind) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-    if (ind != 0 && ind != 1)
-    {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
-	goto RETURN;
-    }
-
-    node = tr_edge_node_get(self->tree->tr, self->edge, ind);
+    node = tr_edge_node_get(self->tree->tr, self->edge, a_ind);
     if (node != CW_TR_NODE_NONE)
     {
 	retval = (PyObject *) tr_node_aux_get(self->tree->tr, node);
@@ -901,8 +893,41 @@ edge_node(EdgeObject *self, PyObject *args)
 	retval = Py_None;
     }
 
+    return retval;
+}
+
+PyObject *
+edge_node(EdgeObject *self, PyObject *args)
+{
+    PyObject *retval;
+    uint32_t ind;
+
+    if (PyArg_ParseTuple(args, "i", &ind) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+    if (ind != 0 && ind != 1)
+    {
+	Py_INCREF(PyExc_ValueError);
+	retval = PyExc_ValueError;
+	goto RETURN;
+    }
+
+    retval = edge_node_cargs(self, ind);
+
     RETURN:
     return retval;
+}
+
+void
+edge_next_cargs(EdgeObject *self, uint32_t a_ind, EdgeObject **r_edge,
+		uint32_t *r_next_end)
+{
+    cw_tr_edge_t next_edge;
+
+    tr_edge_next_get(self->tree->tr, self->edge, a_ind, &next_edge, r_next_end);
+    *r_edge = (EdgeObject *) tr_edge_aux_get(self->tree->tr, next_edge);
 }
 
 PyObject *
@@ -911,7 +936,6 @@ edge_next(EdgeObject *self, PyObject *args)
     PyObject *retval;
     EdgeObject *edge_obj;
     uint32_t ind, next_end;
-    cw_tr_edge_t next_edge;
 
     if (PyArg_ParseTuple(args, "i", &ind) == 0)
     {
@@ -925,13 +949,21 @@ edge_next(EdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    tr_edge_next_get(self->tree->tr, self->edge, ind, &next_edge, &next_end);
-    edge_obj = (EdgeObject *) tr_edge_aux_get(self->tree->tr, next_edge);
-    Py_INCREF(edge_obj);
+    edge_next_cargs(self, ind, &edge_obj, &next_end);
 
     retval = Py_BuildValue("(Oi)", edge_obj, next_end);
     RETURN:
     return retval;
+}
+
+void
+edge_prev_cargs(EdgeObject *self, uint32_t a_ind, EdgeObject **r_edge,
+		uint32_t *r_prev_end)
+{
+    cw_tr_edge_t prev_edge;
+
+    tr_edge_prev_get(self->tree->tr, self->edge, a_ind, &prev_edge, r_prev_end);
+    *r_edge = (EdgeObject *) tr_edge_aux_get(self->tree->tr, prev_edge);
 }
 
 PyObject *
@@ -939,8 +971,7 @@ edge_prev(EdgeObject *self, PyObject *args)
 {
     PyObject *retval;
     EdgeObject *edge_obj;
-    uint32_t ind, next_end;
-    cw_tr_edge_t next_edge;
+    uint32_t ind, prev_end;
 
     if (PyArg_ParseTuple(args, "i", &ind) == 0)
     {
@@ -954,11 +985,9 @@ edge_prev(EdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    tr_edge_prev_get(self->tree->tr, self->edge, ind, &next_edge, &next_end);
-    edge_obj = (EdgeObject *) tr_edge_aux_get(self->tree->tr, next_edge);
-    Py_INCREF(edge_obj);
+    edge_prev_cargs(self, ind, &edge_obj, &prev_end);
 
-    retval = Py_BuildValue("(Oi)", edge_obj, next_end);
+    retval = Py_BuildValue("(Oi)", edge_obj, prev_end);
     RETURN:
     return retval;
 }
@@ -967,6 +996,12 @@ PyObject *
 edge_length_get(EdgeObject *self)
 {
     return Py_BuildValue("d", tr_edge_length_get(self->tree->tr, self->edge));
+}
+
+void
+edge_length_set_cargs(EdgeObject *self, double a_length)
+{
+    tr_edge_length_set(self->tree->tr, self->edge, a_length);
 }
 
 PyObject *
@@ -988,12 +1023,23 @@ edge_length_set(EdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    tr_edge_length_set(self->tree->tr, self->edge, length);
+    edge_length_set_cargs(self, length);
 
     Py_INCREF(Py_None);
     retval = Py_None;
     RETURN:
     return retval;
+}
+
+void
+edge_attach_cargs(EdgeObject *self, NodeObject *a_node_a, NodeObject *a_node_b)
+{
+    Py_INCREF(a_node_a);
+    Py_INCREF(a_node_b);
+    /* Cyclic references (nodes refer to edge). */
+    Py_INCREF(self);
+    Py_INCREF(self);
+    tr_edge_attach(self->tree->tr, self->edge, a_node_a->node, a_node_b->node);
 }
 
 PyObject *
@@ -1015,12 +1061,7 @@ edge_attach(EdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    Py_INCREF(node_a);
-    Py_INCREF(node_b);
-    /* Cyclic references (nodes refer to edge). */
-    Py_INCREF(self);
-    Py_INCREF(self);
-    tr_edge_attach(self->tree->tr, self->edge, node_a->node, node_b->node);
+    edge_attach_cargs(self, node_a, node_b);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -1156,25 +1197,25 @@ static PyMethodDef edge_p_funcs[] =
     {NULL}
 };
 
-static PyObject *tree_p_edge_wrapped_new_code;
+static PyObject *tree_p_edge_new_code;
 
-static cw_tr_edge_t
-tree_p_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
+EdgeObject *
+edge_new(TreeObject *a_tree)
 {
-    EdgeObject *edge;
+    EdgeObject *retval;
     PyObject *globals, *locals;
 
     globals = PyEval_GetGlobals();
-    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_opaque);
+    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_tree);
 
-    edge = (EdgeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_p_edge_wrapped_new_code,
+    retval = (EdgeObject *)
+	PyEval_EvalCode((PyCodeObject *) tree_p_edge_new_code,
 			globals,
 			locals);
 
     Py_DECREF(locals);
 
-    return edge->edge;
+    return retval;
 }
 
 void
@@ -1191,9 +1232,9 @@ crux_edge_init(void)
     PyModule_AddObject(m, "Edge", (PyObject *) &Edge_Type);
 
     /* Pre-compile Python code that is used for creating a wrapped edge. */
-    tree_p_edge_wrapped_new_code = Py_CompileString("crux.edge(tree)",
-						    "<string>",
-						    Py_eval_input);
+    tree_p_edge_new_code = Py_CompileString("crux.edge(tree)",
+					    "<string>",
+					    Py_eval_input);
 }
 
 /* End edge. */
