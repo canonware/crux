@@ -215,6 +215,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	    CxpStateComment,
 	    CxpStateChars
 	} state;
+	PyObject *result;
 
 	state = CxpStateStart;
 	self->line = 1;
@@ -246,8 +247,9 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				goto ERROR;
 			    }
 
-			    PyEval_CallMethod((PyObject *) self,
-					      "labelAccept", "()");
+			    result = PyEval_CallMethod((PyObject *) self,
+						       "labelAccept", "()");
+			    Py_DECREF(result);
 			    self->tokenLen = 0;
 			    state = CxpStateChars;
 			    break;
@@ -261,8 +263,9 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				goto ERROR;
 			    }
 
-			    PyEval_CallMethod((PyObject *) self,
-					      "labelAccept", "()");
+			    result = PyEval_CallMethod((PyObject *) self,
+						       "labelAccept", "()");
+			    Py_DECREF(result);
 			    self->tokenLen = 0;
 			    state = CxpStateComment;
 			    break;
@@ -280,8 +283,9 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 		    {
 			if (self->tokenLen > 0)
 			{
-			    PyEval_CallMethod((PyObject *) self,
-					      "commentAccept", "()");
+			    result = PyEval_CallMethod((PyObject *) self,
+						       "commentAccept", "()");
+			    Py_DECREF(result);
 			    self->tokenLen = 0;
 			    state = CxpStateChars;
 			}
@@ -307,8 +311,9 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			    goto ERROR;
 			}
 
-			PyEval_CallMethod((PyObject *) self,
-					  "charsAccept", "()");
+			result = PyEval_CallMethod((PyObject *) self,
+						   "charsAccept", "()");
+			Py_DECREF(result);
 			self->tokenLen = 0;
 			state = CxpStateLabel;
 		    }
@@ -405,7 +410,8 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				      "Missing character data");
 	    goto ERROR;
 	}
-	PyEval_CallMethod((PyObject *) self, "charsAccept", "()");
+	result = PyEval_CallMethod((PyObject *) self, "charsAccept", "()");
+	Py_DECREF(result);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
