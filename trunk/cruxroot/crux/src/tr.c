@@ -1417,6 +1417,9 @@ tr_p_reconnect_prepare(cw_tr_t *a_tr, cw_tr_node_t a_node,
     }
 }
 
+// XXX There's something wrong here.  This is returning CW_TR_NODE_NONE in cases
+// where it shouldn't.
+
 /* Starting at a_root, recursively iterate over the edges in the subtree on this
  * side of the bisection, and return the edge index of the a_edge'th edge
  * iterated over.  The two non-bisection edges of the node adjacent to the
@@ -1486,7 +1489,8 @@ tr_p_bisection_reconnect_edge_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
 		/* Recurse into neighbor subtree. */
 		retval
 		    = tr_p_bisection_reconnect_edge_get_recurse(a_tr,
-								trn->neighbors[i],
+								trn->
+								neighbors[i],
 								a_other, a_node,
 								a_edge,
 								r_edge_index);
