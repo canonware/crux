@@ -170,12 +170,6 @@ struct cw_tr_s
 #define CW_TR_MAGIC 0x39886394
 #endif
 
-    /* Function pointers for wrapped construction of trees, nodes, and edges. */
-    cw_tr_wrapped_new_t *tr_new;
-    cw_tr_node_wrapped_new_t *tr_node_new;
-    cw_tr_edge_wrapped_new_t *tr_edge_new;
-    void *opaque;
-
     /* Auxiliary opaque data pointer. */
     void *aux;
 
@@ -491,23 +485,6 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 
 /* tr_edge. */
 
-static cw_tr_edge_t
-tr_p_edge_wrapped_new(cw_tr_t *a_tr)
-{
-    cw_tr_edge_t retval;
-
-    if (a_tr->tr_edge_new != NULL)
-    {
-	retval = a_tr->tr_edge_new(a_tr, a_tr->opaque);
-    }
-    else
-    {
-	retval = tr_edge_new(a_tr);
-    }
-
-    return retval;
-}
-
 CW_P_INLINE void
 tr_p_edge_init(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 {
@@ -780,23 +757,6 @@ tr_edge_detach(cw_tr_t *a_tr, cw_tr_edge_t a_edge)
 
 /* tr_node. */
 
-static cw_tr_node_t
-tr_p_node_wrapped_new(cw_tr_t *a_tr)
-{
-    cw_tr_node_t retval;
-
-    if (a_tr->tr_node_new != NULL)
-    {
-	retval = a_tr->tr_node_new(a_tr, a_tr->opaque);
-    }
-    else
-    {
-	retval = tr_node_new(a_tr);
-    }
-
-    return retval;
-}
-
 CW_P_INLINE void
 tr_p_node_init(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
@@ -1059,14 +1019,8 @@ tr_node_distance(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_other)
 
 /* Initialize everything except trns and sparetrns. */
 CW_P_INLINE void
-tr_p_new(cw_tr_t *a_tr, cw_tr_wrapped_new_t *a_tr_new,
-	 cw_tr_node_wrapped_new_t *a_tr_node_new,
-	 cw_tr_edge_wrapped_new_t *a_tr_edge_new, void *a_opaque)
+tr_p_new(cw_tr_t *a_tr)
 {
-    a_tr->tr_new = a_tr_new;
-    a_tr->tr_node_new = a_tr_node_new;
-    a_tr->tr_edge_new = a_tr_edge_new;
-    a_tr->opaque = a_opaque;
     a_tr->aux = NULL;
     a_tr->modified = false;
     a_tr->base = CW_TR_NODE_NONE;
@@ -1092,25 +1046,6 @@ tr_p_new(cw_tr_t *a_tr, cw_tr_wrapped_new_t *a_tr_new,
     a_tr->magic = CW_TR_MAGIC;
 #endif
 }
-
-#ifdef XXX_UNUSED
-static cw_tr_t *
-tr_p_wrapped_new(cw_tr_t *a_tr)
-{
-    cw_tr_t *retval;
-
-    if (a_tr->tr_new != NULL)
-    {
-	retval = a_tr->tr_new(a_tr, a_tr->opaque);
-    }
-    else
-    {
-	retval = tr_new(NULL, NULL, NULL, NULL);
-    }
-
-    return retval;
-}
-#endif
 
 /* Recursively traverse the tree, count the number of taxa, and find the lowest
  * numbered taxon. */
@@ -1647,27 +1582,6 @@ tr_p_dup(cw_tr_t *a_tr, cw_tr_t *a_orig)
     }
 }
 
-#ifdef XXX_UNUSED
-static cw_tr_t *
-tr_p_wrapped_dup(cw_tr_t *a_tr)
-{
-    cw_tr_t *retval;
-
-    if (a_tr->tr_new != NULL)
-    {
-	retval = a_tr->tr_new(a_tr, a_tr->opaque);
-    }
-    else
-    {
-	retval = tr_new(NULL, NULL, NULL, NULL);
-    }
-
-    tr_p_dup(retval, a_tr);
-
-    return retval;
-}
-#endif
-
 /* Used for canonizing trees. */
 struct cw_tr_canonize_s
 {
@@ -1913,7 +1827,7 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
     }
     else
     {
-	edge = tr_p_edge_wrapped_new(a_tr);
+	// XXX edge = tr_p_edge_wrapped_new(a_tr);
     }
     ring = tr_p_edge_ring_get(a_tr, edge, 0);
 
@@ -1925,7 +1839,7 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
     }
     else
     {
-	retval = tr_p_node_wrapped_new(a_tr);
+	// XXX retval = tr_p_node_wrapped_new(a_tr);
     }
 
     /* Detach. */
@@ -3210,13 +3124,12 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 }
 
 cw_tr_t *
-tr_new(cw_tr_wrapped_new_t *a_tr_new, cw_tr_node_wrapped_new_t *a_tr_node_new,
-       cw_tr_edge_wrapped_new_t *a_tr_edge_new, void *a_opaque)
+tr_new(void)
 {
     cw_tr_t *retval;
 
     retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
-    tr_p_new(retval, a_tr_new, a_tr_node_new, a_tr_edge_new, a_opaque);
+    tr_p_new(retval);
 
     return retval;
 }
@@ -3227,8 +3140,7 @@ tr_dup(cw_tr_t *a_tr)
     cw_tr_t *retval;
 
     retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
-    tr_p_new(retval, a_tr->tr_new, a_tr->tr_node_new, a_tr->tr_edge_new,
-	     a_tr->opaque);
+    tr_p_new(retval);
     tr_p_dup(retval, a_tr);
 
     return retval;

@@ -40,7 +40,7 @@ tree_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     xep_begin();
     xep_try
     {
-	self->tr = tr_new(NULL, NULL, NULL, NULL);//XXX Remove args to tr_new().
+	self->tr = tr_new();
 	tr_aux_set(self->tr, self);
 	retval = (PyObject *) self;
     }
@@ -103,6 +103,25 @@ tree_p_delete(TreeObject *self)
     tree_p_clear(self);
     tr_delete(self->tr);
     self->ob_type->tp_free((PyObject*) self);
+}
+
+static PyObject *tree_p_new_code;
+
+TreeObject *
+tree_new(void)
+{
+    TreeObject *retval;
+    PyObject *globals, *locals;
+
+    globals = PyEval_GetGlobals();
+    locals = Py_BuildValue("{}");
+
+    retval = (TreeObject *)
+	PyEval_EvalCode((PyCodeObject *) tree_p_new_code, globals, locals);
+
+    Py_DECREF(locals);
+
+    return retval;
 }
 
 PyObject *
@@ -381,25 +400,6 @@ static PyMethodDef tree_p_funcs[] =
     {NULL}
 };
 
-static PyObject *tree_p_new_code;
-
-TreeObject *
-tree_new(void)
-{
-    TreeObject *retval;
-    PyObject *globals, *locals;
-
-    globals = PyEval_GetGlobals();
-    locals = Py_BuildValue("{}");
-
-    retval = (TreeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_p_new_code, globals, locals);
-
-    Py_DECREF(locals);
-
-    return retval;
-}
-
 void
 crux_tree_init(void)
 {
@@ -538,6 +538,27 @@ node_p_delete(NodeObject *self)
 {
     node_p_clear(self);
     self->ob_type->tp_free((PyObject*) self);
+}
+
+static PyObject *tree_p_node_new_code;
+
+NodeObject *
+node_new(TreeObject *a_tree)
+{
+    NodeObject *retval;
+    PyObject *globals, *locals;
+
+    globals = PyEval_GetGlobals();
+    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_tree);
+
+    retval = (NodeObject *)
+	PyEval_EvalCode((PyCodeObject *) tree_p_node_new_code,
+			globals,
+			locals);
+
+    Py_DECREF(locals);
+
+    return retval;
 }
 
 PyObject *
@@ -707,28 +728,6 @@ static PyMethodDef node_p_funcs[] =
     {NULL}
 };
 
-static PyObject *tree_p_node_new_code;
-
-// XXX Move in file (do tree and edge as well).
-NodeObject *
-node_new(TreeObject *a_tree)
-{
-    NodeObject *retval;
-    PyObject *globals, *locals;
-
-    globals = PyEval_GetGlobals();
-    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_tree);
-
-    retval = (NodeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_p_node_new_code,
-			globals,
-			locals);
-
-    Py_DECREF(locals);
-
-    return retval;
-}
-
 void
 crux_node_init(void)
 {
@@ -867,6 +866,27 @@ edge_p_delete(EdgeObject *self)
 {
     edge_p_clear(self);
     self->ob_type->tp_free((PyObject*) self);
+}
+
+static PyObject *tree_p_edge_new_code;
+
+EdgeObject *
+edge_new(TreeObject *a_tree)
+{
+    EdgeObject *retval;
+    PyObject *globals, *locals;
+
+    globals = PyEval_GetGlobals();
+    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_tree);
+
+    retval = (EdgeObject *)
+	PyEval_EvalCode((PyCodeObject *) tree_p_edge_new_code,
+			globals,
+			locals);
+
+    Py_DECREF(locals);
+
+    return retval;
 }
 
 PyObject *
@@ -1196,27 +1216,6 @@ static PyMethodDef edge_p_funcs[] =
 {
     {NULL}
 };
-
-static PyObject *tree_p_edge_new_code;
-
-EdgeObject *
-edge_new(TreeObject *a_tree)
-{
-    EdgeObject *retval;
-    PyObject *globals, *locals;
-
-    globals = PyEval_GetGlobals();
-    locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_tree);
-
-    retval = (EdgeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_p_edge_new_code,
-			globals,
-			locals);
-
-    Py_DECREF(locals);
-
-    return retval;
-}
 
 void
 crux_edge_init(void)
