@@ -90,7 +90,7 @@ extern PyObject *CxgException;
 #define CxmCheckPtr(a)
 #endif
 
-/* cw_dasssert() is used internally in places that the assertion should only
+/* CxmDassert() is used internally in places that the assertion should only
  * be made if CxmDebug is defined, such as checking magic variables that only
  * exist in that case. */
 #if (defined(CxmDebug) && defined(CxmAssertions))
