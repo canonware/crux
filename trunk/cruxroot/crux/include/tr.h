@@ -93,6 +93,10 @@ struct cw_tr_s
     cw_uint32_t tbr_undo_bisect;
     cw_uint32_t tbr_undo_reconnect_a;
     cw_uint32_t tbr_undo_reconnect_b;
+#ifdef CW_DBG
+    cw_uint8_t *tbr_undo_canonical;
+    cw_uint8_t *tbr_undone_canonical;
+#endif
 
     /* Array of triplets that store per-edge information that is used for
      * TBR-related functions.  There is one more element in trt than there are

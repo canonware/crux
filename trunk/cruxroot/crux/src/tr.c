@@ -183,13 +183,21 @@ trn_p_validate(cw_trn_t *a_trn)
      * A leaf node is not required to have a neighbor. */
     if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
     {
-	cw_uint32_t i, nneighbors;
+	cw_uint32_t i, j, nneighbors, nloops;
 
 	for (i = nneighbors = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
 	{
 	    if (a_trn->neighbors[i] != NULL)
 	    {
 		nneighbors++;
+		for (j = nloops = 0; j < CW_TRN_MAX_NEIGHBORS; j++)
+		{
+		    if (a_trn->neighbors[i]->neighbors[j] == a_trn)
+		    {
+			nloops++;
+		    }
+		}
+		cw_assert(nloops == 1);
 	    }
 	}
 	cw_assert(nneighbors <= 1);
@@ -1234,9 +1242,9 @@ tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_trr)
 	    cw_assert(a_tr->trr[i] < a_tr->trrlen);
 	    if (a_tr->trr[i] >= a_tr->trri)
 	    {
-		a_tr->trr[a_tr->trr[i]] = 0xffffffffLU;
+		a_tr->trr[a_tr->trr[i]] = 0xffffffffU;
 	    }
-	    a_tr->trr[i] = 0xffffffffLU;
+	    a_tr->trr[i] = 0xffffffffU;
 	}
 
 	/* Reset trri. */
@@ -1273,6 +1281,22 @@ tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_trr)
 	a_tr->trri = 0;
     }
     cw_assert(a_tr->trri < a_tr->trt[a_tr->nedges].offset);
+
+#ifdef CW_DBG
+    if (a_tr->trri == 0 && a_tr->trr != NULL)
+    {
+	cw_uint32_t i;
+
+	for (i = 0; i < a_tr->trt[a_tr->nedges].offset; i++)
+	{
+	    if (a_tr->trr[i] != 0xffffffffU)
+	    {
+		fprintf(stderr, "%s:%d:%s(): Cell %u is %u\n",
+			__FILE__, __LINE__, __FUNCTION__, i, a_tr->trr[i]);
+	    }
+	}
+    }
+#endif
 }
 
 /*           __         __
@@ -1535,6 +1559,8 @@ tr_new(cw_tr_t *a_tr, cw_trn_t *a_trn)
 #ifdef CW_DBG
     a_tr->magic = CW_TR_MAGIC;
 #endif
+
+    trn_p_canonize(a_tr->croot, NULL);
 }
 
 void
@@ -1563,6 +1589,17 @@ tr_delete(cw_tr_t *a_tr, cw_bool_t a_delete_trns)
     }
 
 #ifdef CW_DBG
+    if (a_tr->tbr_undo_canonical != NULL)
+    {
+	nxa_free(a_tr->tbr_undo_canonical, tr_string_ntaxa2sizeof(a_tr->ntaxa));
+    }
+
+    if (a_tr->tbr_undone_canonical != NULL)
+    {
+	nxa_free(a_tr->tbr_undone_canonical,
+		 tr_string_ntaxa2sizeof(a_tr->ntaxa));
+    }
+
     memset(a_tr, 0x5a, sizeof(cw_tr_t));
 #endif
 }
@@ -1718,6 +1755,17 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
     a_tr->tbr_undo_bisect = *r_bisect;
     a_tr->tbr_undo_reconnect_a = *r_reconnect_a;
     a_tr->tbr_undo_reconnect_b = *r_reconnect_b;
+#ifdef CW_DBG
+    if (a_tr->tbr_undo_canonical == NULL)
+    {
+	/* Allocate space for string.  This only needs to happen once. */
+	a_tr->tbr_undo_canonical
+	    = (cw_uint8_t *) nxa_malloc(tr_string_ntaxa2sizeof(a_tr->ntaxa));
+    }
+    /* Create canonical string for later comparison. */
+    tr_string(a_tr, a_tr->tbr_undo_canonical,
+	      tr_string_ntaxa2sizeof(a_tr->ntaxa));
+#endif
 }
 
 void
@@ -1735,6 +1783,63 @@ tr_tbr_undo(cw_tr_t *a_tr)
 
     /* Clear undoable flag. */
     a_tr->tbr_undoable = FALSE;
+
+#ifdef CW_DBG
+    if (a_tr->tbr_undone_canonical == NULL)
+    {
+	/* Allocate space for string.  This only needs to happen once. */
+	a_tr->tbr_undone_canonical
+	    = (cw_uint8_t *) nxa_malloc(tr_string_ntaxa2sizeof(a_tr->ntaxa));
+    }
+    /* Create canonical string. */
+    tr_string(a_tr, a_tr->tbr_undone_canonical,
+	      tr_string_ntaxa2sizeof(a_tr->ntaxa));
+
+    /* Compare to canonical string before the tbr/undo cycle. */
+    if (tr_string_key_comp(a_tr->tbr_undo_canonical,
+			   a_tr->tbr_undone_canonical) == FALSE)
+    {
+	cw_uint32_t x, i;
+
+	fprintf(stderr, "%s:%d:%s(): Canonical strings don't match\n",
+		__FILE__, __LINE__, __FUNCTION__);
+
+	for (x = 0; x < tr_string_ntaxa2sizeof(a_tr->ntaxa); x += 50)
+	{
+	    for (i = 0;
+		 i < 50 && x + i < tr_string_ntaxa2sizeof(a_tr->ntaxa);
+		 i++)
+	    {
+		if (a_tr->tbr_undo_canonical[x + i]
+		    == a_tr->tbr_undone_canonical[x + i])
+		{
+		    fprintf(stderr, "..");
+		}
+		else
+		{
+		    fprintf(stderr, "%02x", a_tr->tbr_undo_canonical[x + i]);
+		}
+	    }
+	    fprintf(stderr, "\n");
+	    for (i = 0;
+		 i < 50 && x + i < tr_string_ntaxa2sizeof(a_tr->ntaxa);
+		 i++)
+	    {
+		if (a_tr->tbr_undo_canonical[x + i]
+		    == a_tr->tbr_undone_canonical[x + i])
+		{
+		    fprintf(stderr, "..");
+		}
+		else
+		{
+		    fprintf(stderr, "%02x", a_tr->tbr_undone_canonical[x + i]);
+		}
+	    }
+	    fprintf(stderr, "\n\n");
+	}
+	abort();
+    }
+#endif
 }
 
 cw_uint32_t
@@ -1858,14 +1963,14 @@ tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt)
     cw_assert(r < a_tr->trt[a_tr->nedges].offset);
 
     /* 4) */
-    if (a_tr->trr[r] == 0xffffffffLU)
+    if (a_tr->trr[r] == 0xffffffffU)
     {
 	a_tr->trr[r] = r;
     }
 
     /* 5) */
     cw_assert(a_tr->trri < a_tr->trt[a_tr->nedges].offset);
-    if (a_tr->trr[a_tr->trri] == 0xffffffffLU)
+    if (a_tr->trr[a_tr->trri] == 0xffffffffU)
     {
 	a_tr->trr[a_tr->trri] = a_tr->trri;
     }
@@ -1879,6 +1984,17 @@ tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt)
     a_tr->trri++;
 
     cw_assert(retval < a_tr->trt[a_tr->nedges].offset);
+    cw_assert(retval != 0xffffffff);
+#ifdef CW_DBG
+    {
+	cw_uint32_t i;
+
+	for (i = 0; i < a_tr->trri - 1; i++)
+	{
+	    cw_assert(a_tr->trr[i] != retval);
+	}
+    }
+#endif
     return retval;
 }
 
