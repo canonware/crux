@@ -1856,7 +1856,8 @@ tr_p_tbr_node_splice(cw_tr_t *a_tr, cw_tr_edge_t a_edge,
 
 static void
 tr_p_mp_ring_prepare(cw_tr_t *a_tr, cw_tr_ring_t a_ring, char *a_taxa[],
-		     uint32_t a_ntaxa, uint32_t a_nchars)
+		     uint32_t a_ntaxa, uint32_t a_nchars,
+		     bool *a_chars_mask, uint32_t a_ninformative)
 {
     cw_trr_t *trr;
     uint32_t taxon_num;
@@ -1867,22 +1868,28 @@ tr_p_mp_ring_prepare(cw_tr_t *a_tr, cw_tr_ring_t a_ring, char *a_taxa[],
     {
 	trr->ps = tr_p_ps_new(a_tr);
     }
-    tr_p_ps_prepare(a_tr, trr->ps, a_nchars);
+    tr_p_ps_prepare(a_tr, trr->ps, a_ninformative);
 
     /* If this is a leaf node, initialize the character state sets and
      * scores. */
     taxon_num = a_tr->trns[trr->node].taxon_num;
     if (taxon_num != CW_TR_NODE_TAXON_NONE)
     {
-	uint32_t i;
+	uint32_t i, j;
 	char *chars;
 
 	trr->ps->subtrees_score = 0;
 	trr->ps->node_score = 0;
 
 	chars = a_taxa[taxon_num];
-	for (i = 0; i < a_nchars; i++)
+	for (i = j = 0; i < a_nchars; i++)
 	{
+	    /* Ignore uninformative characters. */
+	    if (a_chars_mask[i] == false)
+	    {
+		continue;
+	    }
+
 	    switch (chars[i])
 	    {
 		case 'N':
@@ -1893,91 +1900,91 @@ tr_p_mp_ring_prepare(cw_tr_t *a_tr, cw_tr_ring_t a_ring, char *a_taxa[],
 		 * things, and may need to be made configurable. */
 		case '-':
 		{
-		    trr->ps->chars[i] = 0xf;
+		    trr->ps->chars[j] = 0xf;
 		    break;
 		}
 		case 'V':
 		case 'v':
 		{
-		    trr->ps->chars[i] = 0xe;
+		    trr->ps->chars[j] = 0xe;
 		    break;
 		}
 		case 'H':
 		case 'h':
 		{
-		    trr->ps->chars[i] = 0xd;
+		    trr->ps->chars[j] = 0xd;
 		    break;
 		}
 		case 'M':
 		case 'm':
 		{
-		    trr->ps->chars[i] = 0xc;
+		    trr->ps->chars[j] = 0xc;
 		    break;
 		}
 		case 'D':
 		case 'd':
 		{
-		    trr->ps->chars[i] = 0xb;
+		    trr->ps->chars[j] = 0xb;
 		    break;
 		}
 		case 'R':
 		case 'r':
 		{
-		    trr->ps->chars[i] = 0xa;
+		    trr->ps->chars[j] = 0xa;
 		    break;
 		}
 		case 'W':
 		case 'w':
 		{
-		    trr->ps->chars[i] = 0x9;
+		    trr->ps->chars[j] = 0x9;
 		    break;
 		}
 		case 'A':
 		case 'a':
 		{
-		    trr->ps->chars[i] = 0x8;
+		    trr->ps->chars[j] = 0x8;
 		    break;
 		}
 		case 'B':
 		case 'b':
 		{
-		    trr->ps->chars[i] = 0x7;
+		    trr->ps->chars[j] = 0x7;
 		    break;
 		}
 		case 'S':
 		case 's':
 		{
-		    trr->ps->chars[i] = 0x6;
+		    trr->ps->chars[j] = 0x6;
 		    break;
 		}
 		case 'Y':
 		case 'y':
 		{
-		    trr->ps->chars[i] = 0x5;
+		    trr->ps->chars[j] = 0x5;
 		    break;
 		}
 		case 'C':
 		case 'c':
 		{
-		    trr->ps->chars[i] = 0x4;
+		    trr->ps->chars[j] = 0x4;
 		    break;
 		}
 		case 'K':
 		case 'k':
 		{
-		    trr->ps->chars[i] = 0x3;
+		    trr->ps->chars[j] = 0x3;
 		    break;
 		}
 		case 'G':
 		case 'g':
 		{
-		    trr->ps->chars[i] = 0x2;
+		    trr->ps->chars[j] = 0x2;
 		    break;
 		}
 		case 'T':
 		case 't':
 		{
-		    trr->ps->chars[i] = 0x1;
+		    trr->ps->chars[j] = 0x1;
 		    break;
 		}
 		default:
@@ -1985,19 +1992,22 @@ tr_p_mp_ring_prepare(cw_tr_t *a_tr, cw_tr_ring_t a_ring, char *a_taxa[],
 		    cw_not_reached();
 		}
 	    }
+	    j++;
 	}
     }
 }
 
 static void
 tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
-			char *a_taxa[], uint32_t a_ntaxa, uint32_t a_nchars)
+			char *a_taxa[], uint32_t a_ntaxa, uint32_t a_nchars,
+			bool *a_chars_mask, uint32_t a_ninformative)
 {
     cw_tr_ring_t ring;
     cw_tre_t *tre;
 
     /* Prepare a_ring. */
-    tr_p_mp_ring_prepare(a_tr, a_ring, a_taxa, a_ntaxa, a_nchars);
+    tr_p_mp_ring_prepare(a_tr, a_ring, a_taxa, a_ntaxa, a_nchars,
+			 a_chars_mask, a_ninformative);
 
     /* Recurse into subtrees. */
     qri_others_foreach(ring, a_tr->trrs, a_ring, link)
@@ -2008,14 +2018,16 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring,
 	{
 	    tre->ps = tr_p_ps_new(a_tr);
 	}
-	tr_p_ps_prepare(a_tr, tre->ps, a_nchars);
+	tr_p_ps_prepare(a_tr, tre->ps, a_ninformative);
 
 	/* Prepare ring. */
-	tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars);
+	tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars,
+			     a_chars_mask, a_ninformative);
 
 	/* Recurse. */
 	tr_p_mp_prepare_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
-				a_taxa, a_ntaxa, a_nchars);
+				a_taxa, a_ntaxa, a_nchars,
+				a_chars_mask, a_ninformative);
     }
 }
 
@@ -3196,17 +3208,171 @@ tr_aux_set(cw_tr_t *a_tr, void *a_aux)
 }
 
 void
-tr_mp_prepare(cw_tr_t *a_tr, char *a_taxa[], uint32_t a_ntaxa,
-	      uint32_t a_nchars)
+tr_mp_prepare(cw_tr_t *a_tr, bool a_uninformative_eliminate,
+	      char *a_taxa[], uint32_t a_ntaxa, uint32_t a_nchars)
 {
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
-
     if (a_tr->base != CW_TR_NODE_NONE)
     {
 	cw_trn_t *trn;
 	cw_tr_ring_t ring;
 	cw_tre_t *tre;
+	uint32_t i, ninformative;
+	bool chars_mask[a_nchars];
+
+	if (a_uninformative_eliminate)
+	{
+	    uint32_t codes[15];
+	    uint32_t j, k, x, y;
+
+	    /* Preprocess the character data.  Eliminate uninformative
+	     * characters, but keep track of their contribution to the parsimony
+	     * score, were they to be left in. */
+	    ninformative = 0;
+	    for (i = 0; i < a_nchars; i++)
+	    {
+		for (k = 0; k < 15; k++)
+		{
+		    codes[k] = 0;
+		}
+
+		for (j = 0; j < a_ntaxa; j++)
+		{
+		    switch (a_taxa[j][i])
+		    {
+			case 'N':
+			case 'n':
+			case 'X':
+			case 'x':
+			/* Treat gaps as uncertainty.  This isn't the only way
+			 * to do things, and may need to be made
+			 * configurable. */
+			case '-':
+			{
+			    break;
+			}
+			case 'V':
+			case 'v':
+			{
+			    codes[14]++;
+			    break;
+			}
+			case 'H':
+			case 'h':
+			{
+			    codes[13]++;
+			    break;
+			}
+			case 'M':
+			case 'm':
+			{
+			    codes[12]++;
+			    break;
+			}
+			case 'D':
+			case 'd':
+			{
+			    codes[11]++;
+			    break;
+			}
+			case 'R':
+			case 'r':
+			{
+			    codes[10]++;
+			    break;
+			}
+			case 'W':
+			case 'w':
+			{
+			    codes[9]++;
+			    break;
+			}
+			case 'A':
+			case 'a':
+			{
+			    codes[8]++;
+			    break;
+			}
+			case 'B':
+			case 'b':
+			{
+			    codes[7]++;
+			    break;
+			}
+			case 'S':
+			case 's':
+			{
+			    codes[6]++;
+			    break;
+			}
+			case 'Y':
+			case 'y':
+			{
+			    codes[5]++;
+			    break;
+			}
+			case 'C':
+			case 'c':
+			{
+			    codes[4]++;
+			    break;
+			}
+			case 'K':
+			case 'k':
+			{
+			    codes[3]++;
+			    break;
+			}
+			case 'G':
+			case 'g':
+			{
+			    codes[2]++;
+			    break;
+			}
+			case 'T':
+			case 't':
+			{
+			    codes[1]++;
+			    break;
+			}
+			default:
+			{
+			    cw_not_reached();
+			}
+		    }
+		}
+
+		/* Count the number of states in which two or more taxa
+		 * exist. */
+		chars_mask[i] = false;
+		for (x = 1; x < 15; x++)
+		{
+		    for (y = 1; y < 15; y++)
+		    {
+			if ((x & y) == 0 && codes[x] >= 2 && codes[y] >= 2)
+			{
+			    if (chars_mask[i] == false)
+			    {
+				chars_mask[i] = true;
+				ninformative++;
+			    }
+			}
+		    }
+		}
+	    }
+	}
+	else
+	{
+	    /* Use all characters, regardless of whether they are
+	     * informative. */
+	    ninformative = a_nchars;
+
+	    for (i = 0; i < a_nchars; i++)
+	    {
+		chars_mask[i] = true;
+	    }
+	}
 
 	/* Prepare the tree. */
 	trn = &a_tr->trns[a_tr->base];
@@ -3218,14 +3384,16 @@ tr_mp_prepare(cw_tr_t *a_tr, char *a_taxa[], uint32_t a_ntaxa,
 	    {
 		tre->ps = tr_p_ps_new(a_tr);
 	    }
-	    tr_p_ps_prepare(a_tr, tre->ps, a_nchars);
+	    tr_p_ps_prepare(a_tr, tre->ps, ninformative);
 
 	    /* Prepare ring. */
-	    tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars);
+	    tr_p_mp_ring_prepare(a_tr, ring, a_taxa, a_ntaxa, a_nchars,
+				 chars_mask, ninformative);
 
 	    /* Recurse. */
 	    tr_p_mp_prepare_recurse(a_tr, tr_p_ring_other_get(a_tr, ring),
-				    a_taxa, a_ntaxa, a_nchars);
+				    a_taxa, a_ntaxa, a_nchars,
+				    chars_mask, ninformative);
 	}
     }
 }
