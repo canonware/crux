@@ -121,6 +121,7 @@
 #include "../include/modcrux.h"
 
 /* Prototypes. */
+/* tr. */
 static cw_uint32_t
 tr_p_log2ceil(cw_uint32_t a_val);
 static cw_uint32_t
@@ -129,15 +130,16 @@ static cw_uint32_t
 tr_p_sizeof(const cw_tr_t *a_tr);
 static int
 tr_p_taxon_num_compar(const void *a_a, const void *a_b);
-static void
-tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
-		 cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn, cw_trn_t *a_prev,
-		 cw_uint32_t *a_unchosen, cw_uint32_t *a_nunchosen);
 #ifdef CW_DBG
 static cw_bool_t
 tr_p_validate(const cw_tr_t *a_tr);
 #endif
+static void
+tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
+		 cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn, cw_trn_t *a_prev,
+		 cw_uint32_t *a_unchosen, cw_uint32_t *a_nunchosen);
 
+/* trn. */
 #ifdef CW_DBG
 static cw_bool_t
 trn_p_validate(cw_trn_t *a_trn);
@@ -193,10 +195,10 @@ tr_p_log2ceil(cw_uint32_t a_val)
 	ones += (a_val & 0x1);
     }
 
-    if (ones > 1)
+    /* Decrement unless ceiling needs to be taken. */
+    if (ones == 1)
     {
-	/* Ceiling. */
-	retval++;
+	retval--;
     }
 
     return retval;
@@ -257,74 +259,6 @@ tr_p_taxon_num_compar(const void *a_a, const void *a_b)
     return retval;
 }
 
-/* Convert the ordering of taxa in a_trn to a taxa permutation, and store the
- * results in a_tr, starting at a_bitind. */
-static void
-tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
-		 cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn, cw_trn_t *a_prev,
-		 cw_uint32_t *a_unchosen, cw_uint32_t *a_nunchosen)
-{
-    cw_uint32_t i;
-
-    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
-    {
-	cw_uint32_t *taxon, offset, nbits;
-
-	/* Leaf node. */
-
-	/* Get the offset of this taxon within the array of unchosen taxa. */
-	taxon = (cw_uint32_t *) bsearch(&a_trn->taxon_num,
-					a_unchosen, *a_nunchosen,
-					sizeof(cw_uint32_t),
-					tr_p_taxon_num_compar);
-	cw_check_ptr(taxon);
-	offset = (cw_uint32_t) (taxon - a_unchosen);
-
-	/* Determine how many bits to use in storing this choice. */
-	nbits = tr_p_log2ceil(*a_nunchosen);
-
-	/* Remove the taxon from the array of unchosen taxa. */
-	if (offset < *a_nunchosen - 1)
-	{
-	    memmove(&a_unchosen[offset], &a_unchosen[offset + 1],
-		    (*a_nunchosen - offset - 1) * sizeof(cw_uint32_t));
-	}
-	*a_nunchosen--;
-
-	/* Store this choice. */
-	for (i = 0; i < nbits; i++)
-	{
-	    TR_BIT_SET(a_tr, *a_bitind_perm,
-		       ((offset >> (nbits - i - 1) & 0x1)));
-	    (*a_bitind_perm)++;
-	}
-    }
-    else
-    {
-	/* Internal node. */
-
-	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
-	{
-	    if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
-	    {
-		/* Insert open paren. */
-		TR_BIT_SET(a_tr, *a_bitind_paren, 0);
-		*(a_bitind_paren)++;
-
-		/* Recurse. */
-		tr_p_new_recurse(a_tr, a_bitind_paren, a_bitind_perm,
-				 a_trn->neighbors[i], a_trn,
-				 a_unchosen, a_nunchosen);
-
-		/* Insert close paren. */
-		TR_BIT_SET(a_tr, *a_bitind_paren, 1);
-		(*a_bitind_paren)++;
-	    }
-	}
-    }
-    fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __FUNCTION__);
-}
-
 #ifdef CW_DBG
 static cw_bool_t
 tr_p_validate(const cw_tr_t *a_tr)
@@ -346,7 +280,7 @@ tr_p_validate(const cw_tr_t *a_tr)
      * same taxon number twice.  However, there can still be invalid numbers in
      * the encoding (for example 7 cannot be used for a 5 choose 1 choice). */
     for (i = ntaxa, bitind = 2 * (ntaxa - 3) + 1;
-	 i > 0;
+	 i > 1;
 	 i--)
     {
 	for (j = 0, npbits = tr_p_log2ceil(i), pbits = 0;
@@ -364,11 +298,95 @@ tr_p_validate(const cw_tr_t *a_tr)
 }
 #endif
 
+static void
+tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
+		 cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn, cw_trn_t *a_prev,
+		 cw_uint32_t *a_unchosen, cw_uint32_t *a_nunchosen)
+{
+    cw_uint32_t i;
+
+    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    {
+	if (*a_nunchosen > 1)
+	{
+	    cw_uint32_t *taxon, offset, nbits;
+
+	    /* Leaf node. */
+
+	    /* Get the offset of this taxon within the array of unchosen
+	     * taxa. */
+	    taxon = (cw_uint32_t *) bsearch(&a_trn->taxon_num,
+					    a_unchosen, *a_nunchosen,
+					    sizeof(cw_uint32_t),
+					    tr_p_taxon_num_compar);
+	    cw_check_ptr(taxon);
+	    offset = (cw_uint32_t) (taxon - a_unchosen);
+
+	    /* Determine how many bits to use in storing this choice. */
+	    nbits = tr_p_log2ceil(*a_nunchosen);
+
+	    /* Remove the taxon from the array of unchosen taxa. */
+	    if (offset < *a_nunchosen - 1)
+	    {
+		memmove(&a_unchosen[offset], &a_unchosen[offset + 1],
+			(*a_nunchosen - offset - 1) * sizeof(cw_uint32_t));
+	    }
+	    (*a_nunchosen)--;
+
+	    /* Store this choice. */
+	    for (i = 0; i < nbits; i++)
+	    {
+		TR_BIT_SET(a_tr, *a_bitind_perm,
+			   ((offset >> (nbits - i - 1) & 0x1)));
+//		fprintf(stderr, "%c",
+//			((offset >> (nbits - i - 1) & 0x1)) ? '1' : '0');
+		(*a_bitind_perm)++;
+	    }
+//	    fprintf(stderr, " ");
+	}
+    }
+    else
+    {
+	cw_bool_t did_paren = FALSE;
+
+	/* Internal node. */
+
+	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	{
+	    if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
+	    {
+		if (did_paren == FALSE)
+		{
+		    did_paren = TRUE;
+
+		    /* Insert open paren. */
+		    TR_BIT_SET(a_tr, *a_bitind_paren, 0);
+		    (*a_bitind_paren)++;
+//		    fprintf(stderr, "(");
+		}
+
+		/* Recurse. */
+		tr_p_new_recurse(a_tr, a_bitind_paren, a_bitind_perm,
+				 a_trn->neighbors[i], a_trn,
+				 a_unchosen, a_nunchosen);
+	    }
+	}
+
+	if (did_paren)
+	{
+	    /* Insert close paren. */
+	    TR_BIT_SET(a_tr, *a_bitind_paren, 1);
+	    (*a_bitind_paren)++;
+//	    fprintf(stderr, ")");
+	}
+    }
+}
+
 cw_tr_t *
 tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 {
     cw_tr_t *retval;
-    cw_trn_t *root;
+    cw_trn_t *root, *node;
     cw_uint32_t tr_sizeof, bitind_paren, bitind_perm, i, *unchosen, nunchosen;
 
     cw_check_ptr(a_mema);
@@ -399,27 +417,40 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
      * maintained in compact form (already chosen taxa are removed, and trailing
      * space in the array is ignored). */
     unchosen = cw_opaque_alloc(mema_alloc_get(a_mema), mema_arg_get(a_mema),
-			     a_ntaxa * sizeof(cw_uint32_t));
-    for (i = 0; i < a_ntaxa; i++)
+			     (a_ntaxa - 1) * sizeof(cw_uint32_t));
+    for (i = 0; i < (a_ntaxa - 1); i++)
     {
-	unchosen[i] = i;
+	unchosen[i] = i + 1;
     }
-    nunchosen = a_ntaxa;
+    nunchosen = a_ntaxa - 1;
 
-    /* Recurse if the tree has more than one node. */
-    if (root->neighbors[0] != NULL)
+    /* Recurse if the tree has an internal node.  Taxon 0 must be avoided
+     * during the traversal, since it is implicit in the canonical tree
+     * encoding.  Additionally, the first internal node must be handled here
+     * rather than simply recursing to it, since the first '(' is implied. */
+    node = root->neighbors[0];
+    if (node != NULL && node->taxon_num == CW_TRN_TAXON_NONE)
     {
-	tr_p_new_recurse(retval, &bitind_paren, &bitind_perm, root, NULL,
-			 unchosen, &nunchosen);
+	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	{
+	    if (node->neighbors[i] != NULL && node->neighbors[i] != root)
+	    {
+		/* Recurse. */
+		tr_p_new_recurse(retval, &bitind_paren, &bitind_perm,
+				 node->neighbors[i], node,
+				 unchosen, &nunchosen);
+	    }
+	}
     }
 
     /* Insert close paren. */
     TR_BIT_SET(retval, bitind_paren, 1);
-//    bitind_paran++;
+//    fprintf(stderr, ")\n");
+    cw_assert(bitind_paren == 2 * (a_ntaxa - 3));
 
     /* Clean up. */
     cw_opaque_dealloc(mema_dealloc_get(a_mema), mema_arg_get(a_mema),
-		      unchosen, a_ntaxa * sizeof(cw_uint32_t));
+		      unchosen, (a_ntaxa - 1) * sizeof(cw_uint32_t));
 
     return retval;
 }
@@ -458,21 +489,24 @@ tr_ntaxa(const cw_tr_t *a_tr)
 	}
     }
 
-    /* Using the first term of the formula at the top of the file (+1 for the
-     * implied leading `('), we know that:
+    /* Using the first term of the formula at the top of the file, we know that:
      *
-     *   npairs == 2(n-2)
+     *   nparens == 2(n-3) + 1
      *
-     *   npairs
-     *   ------ == n - 2
-     *      2
+     *   npairs == (nparens + 1) / 2
      *
-     *        npairs
-     *   n == ------ + 2
-     *           2
+     *   npairs == ((2(n-3) + 1) + 1) / 2
+     *
+     *   npairs == (2(n-3) + 2) / 2
+     *
+     *   npairs == (2(n-2)) / 2
+     *
+     *   npairs == n - 2
+     *
+     *   n == npairs + 2
      *
      * Solve for n (retval). */
-    retval = npairs / 2 + 2;
+    retval = npairs + 2;
 
     return retval;
 }
