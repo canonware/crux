@@ -1519,54 +1519,65 @@ CxpDistMatrixStringRenderCallback(void *aContext, const char *aFormat, ...)
     va_list ap;
     struct CxpsDistMatrixStringRenderContext *context
 	= (struct CxpsDistMatrixStringRenderContext *) aContext;
-    char *tString;
-    int tStringLen;
-
-    va_start(ap, aFormat);
-    // XXX Try to render in context->string first?
-    if ((tStringLen = vasprintf(&tString, aFormat, ap)) < 0)
-    {
-	va_end(ap);
-	PyErr_NoMemory();
-	retval = true;
-	goto RETURN;
-    }
-    va_end(ap);
 
     if (context->string == NULL)
     {
-	// There are no previous rendering results to catenate tString to.
-	context->string = tString;
-	context->stringLen = tStringLen;
-	context->bufSize = tStringLen + 1;
+	// There are no previous rendering results to catenate to.
+	va_start(ap, aFormat);
+	if ((context->stringLen = vasprintf(&context->string, aFormat, ap)) < 0)
+	{
+	    va_end(ap);
+	    PyErr_NoMemory();
+	    retval = true;
+	    goto RETURN;
+	}
+	va_end(ap);
+
+	context->bufSize = context->stringLen + 1;
     }
     else
     {
-	if (context->stringLen + tStringLen >= context->bufSize)
-	{
-	    char *buf;
+	int tStringLen;
 
-	    // Allocate more space before catenating.  Over-allocate by 2X in
-	    // order to ammortize allocation cost.
-	    buf = (char *) realloc(context->string,
-				   (context->stringLen + tStringLen + 1) * 2);
-	    if (buf == NULL)
+	// Try to render the new element in the existing buffer.
+	va_start(ap, aFormat);
+	tStringLen = vsnprintf(&context->string[context->stringLen],
+			       context->bufSize - context->stringLen,
+			       aFormat, ap);
+	va_end(ap);
+	
+	if (tStringLen < context->bufSize - context->stringLen)
+	{
+	    // The string fit in the existing buffer.
+	    context->stringLen += tStringLen;
+	}
+	else
+	{
+	    char *tString;
+
+	    // The string did not fit in the existing buffer.  Over-allocate by
+	    // 2X before re-rendering in order to ammortize allocation cost.
+
+	    tString = (char *) realloc(context->string,
+				       (context->stringLen + tStringLen + 1)
+				       * 2);
+	    if (tString == NULL)
 	    {
-		free(tString);
 		PyErr_NoMemory();
 		retval = true;
 		goto RETURN;
 	    }
-	    context->string = buf;
+	    context->string = tString;
 	    context->bufSize = (context->stringLen + tStringLen + 1) * 2;
-	}
 
-	// Catenate previous rendering results and tString.
-	memcpy(&context->string[context->stringLen], tString, tStringLen);
-	free(tString);
-	context->stringLen += tStringLen;
-	CxmAssert(context->stringLen < context->bufSize);
-	context->string[context->stringLen] = '\0';
+	    va_start(ap, aFormat);
+	    vsprintf(&context->string[context->stringLen], aFormat, ap);
+	    va_end(ap);
+
+	    context->stringLen += tStringLen;
+	    CxmAssert(context->stringLen < context->bufSize);
+	    context->string[context->stringLen] = '\0';
+	}
     }
 
     retval = false;
