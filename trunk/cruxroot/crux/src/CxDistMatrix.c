@@ -991,7 +991,7 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 PyObject *
 CxDistMatrixNtaxaGet(CxtDistMatrixObject *self)
 {
-    return Py_BuildValue("i", self->ntaxa);
+    return Py_BuildValue("l", self->ntaxa);
 }
 
 PyObject *
@@ -1005,10 +1005,10 @@ PyObject *
 CxDistMatrixDistanceGet(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *retval;
-    int fr, to;
+    long fr, to;
 
     /* Parse arguments. */
-    if (PyArg_ParseTuple(args, "ii", &fr, &to) == 0)
+    if (PyArg_ParseTuple(args, "ll", &fr, &to) == 0)
     {
 	retval = NULL;
 	goto RETURN;
@@ -1016,7 +1016,7 @@ CxDistMatrixDistanceGet(CxtDistMatrixObject *self, PyObject *args)
     if (fr < 0 || fr >= self->ntaxa || to < 0 || to >= self->ntaxa)
     {
 	CxError(CxgDistMatrixValueError,
-		"Out of bounds matrix access: (%d, %d)",
+		"Out of bounds matrix access: (%ld, %ld)",
 		fr, to);
 	retval = NULL;
 	goto RETURN;
@@ -1032,11 +1032,11 @@ PyObject *
 CxDistMatrixDistanceSet(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *retval;
-    int fr, to;
+    long fr, to;
     double distance;
 
     /* Parse arguments. */
-    if (PyArg_ParseTuple(args, "ii", &fr, &to, &distance) == 0)
+    if (PyArg_ParseTuple(args, "ll", &fr, &to, &distance) == 0)
     {
 	retval = NULL;
 	goto RETURN;
@@ -1044,7 +1044,7 @@ CxDistMatrixDistanceSet(CxtDistMatrixObject *self, PyObject *args)
     if (fr < 0 || fr >= self->ntaxa || to < 0 || to >= self->ntaxa)
     {
 	CxError(CxgDistMatrixValueError,
-		"Out of bounds matrix access: (%d, %d)",
+		"Out of bounds matrix access: (%ld, %ld)",
 		fr, to);
 	retval = NULL;
 	goto RETURN;

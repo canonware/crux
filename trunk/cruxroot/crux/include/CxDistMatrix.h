@@ -28,8 +28,8 @@ typedef struct
 {
     PyObject_HEAD
     char *buf;
-    int bufLen;
-    int tokenLen;
+    long bufLen;
+    long tokenLen;
     long line;
     long column;
 
@@ -39,7 +39,7 @@ typedef struct
 	struct
 	{
 	    char *string;
-	    int offset;
+	    long offset;
 	} s;
 	struct
 	{

@@ -13,10 +13,10 @@ typedef struct
 {
     PyObject_HEAD
     char *buf;
-    int bufLen;
-    int tokenLen;
-    int line;
-    int column;
+    long bufLen;
+    long tokenLen;
+    long line;
+    long column;
 
     bool fileInput;
     union
@@ -24,7 +24,7 @@ typedef struct
 	struct
 	{
 	    char *string;
-	    int offset;
+	    long offset;
 	} s;
 	struct
 	{

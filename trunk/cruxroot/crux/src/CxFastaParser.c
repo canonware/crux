@@ -89,13 +89,13 @@ CxpFastaParserAppendC(CxtFastaParserObject *self, char c)
 }
 
 CxmpInline bool
-CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, int *rLine,
-		   int *rColumn)
+CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, long *rLine,
+		   long *rColumn)
 {
     bool retval;
     char c;
-    int line = self->line;
-    int column = self->column;
+    long line = self->line;
+    long column = self->column;
 
     if (self->fileInput)
     {
@@ -192,7 +192,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     CxmXepTry
     {
 	char c;
-	int line, column;
+	long line, column;
 	enum
 	{
 	    CxpStateStart,
@@ -228,7 +228,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			    if (self->tokenLen == 0)
 			    {
 				CxError(CxgFastaParserSyntaxError,
-					"At %d:%d (token '%.*s', char '%c'):"
+					"At %ld:%ld (token '%.*s', char '%c'):"
 					" Empty label",
 					line, column, self->tokenLen, self->buf,
 					c);
@@ -247,7 +247,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			    if (self->tokenLen == 0)
 			    {
 				CxError(CxgFastaParserSyntaxError,
-					"At %d:%d (token '%.*s', char '%c'):"
+					"At %ld:%ld (token '%.*s', char '%c'):"
 					" Empty label",
 					line, column, self->tokenLen, self->buf,
 					c);
@@ -298,7 +298,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			if (self->tokenLen == 0)
 			{
 			    CxError(CxgFastaParserSyntaxError,
-				    "At %d:%d (token '%.*s', char '%c'):"
+				    "At %ld:%ld (token '%.*s', char '%c'):"
 				    " Missing character data",
 				    line, column, self->tokenLen, self->buf,
 				    c);
@@ -337,7 +337,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				default:
 				{
 				    CxError(CxgFastaParserSyntaxError,
-					    "At %d:%d (token '%.*s',"
+					    "At %ld:%ld (token '%.*s',"
 					    " char '%c'):"
 					    " Invalid DNA character data",
 					    line, column,
@@ -374,7 +374,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				default:
 				{
 				    CxError(CxgFastaParserSyntaxError,
-					    "At %d:%d (token '%.*s',"
+					    "At %ld:%ld (token '%.*s',"
 					    " char '%c'):"
 					    " Invalid protein character data",
 					    line, column,
@@ -397,7 +397,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	if (state != CxpStateChars)
 	{
 	    CxError(CxgFastaParserSyntaxError,
-		    "At %d:%d (token '%.*s', char '%c'):"
+		    "At %ld:%ld (token '%.*s', char '%c'):"
 		    " Input ended while reading label",
 		    line, column, self->tokenLen, self->buf, c);
 	    goto ERROR;
@@ -407,7 +407,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	if (self->tokenLen == 0)
 	{
 	    CxError(CxgFastaParserSyntaxError,
-		    "At %d:%d (token '%.*s', char '%c'):"
+		    "At %ld:%ld (token '%.*s', char '%c'):"
 		    " Missing character data",
 		    line, column, self->tokenLen, self->buf, c);
 	    goto ERROR;
