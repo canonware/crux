@@ -81,9 +81,13 @@ class DistMatrix(C_DistMatrix):
             C_DistMatrix._parse(self, input, TaxonMap.TaxonMap(), symmetric)
         elif type(input) == TaxonMap.TaxonMap:
             C_DistMatrix._parse(self, None, input, symmetric)
+        elif type(input) == DistMatrix:
+            map = TaxonMap.TaxonMap(input.taxonMapGet().taxaGet())
+            C_DistMatrix._dup(self, input, map)
         else:
             raise crux.DistMatrix\
-                  .ValueError("input: File, string, or TaxonMap expected")
+                  .ValueError(
+                "input: File, string, TaxonMap, or DistMatrix expected")
 
     # Randomly shuffle the order of rows/columns in the distance matrix, and
     # make corresponding changes to the TaxonMap.

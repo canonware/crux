@@ -360,22 +360,25 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
     return retval;
 }
 
-static void
+static size_t
 CxpDistMatrixNtaxaAccept(CxtDistMatrixObject *self)
 {
+    size_t retval;
     if (self->symmetric)
     {
-	self->matrix = (float *) CxmMalloc(sizeof(float)
-					   * (CxpDistMatrixXy2i(self,
-								self->ntaxa - 2,
-								self->ntaxa - 1)
-					      + 1));
+	retval = sizeof(float) * (CxpDistMatrixXy2i(self,
+						    self->ntaxa - 2,
+						    self->ntaxa - 1)
+				  + 1);
+	self->matrix = (float *) CxmMalloc(retval);
     }
     else
     {
-	self->matrix = (float *) CxmMalloc(sizeof(float)
-					   * self->ntaxa * self->ntaxa);
+	retval = sizeof(float) * self->ntaxa * self->ntaxa;
+	self->matrix = (float *) CxmMalloc(retval);
     }
+
+    return retval;
 }
 
 static bool
@@ -1170,6 +1173,37 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
     return retval;
 }
 
+static PyObject *
+CxpDistMatrixDup(CxtDistMatrixObject *self, PyObject *args)
+{
+    PyObject *retval, *map;
+    CxtDistMatrixObject *orig;
+
+    if (PyArg_ParseTuple(args, "OO", &orig, &map) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+
+    self->map = map;
+    Py_INCREF(self->map);
+
+    self->ntaxa = orig->ntaxa;
+    self->symmetric = orig->symmetric;
+    if (self->ntaxa != 0)
+    {
+	size_t nbytes;
+
+	nbytes = CxpDistMatrixNtaxaAccept(self);
+	memcpy(self->matrix, orig->matrix, nbytes);
+    }
+
+    Py_INCREF(Py_None);
+    retval = Py_None;
+    RETURN:
+    return retval;
+}
+
 PyObject *
 CxDistMatrixNtaxaGet(CxtDistMatrixObject *self)
 {
@@ -1426,6 +1460,12 @@ static PyMethodDef CxpDistMatrixMethods[] =
 	(PyCFunction) CxDistMatrixNtaxaGet,
 	METH_NOARGS,
 	"ntaxaGet"
+    },
+    {
+	"_dup",
+	(PyCFunction) CxpDistMatrixDup,
+	METH_VARARGS,
+	"_dup"
     },
     {
 	"taxonMapGet",
