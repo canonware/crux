@@ -1549,93 +1549,89 @@ tr_p_update(cw_tr_t *a_tr)
     }
 }
 
-/* Convert a tree to canonical form by re-ordering the neighbors array such that
- * subtrees are in increasing order of minimum taxon number contained. */
-static uint32_t
-tr_p_canonize(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
+struct cw_tr_canonize_s
 {
-    uint32_t retval;
-    uint32_t i, j, t;
-    uint32_t subtree_mins[CW_TR_NODE_MAX_NEIGHBORS - 1];
-    uint32_t subtree_inds[CW_TR_NODE_MAX_NEIGHBORS - 1];
-    bool swapped;
-    cw_trn_t *trn;
-#ifdef CW_DBG
-    uint32_t nneighbors = 0;
-#endif
+    cw_tr_ring_t ring;
+    uint32_t min_taxon;
+};
 
-    cw_dassert(tr_p_node_validate(a_tr, a_node));
+static int
+tr_p_canonize_compar(const void *a_a, const void *a_b)
+{
+    const struct cw_tr_canonize_s *a = (const struct cw_tr_canonize_s *) a_a;
+    const struct cw_tr_canonize_s *b = (const struct cw_tr_canonize_s *) a_b;
 
-    trn = &a_tr->trns[a_node];
-
-    if (trn->taxon_num != CW_TR_NODE_TAXON_NONE)
+    if (a->min_taxon < b->min_taxon)
     {
-	/* Leaf node. */
-	retval = trn->taxon_num;
+	return -1;
     }
     else
     {
-	/* Internal node. */
-	retval = CW_TR_NODE_TAXON_NONE;
+	cw_assert(a->min_taxon > b->min_taxon);
+	return 1;
     }
+}
+
+/* Convert a tree to canonical form by re-ordering the ring such that subtrees
+ * are in increasing order of minimum taxon number contained. */
+static uint32_t
+tr_p_canonize(cw_tr_t *a_tr, cw_tr_ring_t a_ring)
+{
+    uint32_t retval, degree, i, min_taxon;
+    cw_tr_ring_t ring;
+    struct cw_tr_canonize_s *canonize;
+
+    /* Get taxon number (an internal node has CW_TR_NODE_TAXON_NONE). */
+    cw_dassert(tr_p_node_validate(a_tr, tr_p_ring_node_get(a_tr, a_ring)));
+    retval = tr_node_taxon_num_get(a_tr, tr_p_ring_node_get(a_tr, a_ring));
+
+    /* Get the degree of the node that this ring is a part of. */
+    degree = 1;
+    qri_others_foreach(ring, a_tr->trrs, a_ring, link)
+    {
+	degree++;
+    }
+
+    /* Allocate space for a temporary array that can be used to sort the
+     * ring. */
+    canonize = (struct cw_tr_canonize_s *)
+	cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+			mema_arg_get(a_tr->mema),
+			sizeof(struct cw_tr_canonize_s) * (degree - 1));
 
     /* Iteratively canonize subtrees, keeping track of the minimum taxon number
      * seen overall, as well as for each subtree. */
-    for (i = j = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    for (i = 0, ring = a_ring; i < (degree - 1); i++)
     {
-#ifdef CW_DBG
-	if (trn->neighbors[i] != CW_TR_NODE_NONE)
-	{
-	    nneighbors++;
-	}
-#endif
+	ring = qri_next(a_tr->trrs, ring, link);
 
-	if (trn->neighbors[i] != CW_TR_NODE_NONE && trn->neighbors[i] != a_prev)
+	min_taxon = tr_p_canonize(a_tr, tr_p_ring_other_get(a_tr, ring));
+	if (min_taxon < retval)
 	{
-	    /* A neighboring subtree that hasn't been visited yet. */
-	    cw_assert(j < (CW_TR_NODE_MAX_NEIGHBORS - 1));
-	    subtree_mins[j] = tr_p_canonize(a_tr, trn->neighbors[i], a_node);
-	    if (subtree_mins[j] < retval)
-	    {
-		retval = subtree_mins[j];
-	    }
-	    subtree_inds[j] = i;
-	    j++;
+	    retval = min_taxon;
 	}
+
+	canonize[i].ring = ring;
+	canonize[i].min_taxon = min_taxon;
     }
 
-    cw_dassert((trn->taxon_num != CW_TR_NODE_TAXON_NONE && nneighbors <= 1)
-	       || (trn->taxon_num == CW_TR_NODE_TAXON_NONE &&
-		   nneighbors == CW_TR_NODE_MAX_NEIGHBORS));
+    /* Sort the subtrees. */
+    qsort(canonize, degree - 1, sizeof(struct cw_tr_canonize_s),
+	  tr_p_canonize_compar);
 
-    /* Bubble sort the subtrees.  This algorithm works regardless of the value
-     * of CW_TR_NODE_MAX_NEIGHBORS, but for bifurcating trees it only requires a
-     * couple of extra branches. */
-    do
+    /* Re-arrange the ring.  The first element can be skipped, since the
+     * removal/re-insertion of all other elements eventually leaves the first
+     * element in the proper location. */
+    for (i = 1; i < (degree - 1); i++)
     {
-	swapped = false;
+	qri_remove(a_tr->trrs, canonize[i].ring, link);
+	qri_before_insert(a_tr->trrs, a_ring, canonize[i].ring, link);
+    }
 
-	for (i = 0; i + 1 < j; i++)
-	{
-	    if (subtree_mins[i] > subtree_mins[i + 1])
-	    {
-		swapped = true;
-
-		/* Swap subtrees. */
-		tr_node_neighbors_swap(a_tr, a_node, subtree_inds[i],
-				       subtree_inds[i + 1]);
-
-		/* Swap subtree_* arrays. */
-		t = subtree_mins[i];
-		subtree_mins[i] = subtree_mins[i + 1];
-		subtree_mins[i + 1] = t;
-
-		t = subtree_inds[i];
-		subtree_inds[i] = subtree_inds[i + 1];
-		subtree_inds[i + 1] = t;
-	    }
-	}
-    } while (swapped);
+    /* Clean up. */
+    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
+		      mema_arg_get(a_tr->mema),
+		      canonize, sizeof(struct cw_tr_canonize_s) * (degree - 1));
 
     return retval;
 }
@@ -2767,7 +2763,7 @@ tr_canonize(cw_tr_t *a_tr)
     cw_assert(a_tr->magic == CW_TR_MAGIC);
 
     /* Partially update internal state, if necessary.  Don't bother updating trt
-     * or tre yet, since we will invalidate them during canonization. */
+     * yet, since we will invalidate it during canonization. */
     if (a_tr->modified)
     {
 	tr_p_ntaxa_nedges_update(a_tr);
@@ -2777,17 +2773,20 @@ tr_canonize(cw_tr_t *a_tr)
     if (a_tr->base != CW_TR_NODE_NONE)
     {
 	uint32_t ntaxa;
+	cw_tr_ring_t ring;
 
 	/* Set base to be the lowest-numbered taxon. */
 	ntaxa = 0;
 	a_tr->base = tr_p_lowest(a_tr, a_tr->base, &ntaxa, CW_TR_NODE_NONE);
 
-	/* Canonize the tree. */
-	tr_p_canonize(a_tr, a_tr->base, CW_TR_NODE_NONE);
+	/* Get base's ring. */
+	ring = qli_first(&a_tr->tns[a_tr->base].rings);
+	if (ring != CW_TR_RING_NONE)
+	{
+	    /* Canonize the tree. */
+	    tr_p_canonize(a_tr, tr_p_ring_other_get(a_tr, ring));
+	}
     }
-
-    /* Reset the modified flag. */
-    a_tr->modified = false;
 
     /* Now update trt. */
     tr_p_trt_update(a_tr, a_tr->nedges);
