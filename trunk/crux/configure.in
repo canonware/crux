@@ -152,6 +152,9 @@ if test "x$PYTHON_FOUND" != "x<Version" ; then
   PYTHON_MAJOR=`echo ${PYTHON_FOUND} | tr . " " | awk '{print $1}'`
   PYTHON_MINOR=`echo ${PYTHON_FOUND} | tr . " " | awk '{print $2}' | tr a-z " " |awk '{print $1}'`
   PYTHON_BRANCH=`echo ${PYTHON_FOUND} | tr . " " | awk '{print $3}' | tr a-z " " |awk '{print $1}'`
+  if test "x$PYTHON_BRANCH" = "x" ; then
+    PYTHON_BRANCH=0
+  fi
   PYTHON_MAJOR_MIN=`echo $PYTHON_VERSION_MIN | tr . " " | awk '{print $1}'`
   PYTHON_MINOR_MIN=`echo $PYTHON_VERSION_MIN | tr . " " | awk '{print $2}'`
   PYTHON_BRANCH_MIN=`echo $PYTHON_VERSION_MIN | tr . " " | awk '{print $3}'`
