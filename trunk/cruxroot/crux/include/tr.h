@@ -25,7 +25,7 @@ typedef cw_uint32_t cw_tr_node_t;
 
 /* Constructor. */
 cw_tr_t *
-tr_new(void);
+tr_new(cw_mema_t *a_mema);
 
 /* Destructor. */
 void

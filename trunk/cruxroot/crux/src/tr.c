@@ -106,6 +106,9 @@ struct cw_tr_s
 #define CW_TR_MAGIC 0x39886394
 #endif
 
+    /* Used for memory allocation. */
+    cw_mema_t *mema;
+
     /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
      * for reference iteration. */
     void *aux;
@@ -155,21 +158,80 @@ struct cw_tr_s
 
 /* tr. */
 
-cw_tr_t *
-tr_new(void)
+static cw_bool_t
+tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
 {
     cw_error("XXX Not implemented");
+
+    return TRUE;
+}
+
+cw_tr_t *
+tr_new(cw_mema_t *a_mema)
+{
+    cw_tr_t *retval;
+
+    retval = (cw_tr_t *) cw_opaque_alloc(mema_alloc_get(a_mema),
+					 mema_arg_get(a_mema),
+					 sizeof(cw_tr_t));
+
+    retval->mema = a_mema;
+    retval->aux = NULL;
+    retval->modified = FALSE;
+    retval->croot = CW_TR_NODE_NONE;
+    retval->ntaxa = 0;
+    retval->nedges = 0;
+    retval->trt = NULL;
+    retval->trtused = 0;
+    retval->trns = NULL;
+    retval->ntrns = 0;
+    retval->nspares = 0;
+    retval->tre = NULL;
+
+#ifdef CW_DBG
+    retval->magic = CW_TR_MAGIC;
+#endif
+
+    return retval;
 }
 
 void
 tr_delete(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
+    cw_opaque_dealloc_t *dealloc;
+    void *arg;
+
+    cw_dassert(tr_p_validate(a_tr, FALSE));
+
+    dealloc = mema_dealloc_get(a_tr->mema);
+    arg = mema_arg_get(a_tr->mema);
+
+    if (a_tr->tre != NULL)
+    {
+	cw_opaque_dealloc(dealloc, arg, a_tr->tre,
+			  sizeof(cw_tre_t) * a_tr->nedges);
+    }
+
+    if (a_tr->trns != NULL)
+    {
+	cw_opaque_dealloc(dealloc, arg, a_tr->trns,
+			  sizeof(cw_trn_t) * a_tr->ntrns);
+    }
+
+    if (a_tr->trt != NULL)
+    {
+	cw_opaque_dealloc(dealloc, arg, a_tr->trt,
+			  sizeof(cw_trt_t) * a_tr->nedges);
+    }
+
+    cw_opaque_dealloc(dealloc, arg, a_tr, sizeof(cw_tr_t));
 }
 
 cw_tr_node_t
 tr_nodes_iterate(cw_tr_t *a_tr, cw_tr_node_t a_prev)
 {
+//    tr_p_update(a_tr);//XXX
+
     cw_error("XXX Not implemented");
     return 0; // XXX
 }
