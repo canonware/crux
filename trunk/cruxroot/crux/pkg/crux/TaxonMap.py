@@ -69,6 +69,9 @@ class TaxonMap(object):
 
         return retval
 
+    # Map a label to an index.  Typical usage is something like:
+    #
+    #   m.map('Label', m.ntaxaGet())
     def map(self, label, ind):
         self._label2ind[label] = ind
         self._ind2label[ind] = label
