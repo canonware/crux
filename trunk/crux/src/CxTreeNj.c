@@ -601,13 +601,15 @@ CxmpInline bool
 CxpTreeNjDistEq(float aA, float aB)
 {
     bool retval;
-    float diff;
-    // XXX What is a reasonable value for this?
-#define CxmTreeNjMaxRound 0.0000001
+    float ratio;
+    // XXX What is a reasonable value for this?  Rounding error appears to start
+    // showing up at 1.0e-7.
+#define CxmTreeNjMaxDiff 1.0e-6
 
-    diff = aA - aB;
-    if (diff > CxmTreeNjMaxRound || diff < -CxmTreeNjMaxRound)
+    ratio = aA / aB;
+    if (ratio < (1.0 - CxmTreeNjMaxDiff) || ratio > (1.0 + CxmTreeNjMaxDiff))
     {
+//	fprintf(stderr, "%.20e != %.20e (ratio: %.10e)\n", aA, aB, ratio);
 	retval = false;
 	goto RETURN;
     }
@@ -616,6 +618,9 @@ CxpTreeNjDistEq(float aA, float aB)
     RETURN:
     return retval;
 }
+
+// XXX It may be enough to check a single distance.  If so, vastly simplify
+// this function.
 
 /* Make sure that clustering aA and aB would not change the distances between
  * nodes.  This must be done in order to make sure that we get the true tree, in
@@ -653,9 +658,8 @@ CxpTreeNjPairClusterExact(float *aD, float *aRScaled, long aNleft,
 	if (CxpTreeNjDistEq(dist + distA, aD[CxpTreeNjXy2i(aNleft, x, aA)])
 	    == false)
 	{
-	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
-		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, x, aA)],
-		    x, aA);
+// 	    fprintf(stderr, "(%ld,%ld): Unequal distances (%ld, %ld)\n",
+// 		    aA, aB, x, aA);
 	    retval = false;
 	    goto RETURN;
 	}
@@ -663,9 +667,8 @@ CxpTreeNjPairClusterExact(float *aD, float *aRScaled, long aNleft,
 	if (CxpTreeNjDistEq(dist + distB, aD[CxpTreeNjXy2i(aNleft, x, aB)])
 	    == false)
 	{
-	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
-		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, x, aB)],
-		    x, aB);
+// 	    fprintf(stderr, "(%ld,%ld): Unequal distances (%ld, %ld)\n",
+// 		    aA, aB, x, aA);
 	    retval = false;
 	    goto RETURN;
 	}
@@ -686,9 +689,8 @@ CxpTreeNjPairClusterExact(float *aD, float *aRScaled, long aNleft,
 	if (CxpTreeNjDistEq(dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)])
 	    == false)
 	{
-	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
-		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)],
-		    aA, x);
+// 	    fprintf(stderr, "(%ld,%ld): Unequal distances (%ld, %ld)\n",
+// 		    aA, aB, x, aA);
 	    retval = false;
 	    goto RETURN;
 	}
@@ -696,9 +698,8 @@ CxpTreeNjPairClusterExact(float *aD, float *aRScaled, long aNleft,
 	if (CxpTreeNjDistEq(dist + distB, aD[CxpTreeNjXy2i(aNleft, x, aB)])
 	    == false)
 	{
-	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
-		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, x, aB)],
-		    x, aB);
+// 	    fprintf(stderr, "(%ld,%ld): Unequal distances (%ld, %ld)\n",
+// 		    aA, aB, x, aA);
 	    retval = false;
 	    goto RETURN;
 	}
@@ -719,9 +720,8 @@ CxpTreeNjPairClusterExact(float *aD, float *aRScaled, long aNleft,
 	if (CxpTreeNjDistEq(dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)])
 	    == false)
 	{
-	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
-		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, aA, x)],
-		    aA, x);
+// 	    fprintf(stderr, "(%ld,%ld): Unequal distances (%ld, %ld)\n",
+// 		    aA, aB, x, aA);
 	    retval = false;
 	    goto RETURN;
 	}
@@ -729,9 +729,8 @@ CxpTreeNjPairClusterExact(float *aD, float *aRScaled, long aNleft,
 	if (CxpTreeNjDistEq(dist + distB, aD[CxpTreeNjXy2i(aNleft, aB, x)])
 	    == false)
 	{
-	    fprintf(stderr, "(%ld,%ld): %.4f != %.4f at (%ld, %ld)\n",
-		    aA, aB, dist + distA, aD[CxpTreeNjXy2i(aNleft, aB, x)],
-		    x, aA);
+// 	    fprintf(stderr, "(%ld,%ld): Unequal distances (%ld, %ld)\n",
+// 		    aA, aB, x, aA);
 	    retval = false;
 	    goto RETURN;
 	}
@@ -761,7 +760,6 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 		 bool aExact)
 {
     bool retval = false;
-    bool exact = aExact;
     long x, y, min;
     float *dElm;
     float dist, minDist, distX, distY;
@@ -802,9 +800,8 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 	}
 
 	if (CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min)
-	    && (exact == false ||
-		(exact = CxpTreeNjPairClusterExact(d, rScaled, nleft, x,
-						    min))))
+	    && (aExact == false ||
+		(CxpTreeNjPairClusterExact(d, rScaled, nleft, x, min))))
 	{
 	    retval = true;
 	    // XXX Move randomization to matrix initialization, and expose it as
@@ -871,14 +868,14 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 	retval = false;
     }
     // XXX Remove.
-    if (retval == false)
-    {
-	fprintf(stderr, "Next round will be in non-exact mode\n");
-    }
-    else
-    {
-	fprintf(stderr, "Next round will be in exact mode\n");
-    }
+//     if (retval == false)
+//     {
+// 	fprintf(stderr, "Next round will be in inexact mode\n");
+//     }
+//     else
+//     {
+// 	fprintf(stderr, "Next round will be in exact mode\n");
+//     }
     return retval;
 }
 
