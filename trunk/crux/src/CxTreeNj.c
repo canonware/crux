@@ -7,16 +7,38 @@
  *
  * Version: Crux <Version = crux>
  *
- ******************************************************************************/
-
-#include "../include/_cruxmodule.h"
-
-//#define CxmTreeNjRandomize
-#define CxmTreeNjVerbose
-//#define CxmTreeNjDump
-
-/* The following function can be used to convert from row/column matrix
- * coordinates to array offsets for neighbor-joining:
+ ******************************************************************************
+ *
+ * This file implements the neighbor joining algorithm, but implements some
+ * heuristic optimizations that dramatically improve performance, with no loss
+ * of algorithmic correctness.
+ *
+ * Matrices are stored as upper-half matrices, which means that addressing is a
+ * bit tricky.  The following matrix shows how addressing logically works, as
+ * well as the order in which matrix elements are stored in memory:
+ *   
+ *   x: 0  1  2  3  4  5  6  7  8
+ *     --+--+--+--+--+--+--+--+--+ y:
+ *       | 0| 1| 2| 3| 4| 5| 6| 7| 0
+ *       +--+--+--+--+--+--+--+--+
+ *          | 8| 9|10|11|12|13|14| 1
+ *          +--+--+--+--+--+--+--+
+ *             |15|16|17|18|19|20| 2
+ *             +--+--+--+--+--+--+
+ *                |21|22|23|24|25| 3
+ *                +--+--+--+--+--+
+ *                   |26|27|28|29| 4
+ *                   +--+--+--+--+
+ *                      |30|31|32| 5
+ *                      +--+--+--+
+ *                         |33|34| 6
+ *                         +--+--+
+ *                            |35| 7
+ *                            +--+
+ *                               | 8
+ *
+ * The following formula can be used to convert from (x,y) coordinates to array
+ * offsets:
  *
  *   n : Number of nodes currently in the matrix.
  *   x : Row.
@@ -26,7 +48,67 @@
  *                       x  + 3x
  *   f(n,x,y) = nx + y - ------- - 1
  *                          2
- */
+ *
+ ******************************************************************************
+ *
+ * Since neighbor joining involves repeatedly joining two nodes and removing a
+ * row from the matrix, the performance of matrix collapsing is important.
+ * Additionally, it is important to keep the matrix compactly stored in memory,
+ * for cache locality reasons.  This implementation removes row x by moving row
+ * 0 into its place, then discarding row 0 of the array.  This has the effects
+ * of 1) re-ordering rows, and 2) shifting row addresses, so care is necessary
+ * in code that both iterates over rows and collapses the matrix.
+ *
+ ******************************************************************************
+ *
+ * The key to this implementation's performance is the way in which clustering
+ * (node joining) decisions are made.  Rather than calculating the transformed
+ * distances for all possible node pairings, and joining those two nodes, this
+ * implementation iteratively checks to see if various possible pairings of
+ * nodes are legal, according to the constraints of the neighbor joining
+ * algorithm.  For example, consider the joining of nodes 4 and 6:
+ *
+ *   x: 0  1  2  3  4  5  6  7  8
+ *     --+--+--+--+--+--+--+--+--+ y:
+ *       |  |  |  |XX|  |YY|  |  | 0
+ *       +--+--+--+--+--+--+--+--+
+ *          |  |  |XX|  |YY|  |  | 1
+ *          +--+--+--+--+--+--+--+
+ *             |  |XX|  |YY|  |  | 2
+ *             +--+--+--+--+--+--+
+ *                |XX|  |YY|  |  | 3
+ *                +--+--+--+--+--+
+ *                   |XX|**|XX|XX| 4
+ *                   +--+--+--+--+
+ *                      |YY|  |  | 5
+ *                      +--+--+--+
+ *                         |YY|YY| 6
+ *                         +--+--+
+ *                            |  | 7
+ *                            +--+
+ *                               | 8
+ *
+ * As long as the transformed distance for (4,6), denoted by **, is less than or
+ * equal to the transformed distances for the matrix elements marked by XX or
+ * YY, then joining nodes 4 and 6 poses no correctness problems for the neighbor
+ * joining algorithm.  This implementation searches for such clusterings in an
+ * efficient manner.
+ *
+ * It is important to note that in the worst case, this implementation has
+ * O(n^3) performance.  However, worst case performance requires that the tree
+ * be very long, with a particular pattern of branch lengths, and that the taxa
+ * be inserted into the matrix in a particular order.  As such, worst case
+ * performance almost never occurs.
+ *
+ ******************************************************************************/
+
+#include "../include/_cruxmodule.h"
+
+//#define CxmTreeNjRandomize
+//#define CxmTreeNjVerbose
+//#define CxmTreeNjDump
+
+/* Convert from row/column matrix coordinates to array offsets. */
 CxmpInline unsigned long
 CxpTreeNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
 {
@@ -370,6 +452,14 @@ CxpTreeNjFinalJoin(float *aD, CxtNodeObject **aNodes, CxtTreeObject *aTree)
     return aNodes[0];
 }
 
+/* Finish checking whether it is okay to cluster rows aA and aB;
+ * CxpTreeNjCluster() has already done some of the work by the time this
+ * function is called.
+ *
+ * Two nodes, aA and aB, can be clustered if the transformed distance between
+ * them is less than or equal to the transformed distances from aA or aB to any
+ * other node.
+ */
 CxmpInline bool
 CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 		       long aA, long aB)
@@ -380,10 +470,11 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 
     CxmAssert(aA < aB);
 
-    /* Compare the transformed distances from {aA, aB} to every other node, and
-     * make sure that the two are always closer. */
+    /* Calculate the transformed distance between aA and aB. */
     distAB = aD[CxpTreeNjXy2i(aNleft, aA, aB)] - (aRScaled[aA] + aRScaled[aB]);
 
+    /* Iterate over the row-major portion of distances for aB.  Distances for aA
+     * were already checked in CxpTreeNjCluster(). */
     if (aB < aNleft - 1)
     {
 	for (x = aB + 1,
@@ -391,11 +482,6 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	     x < aNleft;
 	     x++)
 	{
-	    /* Make sure aA and aB are closer together than any nodes are to
-	     * either aA or aB. */
-
-	    /* Row aA was already done in CxpTreeNjCluster(). */
-
 	    dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
 	    if (dist < distAB)
 	    {
@@ -406,14 +492,14 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
 	}
     }
 
+    /* Iterate over the first column-major portion of distances for aA and
+     * aB. */
     for (x = 0,
 	     iA = aA - 1,
 	     iB = aB - 1;
 	 x < aA;
 	 x++)
     {
-	/* Make sure aA and aB are closer together than any nodes are to either
-	 * aA or aB. */
 	dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
 	if (dist < distAB)
 	{
@@ -435,20 +521,12 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     iB += aNleft - 2 - x;
     x++;
 
+    /* Iterate over the second column-major portion of distances for aB.
+     * Distances for aA were already checked in CxpTreeNjCluster(). */
     for (;
 	 x < aB;
 	 x++)
     {
-	/* Make sure aA and aB are closer together than any nodes are to either
-	 * aA or aB. */
-	iA++;
-	dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
-	if (dist < distAB)
-	{
-	    retval = false;
-	    goto RETURN;
-	}
-
 	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
 	if (dist < distAB)
 	{
@@ -459,6 +537,8 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     }
 
     retval = true;
+    // XXX Move randomization to matrix initialization, and expose it as an
+    // option.
 #ifdef CxmTreeNjRandomize
     {
 	static bool inited = false;
@@ -477,6 +557,19 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     return retval;
 }
 
+/* Iteratively try all clusterings of two rows in the matrix.  Do this in a
+ * cache-friendly manner (keeping in mind that the matrix is stored in row-major
+ * form).  This means:
+ *
+ * 1) For each row (x), find the row after it which is the closest (min),
+ *    according to transformed distances.  This operation scans the row-major
+ *    portion of the distances for x, which is a fast operation.
+ *
+ * 2) Check whether it is okay to cluster x and min, by calling
+ *    CxpTreeNjPairClusterOk().
+ *
+ * 3) If x and min can be clustered, do so, then immediately try to cluster with
+ *    x again (as long as collapsing the matrix didn't move row x). */
 static void
 CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 		 CxtNodeObject ***arNodes, long *arNleft, CxtTreeObject *aTree)
@@ -493,9 +586,9 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 
     for (x = 0; x < nleft - 1 && nleft > 2;) /* y indexes one past x. */
     {
-	/* Find the minimum distance from the node on row x to any other
-	 * node that comes after this one in the matrix.  This has the effect of
-	 * trying each node pairing only once. */
+	/* Find the minimum distance from the node on row x to any other node
+	 * that comes after it in the matrix.  This has the effect of trying
+	 * each node pairing only once. */
 	if (x < nleft - 2)
 	{
 	    for (y = x + 1,
@@ -535,14 +628,15 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 	    CxpTreeNjRScaledUpdate(rScaled, r, nleft);
 
 	    /* The indexing of the matrix is shifted as a result of having
-             * removed the first row.  Set x such that joining this row is
+             * removed the first row.  Set x such that joining with this row is
              * immediately tried again.  This isn't ideal, in that this only
-             * tries to join the new node with nodes that come after it.
-             * However, it probably isn't worth the cache miss penalty of
-             * finding the node that is closest to this one (requires iterating
-             * over a column).
+             * tries to join the new node with nodes that come after it in the
+             * matrix.  However, it probably isn't worth the cache miss penalty
+             * of finding the node that is closest to this one (requires
+             * iterating over a column).
 	     *
-	     * Note that if x is 0, then the row is now at (min - 1). */
+	     * Note that if x is 0, then the row is now at (min - 1); in that
+	     * case, stay on row 0. */
 	    if (x > 0)
 	    {
 		x--;
@@ -597,13 +691,12 @@ CxpTreeDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 }
 #endif
 
-/*
- * Create a tree from a pairwise distance matrix, using the neighbor-joining
+/* Create a tree from a pairwise distance matrix, using the neighbor-joining
  * algorithm.
  *
- * The matrix is actually stored as an upper-triangle symmetric matrix, with
- * additional bookkeeping, as necessary for the neighbor-joining algorithm.
- * For example (m is current matrix size):
+ * The matrix is stored as an upper-triangle symmetric matrix, with additional
+ * bookkeeping, as necessary for the neighbor-joining algorithm.  For example (n
+ * is current matrix size):
  *
  *                             |  r  ||
  *                             | --- ||
