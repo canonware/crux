@@ -109,15 +109,16 @@ else
 fi
 AC_SUBST([enable_debug])
 
-dnl Silence irrelevant compiler warnings by default.
-AC_ARG_ENABLE([cc-silence], [  --disable-cc-silence    Do not silence irrelevant compiler warnings],
+dnl Do not silence irrelevant compiler warnings by default, since enabling this
+dnl option incurs a slight performance penalty.
+AC_ARG_ENABLE([cc-silence], [  --enable-cc-silence     Silence irrelevant compiler warnings],
 [if test "x$enable_cc_silence" = "xno" ; then
   enable_cc_silence="0"
 else
   enable_cc_silence="1"
 fi
 ],
-[enable_cc_silence="1"]
+[enable_cc_silence="0"]
 )
 if test "x$enable_cc_silence" = "x1" ; then
   AC_DEFINE([CxmCcSilence])
