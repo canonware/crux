@@ -18,6 +18,9 @@ typedef struct cw_tre_s cw_tre_t;
 typedef struct cw_trt_s cw_trt_t;
 typedef struct cw_trh_s cw_trh_t;
 
+/* Character (in the systematics sense of the word). */
+typedef char cw_trc_t;
+
 /* Partial parsimony score information. */
 struct cw_tr_ps_s
 {
@@ -42,7 +45,7 @@ struct cw_tr_ps_s
      * the array contains a bitmap representation of a subset of {ACGT} in the 4
      * least significant bits.  T is the least significant bit.  1 means that a
      * nucleotide is in the set. */
-    cw_uint32_t *chars;
+    cw_trc_t *chars;
     cw_uint32_t nchars;
 };
 
@@ -263,7 +266,7 @@ tr_p_ps_delete(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
     {
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
-			  a_ps->chars, sizeof(cw_uint32_t) * a_ps->nchars);
+			  a_ps->chars, sizeof(cw_trc_t) * a_ps->nchars);
     }
 
     cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
@@ -280,7 +283,7 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_uint32_t a_nchars)
     {
 	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
 			  mema_arg_get(a_tr->mema),
-			  a_ps->chars, sizeof(cw_uint32_t) * a_ps->nchars);
+			  a_ps->chars, sizeof(cw_trc_t) * a_ps->nchars);
 	a_ps->chars = NULL;
     }
 
@@ -288,9 +291,9 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_uint32_t a_nchars)
     if (a_ps->chars == NULL)
     {
 	a_ps->chars
-	    = (cw_uint32_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					      mema_arg_get(a_tr->mema),
-					      sizeof(cw_uint32_t) * a_nchars);
+	    = (cw_trc_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+					   mema_arg_get(a_tr->mema),
+					   sizeof(cw_trc_t) * a_nchars);
 	a_ps->nchars = a_nchars;
     }
 }
@@ -1707,8 +1710,248 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
     }
 }
 
+#ifdef CW_CPU_IA32
 CW_P_INLINE cw_uint32_t
-tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
+tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
+		    cw_tr_ps_t *a_b)
+{
+
+    /* Only calculate the parent's node score if the cached value is invalid. */
+    if (a_a->parent != a_p || a_b->parent != a_p)
+    {
+	cw_uint32_t i, ngroups, nchars, ns, a, b, p, c, s;
+	cw_trc_t *chars_p, *chars_a, *chars_b;
+
+	/* Calculate sum of subtree scores. */
+	a_p->subtrees_score
+	    = a_a->subtrees_score + a_a->node_score
+	    + a_b->subtrees_score + a_b->node_score;
+
+	/* (Re-)calculate node score. */
+	ns = 0;
+
+	/* Reset this node's parent pointer, to keep the parent from using an
+	 * invalid cached value. */
+	a_p->parent = NULL;
+
+	/* Set parent pointers, so that cached values may be used in future
+	 * runs. */
+	a_a->parent = a_p;
+	a_b->parent = a_p;
+
+	/* Calculate partial Fitch parsimony scores for each character. */
+	chars_p = a_p->chars;
+	chars_a = a_a->chars;
+	chars_b = a_b->chars;
+
+	nchars = a_p->nchars;
+
+	/* Use SSE2 to evaluate as many of the characters as possible.  This
+	 * loop handles 16 characters per iteration. */
+	for (i = 0, ngroups = a_p->nchars ^ (a_p->nchars & 0xf); i < ngroups;)
+	{
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	    /***************************/
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+
+	    i++;
+	}
+
+	/* Evaluate the last 0-15 characters that weren't evaluated in the above
+	 * loop. */
+	for (; i < nchars; i++)
+	{
+	    a = chars_a[i];
+	    b = chars_b[i];
+
+	    p = a & b;
+	    s = p ? 0 : 1;
+	    c = -s;
+	    chars_p[i] = (p | (c & (a | b)));
+	    ns += s;
+	}
+
+	a_p->node_score = ns;
+    }
+
+    return (a_p->subtrees_score + a_p->node_score);
+}
+#endif
+
+static cw_uint32_t
+tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
+		 cw_tr_ps_t *a_b)
 {
 //#define CW_TR_MP_PSCORE_VALIDATE
 #ifdef CW_TR_MP_PSCORE_VALIDATE
@@ -1728,7 +1971,7 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 #endif
     {
 	cw_uint32_t i, nchars, ns, a, b, p, c, s;
-	cw_uint32_t *chars_p, *chars_a, *chars_b;
+	cw_trc_t *chars_p, *chars_a, *chars_b;
 
 #ifdef CW_TR_MP_PSCORE_VALIDATE
 	if (cached)
@@ -1800,6 +2043,25 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
     return (a_p->subtrees_score + a_p->node_score);
 }
 
+CW_P_INLINE cw_uint32_t
+tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
+{
+    cw_uint32_t retval;
+
+#ifdef CW_CPU_IA32
+    if (modcrux_ia32_use_sse2)
+    {
+	retval = tr_p_mp_ia32_pscore(a_tr, a_p, a_a, a_b);
+    }
+    else
+#endif
+    {
+	retval = tr_p_mp_c_pscore(a_tr, a_p, a_a, a_b);
+    }
+
+    return retval;
+}
+
 CW_P_INLINE void
 tr_p_mp_nopscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		 cw_tr_ps_t *a_b)
@@ -1822,7 +2084,7 @@ tr_p_mp_passpscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a)
     a_p->parent = a_a->parent;
     a_p->subtrees_score = a_a->subtrees_score;
     a_p->node_score = a_a->node_score;
-    memcpy(a_p->chars, a_a->chars, sizeof(cw_uint32_t) * a_p->nchars);
+    memcpy(a_p->chars, a_a->chars, sizeof(cw_trc_t) * a_p->nchars);
 }
 
 static void
