@@ -519,10 +519,6 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 		retval = true;
 		goto RETURN;
 	    }
-	    // XXX
-	    fprintf(stderr, "%s:%d:%s(): Allocate %lu bytes\n",
-		    __FILE__, __LINE__, __func__,
-		    sizeof(float) * self->ntaxa * self->ntaxa);
 	    self->matrix = (float *) CxmMalloc(sizeof(float)
 					       * self->ntaxa * self->ntaxa);
 	    break;
