@@ -48,8 +48,17 @@ for testMatrix in testMatrices:
     for i in forints(10):
         matrix = crux.DistMatrix.DistMatrix(testMatrix)
         matrix.shuffle()
-        #matrix.render(distFormat="%2.0f", outFile=sys.stdout)
         t = crux.Tree.Tree(matrix)
+
+        treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
+        t = crux.Tree.Tree(treeStr, map=map)
+        t.canonize()
+        t.render(labels=True, lengths=True, lengthFormat="%.0f",
+                 outFile=sys.stdout)
+
+    for i in forints(10):
+        matrix = crux.DistMatrix.DistMatrix(testMatrix)
+        t = crux.Tree.Tree(matrix, tryAdditive=True, joinRandom=True)
 
         treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
         t = crux.Tree.Tree(treeStr, map=map)
