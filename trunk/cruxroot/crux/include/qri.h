@@ -14,8 +14,8 @@
 #define qri								\
 struct									\
 {									\
-	uint32_t qrie_next;						\
-	uint32_t qrie_prev;						\
+    uint32_t qrie_next;							\
+    uint32_t qrie_prev;							\
 }
 
 /* Ring functions. */
