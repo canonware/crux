@@ -10,6 +10,8 @@
 ################################################################################
 
 import TaxonMap
+import FastaParser
+import CharacterType
 
 import crux.Exception
 
@@ -22,6 +24,33 @@ class ValueError(Exception, ValueError):
 
     def __str__(self):
         return self._str
+
+class _FastaParser(FastaParser.FastaParser):
+    def __init__(self, matrix, map):
+        self._matrix = matrix
+        self._map = map
+        self._lastLabel = None
+
+    # Overridden method.
+    def labelAccept(self):
+        self._lastLabel = self.token()
+
+    # Overridden method.
+    def charsAccept(self):
+        # Set the character data type if it hasn't already been done.
+        if len(self._matrix.charsGet()) == 0:
+            if self.charType() == 'DNA':
+                self._matrix.charsAppend([CharacterType.DnaCharacterType()]
+                                         * len(self.token()))
+            else: # Protein data.
+                self._matrix.charsAppend([CharacterType.ProteinCharacterType()]
+                                         * len(self.token()))
+
+        # Define a taxon mapping for this label.
+        self._map.map(self._lastLabel, self._map.ntaxaGet())
+
+        # Set the character data for this taxon.
+        self._matrix.dataSet(self._lastLabel, self.token())
 
 class CTMatrix(object):
     def __init__(self, map=TaxonMap.TaxonMap()):
@@ -36,6 +65,26 @@ class CTMatrix(object):
         # characters that belong to the corresponding taxon in _taxonMap.  The
         # keys are the integer indexes, as reported by self._taxonMap.indGet().
         self._taxonData = {}
+
+    def fastaFileParse(self, file, chartype='DNA'):
+        parser = _FastaParser(self, self._taxonMap)
+        parser.parse(file, chartype)
+
+    def fastaPrints(self):
+        retval = ""
+
+        taxa = self._taxonMap.taxaGet()
+        for taxon in taxa:
+            if self.dataGet(taxon) != None:
+                retval += ">%s\n" % taxon
+                # Break into lines of length 75.
+                for i in forints(len(self.dataGet(taxon)), step=75):
+                    if i + 75 < len(self.dataGet(taxon)):
+                        retval += "%s\n" % self.dataGet(taxon)[i:i+75]
+                    else:
+                        retval += "%s\n" % self.dataGet(taxon)[i:]
+
+        return retval
 
     # Append CharacterType objects to _chars.
     def charsAppend(self, chars):
