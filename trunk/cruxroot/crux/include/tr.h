@@ -13,7 +13,7 @@
 typedef struct cw_trn_s cw_trn_t;
 
 /* Canonical unrooted bifurcating phylogenetic tree in compact form. */
-typedef cw_uint8_t * cw_tr_t;
+typedef cw_uint8_t cw_tr_t;
 
 /* Tree node for an unrooted bifurcating phylogenetic tree. */
 struct cw_trn_s
@@ -25,20 +25,29 @@ struct cw_trn_s
     /* If non-NULL, then the node was dynamically allocated. */
     cw_mema_t *mema;
 
+    /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
+     * for reference iteration. */
+    void *aux;
+
     /* If 0xffffffff, then the node is not a leaf node. */
+#define CW_TRN_TAXON_NONE 0xffffffffU
     cw_uint32_t taxon_num;
 
     /* Pointers to neighbors.  Only the first two elements are used if the node
      * is a leaf node. */
-    cw_trn_t *neighbors[3];
+#define CW_TRN_MAX_NEIGHBORS 3
+    cw_trn_t *neighbors[CW_TRN_MAX_NEIGHBORS];
 };
 
 /* tr. */
 cw_tr_t *
-tr_new(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa);
+tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa);
 
 void
 tr_delete(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa);
+
+cw_uint32_t
+tr_ntaxa2sizeof(cw_uint32_t a_ntaxa);
 
 cw_trn_t *
 tr_trn(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa);
@@ -56,6 +65,9 @@ trn_new(cw_trn_t *a_trn, cw_mema_t *a_mema);
 void
 trn_delete(cw_trn_t *a_trn);
 
+void
+trn_delete_recurse(cw_trn_t *a_trn);
+
 cw_uint32_t
 trn_taxon_num_get(cw_trn_t *a_trn);
 
@@ -69,10 +81,13 @@ void
 trn_neighbors_swap(cw_trn_t *a_trn, cw_uint32_t a_i, cw_uint32_t a_j);
 
 void
-trn_join(cw_trn_t *a_a, cw_uint32_t a_a_i, cw_trn_t *a_b, cw_uint32_t a_b_i);
+trn_join(cw_trn_t *a_a, cw_trn_t *a_b);
 
 void
 trn_detach(cw_trn_t *a_a, cw_trn_t *a_b);
 
-cw_tr_t *
-trn_tr(cw_trn_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa);
+void *
+trn_aux_get(cw_trn_t *a_trn);
+
+void
+trn_aux_set(cw_trn_t *a_trn, void *a_aux);

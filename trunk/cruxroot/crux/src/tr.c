@@ -73,7 +73,9 @@
  * The topology for this tree can be represented by the following bit string:
  *
  *   ((()()))
- *   00010111
+ *   -0010111
+ *
+ * The `-' character represents implicit information.
  *
  * The taxon visitation order can be represented by the following bit string
  * (keep in mind that only as many bits as are necessary are used for each
@@ -88,16 +90,16 @@
  * In general, the number of bytes that are needed to store a tree can be
  * calculated via the following formula:
  *
- *   __                          __
- *   |           n-2              |
- *   |          ____  __       __ |
- *   |          \     |         | |
- *   | 2(n-3) +  >    |log (n-i)| |
- *   |          /___  |   2     | |
- *   |           i=0              |
- *   | -------------------------- |
- *   |              8             |
- *   |                            |
+ *   __                                __
+ *   |                 n-2              |
+ *   |                ____  __       __ |
+ *   |                \     |         | |
+ *   | (2(n-3) + 1) +  >    |log (n-i)| |
+ *   |                /___  |   2     | |
+ *   |                 i=0              |
+ *   | -------------------------------- |
+ *   |                    8             |
+ *   |                                  |
  *
  * The first term in the numerator corresponds to the parenthetical expression,
  * and the summation term corresponds to the taxon permutation.
@@ -118,25 +120,154 @@
 
 #include "../include/modcrux.h"
 
+/* Get bit a_i in a_vec (cw_uint8_t *). */
+#define TR_BIT_GET(a_vec, a_i)						\
+    (( ((a_vec)[(a_i) >> 3]) >> (7 - ((a_i) & 0x7)) ) & 0x1)
+
+/* Set bit a_i in a_vec (cw_uint8_t *) to a_val (0 or 1). */
+#define TR_BIT_SET(a_vec, a_i, a_val)					\
+    (a_vec)[(a_i) >> 3] =						\
+	(a_vec)[(a_i) >> 3] & (~(0x1 << (7 - ((a_i) & 0x7))))		\
+	| (a_val) << ((7 - ((a_i) & 0x7)))
+
 /* tr. */
+
+/* Calculate bit vector byte count, using the bit representation of the encoded
+ * tree. */
 static cw_uint32_t
-tr_p_len(const cw_tr_t *a_tr)
+tr_p_sizeof(const cw_tr_t *a_tr)
 {
     cw_uint32_t retval;
+    cw_uint32_t i, npairs, curdepth;
+
+    /* Determine how many pairs of parentheses there are in the bit vector. */
+    for (i = 0, npairs = curdepth = 1; curdepth > 0; i++)
+    {
+	if (TR_BIT_GET(a_tr, i))
+	{
+	    curdepth--;
+	}
+	else
+	{
+	    npairs++;
+	    curdepth++;
+	}
+    }
+
+    /* Calculate the total amount of space needed to hold the tree.  Using the
+     * first term of the formula at the top of the file (+1 for the implied
+     * leading `('), we know that:
+     *
+     *   npairs == 2(n-2)
+     *
+     *   npairs
+     *   ------ == n - 2
+     *      2
+     *
+     *        npairs
+     *   n == ------ + 2
+     *           2
+     *
+     * Solve for n, then use that to get the final result. */
+    retval = tr_ntaxa2sizeof(npairs / 2 + 2);
+
+    return retval;
+}
+
+/*           __         __
+ *           |           |
+ * Calculate |log (a_val)|.  This is accomplished by counting the number of bits
+ *           |   2       |
+ * set to 1 while iterating to find the most significant bit set.  If there
+ * was more than one 1 bit, the result is incremented (ceiling).
+ *
+ * Note that the result for a_val == 1 should be 1, but this function would
+ * return 0.  However, we never care about that case in this code, so it doesn't
+ * matter.
+ */
+static cw_uint32_t
+tr_p_log2ceil(cw_uint32_t a_val)
+{
+    cw_uint32_t retval;
+    cw_uint32_t ones;
+
+    cw_assert(a_val > 1);
+
+    /* Find the most significant 1 bit. */
+    for (retval = ones = 0; a_val != 0; retval++, a_val >>= 1)
+    {
+	if (a_val & 0x1)
+	{
+	    ones++;
+	}
+    }
+
+    if (ones > 1)
+    {
+	/* Ceiling. */
+	retval++;
+    }
 
     return retval;
 }
 
 cw_tr_t *
-tr_new(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
+tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 {
-    return NULL; /* XXX */
+    cw_tr_t *retval;
+    cw_uint32_t tr_sizeof;
+
+    cw_check_ptr(a_mema);
+    cw_check_ptr(mema_alloc_get(a_mema));
+    /* XXX Assert that a_ntaxa matches number of taxa in a_trn. */
+
+    tr_sizeof = tr_ntaxa2sizeof(a_ntaxa);
+    retval = cw_opaque_alloc(mema_alloc_get(a_mema),
+			     mema_arg_get(a_mema), tr_sizeof);
+
+    /* Set the last byte to 0 to assure that there is no trailing garbage. */
+    retval[tr_sizeof - 1] = 0;
+
+    return retval;
 }
 
 void
 tr_delete(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
 {
-    /* XXX */
+    cw_check_ptr(a_mema);
+    cw_check_ptr(mema_dealloc_get(a_mema));
+    cw_assert(tr_p_sizeof(a_tr) == tr_ntaxa2sizeof(a_ntaxa));
+
+    cw_opaque_dealloc(mema_dealloc_get(a_mema),
+		      mema_arg_get(a_mema),
+		      a_tr, tr_ntaxa2sizeof(a_ntaxa));
+}
+
+/* Calculate bit vector byte count, given the number of taxa in the tree. */
+cw_uint32_t
+tr_ntaxa2sizeof(cw_uint32_t a_ntaxa)
+{
+    cw_uint32_t retval;
+    cw_uint32_t i, ceil;
+
+    /* Use the formula at the beginning of this file to calculate the number of
+     * bytes required to store a tree with a_ntaxa. */
+
+    /* First term of numerator (parenthetical tree). */
+    retval = 2 * (a_ntaxa - 3) + 1;
+
+    /* Second term of numerator (summation, taxa permutation). */
+    for (i = 0; i < a_ntaxa - 2; i++)
+    {
+	retval += tr_p_log2ceil(a_ntaxa - i);
+    }
+
+    /* Ceiling of denominator division. */
+    ceil = !!(retval & 0x7);
+    retval >>= 3;
+    retval += ceil;
+
+    return retval;
 }
 
 cw_trn_t *
@@ -156,7 +287,7 @@ tr_hash(const void *a_key)
 
     tr = (const cw_tr_t *) a_key;;
 
-    len = tr_p_len(tr);
+    len = tr_p_sizeof(tr);
     for (i = retval = 0; i < len; i++)
     {
 	retval = retval * 33 + ((cw_uint8_t *) tr)[i];
@@ -178,8 +309,8 @@ tr_key_comp(const void *a_k1, const void *a_k2)
     tr1 = (const cw_tr_t *) a_k1;
     tr2 = (const cw_tr_t *) a_k2;
 
-    len1 = tr_p_len(tr1);
-    len2 = tr_p_len(tr2);
+    len1 = tr_p_sizeof(tr1);
+    len2 = tr_p_sizeof(tr2);
     if (len1 != len2)
     {
 	retval = FALSE;
@@ -196,13 +327,56 @@ tr_key_comp(const void *a_k1, const void *a_k2)
 cw_trn_t *
 trn_new(cw_trn_t *a_trn, cw_mema_t *a_mema)
 {
-    return NULL; /* XXX */
+    cw_trn_t *retval;
+
+    if (a_trn != NULL)
+    {
+	retval = a_trn;
+	memset(a_trn, 0, sizeof(cw_trn_t));
+	a_trn->mema = NULL;
+    }
+    else
+    {
+	cw_check_ptr(a_mema);
+	cw_check_ptr(mema_calloc_get(a_mema));
+	cw_check_ptr(mema_dealloc_get(a_mema));
+
+	retval = cw_opaque_calloc(mema_calloc_get(a_mema),
+				  mema_arg_get(a_mema), 1, sizeof(cw_trn_t));
+	a_trn->mema = a_mema;
+    }
+
+    retval->taxon_num = CW_TRN_TAXON_NONE;
+
+#ifdef CW_DBG
+    retval->magic = CW_TRN_MAGIC;
+#endif
+
+    return retval;
 }
 
 void
 trn_delete(cw_trn_t *a_trn)
 {
-    /* XXX */
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+
+    if (a_trn->mema != NULL)
+    {
+	cw_opaque_dealloc(mema_dealloc_get(a_trn->mema),
+			  mema_arg_get(a_trn->mema), a_trn, sizeof(cw_trn_t));
+    }
+#ifdef CW_DBG
+    else
+    {
+	memset(a_trn, 0x5a, sizeof(cw_trn_t));
+    }
+#endif
+}
+
+void
+trn_delete_recurse(cw_trn_t *a_trn)
+{
 }
 
 cw_uint32_t
@@ -226,29 +400,121 @@ trn_taxon_num_set(cw_trn_t *a_trn, cw_uint32_t a_taxon_num)
 cw_trn_t *
 trn_neighbor_get(cw_trn_t *a_trn, cw_uint32_t a_i)
 {
-    return NULL; /* XXX */
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_assert(a_i < CW_TRN_MAX_NEIGHBORS);
+
+    return a_trn->neighbors[a_i];
 }
 
 void
 trn_neighbors_swap(cw_trn_t *a_trn, cw_uint32_t a_i, cw_uint32_t a_j)
 {
-    /* XXX */
+    cw_trn_t *t_trn;
+
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_assert(a_i < CW_TRN_MAX_NEIGHBORS);
+    cw_assert(a_j < CW_TRN_MAX_NEIGHBORS);
+    cw_assert(a_i != a_j);
+
+    t_trn = a_trn->neighbors[a_i];
+    a_trn->neighbors[a_i] = a_trn->neighbors[a_j];
+    a_trn->neighbors[a_j] = t_trn;
 }
 
 void
-trn_join(cw_trn_t *a_a, cw_uint32_t a_a_i, cw_trn_t *a_b, cw_uint32_t a_b_i)
+trn_join(cw_trn_t *a_a, cw_trn_t *a_b)
 {
-    /* XXX */
+    cw_uint32_t i, j;
+
+    cw_check_ptr(a_a);
+    cw_dassert(a_a->magic == CW_TRN_MAGIC);
+    cw_check_ptr(a_b);
+    cw_dassert(a_b->magic == CW_TRN_MAGIC);
+    cw_assert(a_a != a_b);
+#ifdef CW_DBG
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	cw_assert(a_a->neighbors[i] != a_b);
+	cw_assert(a_b->neighbors[i] != a_a);
+    }
+#endif
+
+    /* Find an empty slot in a_a. */
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_a->neighbors[i] == NULL)
+	{
+	    break;
+	}
+    }
+    cw_assert(i < CW_TRN_MAX_NEIGHBORS);
+
+    /* Find an empty slot in a_b. */
+    for (j = 0; j < CW_TRN_MAX_NEIGHBORS; j++)
+    {
+	if (a_b->neighbors[j] == NULL)
+	{
+	    break;
+	}
+    }
+    cw_assert(j < CW_TRN_MAX_NEIGHBORS);
+
+    /* Join the two nodes. */
+    a_a->neighbors[i] = a_b;
+    a_b->neighbors[j] = a_a;
 }
 
 void
 trn_detach(cw_trn_t *a_a, cw_trn_t *a_b)
 {
-    /* XXX */
+    cw_uint32_t i, j;
+
+    cw_check_ptr(a_a);
+    cw_dassert(a_a->magic == CW_TRN_MAGIC);
+    cw_check_ptr(a_b);
+    cw_dassert(a_b->magic == CW_TRN_MAGIC);
+
+    /* Find the slot in a_a that points to a_b. */
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_a->neighbors[i] == a_b)
+	{
+	    break;
+	}
+    }
+    cw_assert(i < CW_TRN_MAX_NEIGHBORS);
+
+    /* Find the slot in a_b that points to a_a. */
+    for (j = 0; j < CW_TRN_MAX_NEIGHBORS; j++)
+    {
+	if (a_b->neighbors[j] == a_a)
+	{
+	    break;
+	}
+    }
+    cw_assert(j < CW_TRN_MAX_NEIGHBORS);
+
+    /* Detach the two nodes. */
+    a_a->neighbors[i] = NULL;
+    a_b->neighbors[j] = NULL;
 }
 
-cw_tr_t *
-trn_tr(cw_trn_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
+void *
+trn_aux_get(cw_trn_t *a_trn)
 {
-    return NULL; /* XXX */
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+
+    return a_trn->aux;
+}
+
+void
+trn_aux_set(cw_trn_t *a_trn, void *a_aux)
+{
+    cw_check_ptr(a_trn);
+    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+
+    a_trn->aux = a_aux;
 }
