@@ -114,6 +114,7 @@ extern PyObject *CxgException;
     ((uint32_t) &(((aType *)NULL)->aField))
 
 #include "CxMt.h"
+#include "CxRi.h"
 #include "CxQr.h"
 #include "CxMem.h"
 #include "CxXep.h"

@@ -108,7 +108,7 @@
 
 #include "../include/_cruxmodule.h"
 
-#define CxmTreeNjVerbose
+//#define CxmTreeNjVerbose
 //#define CxmTreeNjDump
 //#define CxmTreeNjCheckAdditiveAll
 
@@ -154,8 +154,7 @@ CxpTreeNjDump(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
 	result = CxNodeTaxonNumGet(aNodes[x]);
 	if (result != Py_None)
 	{
-	    fprintf(stderr, " || n %ld\n",
-		    PyInt_AsLong(result), aNodes[x]);
+	    fprintf(stderr, " || n %ld\n", PyInt_AsLong(result));
 	}
 	else
 	{
@@ -499,18 +498,21 @@ CxpTreeNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 
     /* Find the minimum distance from the node on row aX to any other node that
      * comes after it in the matrix. */
-    for (y = aX + 1,
-	     dElm = &d[CxpTreeNjXy2i(aNleft, aX, y)];
-	 y < aNleft;
-	 y++)
+    if (aX < aNleft - 1)
     {
-	dist = *dElm - (aRScaled[aX] + aRScaled[y]);
-	dElm++;
-
-	if (dist < minDist)
+	for (y = aX + 1,
+		 dElm = &d[CxpTreeNjXy2i(aNleft, aX, y)];
+	     y < aNleft;
+	     y++)
 	{
-	    minDist = dist;
-	    retval = y;
+	    dist = *dElm - (aRScaled[aX] + aRScaled[y]);
+	    dElm++;
+
+	    if (dist < minDist)
+	    {
+		minDist = dist;
+		retval = y;
+	    }
 	}
     }
     CxmAssert(minDist != HUGE_VAL);
@@ -971,6 +973,7 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
     if (aRandom)
     {
 	CxtMt mt;
+	CxtRi ri;
 	long seed, t;
 	float dist;
 
@@ -986,10 +989,12 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 	}
 	CxMtNew(&mt);
 	CxMtUint32Seed(&mt, seed);
+	CxRiNew(&ri);
+	CxRiInit(&ri, aNleft);
 
-	for (x = CxMtSint32RangeGet(&mt, aNleft - 1);
+	for (x = CxRiRandomGet(&ri, &mt);
 	     aNleft > 2;
-	     x = CxMtSint32RangeGet(&mt, aNleft - 1))
+	     x = CxRiRandomGet(&ri, &mt))
 	{
 	    /* Find the row that is closest to x. */
 	    y = CxpTreeNjRowAllMinFind(d, aRScaled, aNleft, x, &dist);
@@ -1015,9 +1020,12 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 		CxpTreeNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
 		aNleft--;
 		CxpTreeNjRScaledUpdate(aRScaled, aR, aNleft);
+
+		CxRiInit(&ri, aNleft);
 	    }
 	}
 
+	CxRiDelete(&ri);
 	CxMtDelete(&mt);
     }
     else
@@ -1083,6 +1091,9 @@ CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
 	}
     }
     OUT:
+#ifdef CxmTreeNjDump
+    CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
+#endif
 
     *arD = d;
     *arNodes = nodes;
