@@ -10,6 +10,9 @@
 //==============================================================================
 
 #include "../include/_cruxmodule.h"
+#ifndef HAVE_ASPRINTF
+#include "asprintf_c"
+#endif
 
 static PyTypeObject CxtDistMatrix;
 
@@ -1309,7 +1312,18 @@ CxDistMatrixTaxonMapGet(CxtDistMatrixObject *self)
 float
 CxDistMatrixDistanceGet(CxtDistMatrixObject *self, long x, long y)
 {
-    return self->matrix[CxpDistMatrixXy2i(self, x, y)];
+    float retval;
+
+    if (self->symmetric && x == y)
+    {
+	retval = 0.0;
+    }
+    else
+    {
+	retval = self->matrix[CxpDistMatrixXy2i(self, x, y)];
+    }
+
+    return retval;
 }
 
 PyObject *
@@ -1333,14 +1347,7 @@ CxDistMatrixDistanceGetPargs(CxtDistMatrixObject *self, PyObject *args)
 	retval = NULL;
 	goto RETURN;
     }
-    if (self->symmetric && fr == to)
-    {
-	distance = 0.0;
-    }
-    else
-    {
-	distance = CxDistMatrixDistanceGet(self, fr, to);
-    }
+    distance = CxDistMatrixDistanceGet(self, fr, to);
 
     // Get distance.
     retval = Py_BuildValue("f", distance);
@@ -1351,6 +1358,8 @@ CxDistMatrixDistanceGetPargs(CxtDistMatrixObject *self, PyObject *args)
 void
 CxDistMatrixDistanceSet(CxtDistMatrixObject *self, long x, long y, float dist)
 {
+    CxmAssert(self->symmetric == false || x != y);
+
     self->matrix[CxpDistMatrixXy2i(self, x, y)] = dist;
 }
 
@@ -1496,8 +1505,101 @@ CxpDistMatrixShuffle(CxtDistMatrixObject *self, PyObject *args)
     return retval;
 }
 
+struct CxpsDistMatrixStringRenderContext
+{
+    char *string; // String, or NULL if nothing has been rendered yet.
+    unsigned stringLen; // Number of characters before '\0' character in string.
+    unsigned bufSize; // Actual size of allocation that string points to.
+};
+
+static bool
+CxpDistMatrixStringRenderCallback(void *aContext, const char *aFormat, ...)
+{
+    bool retval;
+    va_list ap;
+    struct CxpsDistMatrixStringRenderContext *context
+	= (struct CxpsDistMatrixStringRenderContext *) aContext;
+    char *tString;
+    int tStringLen;
+
+    va_start(ap, aFormat);
+    // XXX Try to render in context->string first?
+    if ((tStringLen = vasprintf(&tString, aFormat, ap)) < 0)
+    {
+	va_end(ap);
+	PyErr_NoMemory();
+	retval = true;
+	goto RETURN;
+    }
+    va_end(ap);
+
+    if (context->string == NULL)
+    {
+	// There are no previous rendering results to catenate tString to.
+	context->string = tString;
+	context->stringLen = tStringLen;
+	context->bufSize = tStringLen + 1;
+    }
+    else
+    {
+	if (context->stringLen + tStringLen >= context->bufSize)
+	{
+	    char *buf;
+
+	    // Allocate more space before catenating.  Over-allocate by 2X in
+	    // order to ammortize allocation cost.
+	    buf = (char *) realloc(context->string,
+				   (context->stringLen + tStringLen + 1) * 2);
+	    if (buf == NULL)
+	    {
+		free(tString);
+		PyErr_NoMemory();
+		retval = true;
+		goto RETURN;
+	    }
+	    context->string = buf;
+	    context->bufSize = (context->stringLen + tStringLen + 1) * 2;
+	}
+
+	// Catenate previous rendering results and tString.
+	memcpy(&context->string[context->stringLen], tString, tStringLen);
+	free(tString);
+	context->stringLen += tStringLen;
+	CxmAssert(context->stringLen < context->bufSize);
+	context->string[context->stringLen] = '\0';
+    }
+
+    retval = false;
+    RETURN:
+    return retval;
+}
+
+static bool
+CxpDistMatrixFileRenderCallback(void *aContext, const char *aFormat, ...)
+{
+    bool retval;
+    va_list ap;
+    FILE *outFile = (FILE *) aContext;
+
+    va_start(ap, aFormat);
+    if (vfprintf(outFile, aFormat, ap) < 0)
+    {
+	va_end(ap);
+	CxError(CxgDistMatrixIOError, "Error in vfprintf()");
+	retval = true;
+	goto RETURN;
+    }
+    va_end(ap);
+
+    retval = false;
+    RETURN:
+    return retval;
+}
+
 CxmpInline bool
-CxpDistMatrixFileLabelRender(CxtDistMatrixObject *self, FILE *aF, long aX)
+CxpDistMatrixLabelRender(CxtDistMatrixObject *self,
+			 bool (*aCallback)(void *, const char *, ...),
+			 void *aCallbackContext, long aX)
 {
     bool retval;
     PyObject *result;
@@ -1517,10 +1619,9 @@ CxpDistMatrixFileLabelRender(CxtDistMatrixObject *self, FILE *aF, long aX)
 	retval = true;
 	goto RETURN;
     }
-    if (fprintf(aF, "%-10s", PyString_AsString(result)) < 0)
+    if (aCallback(aCallbackContext, "%-10s", PyString_AsString(result)))
     {
 	Py_DECREF(result);
-	CxError(CxgDistMatrixIOError, "Error in fprintf()");
 	retval = true;
 	goto RETURN;
     }
@@ -1532,15 +1633,18 @@ CxpDistMatrixFileLabelRender(CxtDistMatrixObject *self, FILE *aF, long aX)
 }
 
 static PyObject *
-CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
+CxpDistMatrixRender(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *retval, *outFile;
     char *format, *distFormat;
-    FILE *f;
     long x, y;
+    void *callbackContext;
+    bool (*callback)(void *, const char *, ...);
+    struct CxpsDistMatrixStringRenderContext stringRenderContext = {NULL, 0, 0};
 
     // Parse arguments.
-    if (PyArg_ParseTuple(args, "ssO!",
+    outFile = NULL;
+    if (PyArg_ParseTuple(args, "ss|O!",
 			 &format,
 			 &distFormat,
 			 &PyFile_Type, &outFile) == 0)
@@ -1548,11 +1652,21 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
 	retval = NULL;
 	goto RETURN;
     }
-    f = PyFile_AsFile(outFile);
-
-    if (fprintf(f, "%ld\n", self->ntaxa) < 0)
+    if (outFile == NULL)
     {
-	CxError(CxgDistMatrixIOError, "Error in fprintf()");
+	// Render to a string.
+	callback = CxpDistMatrixStringRenderCallback;
+	callbackContext = (void *) &stringRenderContext;
+    }
+    else
+    {
+	// Render to outFile.
+	callback = CxpDistMatrixFileRenderCallback;
+	callbackContext = (void *) PyFile_AsFile(outFile);
+    }
+
+    if (callback(callbackContext, "%ld\n", self->ntaxa))
+    {
 	retval = NULL;
 	goto RETURN;
     }
@@ -1561,7 +1675,7 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
     {
 	for (x = 0; x < self->ntaxa; x++)
 	{
-	    if (CxpDistMatrixFileLabelRender(self, f, x))
+	    if (CxpDistMatrixLabelRender(self, callback, callbackContext, x))
 	    {
 		retval = NULL;
 		goto RETURN;
@@ -1569,17 +1683,15 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
 
 	    for (y = 0; y < self->ntaxa; y++)
 	    {
-		if (fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y))
-		    < 0)
+		if (callback(callbackContext, distFormat,
+			     CxDistMatrixDistanceGet(self, x, y)))
 		{
-		    CxError(CxgDistMatrixIOError, "Error in fprintf()");
 		    retval = NULL;
 		    goto RETURN;
 		}
 	    }
-	    if (fprintf(f, "\n") < 0)
+	    if (callback(callbackContext, "\n"))
 	    {
-		CxError(CxgDistMatrixIOError, "Error in fprintf()");
 		retval = NULL;
 		goto RETURN;
 	    }
@@ -1589,7 +1701,7 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
     {
 	for (x = 0; x < self->ntaxa; x++)
 	{
-	    if (CxpDistMatrixFileLabelRender(self, f, x))
+	    if (CxpDistMatrixLabelRender(self, callback, callbackContext, x))
 	    {
 		retval = NULL;
 		goto RETURN;
@@ -1597,26 +1709,23 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
 
 	    for (y = 0; y < x + 1; y++)
 	    {
-		if (fprintf(f, "%8s", "") < 0)
+		if (callback(callbackContext, "%8s", ""))
 		{
-		    CxError(CxgDistMatrixIOError, "Error in fprintf()");
 		    retval = NULL;
 		    goto RETURN;
 		}
 	    }
-	    for (; y < x; y++)
+	    for (; y < self->ntaxa; y++)
 	    {
-		if (fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y))
-		    < 0)
+		if (callback(callbackContext, distFormat,
+			     CxDistMatrixDistanceGet(self, x, y)))
 		{
-		    CxError(CxgDistMatrixIOError, "Error in fprintf()");
 		    retval = NULL;
 		    goto RETURN;
 		}
 	    }
-	    if (fprintf(f, "\n") < 0)
+	    if (callback(callbackContext, "\n"))
 	    {
-		CxError(CxgDistMatrixIOError, "Error in fprintf()");
 		retval = NULL;
 		goto RETURN;
 	    }
@@ -1626,7 +1735,7 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
     {
 	for (x = 0; x < self->ntaxa; x++)
 	{
-	    if (CxpDistMatrixFileLabelRender(self, f, x))
+	    if (CxpDistMatrixLabelRender(self, callback, callbackContext, x))
 	    {
 		retval = NULL;
 		goto RETURN;
@@ -1634,25 +1743,31 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
 
 	    for (y = 0; y < x; y++)
 	    {
-		if (fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y))
-		    < 0)
+		if (callback(callbackContext, distFormat,
+			     CxDistMatrixDistanceGet(self, x, y)))
 		{
-		    CxError(CxgDistMatrixIOError, "Error in fprintf()");
 		    retval = NULL;
 		    goto RETURN;
 		}
 	    }
-	    if (fprintf(f, "\n") < 0)
+	    if (callback(callbackContext, "\n"))
 	    {
-		CxError(CxgDistMatrixIOError, "Error in fprintf()");
 		retval = NULL;
 		goto RETURN;
 	    }
 	}
     }
 
-    Py_INCREF(Py_None);
-    retval = Py_None;
+    if (outFile == NULL)
+    {
+	retval = Py_BuildValue("s", stringRenderContext.string);
+	free(stringRenderContext.string);
+    }
+    else
+    {
+	Py_INCREF(Py_None);
+	retval = Py_None;
+    }
     RETURN:
     return retval;
 }
@@ -1754,10 +1869,10 @@ static PyMethodDef CxpDistMatrixMethods[] =
 	"_matrixShuffle"
     },
     {
-	"_fileRender",
-	(PyCFunction) CxpDistMatrixFileRender,
+	"_render",
+	(PyCFunction) CxpDistMatrixRender,
 	METH_VARARGS,
-	"_fileRender"
+	"_render"
     },
     {NULL, NULL}
 };

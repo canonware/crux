@@ -135,41 +135,13 @@ class DistMatrix(C_DistMatrix):
             else:
                 format = 'full'
 
+        # Make sure that distFormat isn't going to cause problems.
+        distFormat % self.distanceGet(0, 1)
+
         if outFile == None:
-            retval = self._stringRender(format, distFormat)
+            retval = self._render(format, " " + distFormat)
         else:
-            # Make sure that distFormat isn't going to cause problems.
-            distFormat % self.distanceGet(0, 1)
-
-            retval = self._fileRender(format, " " + distFormat, outFile)
-
-        return retval
-
-    def _stringRender(self, format, distFormat):
-        retval = "%d\n" % self.taxonMapGet().ntaxaGet()
-        if format == 'full':
-            for x in forints(self.taxonMapGet().ntaxaGet()):
-                retval += "%-10s" % self.taxonMapGet().labelGet(x)
-                for y in forints(self.taxonMapGet().ntaxaGet()):
-                    retval += (" " + distFormat) % self.distanceGet(x, y)
-                retval += "\n"
-        elif format == 'upper':
-            for x in forints(self.taxonMapGet().ntaxaGet()):
-                retval += "%-10s" % self.taxonMapGet().labelGet(x)
-                for y in forints(x + 1):
-                    retval += "%8s" % ""
-                for y in forints(self.taxonMapGet().ntaxaGet(), start=x+1):
-                    retval += (" " + distFormat) % self.distanceGet(x, y)
-                retval += "\n"
-        elif format == 'lower':
-            for x in forints(self.taxonMapGet().ntaxaGet()):
-                retval += "%-10s" % self.taxonMapGet().labelGet(x)
-                for y in forints(x):
-                    retval += (" " + distFormat) % self.distanceGet(x, y)
-                retval += "\n"
-        else:
-            raise crux.DistMatrix\
-                  .ValueError("Format must be 'full', 'upper', or 'lower'")
+            retval = self._render(format, " " + distFormat, outFile)
 
         return retval
 #EOF
