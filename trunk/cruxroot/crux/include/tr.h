@@ -30,8 +30,8 @@ struct cw_trn_s
 #define CW_TRN_TAXON_NONE 0xffffffffU
     cw_uint32_t taxon_num;
 
-    /* Pointers to neighbors.  Only the first two elements are used if the node
-     * is a leaf node. */
+    /* Pointers to neighbors.  Only the first element is used if the node is a
+     * leaf node. */
 #define CW_TRN_MAX_NEIGHBORS 3
     cw_trn_t *neighbors[CW_TRN_MAX_NEIGHBORS];
 #define CW_TRN_EDGE_NONE 0xffffffffU
