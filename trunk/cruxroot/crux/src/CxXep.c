@@ -44,7 +44,7 @@ CxXepThrowE(CxtXepv a_value, volatile const char *a_filename,
     CxtXep *xep_first, *xep;
 
     cxmAssert(s_CxXepInitialized);
-    cxmAssert(a_value > CW_XEPS_CATCH);
+    cxmAssert(a_value > CxeXepsCatch);
 
     /* Iterate backward through the exception handlers until the exception is
      * handled or there are no more exception handlers. */
@@ -69,15 +69,15 @@ CxXepThrowE(CxtXepv a_value, volatile const char *a_filename,
 
 	switch (xep->state)
 	{
-	    case CW_XEPS_TRY:
+	    case CxeXepsTry:
 	    {
 		/* Execute the handler. */
 		xep->value = a_value;
-		xep->state = CW_XEPS_CATCH;
+		xep->state = CxeXepsCatch;
 		longjmp(xep->context, (int) a_value);
 		cxmNotReached();
 	    }
-	    case CW_XEPS_CATCH:
+	    case CxeXepsCatch:
 	    {
 		/* Exception thrown within handler; propagate. */
 		break;
@@ -105,11 +105,11 @@ CxpXepRetry(CxtXep *a_xep)
 #ifdef CxmDebug
     switch (a_xep->state)
     {
-	case CW_XEPS_CATCH:
+	case CxeXepsCatch:
 	{
 	    break;
 	}
-	case CW_XEPS_TRY:
+	case CxeXepsTry:
 	{
 	    cxmError("Exception retry outside handler");
 	}
@@ -119,10 +119,10 @@ CxpXepRetry(CxtXep *a_xep)
 	}
     }
 #endif
-    a_xep->value = CW_XEPV_NONE;
-    a_xep->state = CW_XEPS_TRY;
+    a_xep->value = CxmXepvNone;
+    a_xep->state = CxeXepsTry;
     a_xep->is_handled = true;
-    longjmp(a_xep->context, (int) CW_XEPV_CODE);
+    longjmp(a_xep->context, (int) CxmXepvCode);
     cxmNotReached();
 }
 
@@ -134,11 +134,11 @@ CxpXepHandled(CxtXep *a_xep)
 #ifdef CxmDebug
     switch (a_xep->state)
     {
-	case CW_XEPS_CATCH:
+	case CxeXepsCatch:
 	{
 	    break;
 	}
-	case CW_XEPS_TRY:
+	case CxeXepsTry:
 	{
 	    cxmError("Exception handled outside handler");
 	}
@@ -176,8 +176,8 @@ CxpXepLink(CxtXep *a_xep)
 	s_xep_first = a_xep;
     }
 
-    a_xep->value = CW_XEPV_NONE;
-    a_xep->state = CW_XEPS_TRY;
+    a_xep->value = CxmXepvNone;
+    a_xep->state = CxeXepsTry;
     a_xep->is_handled = true;
     a_xep->is_linked = true;
 }

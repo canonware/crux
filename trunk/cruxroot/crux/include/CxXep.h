@@ -14,14 +14,14 @@ typedef struct CxsXep CxtXep;
 
 typedef uint32_t CxtXepv;
 
-#define CW_XEPV_NONE 0
-#define CW_XEPV_CODE 1
+#define CxmXepvNone 0
+#define CxmXepvCode 1
 
 typedef enum
 {
-    CW_XEPS_TRY,
-    CW_XEPS_CATCH
-} cw_xeps_t;
+    CxeXepsTry,
+    CxeXepsCatch
+} CxtXeps;
 
 struct CxsXep
 {
@@ -29,7 +29,7 @@ struct CxsXep
     volatile CxtXepv value;
     volatile bool is_handled;
     volatile bool is_linked;
-    volatile cw_xeps_t state;
+    volatile CxtXeps state;
     volatile const char *filename;
     volatile uint32_t line_num;
     jmp_buf context;
@@ -49,8 +49,8 @@ CxXepShutdown(void);
 	CxpXepLink(&_xep);						\
 	switch (setjmp(_xep.context))					\
 	{								\
-	    case CW_XEPV_NONE:						\
-	    case CW_XEPV_CODE:
+	    case CxmXepvNone:						\
+	    case CxmXepvCode:
 
 #define CxmXepCatch(a_value)						\
 		break;							\
@@ -62,7 +62,7 @@ CxXepShutdown(void);
 #define CxmXepAcatch							\
 		break;							\
 	    default:							\
-		if (_xep.state != CW_XEPS_CATCH)			\
+		if (_xep.state != CxeXepsCatch)			\
 		{							\
 		    break;						\
 		}
