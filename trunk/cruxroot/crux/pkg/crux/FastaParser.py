@@ -29,8 +29,6 @@
 
 import _FastaParser
 
-import crux.Exception
-
 class Exception(_FastaParser.Exception):
     pass
 
