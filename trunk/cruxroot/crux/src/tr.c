@@ -241,11 +241,11 @@ tr_p_taxon_num_compar(const void *a_a, const void *a_b)
     cw_uint32_t *a = (cw_uint32_t *) a_a;
     cw_uint32_t *b = (cw_uint32_t *) a_b;
 
-    if (a < b)
+    if (*a < *b)
     {
 	retval = -1;
     }
-    else if (a > b)
+    else if (*a > *b)
     {
 	retval = 1;
     }
@@ -296,7 +296,7 @@ tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
 	{
 	    TR_BIT_SET(a_tr, *a_bitind_perm,
 		       ((offset >> (nbits - i - 1) & 0x1)));
-	    *a_bitind_perm++;
+	    (*a_bitind_perm)++;
 	}
     }
     else
@@ -309,7 +309,7 @@ tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
 	    {
 		/* Insert open paren. */
 		TR_BIT_SET(a_tr, *a_bitind_paren, 0);
-		*a_bitind_paren++;
+		*(a_bitind_paren)++;
 
 		/* Recurse. */
 		tr_p_new_recurse(a_tr, a_bitind_paren, a_bitind_perm,
@@ -318,10 +318,11 @@ tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
 
 		/* Insert close paren. */
 		TR_BIT_SET(a_tr, *a_bitind_paren, 1);
-		*a_bitind_paren++;
+		(*a_bitind_paren)++;
 	    }
 	}
     }
+    fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __FUNCTION__);
 }
 
 #ifdef CW_DBG
@@ -990,7 +991,7 @@ trn_p_tree_canonicalize(cw_trn_t *a_trn, cw_trn_t *a_prev)
     {
 	swapped = FALSE;
 
-	for (i = 0; i < j - 1; i++)
+	for (i = 0; i + 1 < j; i++)
 	{
 	    if (subtree_mins[i] > subtree_mins[i + 1])
 	    {
