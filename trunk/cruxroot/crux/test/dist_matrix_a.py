@@ -56,9 +56,9 @@ Taxon_E 4.0 3.5 3.2 3.1
 print "Test begin"
 
 for matrix in (matrix_0, matrix_1, matrix_2, matrix_3):
-    (labels, matrix) = crux.dist_matrix().parse(matrix)
+    (map, matrix) = crux.dist_matrix().parse(matrix)
 
-    print labels
-    matrix_print(matrix, len(labels))
+    print map.taxa_get()
+    matrix_print(matrix, map.ntaxa_get())
 
 print "Test end"

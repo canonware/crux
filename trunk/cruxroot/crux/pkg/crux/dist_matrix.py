@@ -56,6 +56,8 @@
 #
 ################################################################################
 
+import taxon_map
+
 import re
 
 class dist_matrix(object):
@@ -92,8 +94,8 @@ class dist_matrix(object):
         # Get the number of taxa.
         self._ntaxa = int(self._get_token())
 
-        # Create an empty taxon label list.
-        self._labels = []
+        # Create an empty taxon_map.
+        self._map = taxon_map.taxon_map()
 
         # Create an empty distance matrix (fourth quadrant coordinates).
         self._matrix = []
@@ -107,7 +109,7 @@ class dist_matrix(object):
         distance = self._token_to_distance(token)
         if distance != None:
             raise ValueError
-        self._labels.append(token)
+        self._map.map(token, self._map.ntaxa_get())
         distances = []
 
         x = 0
@@ -124,17 +126,17 @@ class dist_matrix(object):
 
                 # Get taxon label, unless all taxon labels have already been
                 # read.
-                if len(self._labels) == self._ntaxa:
+                if self._map.ntaxa_get() == self._ntaxa:
                     break
                 else:
-                    self._labels.append(token)
+                    self._map.map(token, self._map.ntaxa_get())
                     x += 1
 
         # Make sure there are no trailing tokens.
         if len(self._tokens) > 0:
             raise ValueError
 
-        return (self._labels, self._matrix)
+        return (self._map, self._matrix)
 
     # Return the next token
     def _get_token(self):
