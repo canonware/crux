@@ -364,6 +364,7 @@ static size_t
 CxpDistMatrixNtaxaAccept(CxtDistMatrixObject *self)
 {
     size_t retval;
+
     if (self->symmetric)
     {
 	retval = sizeof(float) * (CxpDistMatrixXy2i(self,
@@ -1211,6 +1212,62 @@ CxpDistMatrixDup(CxtDistMatrixObject *self, PyObject *args)
     return retval;
 }
 
+static PyObject *
+CxpDistMatrixSample(CxtDistMatrixObject *self, PyObject *args)
+{
+    PyObject *retval, *map, *rows;
+    CxtDistMatrixObject *orig;
+    long x, y, origX, origY;
+    float dist;
+
+    if (PyArg_ParseTuple(args, "OOO!", &orig, &map, &PyList_Type, &rows) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+
+    self->map = map;
+    Py_INCREF(self->map);
+
+    self->ntaxa = PyList_Size(rows);
+    self->symmetric = orig->symmetric;
+    CxpDistMatrixNtaxaAccept(self);
+
+    if (self->symmetric)
+    {
+	for (x = 0; x < self->ntaxa - 1; x++)
+	{
+	    for (y = x + 1; y < self->ntaxa; y++)
+	    {
+		origX = PyInt_AsLong(PyList_GetItem(rows, x));
+		origY = PyInt_AsLong(PyList_GetItem(rows, y));
+		dist = CxDistMatrixDistanceGet(orig, origX, origY);
+
+		CxDistMatrixDistanceSet(self, x, y, dist);
+	    }
+	}
+    }
+    else
+    {
+	for (x = 0; x < self->ntaxa; x++)
+	{
+	    for (y = 0; y < self->ntaxa; y++)
+	    {
+		origX = PyInt_AsLong(PyList_GetItem(rows, x));
+		origY = PyInt_AsLong(PyList_GetItem(rows, y));
+		dist = CxDistMatrixDistanceGet(orig, origX, origY);
+
+		CxDistMatrixDistanceSet(self, x, y, dist);
+	    }
+	}
+    }
+
+    Py_INCREF(Py_None);
+    retval = Py_None;
+    RETURN:
+    return retval;
+}
+
 PyObject *
 CxDistMatrixNtaxaGet(CxtDistMatrixObject *self)
 {
@@ -1473,6 +1530,12 @@ static PyMethodDef CxpDistMatrixMethods[] =
 	(PyCFunction) CxpDistMatrixDup,
 	METH_VARARGS,
 	"_dup"
+    },
+    {
+	"_sample",
+	(PyCFunction) CxpDistMatrixSample,
+	METH_VARARGS,
+	"_sample"
     },
     {
 	"taxonMapGet",

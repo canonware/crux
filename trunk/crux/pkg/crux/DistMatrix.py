@@ -71,7 +71,7 @@ class DistMatrix(C_DistMatrix):
     #
     #   TaxonMap : Create an uninitialized distance matrix of the appropriate
     #              size, given the number of taxa in the TaxonMap.
-    def __init__(self, input=None, symmetric=False):
+    def __init__(self, input=None, symmetric=False, sample=None):
         # Validate input before calling the C_DistMatrix constructor.  I'm not
         # aware of a simple way to check the type of a Python-created class
         # in C code, which is why the check is done here.
@@ -82,8 +82,28 @@ class DistMatrix(C_DistMatrix):
         elif type(input) == TaxonMap.TaxonMap:
             C_DistMatrix._parse(self, None, input, symmetric)
         elif type(input) == DistMatrix:
-            map = TaxonMap.TaxonMap(input.taxonMapGet().taxaGet())
-            C_DistMatrix._dup(self, input, map)
+            if sample == None:
+                map = TaxonMap.TaxonMap(input.taxonMapGet().taxaGet())
+                C_DistMatrix._dup(self, input, map)
+            else:
+                if sample < 2 or sample > input.ntaxaGet():
+                    raise crux.DistMatrix\
+                          .ValueError("sample: Out of range (%d not in 2..%d)" \
+                                      % (sample, input.ntaxaGet()))
+                if symmetric:
+                    raise crux.DistMatrix\
+                          .ValueError("symmetric: Automatic for sampling")
+
+                # Create a sample of rows.
+                rows = random.sample(range(input.ntaxaGet()), sample)
+
+                # Construct a TaxonMap for the new DistMatrix.
+                inputMap = input.taxonMapGet()
+                map = TaxonMap.TaxonMap()
+                for row in rows:
+                    map.map(inputMap.labelGet(row), map.ntaxaGet())
+
+                C_DistMatrix._sample(self, input, map, rows)
         else:
             raise crux.DistMatrix\
                   .ValueError(
