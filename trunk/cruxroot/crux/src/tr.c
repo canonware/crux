@@ -87,8 +87,8 @@
  * The `-' characters represent implicit information (A always comes first, and
  * 1 choose 1 is always the same).
  *
- * In general, the number of bytes that are needed to store a tree can be
- * calculated via the following formula:
+ * In general, the number of bytes that are needed to store an n-taxon tree can
+ * be calculated via the following formula:
  *
  *   __                                __
  *   |                 n-2              |
@@ -102,7 +102,7 @@
  *   |                                  |
  *
  * The first term in the numerator corresponds to the parenthetical expression,
- * and the summation term corresponds to the taxon permutation.
+ * and the summation term corresponds to the taxa permutation.
  *
  * In summary, a tree is represented by a parenthetical expression, immediately
  * followed by the taxon visitation order permutation.  The number of taxa in
