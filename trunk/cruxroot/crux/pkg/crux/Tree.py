@@ -19,6 +19,12 @@ import TaxonMap
 
 import random
 
+class Exception(_Tree.Exception):
+    pass
+
+class ValueError(Exception, _Tree.ValueError):
+    pass
+
 class _NewickParser(NewickParser.NewickParser):
     def __init__(self, tree, map):
         self._tree = tree

@@ -41,6 +41,8 @@ typedef unsigned char bool;
 #define CxmXepOOM 2
 #define CxmXepValueError 3
 
+extern PyObject *CxgException;
+
 /* assert()-alike.  It's a bit prettier and cleaner, but the same idea. */
 #define CxmError(a)							\
     do									\

@@ -39,6 +39,15 @@ typedef struct
     CxtTrRing ring;
 } CxtRingObject;
 
+extern PyObject *CxgTreeException;
+extern PyObject *CxgTreeValueError;
+
+extern PyObject *CxgEdgeException;
+extern PyObject *CxgEdgeValueError;
+
+extern PyObject *CxgRingException;
+extern PyObject *CxgRingValueError;
+
 void
 CxTreeInit(void);
 void

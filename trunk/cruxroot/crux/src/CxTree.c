@@ -280,8 +280,8 @@ CxTreeBaseSetPargs(CxtTreeObject *self, PyObject *args)
     }
     if (node != NULL && node->tree != self)
     {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
+	Py_INCREF(CxgTreeValueError);
+	retval = CxgTreeValueError;
 	goto RETURN;
     }
 
@@ -450,11 +450,15 @@ static PyMethodDef CxpTreeFuncs[] =
     {NULL}
 };
 
+PyObject *CxgTreeException;
+PyObject *CxgTreeValueError;
+
 void
 CxTreeInit(void)
 {
     PyObject *m;
 
+    /* Create new type. */
     if (PyType_Ready(&CxtTree) < 0)
     {
 	return;
@@ -462,6 +466,17 @@ CxTreeInit(void)
     m = Py_InitModule3("_Tree", CxpTreeFuncs, "Tree extensions");
     Py_INCREF(&CxtTree);
     PyModule_AddObject(m, "Tree", (PyObject *) &CxtTree);
+
+    /* Create exception objects. */
+    CxgTreeException = PyErr_NewException("_Tree.Exception", CxgException,
+					  NULL);
+    Py_INCREF(CxgTreeException);
+    PyModule_AddObject(m, "Exception", CxgTreeException);
+
+    CxgTreeValueError = PyErr_NewException("_Tree.ValueError", CxgTreeException,
+					   NULL);
+    Py_INCREF(CxgTreeValueError);
+    PyModule_AddObject(m, "ValueError", CxgTreeValueError);
 
     /* Pre-compile Python code that is used for creating a tree. */
     CxpTreeNewCode = Py_CompileString("\
@@ -681,6 +696,10 @@ CxNodeTaxonNumSetPargs(CxtNodeObject *self, PyObject *args)
     taxonNum = CxmTrNodeTaxonNone;
     if (PyArg_ParseTuple(args, "|i", &taxonNum) == 0)
     {
+	// XXX What error is thrown in cases such as this?  It should be a
+	// crux.Node.Exception.
+	//Py_INCREF(CxgNodeTypeError);
+	//retval = CxgNodeTypeError;
 	retval = NULL;
 	goto RETURN;
     }
@@ -812,6 +831,7 @@ CxNodeInit(void)
 {
     PyObject *m;
 
+    /* Create new type. */
     if (PyType_Ready(&CxtNode) < 0)
     {
 	return;
@@ -1115,8 +1135,8 @@ CxEdgeLengthSetPargs(CxtEdgeObject *self, PyObject *args)
     }
     if (length < 0.0)
     {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
+	Py_INCREF(CxgEdgeValueError);
+	retval = CxgEdgeValueError;
 	goto RETURN;
     }
 
@@ -1170,8 +1190,8 @@ CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args)
     }
     if (nodeA->tree != self->tree || nodeB->tree != self->tree)
     {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
+	Py_INCREF(CxgEdgeValueError);
+	retval = CxgEdgeValueError;
 	goto RETURN;
     }
 
@@ -1311,11 +1331,15 @@ static PyMethodDef CxpEdgeFuncs[] =
     {NULL}
 };
 
+PyObject *CxgEdgeException;
+PyObject *CxgEdgeValueError;
+
 void
 CxEdgeInit(void)
 {
     PyObject *m;
 
+    /* Create new type. */
     if (PyType_Ready(&CxtEdge) < 0)
     {
 	return;
@@ -1323,6 +1347,17 @@ CxEdgeInit(void)
     m = Py_InitModule3("_Edge", CxpEdgeFuncs, "Edge extensions");
     Py_INCREF(&CxtEdge);
     PyModule_AddObject(m, "Edge", (PyObject *) &CxtEdge);
+
+    /* Create exception objects. */
+    CxgEdgeException = PyErr_NewException("_Edge.Exception", CxgException,
+					  NULL);
+    Py_INCREF(CxgEdgeException);
+    PyModule_AddObject(m, "Exception", CxgEdgeException);
+
+    CxgEdgeValueError = PyErr_NewException("_Edge.ValueError", CxgEdgeException,
+					   NULL);
+    Py_INCREF(CxgEdgeValueError);
+    PyModule_AddObject(m, "ValueError", CxgEdgeValueError);
 
     /* Pre-compile Python code that is used for creating a wrapped edge. */
     CxpEdgeNewCode = Py_CompileString("\
@@ -1367,8 +1402,8 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     {
 	type->tp_free((PyObject *) self);
 
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
+	Py_INCREF(CxgRingValueError);
+	retval = CxgRingValueError;
 	goto RETURN;
     }
     
@@ -1388,8 +1423,8 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	Py_DECREF(edge->tree);
 	type->tp_free((PyObject *) self);
 
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
+	Py_INCREF(CxgRingValueError);
+	retval = CxgRingValueError;
 	goto RETURN;
     }
     CxTrRingAuxSet(self->tree->tr, self->ring, self);
@@ -1706,11 +1741,15 @@ static PyMethodDef CxpRingFuncs[] =
     {NULL}
 };
 
+PyObject *CxgRingException;
+PyObject *CxgRingValueError;
+
 void
 CxRingInit(void)
 {
     PyObject *m;
 
+    /* Create new type. */
     if (PyType_Ready(&CxtRing) < 0)
     {
 	return;
@@ -1718,6 +1757,17 @@ CxRingInit(void)
     m = Py_InitModule3("_Ring", CxpRingFuncs, "Ring extensions");
     Py_INCREF(&CxtRing);
     PyModule_AddObject(m, "Ring", (PyObject *) &CxtRing);
+
+    /* Create exception objects. */
+    CxgRingException = PyErr_NewException("_Ring.Exception", CxgException,
+					  NULL);
+    Py_INCREF(CxgRingException);
+    PyModule_AddObject(m, "Exception", CxgRingException);
+
+    CxgRingValueError = PyErr_NewException("_Ring.ValueError", CxgRingException,
+					   NULL);
+    Py_INCREF(CxgRingValueError);
+    PyModule_AddObject(m, "ValueError", CxgRingValueError);
 
     /* Pre-compile Python code that is used for creating a wrapped ring. */
     CxpRingNewCode = Py_CompileString("\

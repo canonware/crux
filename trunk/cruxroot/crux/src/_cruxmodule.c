@@ -16,9 +16,13 @@ static PyMethodDef cruxFuncs[] =
     {NULL}
 };
 
+PyObject *CxgException;
+
 void
 init_crux(void)
 {
+    PyObject *m;
+
     /* Initialize the exception handling machinery. */
     CxXepInit();
 
@@ -27,7 +31,12 @@ init_crux(void)
     CxmCpuInit();
 #endif
 
-    Py_InitModule3("_crux", cruxFuncs, "crux extensions");
+    m = Py_InitModule3("_crux", cruxFuncs, "crux extensions");
+
+    CxgException = PyErr_NewException("_crux.Exception", PyExc_Exception, NULL);
+    Py_INCREF(CxgException);
+    PyModule_AddObject(m, "Exception", CxgException);
+
     CxTreeInit();
     CxNodeInit();
     CxEdgeInit();
