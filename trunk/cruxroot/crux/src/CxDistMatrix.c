@@ -1036,7 +1036,7 @@ CxDistMatrixDistanceSet(CxtDistMatrixObject *self, PyObject *args)
     double distance;
 
     /* Parse arguments. */
-    if (PyArg_ParseTuple(args, "ll", &fr, &to, &distance) == 0)
+    if (PyArg_ParseTuple(args, "lld", &fr, &to, &distance) == 0)
     {
 	retval = NULL;
 	goto RETURN;
