@@ -127,20 +127,12 @@ static cw_uint32_t
 tr_p_ntaxa2nbits(cw_uint32_t a_ntaxa);
 static cw_uint32_t
 tr_p_sizeof(const cw_tr_t *a_tr);
-static void
-tr_p_trn2parens_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
-			cw_trn_t *a_prev);
-static void
-tr_p_trn2parens(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn);
 static int
 tr_p_taxon_num_compar(const void *a_a, const void *a_b);
 static void
-tr_p_trn2perm_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
-		      cw_trn_t *a_prev, cw_uint32_t *a_unchosen,
-		      cw_uint32_t *a_nunchosen);
-static void
-tr_p_trn2perm(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_mema_t *a_mema,
-	      cw_trn_t *a_trn, cw_uint32_t a_ntaxa);
+tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
+		 cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn, cw_trn_t *a_prev,
+		 cw_uint32_t *a_unchosen, cw_uint32_t *a_nunchosen);
 #ifdef CW_DBG
 static cw_bool_t
 tr_p_validate(const cw_tr_t *a_tr);
@@ -240,59 +232,6 @@ tr_p_sizeof(const cw_tr_t *a_tr)
     return tr_ntaxa2sizeof(tr_ntaxa(a_tr));
 }
 
-static void
-tr_p_trn2parens_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
-			cw_trn_t *a_prev)
-{
-    if (a_trn->taxon_num == CW_TRN_TAXON_NONE)
-    {
-	cw_uint32_t i;
-
-	/* Internal node. */
-	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
-	{
-	    if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
-	    {
-		/* Insert open paren. */
-		TR_BIT_SET(a_tr, *a_bitind, 0);
-		*a_bitind++;
-
-		/* Recurse. */
-		tr_p_trn2parens_recurse(a_tr, a_bitind, a_trn->neighbors[i],
-					a_trn);
-
-		/* Insert close paren. */
-		TR_BIT_SET(a_tr, *a_bitind, 1);
-		*a_bitind++;
-	    }
-	}
-    }
-}
-
-/* Convert a_trn to parenthetical form, and store the results in a_tr, starting
- * at a_bitind. */
-static void
-tr_p_trn2parens(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn)
-{
-    cw_assert(a_trn->taxon_num == 0);
-
-    /* The first open paren is implied. */
-
-    /* Recurse if the tree has more than one node. */
-    if (a_trn->neighbors[0] != NULL)
-    {
-	tr_p_trn2parens_recurse(a_tr, a_bitind, a_trn->neighbors[0], a_trn);
-    }
-
-    /* Insert close paren. */
-    TR_BIT_SET(a_tr, *a_bitind, 1);
-    *a_bitind++;
-}
-
-     void *
-     bsearch(const void *key, const void *base, size_t nmemb, size_t size,
-             int (*compar) (const void *, const void *));
-
 /* Comparison function passed to bsearch(3) when searching for a taxon to build
  * a taxa permutation. */
 static int
@@ -318,10 +257,12 @@ tr_p_taxon_num_compar(const void *a_a, const void *a_b)
     return retval;
 }
 
+/* Convert the ordering of taxa in a_trn to a taxa permutation, and store the
+ * results in a_tr, starting at a_bitind. */
 static void
-tr_p_trn2perm_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
-		      cw_trn_t *a_prev, cw_uint32_t *a_unchosen,
-		      cw_uint32_t *a_nunchosen)
+tr_p_new_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind_paren,
+		 cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn, cw_trn_t *a_prev,
+		 cw_uint32_t *a_unchosen, cw_uint32_t *a_nunchosen)
 {
     cw_uint32_t i;
 
@@ -353,53 +294,34 @@ tr_p_trn2perm_recurse(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_trn_t *a_trn,
 	/* Store this choice. */
 	for (i = 0; i < nbits; i++)
 	{
-	    TR_BIT_SET(a_tr, *a_bitind, ((offset >> (nbits - i - 1) & 0x1)));
-	    *a_bitind++;
+	    TR_BIT_SET(a_tr, *a_bitind_perm,
+		       ((offset >> (nbits - i - 1) & 0x1)));
+	    *a_bitind_perm++;
 	}
     }
     else
     {
 	/* Internal node. */
+
 	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
 	{
 	    if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
 	    {
-		tr_p_trn2perm_recurse(a_tr, a_bitind, a_trn->neighbors[i],
-				      a_trn, a_unchosen, a_nunchosen);
+		/* Insert open paren. */
+		TR_BIT_SET(a_tr, *a_bitind_paren, 0);
+		*a_bitind_paren++;
+
+		/* Recurse. */
+		tr_p_new_recurse(a_tr, a_bitind_paren, a_bitind_perm,
+				 a_trn->neighbors[i], a_trn,
+				 a_unchosen, a_nunchosen);
+
+		/* Insert close paren. */
+		TR_BIT_SET(a_tr, *a_bitind_paren, 1);
+		*a_bitind_paren++;
 	    }
 	}
     }
-}
-
-/* Convert the ordering of taxa in a_trn to a taxa permutation, and store the
- * results in a_tr, starting at a_bitind. */
-static void
-tr_p_trn2perm(cw_tr_t *a_tr, cw_uint32_t *a_bitind, cw_mema_t *a_mema,
-	      cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
-{
-    cw_uint32_t i;
-    cw_uint32_t *unchosen, nunchosen;
-
-    cw_assert(a_trn->taxon_num == 0);
-
-    /* Create a taxon permutation from a_trn.  This requires maintaining a list
-     * of the taxa that remain to be chosen from.  An array of taxon numbers is
-     * maintained in compact form (already chosen taxa are removed, and trailing
-     * space in the array is ignored). */
-    unchosen = cw_opaque_alloc(mema_alloc_get(a_mema), mema_arg_get(a_mema),
-			     a_ntaxa * sizeof(cw_uint32_t));
-    for (i = 0; i < a_ntaxa; i++)
-    {
-	unchosen[i] = i;
-    }
-    nunchosen = a_ntaxa;
-
-    /* Recurse. */
-    tr_p_trn2perm_recurse(a_tr, a_bitind, a_trn, NULL, unchosen, &nunchosen);
-
-    /* Clean up. */
-    cw_opaque_dealloc(mema_dealloc_get(a_mema), mema_arg_get(a_mema),
-		      unchosen, a_ntaxa * sizeof(cw_uint32_t));
 }
 
 #ifdef CW_DBG
@@ -446,7 +368,7 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 {
     cw_tr_t *retval;
     cw_trn_t *root;
-    cw_uint32_t tr_sizeof, bitind;
+    cw_uint32_t tr_sizeof, bitind_paren, bitind_perm, i, *unchosen, nunchosen;
 
     cw_check_ptr(a_mema);
     cw_check_ptr(mema_alloc_get(a_mema));
@@ -464,13 +386,39 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
     root = trn_tree_root_get(a_trn);
     trn_p_tree_canonicalize(root, NULL);
 
-    /* The tree can now be converted to parenthetical form using a simple
-     * in-order traversal. */
-    bitind = 0;
-    tr_p_trn2parens(retval, &bitind, root);
+    /* The tree can now be converted to parenthetical form and taxa permutation
+     * using an in-order traversal. */
+    bitind_paren = 0;
+    bitind_perm = 2 * (a_ntaxa - 3) + 1;
 
-    /* Create the taxon permutation. */
-    tr_p_trn2perm(retval, &bitind, a_mema, root, a_ntaxa);
+    /* The first open paren is implied. */
+
+    /* Create a taxon permutation from a_trn.  This requires maintaining a list
+     * of the taxa that remain to be chosen from.  An array of taxon numbers is
+     * maintained in compact form (already chosen taxa are removed, and trailing
+     * space in the array is ignored). */
+    unchosen = cw_opaque_alloc(mema_alloc_get(a_mema), mema_arg_get(a_mema),
+			     a_ntaxa * sizeof(cw_uint32_t));
+    for (i = 0; i < a_ntaxa; i++)
+    {
+	unchosen[i] = i;
+    }
+    nunchosen = a_ntaxa;
+
+    /* Recurse if the tree has more than one node. */
+    if (root->neighbors[0] != NULL)
+    {
+	tr_p_new_recurse(retval, &bitind_paren, &bitind_perm, root, NULL,
+			 unchosen, &nunchosen);
+    }
+
+    /* Insert close paren. */
+    TR_BIT_SET(retval, bitind_paren, 1);
+//    bitind_paran++;
+
+    /* Clean up. */
+    cw_opaque_dealloc(mema_dealloc_get(a_mema), mema_arg_get(a_mema),
+		      unchosen, a_ntaxa * sizeof(cw_uint32_t));
 
     return retval;
 }
@@ -854,7 +802,7 @@ trn_p_tree_validate_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
 	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
 	{
 	    retval += trn_p_tree_validate_recurse(a_trn->neighbors[i],
-						      a_trn, a_taxon_num);
+						  a_trn, a_taxon_num);
 	}
     }
 
