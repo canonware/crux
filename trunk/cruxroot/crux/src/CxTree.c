@@ -11,27 +11,6 @@
 
 #include "../include/_cruxmodule.h"
 
-#if (0) // XXX Remove this code.
-#undef Py_INCREF
-#define Py_INCREF(op)							\
-	fprintf(stderr, "%s:%d:%s(): INCREF(%p) --> %d\n",		\
-        	__FILE__, __LINE__, __func__, op,			\
-		((op)->ob_refcnt) + 1);					\
-	(_Py_INC_REFTOTAL  _Py_REF_DEBUG_COMMA				\
-	 (op)->ob_refcnt++)
-
-#undef Py_DECREF
-#define Py_DECREF(op)							\
-	fprintf(stderr, "%s:%d:%s(): DECREF(%p) --> %d\n",		\
-        	__FILE__, __LINE__, __func__, op,			\
-		((op)->ob_refcnt) - 1);					\
-	if (_Py_DEC_REFTOTAL  _Py_REF_DEBUG_COMMA			\
-	    --(op)->ob_refcnt != 0)					\
-		_Py_CHECK_REFCNT(op)					\
-	else								\
-		_Py_Dealloc((PyObject *)(op))
-#endif
-
 #include <math.h>
 
 static PyTypeObject CxtTree;
@@ -452,6 +431,7 @@ static PyMethodDef CxpTreeFuncs[] =
 
 PyObject *CxgTreeException;
 PyObject *CxgTreeValueError;
+PyObject *CxgTreeTypeError;
 
 void
 CxTreeInit(void)
@@ -468,16 +448,25 @@ CxTreeInit(void)
     PyModule_AddObject(m, "C_Tree", (PyObject *) &CxtTree);
 
     /* Create exception objects. */
+    /* Exception. */
     CxgTreeException = PyErr_NewException("C_Tree.Exception", CxgException,
 					  NULL);
     Py_INCREF(CxgTreeException);
     PyModule_AddObject(m, "Exception", CxgTreeException);
 
+    /* ValueError. */
     CxgTreeValueError = PyErr_NewException("C_Tree.ValueError",
 					   CxgTreeException,
 					   NULL);
     Py_INCREF(CxgTreeValueError);
     PyModule_AddObject(m, "ValueError", CxgTreeValueError);
+
+    /* TypeError. */
+    CxgTreeTypeError = PyErr_NewException("C_Tree.TypeError",
+					  CxgTreeException,
+					  NULL);
+    Py_INCREF(CxgTreeTypeError);
+    PyModule_AddObject(m, "TypeError", CxgTreeTypeError);
 
     /* Pre-compile Python code that is used for creating a tree. */
     CxpTreeNewCode = Py_CompileString("\
