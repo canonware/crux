@@ -8,17 +8,17 @@
  *
  * Version: Crux <Version = crux>
  *
- * Emulate asprintf().
+ * Emulate vasprintf() and asprintf().
  *
  ******************************************************************************/
 
 #include <stdio.h>
 #include <stdarg.h>
 
-static int
-asprintf(char **rResult, const char *aFormat, ...)
+int
+vasprintf(char **rResult, const char *aFormat, va_list aAp)
 {
-    int retval;
+    int rVal;
     char *result;
     va_list ap;
 #define CxmAsprintfStartLen 16
@@ -26,34 +26,48 @@ asprintf(char **rResult, const char *aFormat, ...)
     result = (char *) malloc(CxmAsprintfStartLen);
     if (result == NULL)
     {
-	retval = -1;
+	rVal = -1;
 	goto RETURN;
     }
 
-    va_start(ap, aFormat);
-    retval = vsnprintf(result, CxmAsprintfStartLen, aFormat, ap);
+    va_copy(ap, aAp);
+    rVal = vsnprintf(result, CxmAsprintfStartLen, aFormat, ap);
     va_end(ap);
 
-    if (retval == -1)
+    if (rVal == -1)
     {
 	goto RETURN;
     }
-    else if (retval >= CxmAsprintfStartLen)
+    else if (rVal >= CxmAsprintfStartLen)
     {
 	free(result);
-	result = (char *) malloc(retval + 1);
+	result = (char *) malloc(rVal + 1);
 	if (result == NULL)
 	{
-	    retval = -1;
+	    rVal = -1;
 	    goto RETURN;
 	}
 
-	va_start(ap, aFormat);
-	retval = vsnprintf(result, retval + 1, aFormat, ap);
+	va_copy(ap, aAp);
+	rVal = vsnprintf(result, rVal + 1, aFormat, aAp);
 	va_end(ap);
     }
 
     *rResult = result;
     RETURN:
-    return retval;
+#undef CxmAsprintfStartLen
+    return rVal;
+}
+
+static int
+asprintf(char **rResult, const char *aFormat, ...)
+{
+    int rVal;
+    va_list ap;
+
+    va_start(ap, aFormat);
+    rVal = vasprintf(rResult, aFormat, ap);
+    va_end(ap);
+
+    return rVal;
 }
