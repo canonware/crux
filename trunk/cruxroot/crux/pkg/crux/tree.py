@@ -90,7 +90,13 @@ class _newick_parser(newick.newick):
                 self._map.map(self.token(), val)
             except ValueError:
                 # Failed conversion.  Create a new mapping.
-                self._map.map(self.token(), self._map.ntaxa_get())
+                # XXX This allows horrible failures to easily happen later on,
+                # and it's difficult to figure out what went wrong.  Is this a
+                # good idea?  Perhaps raising an exception is a better way to
+                # go.
+                print "Create new mapping for '%s' (dangerous)" % self.token()
+                val = self._map.ntaxa_get()
+                self._map.map(self.token(), val)
 
         # Create a new node and push it onto the stack.
         nnode = node.node(self._tree)
