@@ -41,6 +41,7 @@ typedef struct
 
 extern PyObject *CxgTreeException;
 extern PyObject *CxgTreeValueError;
+extern PyObject *CxgTreeTypeError;
 
 extern PyObject *CxgEdgeException;
 extern PyObject *CxgEdgeValueError;
