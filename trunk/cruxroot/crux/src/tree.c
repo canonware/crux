@@ -111,6 +111,8 @@ tree_clear(TreeObject *self)
 	tr_base_set(self->tr, CW_TR_NODE_NONE);
 	Py_DECREF(node);
     }
+
+    return 0;
 }
 
 static void
@@ -347,11 +349,12 @@ tree_mp_prepare(TreeObject *self, PyObject *args)
     char **tarr;
 
     elim = 1;
-    if (PyArg_ParseTuple(args, "O!|i", PyList_Type, &taxa, &elim) == 0)
+    if (PyArg_ParseTuple(args, "O!|i", &PyList_Type, &taxa, &elim) == 0)
     {
 	retval = NULL;
 	goto RETURN;
     }
+
     ntaxa = PyList_Size(taxa);
     if (elim != 0 && elim != 1)
     {
@@ -914,6 +917,8 @@ node_clear(NodeObject *self)
     }
     tr_node_delete(self->tree->tr, self->node);
     Py_DECREF(self->tree);
+
+    return 0;
 }
 
 static void
@@ -1204,6 +1209,8 @@ edge_clear(EdgeObject *self)
 
     tr_edge_delete(self->tree->tr, self->edge);
     Py_DECREF(self->tree);
+
+    return 0;
 }
 
 static void
