@@ -29,6 +29,9 @@ relclean: distclean
 	rm -rf @objroot@/autom4te.cache
 	rm -f @objroot@/configure
 
+# XXX Python's buildtools doesn't track C source dependencies.  Add rules that
+# remove .o files that depend on changed .h files before setup.py is run.
+
 # Re-configuration rules.
 ifeq (@enable_autogen@, 1)
 @srcroot@/aclocal.m4 : @srcroot@/acinclude.m4
