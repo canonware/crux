@@ -20,13 +20,20 @@ typedef uint32_t cw_tr_node_t;
 typedef uint32_t cw_tr_edge_t;
 #define CW_TR_EDGE_NONE 0xffffffffU
 
+/* Prototypes for callback functions that are passed to tr_new(), which if
+ * specified, are used to create wrapped trees, nodes, and edges. */
+typedef cw_tr_t *cw_tr_wrapped_new_t (cw_tr_t *, void *);
+typedef cw_tr_node_t cw_tr_node_wrapped_new_t (cw_tr_t *, void *);
+typedef cw_tr_edge_t cw_tr_edge_wrapped_new_t (cw_tr_t *, void *);
+
 /******************************************************************************/
 
 /* tr. */
 
 /* Constructor. */
 cw_tr_t *
-tr_new(void);
+tr_new(cw_tr_wrapped_new_t *a_tr_new, cw_tr_node_wrapped_new_t *a_tr_node_new,
+       cw_tr_edge_wrapped_new_t *a_tr_edge_new, void *a_opaque);
 
 /* Destructor. */
 void

@@ -171,6 +171,12 @@ struct cw_tr_s
 #define CW_TR_MAGIC 0x39886394
 #endif
 
+    /* Function pointers for wrapped construction of trees, nodes, and edges. */
+    cw_tr_wrapped_new_t *tr_new;
+    cw_tr_node_wrapped_new_t *tr_node_new;
+    cw_tr_edge_wrapped_new_t *tr_edge_new;
+    void *opaque;
+
     /* Auxiliary opaque data pointer. */
     void *aux;
 
@@ -599,6 +605,24 @@ tr_p_edge_ring_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_end)
     return ((a_edge << 1) + a_end);
 }
 
+// XXX Move.
+static cw_tr_edge_t
+tr_p_wrapped_edge_new(cw_tr_t *a_tr)
+{
+    cw_tr_edge_t retval;
+
+    if (a_tr->tr_edge_new != NULL)
+    {
+	retval = a_tr->tr_edge_new(a_tr, a_tr->opaque);
+    }
+    else
+    {
+	retval = tr_edge_new(a_tr);
+    }
+
+    return retval;
+}
+
 cw_tr_edge_t
 tr_edge_new(cw_tr_t *a_tr)
 {
@@ -883,6 +907,24 @@ tr_p_node_distance(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_node_t a_other,
     return retval;
 }
 
+// XXX Move.
+static cw_tr_node_t
+tr_p_wrapped_node_new(cw_tr_t *a_tr)
+{
+    cw_tr_node_t retval;
+
+    if (a_tr->tr_node_new != NULL)
+    {
+	retval = a_tr->tr_node_new(a_tr, a_tr->opaque);
+    }
+    else
+    {
+	retval = tr_node_new(a_tr);
+    }
+
+    return retval;
+}
+
 cw_tr_node_t
 tr_node_new(cw_tr_t *a_tr)
 {
@@ -1020,8 +1062,14 @@ tr_node_distance(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_other)
 
 /* Initialize everything except trns and sparetrns. */
 CW_P_INLINE void
-tr_p_new(cw_tr_t *a_tr)
+tr_p_new(cw_tr_t *a_tr, cw_tr_wrapped_new_t *a_tr_new,
+	 cw_tr_node_wrapped_new_t *a_tr_node_new,
+	 cw_tr_edge_wrapped_new_t *a_tr_edge_new, void *a_opaque)
 {
+    a_tr->tr_new = a_tr_new;
+    a_tr->tr_node_new = a_tr_node_new;
+    a_tr->tr_edge_new = a_tr_edge_new;
+    a_tr->opaque = a_opaque;
     a_tr->aux = NULL;
     a_tr->modified = false;
     a_tr->base = CW_TR_NODE_NONE;
@@ -2193,12 +2241,14 @@ static void
 tr_p_mp_c_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		 cw_tr_ps_t *a_b)
 {
-    uint32_t i, nwords, ns, a, b, p, m, r, un;
+    uint32_t i, nwords, ns, a, b, m, r, un;
     uint32_t *chars_p, *chars_a, *chars_b;
-    static const uint32_t bits_table[] = {
-	2, 1, -1, -1, -1, -1, -1, -1,
-	-1, -1, -1, -1, -1, -1, -1, -1,
-	1, 0};
+    static const uint32_t bits_table[] =
+	{
+	    2, 1, -1, -1, -1, -1, -1, -1,
+	    -1, -1, -1, -1, -1, -1, -1, -1,
+	    1, 0
+	};
 
     /* Calculate node score. */
     ns = 0;
@@ -2500,10 +2550,12 @@ tr_p_mp_c_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
 {
     uint32_t retval, i, nwords, a, b, m;
     uint32_t *chars_a, *chars_b;
-    static const uint32_t bits_table[] = {
-	2, 1, -1, -1, -1, -1, -1, -1,
-	-1, -1, -1, -1, -1, -1, -1, -1,
-	1, 0};
+    static const uint32_t bits_table[] =
+	{
+	    2, 1, -1, -1, -1, -1, -1, -1,
+	    -1, -1, -1, -1, -1, -1, -1, -1,
+	    1, 0
+	};
 
     /* Calculate sum of subtree scores. */
     retval
@@ -3052,30 +3104,44 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
     }
 }
 
-cw_tr_t *
-tr_new(void)
+static cw_tr_t *
+tr_p_wrapped_new(cw_tr_t *a_tr)
 {
     cw_tr_t *retval;
 
-    retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
-
-    tr_p_new(retval);
+    if (a_tr->tr_new != NULL)
+    {
+	retval = a_tr->tr_new(a_tr, a_tr->opaque);
+    }
+    else
+    {
+	retval = tr_new(NULL, NULL, NULL, NULL);
+    }
 
     return retval;
 }
 
 cw_tr_t *
-tr_dup(cw_tr_t *a_tr)
+tr_new(cw_tr_wrapped_new_t *a_tr_new, cw_tr_node_wrapped_new_t *a_tr_node_new,
+       cw_tr_edge_wrapped_new_t *a_tr_edge_new, void *a_opaque)
+{
+    cw_tr_t *retval;
+
+    retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
+    tr_p_new(retval, a_tr_new, a_tr_node_new, a_tr_edge_new, a_opaque);
+
+    return retval;
+}
+
+//XXX Move.
+CW_P_INLINE void
+tr_p_dup(cw_tr_t *a_tr)
 {
     cw_tr_t *retval;
     uint32_t i;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
-
-    retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
-
-    tr_p_new(retval);
 
     retval->base = a_tr->base;
     retval->ntaxa = a_tr->ntaxa;
@@ -3133,6 +3199,37 @@ tr_dup(cw_tr_t *a_tr)
 	    a_tr->trrs[i].ps = NULL;
 	}
     }
+}
+
+//XXX Move.
+static cw_tr_t *
+tr_p_wrapped_dup(cw_tr_t *a_tr)
+{
+    cw_tr_t *retval;
+
+    if (a_tr->tr_new != NULL)
+    {
+	retval = a_tr->tr_new(a_tr, a_tr->opaque);
+    }
+    else
+    {
+	retval = tr_new(NULL, NULL, NULL, NULL);
+    }
+
+    tr_p_dup(a_tr);
+
+    return retval;
+}
+
+cw_tr_t *
+tr_dup(cw_tr_t *a_tr)
+{
+    cw_tr_t *retval;
+
+    retval = (cw_tr_t *) cw_malloc(sizeof(cw_tr_t));
+    tr_p_new(retval, a_tr->tr_new, a_tr->tr_node_new, a_tr->tr_edge_new,
+	     a_tr->opaque);
+    tr_p_dup(retval);
 
     return retval;
 }
