@@ -415,7 +415,7 @@ trn_p_edge_get_recurse(cw_trn_t *a_trn, cw_uint32_t a_edge,
     return retval;
 }
 
-static void
+CW_P_INLINE void
 trn_p_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
 	       cw_uint32_t *r_neighbor)
 {
@@ -651,7 +651,7 @@ trn_p_connection_patch(cw_trn_t *a_trn, cw_uint32_t a_edge,
 	retval = *ar_spare;
 	*ar_spare = NULL;
 
-	trn_p_edge_get(retval, a_edge, &a, &edge);
+	trn_p_edge_get(a_trn, a_edge, &a, &edge);
 	b = a->neighbors[edge];
 
 	/* Detach a and b. */
@@ -1015,7 +1015,7 @@ trn_p_bisection_edge_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_other,
 static void
 trn_p_bisection_edges_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trt_t *r_trt)
 {
-    cw_uint32_t edge_count, neighbor;
+    cw_uint32_t neighbor;
     cw_trn_t *trn, *adj_a, *adj_b;
 
     /* Count the number of edges that would be in each half of the tree, were it
@@ -1023,8 +1023,7 @@ trn_p_bisection_edges_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trt_t *r_trt)
      * reverse the bisection. */
 
     /* Get the trn's adjacent to the bisection edge. */
-    edge_count = 0;
-    trn_p_edge_get_recurse(a_trn, a_edge, NULL, &edge_count, &adj_a, &neighbor);
+    trn_p_edge_get(a_trn, a_edge, &adj_a, &neighbor);
     adj_b = adj_a->neighbors[neighbor];
 
     /* Get the number of edges in the first half of the bisection, as well as
@@ -1587,20 +1586,10 @@ tr_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_trn_t **r_trn,
 
     if (a_edge != CW_TRN_EDGE_NONE)
     {
-	cw_uint32_t edge_count = 0;
-#ifdef CW_DBG
-	cw_bool_t found;
-#endif
-
 	cw_assert(a_tr->rooted == FALSE);
 	cw_assert(trn_p_ntaxa_get_recurse(a_tr->croot, NULL) > 1);
 
-#ifdef CW_DBG
-	found =
-#endif
-	    trn_p_edge_get_recurse(a_tr->croot, a_edge, NULL, &edge_count,
-				   r_trn, r_neighbor);
-	cw_dassert(found);
+	trn_p_edge_get(a_tr->croot, a_edge, r_trn, r_neighbor);
     }
 }
 
