@@ -15,10 +15,10 @@ typedef struct cw_tr_s cw_tr_t;
 #define CW_TR_HOLD_ALL 0xffffffffU
 
 typedef uint32_t cw_tr_node_t;
-typedef uint32_t cw_tr_edge_t;
 #define CW_TR_NODE_NONE 0xffffffffU
 #define CW_TR_NODE_TAXON_NONE 0xffffffffU
 
+typedef uint32_t cw_tr_edge_t;
 #define CW_TR_EDGE_NONE 0xffffffffU
 
 /******************************************************************************/
