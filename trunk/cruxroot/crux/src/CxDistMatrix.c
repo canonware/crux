@@ -13,103 +13,21 @@
 
 static PyTypeObject CxtDistMatrix;
 
-static PyObject *
-CxpDistMatrixNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    PyObject *retval
-#ifdef CxmCcSilence
-	= NULL
-#endif
-	;
-    CxtDistMatrixObject *self;
-    PyObject *input;
-    CxDistMatrixInputType inputType;
-
-    input = NULL;
-    if (PyArg_ParseTuple(args, "O", &input) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-    if (PyFile_Check(input))
-    {
-	inputType = CxDistMatrixInputFile;
-    }
-    else if (PyString_Check(input))
-    {
-	inputType = CxDistMatrixInputString;
-    }
-    else if (input == NULL /* XXX TaxonMap */)
-    {
-	inputType = CxDistMatrixInputTaxonMap;
-    }
-    else
-    {
-	PyErr_SetString(CxgDistMatrixTypeError,
-			"input: file, string, or TaxonMap expected");
-    }
-
-    self = (CxtDistMatrixObject *) type->tp_alloc(type, 0);
-    if (self == NULL)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-
-    switch (inputType)
-    {
-	case CxDistMatrixInputFile:
-	case CxDistMatrixInputString:
-	{
-	    self->buf = NULL;
-	    self->bufLen = 0;
-	    self->tokenLen = 0;
-	    self->line = 0;
-	    // XXX Parse.
-	    break;
-	}
-	case CxDistMatrixInputTaxonMap:
-	{
-	    self->map = input;
-	    Py_INCREF(self->map);
-	}
-	default:
-	{
-	    CxmNotReached();
-	}
-    }
-
-    retval = (PyObject *) self;
-    RETURN:
-    return retval;
-}
-
-static int
-CxpDistMatrixTraverse(CxtDistMatrixObject *self, visitproc visit, void *arg)
-{
-    // XXX Traverse map.
-    return 0;
-}
-
-static int
-CxpDistMatrixClear(CxtDistMatrixObject *self)
-{
-    // XXX Clear map.
-    return 0;
-}
-
 static void
-CxpDistMatrixDelete(CxtDistMatrixObject *self)
+CxpDistMatrixError(PyObject *exception, const char *format, ...)
 {
-    CxpDistMatrixClear(self);
-    if (self->buf != NULL)
-    {
-	free(self->buf);
-    }
-    self->ob_type->tp_free((PyObject*) self);
+    va_list ap;
+    char *str;
+
+    va_start(ap, format);
+    vasprintf(&str, format, ap);
+    va_end(ap);
+
+    PyErr_SetString(exception, str);
+    free(str);
 }
 
-CxmpInline void
+CxmInline void
 CxpDistMatrixAppendC(CxtDistMatrixObject *self, char c)
 {
     /* Expand the token buffer, if necessary. */
@@ -135,15 +53,15 @@ CxpDistMatrixAppendC(CxtDistMatrixObject *self, char c)
 }
 
 CxmpInline bool
-CxpDistMatrixGetC(CxtDistMatrixObject *self, char *r_c, int *r_line,
-		   int *r_column)
+CxpDistMatrixGetC(CxtDistMatrixObject *self, char *rC, long *rLine,
+		  long *rColumn)
 {
     bool retval;
     char c;
-    int line = self->line;
-    int column = self->column;
+    long line = self->line;
+    long column = self->column;
 
-    if (self->fileInput)
+    if (self->inputType == CxDistMatrixInputFile)
     {
 	if (fread(&c, 1, 1, self->i.f.file) == 0)
 	{
@@ -153,8 +71,8 @@ CxpDistMatrixGetC(CxtDistMatrixObject *self, char *r_c, int *r_line,
     }
     else
     {
-	c = self->i.s.string[self->offset];
-	self->offset++;
+	c = self->i.s.string[self->i.s.offset];
+	self->i.s.offset++;
 	if (c == '\0')
 	{
 	    retval = true;
@@ -174,27 +92,895 @@ CxpDistMatrixGetC(CxtDistMatrixObject *self, char *r_c, int *r_line,
     }
 
     /* Set returns. */
-    *r_c = c;
-    *r_line = line;
-    *r_column = column;
+    *rC = c;
+    *rLine = line;
+    *rColumn = column;
 
     retval = false;
     RETURN:
     return retval;
 }
 
-static void
-CxpSyntaxError(CxtDistMatrixObject *self, const char *format, ...)
+static bool
+CxpDistMatrixGetToken(CxtDistMatrixObject *self,
+		      CxtDistMatrixTokenType *rTokenType, long *rLine,
+		      long *rColumn)
 {
-    va_list ap;
-    char *str;
+    bool retval = false;
+    enum
+    {
+	CxDistMatrixTokenStateStart,
+	CxDistMatrixTokenStateInt,
+	CxDistMatrixTokenStateDec,
+	CxDistMatrixTokenStateExp,
+	CxDistMatrixTokenStateExpCont,
+	CxDistMatrixTokenStateLabel
+    } CxDistMatrixTokenState;
+    char c;
+    long line, column;
 
-    va_start(ap, format);
-    vasprintf(&str, format, ap);
-    va_end(ap);
+    CxDistMatrixTokenState = CxDistMatrixTokenStateStart;
+    while (true)
+    {
+	if (CxpDistMatrixGetC(self, &c, &line, &column))
+	{
+	    /* End of input.  Accept final token. */
+	    retval = true;
+	    switch (CxDistMatrixTokenState)
+	    {
+		case CxDistMatrixTokenStateStart:
+		{
+		    *rTokenType = CxtDistMatrixTokenNone;
+		    goto RETURN;
+		}
+		case CxDistMatrixTokenStateInt:
+		{
+		    *rTokenType = CxtDistMatrixTokenInt;
+		    goto RETURN;
+		}
+		case CxDistMatrixTokenStateDec:
+		case CxDistMatrixTokenStateExp:
+		case CxDistMatrixTokenStateExpCont:
+		{
+		    *rTokenType = CxtDistMatrixTokenDec;
+		    goto RETURN;
+		}
+		case CxDistMatrixTokenStateLabel:
+		{
+		    *rTokenType = CxtDistMatrixTokenLabel;
+		    goto RETURN;
+		}
+		default:
+		{
+		    CxmNotReached();
+		}
+	    }
+	}
+	else
+	{
+	    switch (CxDistMatrixTokenState)
+	    {
+		case CxDistMatrixTokenStateStart:
+		{
+		    *rLine = line;
+		    *rColumn = column;
+		    switch (c)
+		    {
+			case ' ': case '\t': case '\n': case '\r':
+			{
+			    /* Stay in the start state. */
+			    break;
+			}
+			case '+': case '-':
+			case '0': case '1': case '2': case '3': case '4':
+			case '5': case '6': case '7': case '8': case '9':
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    CxDistMatrixTokenState = CxDistMatrixTokenStateInt;
+			    break;
+			}
+			default:
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    CxDistMatrixTokenState
+				= CxDistMatrixTokenStateLabel;
+			}
+		    }
+		    break;
+		}
+		case CxDistMatrixTokenStateInt:
+		{
+		    switch (c)
+		    {
+			case ' ': case '\t': case '\n': case '\r':
+			{
+			    /* Accept. */
+			    *rTokenType = CxtDistMatrixTokenInt;
+			    goto RETURN;
+			}
+			case '0': case '1': case '2': case '3': case '4':
+			case '5': case '6': case '7': case '8': case '9':
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    break;
+			}
+			case '.':
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    CxDistMatrixTokenState
+				= CxDistMatrixTokenStateDec;
+			    break;
+			}
+			case 'e': case 'E':
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    CxDistMatrixTokenState
+				= CxDistMatrixTokenStateExp;
+			    break;
+			}
+			default:
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    CxDistMatrixTokenState
+				= CxDistMatrixTokenStateLabel;
+			}
+		    }
+		    break;
+		}
+		case CxDistMatrixTokenStateDec:
+		{
+		    switch (c)
+		    {
+			case ' ': case '\t': case '\n': case '\r':
+			{
+			    /* Accept. */
+			    *rTokenType = CxtDistMatrixTokenDec;
+			    goto RETURN;
+			}
+			case '0': case '1': case '2': case '3': case '4':
+			case '5': case '6': case '7': case '8': case '9':
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    break;
+			}
+			case 'e': case 'E':
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    CxDistMatrixTokenState
+				= CxDistMatrixTokenStateExp;
+			    break;
+			}
+			default:
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    CxDistMatrixTokenState
+				= CxDistMatrixTokenStateLabel;
+			}
+		    }
+		    break;
+		}
+		case CxDistMatrixTokenStateExp:
+		{
+		    switch (c)
+		    {
+			case ' ': case '\t': case '\n': case '\r':
+			{
+			    /* Accept. */
+			    *rTokenType = CxtDistMatrixTokenDec;
+			    goto RETURN;
+			}
+			case '+': case '-':
+			case '0': case '1': case '2': case '3': case '4':
+			case '5': case '6': case '7': case '8': case '9':
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    break;
+			}
+			default:
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    CxDistMatrixTokenState
+				= CxDistMatrixTokenStateLabel;
+			}
+		    }
+		    break;
+		}
+		case CxDistMatrixTokenStateExpCont:
+		{
+		    switch (c)
+		    {
+			case ' ': case '\t': case '\n': case '\r':
+			{
+			    /* Accept. */
+			    *rTokenType = CxtDistMatrixTokenDec;
+			    goto RETURN;
+			}
+			case '0': case '1': case '2': case '3': case '4':
+			case '5': case '6': case '7': case '8': case '9':
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    break;
+			}
+			default:
+			{
+			    CxpDistMatrixAppendC(self, c);
+			    CxDistMatrixTokenState
+				= CxDistMatrixTokenStateLabel;
+			}
+		    }
+		    break;
+		}
+		case CxDistMatrixTokenStateLabel:
+		{
+		    switch (c)
+		    {
+			case ' ': case '\t': case '\n': case '\r':
+			{
+			    /* Accept. */
+			    *rTokenType = CxtDistMatrixTokenLabel;
+			    goto RETURN;
+			}
+			default:
+			{
+			    CxpDistMatrixAppendC(self, c);
+			}
+		    }
+		    break;
+		}
+		default:
+		{
+		    CxmNotReached();
+		}
+	    }
+	}
+    }
+    CxmNotReached();
 
-    PyErr_SetString(CxgDistMatrixSyntaxError, str);
-    free(str);
+    RETURN:
+    return retval;
+}
+
+static bool
+CxpDistMatrixTokenToDistance(CxtDistMatrixObject *self, double *rDistance)
+{
+    bool retval;
+    double distance;
+
+    CxpDistMatrixAppendC(self, '\0');
+
+    errno = 0;
+    distance = strtod(self->buf, NULL);
+    if (errno == ERANGE)
+    {
+	retval = true;
+	goto RETURN;
+    }
+
+    *rDistance = distance;
+    retval = false;
+    RETURN:
+    return retval;
+}
+
+static bool
+CxpDistMatrixSetLabel(CxtDistMatrixObject *self, long index)
+{
+    bool retval, eof;
+    CxtDistMatrixTokenType tokenType;
+    long line, column;
+
+    eof = CxpDistMatrixGetToken(self, &tokenType, &line, &column);
+    switch (tokenType)
+    {
+	case CxtDistMatrixTokenNone:
+	{
+	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			       "%ld:%ld: End of input reached",
+			       self->line, self->column);
+	    retval = true;
+	    goto RETURN;
+	}
+	case CxtDistMatrixTokenInt:
+	case CxtDistMatrixTokenDec:
+	{
+	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			       "%ld:%ld: Missing taxon label",
+			       line, column);
+	    retval = true;
+	    goto RETURN;
+	}
+	case CxtDistMatrixTokenLabel:
+	{
+	    /* Insert label into map. */
+	    PyEval_CallMethod(self->map, "map", "s#i", self->buf,
+			      self->tokenLen, index);
+	    break;
+	}
+	default:
+	{
+	    CxmNotReached();
+	}
+    }
+    if (eof)
+    {
+	CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			   "%ld:%ld: End of input reached while reading"
+			   " label %ld",
+			   self->line, self->column, index);
+	retval = true;
+	goto RETURN;
+    }
+
+    retval = false;
+    RETURN:
+    return retval;
+}
+
+static bool
+CxpDistMatrixSetDistance(CxtDistMatrixObject *self, long x, long y)
+{
+    bool retval, eof;
+    CxtDistMatrixTokenType tokenType;
+    long line, column;
+
+    eof = CxpDistMatrixGetToken(self, &tokenType, &line, &column);
+    switch (tokenType)
+    {
+	case CxtDistMatrixTokenNone:
+	{
+	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			       "%ld:%ld: End of input reached (%ld, %ld)",
+			       self->line, self->column, x, y);
+	    retval = true;
+	    goto RETURN;
+	}
+	case CxtDistMatrixTokenInt:
+	case CxtDistMatrixTokenDec:
+	{
+	    if (CxpDistMatrixTokenToDistance(self,
+					     &self->matrix[x * self->ntaxa
+							   + y]))
+	    {
+		CxpDistMatrixError(CxgDistMatrixSyntaxError,
+				   "%ld:%ld: Distance conversion"
+				   " error (%ld, %ld) '%s'",
+				   self->line, self->column,
+				   x, y, self->buf);
+		retval = true;
+		goto RETURN;
+	    }
+	    break;
+	}
+	case CxtDistMatrixTokenLabel:
+	{
+	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			       "%ld:%ld (lower matrix format):"
+			       " Missing distance (%ld, %ld)",
+			       self->line, self->column, x, y);
+	}
+	default:
+	{
+	    CxmNotReached();
+	}
+    }
+    if (eof)
+    {
+	CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			   "%ld:%ld: End of input reached"
+			   " (%ld, %ld)",
+			   self->line, self->column, x, y);
+	retval = true;
+	goto RETURN;
+    }
+
+    retval = false;
+    RETURN:
+    return retval;
+}
+
+static bool
+CxpDistMatrixParse(CxtDistMatrixObject *self)
+{
+    bool retval, eof;
+    enum
+    {
+	CxDistMatrixFormatUnknown,
+	CxDistMatrixFormatFull,
+	CxDistMatrixFormatUpper,
+	CxDistMatrixFormatLower
+    } matrixFormat;
+    CxtDistMatrixTokenType tokenType;
+    long line, column, x, y;
+
+    self->buf = NULL;
+    self->bufLen = 0;
+    self->tokenLen = 0;
+    self->line = 1;
+    self->column = 0;
+
+    matrixFormat = CxDistMatrixFormatUnknown;
+    
+    /* Get the number of taxa. */
+    eof = CxpDistMatrixGetToken(self, &tokenType, &line, &column);
+    switch (tokenType)
+    {
+	case CxtDistMatrixTokenNone:
+	{
+	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			       "End of input reached before matrix size"
+			       " specification");
+	    retval = true;
+	    goto RETURN;
+	}
+	case CxtDistMatrixTokenInt:
+	{
+	    CxpDistMatrixAppendC(self, '\0');
+	    self->ntaxa = strtol(self->buf, NULL, 10);
+	    if (self->ntaxa < 2)
+	    {
+		CxpDistMatrixError(CxgDistMatrixSyntaxError,
+				   "%ld:%ld: Too few taxa (%ld)",
+				   line, column, self->ntaxa);
+		retval = true;
+		goto RETURN;
+	    }
+	    self->matrix = (double *) CxmMalloc(sizeof(double)
+						* self->ntaxa * self->ntaxa);
+	    break;
+	}
+	case CxtDistMatrixTokenDec:
+	case CxtDistMatrixTokenLabel:
+	{
+	    CxpDistMatrixError(CxgDistMatrixValueError,
+			       "%ld:%ld: Unspecified number of taxa", line,
+			       column);
+	    retval = true;
+	    goto RETURN;
+	}
+	default:
+	{
+	    CxmNotReached();
+	}
+    }
+    if (eof)
+    {
+	CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			   "%ld:%ld: End of input reached",
+			   self->line, self->column);
+	retval = true;
+	goto RETURN;
+    }
+
+    /* Get the first taxon label. */
+    if (CxpDistMatrixSetLabel(self, 0))
+    {
+	retval = true;
+	goto RETURN;
+    }
+
+    /* Get the next token; if it is a taxon label, then this matrix is in lower
+     * triangle format. */
+    eof = CxpDistMatrixGetToken(self, &tokenType, &line, &column);
+    switch (tokenType)
+    {
+	case CxtDistMatrixTokenNone:
+	{
+	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			       "%ld:%ld: End of input reached",
+			       self->line, self->column);
+	    retval = true;
+	    goto RETURN;
+	}
+	case CxtDistMatrixTokenInt:
+	case CxtDistMatrixTokenDec:
+	{
+	    /* This matrix is either in full or upper triangle format. */
+	    break;
+	}
+	case CxtDistMatrixTokenLabel:
+	{
+	    /* The matrix is in lower triangle format. */
+	    matrixFormat = CxDistMatrixFormatLower;
+	    break;
+	}
+	default:
+	{
+	    CxmNotReached();
+	}
+    }
+    if (eof)
+    {
+	CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			   "%ld:%ld: End of input reached",
+			   self->line, self->column);
+	retval = true;
+	goto RETURN;
+    }
+    
+    if (matrixFormat == CxDistMatrixFormatLower)
+    {
+	/* Insert label into map. */
+	PyEval_CallMethod(self->map, "map", "s#i", self->buf, self->tokenLen,
+			  1);
+
+	/* Get second row of distances. */
+	if (CxpDistMatrixSetDistance(self, 1, 0))
+	{
+	    retval = true;
+	    goto RETURN;
+	}
+
+	/* Get remaining rows. */
+	for (x = 2; x < self->ntaxa; x++)
+	{
+	    /* Get taxon label. */
+	    if (CxpDistMatrixSetLabel(self, x))
+	    {
+		retval = true;
+		goto RETURN;
+	    }
+
+	    /* Get distances. */
+	    for (y = 0; y < x; y++)
+	    {
+		if (CxpDistMatrixSetDistance(self, x, y))
+		{
+		    retval = true;
+		    goto RETURN;
+		}
+	    }
+	}
+
+	/* Reflect matrix contents. */
+	for (x = 0; x < self->ntaxa; x++)
+	{
+	    for (y = 0; y < self->ntaxa; y++)
+	    {
+		self->matrix[x * self->ntaxa + y]
+		    = self->matrix[y * self->ntaxa + x];
+	    }
+	}
+
+	/* Initialize diagonal. */
+	for (x = 0; x < self->ntaxa; x++)
+	{
+	    self->matrix[x * self->ntaxa + x] = 0.0;
+	}
+    }
+    else
+    {
+	/* Full or upper triangle format. */
+
+	/* Insert the first distance as though parsing an upper-triangle
+	 * matrix. */
+	if (CxpDistMatrixTokenToDistance(self,
+					 &self->matrix[0 * self->ntaxa
+						       + 1]))
+	{
+	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			       "%ld:%ld: Distance conversion error (%s)",
+			       self->line, self->column, self->buf);
+	    retval = true;
+	    goto RETURN;
+	}
+	/* Insert the rest of the first row of distances into the matrix as
+	 * though parsing an upper-triangle matrix. */
+	for (y = 2; y < self->ntaxa; y++)
+	{
+	    if (CxpDistMatrixSetDistance(self, 0, y))
+	    {
+		retval = true;
+		goto RETURN;
+	    }
+	}
+
+	/* Determine whether this is a full or upper-triangle matrix. */
+	eof = CxpDistMatrixGetToken(self, &tokenType, &line, &column);
+	switch (tokenType)
+	{
+	    case CxtDistMatrixTokenNone:
+	    {
+		CxpDistMatrixError(CxgDistMatrixSyntaxError,
+				   "%ld:%ld: End of input reached",
+				   self->line, self->column);
+		retval = true;
+		goto RETURN;
+	    }
+	    case CxtDistMatrixTokenInt:
+	    case CxtDistMatrixTokenDec:
+	    {
+		/* This matrix is in full-matrix format. */
+		matrixFormat = CxDistMatrixFormatFull;
+		break;
+	    }
+	    case CxtDistMatrixTokenLabel:
+	    {
+		/* The matrix is in upper-triangle format. */
+		matrixFormat = CxDistMatrixFormatUpper;
+		break;
+	    }
+	    default:
+	    {
+		CxmNotReached();
+	    }
+	}
+	if (eof)
+	{
+	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
+			       "%ld:%ld: End of input reached",
+			       self->line, self->column);
+	    retval = true;
+	    goto RETURN;
+	}
+
+	if (matrixFormat == CxDistMatrixFormatUpper)
+	{
+	    /* This is an upper-triangle matrix. */
+	    
+	    /* Insert label into map. */
+	    PyEval_CallMethod(self->map, "map", "s#i", self->buf,
+			      self->tokenLen, 1);
+
+	    /* Get second row of distances. */
+	    for (y = 2; y < self->ntaxa; y++)
+	    {
+		if (CxpDistMatrixSetDistance(self, 1, y))
+		{
+		    retval = true;
+		    goto RETURN;
+		}
+	    }
+
+	    /* Get remaining rows. */
+	    for (x = 2; x < self->ntaxa; x++)
+	    {
+		/* Get taxon label. */
+		if (CxpDistMatrixSetLabel(self, x))
+		{
+		    retval = true;
+		    goto RETURN;
+		}
+
+		/* Get distances. */
+		for (y = x + 1; y < self->ntaxa; y++)
+		{
+		    if (CxpDistMatrixSetDistance(self, x, y))
+		    {
+			retval = true;
+			goto RETURN;
+		    }
+		}
+	    }
+
+	    /* Reflect matrix contents. */
+	    for (x = 0; x < self->ntaxa; x++)
+	    {
+		for (y = 0; y < self->ntaxa; y++)
+		{
+		    self->matrix[y * self->ntaxa + x]
+			= self->matrix[x * self->ntaxa + y];
+		}
+	    }
+
+	    /* Initialize diagonal. */
+	    for (x = 0; x < self->ntaxa; x++)
+	    {
+		self->matrix[x * self->ntaxa + x] = 0.0;
+	    }
+	}
+	else
+	{
+	    /* This is a full matrix. */
+
+	    /* Shift the contents of the first row back one position. */
+	    for (y = 0; y < self->ntaxa - 1; y++)
+	    {
+		self->matrix[0 * self->ntaxa + y]
+		    = self->matrix[0 * self->ntaxa + y + 1];
+	    }
+
+	    /* Set the last distance on the first row. */
+	    if (CxpDistMatrixSetDistance(self, 0, self->ntaxa - 1))
+	    {
+		retval = true;
+		goto RETURN;
+	    }
+
+	    /* Get remaining rows. */
+	    for (x = 1; x < self->ntaxa; x++)
+	    {
+		/* Get taxon label. */
+		if (CxpDistMatrixSetLabel(self, x))
+		{
+		    retval = true;
+		    goto RETURN;
+		}
+
+		/* Get Distances. */
+		for (y = 0; y < self->ntaxa; y++)
+		{
+		    if (CxpDistMatrixSetDistance(self, x, y))
+		    {
+			retval = true;
+			goto RETURN;
+		    }
+		}
+	    }
+	}
+    }
+
+    retval = false;
+    RETURN:
+    return retval;
+}
+
+static PyObject *
+CxpDistMatrixNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    PyObject *retval
+#ifdef CxmCcSilence
+	= NULL
+#endif
+	;
+    CxtDistMatrixObject *self;
+
+    /* Allocate object. */
+    self = (CxtDistMatrixObject *) type->tp_alloc(type, 0);
+    if (self == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+
+    self->buf = NULL;
+
+    self->map = Py_None;
+    Py_INCREF(self->map);
+
+    retval = (PyObject *) self;
+    RETURN:
+    return retval;
+}
+
+static int
+CxpDistMatrixTraverse(CxtDistMatrixObject *self, visitproc visit, void *arg)
+{
+    int retval;
+
+    if (visit((PyObject *) self->map, arg) < 0)
+    {
+	retval = -1;
+	goto RETURN;
+    }
+
+    retval = 0;
+    RETURN:
+    return retval;
+}
+
+static int
+CxpDistMatrixClear(CxtDistMatrixObject *self)
+{
+    Py_XDECREF(self->map);
+    self->map = NULL;
+
+    return 0;
+}
+
+static void
+CxpDistMatrixDelete(CxtDistMatrixObject *self)
+{
+    CxpDistMatrixClear(self);
+    if (self->buf != NULL)
+    {
+	free(self->buf);
+	self->buf = NULL;
+    }
+    self->ob_type->tp_free((PyObject*) self);
+}
+
+PyObject *
+CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
+{
+    PyObject *retval
+#ifdef CxmCcSilence
+	= NULL
+#endif
+	;
+    PyObject *input, *map;
+
+    /* Parse arguments. */
+    if (PyArg_ParseTuple(args, "OO", &input, &map) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+
+    /* Determine input type. */
+    if (PyFile_Check(input))
+    {
+	self->inputType = CxDistMatrixInputFile;
+	self->i.f.file = PyFile_AsFile(input);
+    }
+    else if (PyString_Check(input))
+    {
+	self->inputType = CxDistMatrixInputString;
+	self->i.s.string = PyString_AsString(input);
+	self->i.s.offset = 0;
+    }
+    else /* TaxonMap. */
+    {
+	self->inputType = CxDistMatrixInputTaxonMap;
+    }
+
+    Py_DECREF(self->map);
+    self->map = map;
+    Py_INCREF(self->map);
+
+    /* Handle input. */
+    retval = Py_None;
+    Py_INCREF(retval);
+    CxmXepBegin();
+    CxmXepTry
+    {
+	switch (self->inputType)
+	{
+	    case CxDistMatrixInputFile:
+	    case CxDistMatrixInputString:
+	    {
+		/* Parse. */
+		if (CxpDistMatrixParse(self))
+		{
+		    Py_DECREF(retval);
+		    retval = NULL;
+		}
+		break;
+	    }
+	    case CxDistMatrixInputTaxonMap:
+	    {
+		PyObject *result;
+		int ntaxa;
+		long i;
+
+		/* Create an uninitialized (zero-filled) distance matrix of the
+		 * appropriate size, given the number of taxa in the
+		 * TaxonMap. */
+
+		result = PyEval_CallMethod(self->map, "ntaxaGet", "()");
+		// XXX Is a tuple returned?  I'm hoping for an integer here.
+		if (PyArg_ParseTuple(result, "i", &ntaxa) == 0)
+		{
+		    Py_DECREF(retval);
+		    retval = NULL;
+		    break;
+		}
+
+		self->matrix = (double *) CxmMalloc(sizeof(double)
+						    * ntaxa * ntaxa);
+
+		for (i = 0; i < ntaxa * ntaxa; i++)
+		{
+		    self->matrix[i] = 0.0;
+		}
+
+		break;
+	    }
+	    default:
+	    {
+		CxmNotReached();
+	    }
+	}
+    }
+    CxmXepCatch(CxmXepOOM)
+    {
+	CxmXepHandled();
+	PyErr_NoMemory();
+	self = NULL;
+    }
+    CxmXepEnd();
+
+    RETURN:
+    return retval;
 }
 
 PyObject *
@@ -214,9 +1000,25 @@ PyObject *
 CxDistMatrixDistanceGet(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *retval;
+    int fr, to;
 
-    CxmError("XXX Not implemented");
+    /* Parse arguments. */
+    if (PyArg_ParseTuple(args, "ii", &fr, &to) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+    if (fr < 0 || fr >= self->ntaxa || to < 0 || to >= self->ntaxa)
+    {
+	CxpDistMatrixError(CxgDistMatrixValueError,
+			   "Out of bounds matrix access: (%d, %d)", fr, to);
+	retval = NULL;
+	goto RETURN;
+    }
 
+    /* Get distance. */
+    retval = Py_BuildValue("d", self->matrix[fr * self->ntaxa + to]);
+    RETURN:
     return retval;
 }
 
@@ -224,40 +1026,39 @@ PyObject *
 CxDistMatrixDistanceSet(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *retval;
+    int fr, to;
+    double distance;
 
-    CxmError("XXX Not implemented");
+    /* Parse arguments. */
+    if (PyArg_ParseTuple(args, "ii", &fr, &to, &distance) == 0)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
+    if (fr < 0 || fr >= self->ntaxa || to < 0 || to >= self->ntaxa)
+    {
+	CxpDistMatrixError(CxgDistMatrixValueError,
+			   "Out of bounds matrix access: (%d, %d)", fr, to);
+	retval = NULL;
+	goto RETURN;
+    }
 
+    /* Set distance. */
+    self->matrix[fr * self->ntaxa + to] = distance;
+    Py_INCREF(Py_None);
+    retval = Py_None;
+    RETURN:
     return retval;
-}
-
-PyObject *
-CxDistMatrixPrint(CxtDistMatrixObject *self)
-{
-    PyObject *retval;
-
-    CxmError("XXX Not implemented");
-
-    return retval;
-}
-
-PyObject *
-CxDistMatrixPrints(CxtDistMatrixObject *self)
-{
-    PyObject *retval;
-
-    CxmError("XXX Not implemented");
-
-    return retval;
-}
-
-PyObject *
-CxDistMatrixLine(CxtDistMatrixObject *self)
-{
-    return Py_BuildValue("i", self->line);
 }
 
 static PyMethodDef CxpDistMatrixMethods[] =
 {
+    {
+	"_parse",
+	(PyCFunction) CxDistMatrixParse,
+	METH_VARARGS,
+	"_parse"
+    },
     {
 	"ntaxaGet",
 	(PyCFunction) CxDistMatrixNtaxaGet,
@@ -281,18 +1082,6 @@ static PyMethodDef CxpDistMatrixMethods[] =
 	(PyCFunction) CxDistMatrixDistanceSet,
 	METH_VARARGS,
 	"distanceSet"
-    },
-    {
-	"print",
-	(PyCFunction) CxDistMatrixPrint,
-	METH_VARARGS,
-	"print"
-    },
-    {
-	"prints",
-	(PyCFunction) CxDistMatrixPrints,
-	METH_VARARGS,
-	"prints"
     },
     {NULL, NULL}
 };

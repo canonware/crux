@@ -17,7 +17,6 @@ typedef struct
     int tokenLen;
     int line;
     int column;
-    int offset;
 
     bool fileInput;
     union
@@ -25,6 +24,7 @@ typedef struct
 	struct
 	{
 	    char *string;
+	    int offset;
 	} s;
 	struct
 	{
@@ -41,8 +41,6 @@ extern PyObject *CxgFastaParserSyntaxError;
 void
 CxFastaParserInit(void);
 
-CxtTreeObject *
-CxFastaParserNew(void);
 PyObject *
 CxFastaParserParse(CxtFastaParserObject *self, PyObject *args);
 PyObject *

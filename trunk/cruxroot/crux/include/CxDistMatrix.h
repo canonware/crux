@@ -14,7 +14,15 @@ typedef enum
     CxDistMatrixInputFile,
     CxDistMatrixInputString,
     CxDistMatrixInputTaxonMap
-} CxDistMatrixInputType;
+} CxtDistMatrixInputType;
+
+typedef enum
+{
+    CxtDistMatrixTokenNone,
+    CxtDistMatrixTokenInt,
+    CxtDistMatrixTokenDec,
+    CxtDistMatrixTokenLabel
+} CxtDistMatrixTokenType;
 
 typedef struct
 {
@@ -22,16 +30,16 @@ typedef struct
     char *buf;
     int bufLen;
     int tokenLen;
-    int line;
-    int column;
-    int offset;
+    long line;
+    long column;
 
-    bool fileInput;
+    CxtDistMatrixInputType inputType;
     union
     {
 	struct
 	{
 	    char *string;
+	    int offset;
 	} s;
 	struct
 	{
@@ -39,8 +47,8 @@ typedef struct
 	} f;
     } i;
 
-    int ntaxa;
     PyObject *map;
+    long ntaxa;
     double *matrix;
 } CxtDistMatrixObject;
 
@@ -52,11 +60,13 @@ extern PyObject *CxgDistMatrixSyntaxError;
 void
 CxDistMatrixInit(void);
 
-CxtTreeObject *
-CxDistMatrixNew(void);
 PyObject *
 CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args);
 PyObject *
-CxDistMatrixToken(CxtDistMatrixObject *self);
+CxDistMatrixNtaxaGet(CxtDistMatrixObject *self);
 PyObject *
-CxDistMatrixLine(CxtDistMatrixObject *self);
+CxDistMatrixTaxonMapGet(CxtDistMatrixObject *self);
+PyObject *
+CxDistMatrixDistanceGet(CxtDistMatrixObject *self, PyObject *args);
+PyObject *
+CxDistMatrixDistanceSet(CxtDistMatrixObject *self, PyObject *args);

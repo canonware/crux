@@ -90,8 +90,8 @@ CxpFastaParserAppendC(CxtFastaParserObject *self, char c)
 }
 
 CxmpInline bool
-CxpFastaParserGetC(CxtFastaParserObject *self, char *r_c, int *r_line,
-		   int *r_column)
+CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, int *rLine,
+		   int *rColumn)
 {
     bool retval;
     char c;
@@ -108,8 +108,8 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *r_c, int *r_line,
     }
     else
     {
-	c = self->i.s.string[self->offset];
-	self->offset++;
+	c = self->i.s.string[self->i.s.offset];
+	self->i.s.offset++;
 	if (c == '\0')
 	{
 	    retval = true;
@@ -129,9 +129,9 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *r_c, int *r_line,
     }
 
     /* Set returns. */
-    *r_c = c;
-    *r_line = line;
-    *r_column = column;
+    *rC = c;
+    *rLine = line;
+    *rColumn = column;
 
     retval = false;
     RETURN:
@@ -139,8 +139,8 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *r_c, int *r_line,
 }
 
 static void
-CxpSyntaxError(CxtFastaParserObject *self, int line, int column, char c,
-	       const char *msg)
+CxpFastaParserSyntaxError(CxtFastaParserObject *self, int line, int column,
+			  char c, const char *msg)
 {
     char *str;
 
@@ -154,13 +154,15 @@ CxpSyntaxError(CxtFastaParserObject *self, int line, int column, char c,
 PyObject *
 CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 {
+    PyObject *retval;
     PyObject *input;
     char *charType;
     bool dnaChars;
 
     if (PyArg_ParseTuple(args, "Os", &input, &charType) == 0)
     {
-	goto ERROR;
+	retval = NULL;
+	goto RETURN;
     }
 
     /* Determine input type. */
@@ -173,12 +175,14 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     {
 	self->fileInput = false;
 	self->i.s.string = PyString_AsString(input);
+	self->i.s.offset = 0;
     }
     else
     {
 	PyErr_SetString(CxgFastaParserTypeError,
 			"input: file or string expected");
-	goto ERROR;
+	retval = NULL;
+	goto RETURN;
     }
 
     /* Determine character data type. */
@@ -194,7 +198,8 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
     {
 	PyErr_SetString(CxgFastaParserValueError,
 			"charType: 'DNA' or 'protein' expected");
-	goto ERROR;
+	retval = NULL;
+	goto RETURN;
     }
 
     /* Parse. */
@@ -212,7 +217,6 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	} state;
 
 	state = CxpStateStart;
-	self->offset = 0;
 	self->line = 1;
 	self->column = 0;
 	self->tokenLen = 0;
@@ -237,8 +241,8 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			{
 			    if (self->tokenLen == 0)
 			    {
-				CxpSyntaxError(self, line, column, c,
-					       "Empty label");
+				CxpFastaParserSyntaxError(self, line, column, c,
+							  "Empty label");
 				goto ERROR;
 			    }
 
@@ -252,10 +256,9 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			{
 			    if (self->tokenLen == 0)
 			    {
-				CxpSyntaxError(self, line, column, c,
-					       "Empty label");
+				CxpFastaParserSyntaxError(self, line, column, c,
+							  "Empty label");
 				goto ERROR;
-
 			    }
 
 			    PyEval_CallMethod((PyObject *) self,
@@ -299,8 +302,8 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 		    {
 			if (self->tokenLen == 0)
 			{
-			    CxpSyntaxError(self, line, column, c,
-					   "Missing character data");
+			    CxpFastaParserSyntaxError(self, line, column, c,
+						      "Missing character data");
 			    goto ERROR;
 			}
 
@@ -334,9 +337,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				}
 				default:
 				{
-				    CxpSyntaxError(self, line, column, c,
-						   "Invalid DNA"
-						   " character data");
+				    CxpFastaParserSyntaxError(self, line,
+							      column, c,
+							      "Invalid DNA "
+							      "character data");
 				    goto ERROR;
 				}
 			    }
@@ -368,9 +372,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 				}
 				default:
 				{
-				    CxpSyntaxError(self, line, column, c,
-						   "Invalid protein"
-						   " character data");
+				    CxpFastaParserSyntaxError(self, line,
+							      column, c,
+							      "Invalid protein "
+							      "character data");
 				    goto ERROR;
 				}
 			    }
@@ -388,32 +393,37 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	/* Make sure that the input ends with character data. */
 	if (state != CxpStateChars)
 	{
-	    CxpSyntaxError(self, line, column, c,
-			   "Input ended while reading label");
+	    CxpFastaParserSyntaxError(self, line, column, c,
+				      "Input ended while reading label");
 	    goto ERROR;
 	}
 
 	/* Accept the last token. */
 	if (self->tokenLen == 0)
 	{
-	    CxpSyntaxError(self, line, column, c,
-			   "Missing character data");
+	    CxpFastaParserSyntaxError(self, line, column, c,
+				      "Missing character data");
 	    goto ERROR;
 	}
 	PyEval_CallMethod((PyObject *) self, "charsAccept", "()");
+
+	Py_INCREF(Py_None);
+	retval = Py_None;
+	break;
+
+	ERROR:
+	retval = NULL;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
 	PyErr_NoMemory();
+	retval = NULL;
     }
     CxmXepEnd();
 
-    Py_INCREF(Py_None);
-    return Py_None;
-
-    ERROR:
-    return NULL;
+    RETURN:
+    return retval;
 }
 
 PyObject *
