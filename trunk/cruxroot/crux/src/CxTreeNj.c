@@ -26,7 +26,7 @@ struct CxsTreeNjr
 {
     double r;
     double rScaled;   /* r/(m-2)). */
-    CxtCxtNodeObject *node; /* Associated node. */
+    CxtNodeObject *node; /* Associated node. */
 };
 
 /* The following function can be used to convert from row/column matrix
@@ -101,14 +101,14 @@ CxpTreeNjXy2i(uint32_t aN, uint32_t aX, uint32_t aY)
  */
 //#define CxmTreeNjVerbose
 static void
-CxpTreeNj(CxtCxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
+CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
 {
     CxtTreeNjd *d, *dPrev, *tD; /* Distance matrix. */
     CxtTreeNjr *r; /* Distance sums. */
     uint32_t nleft, i, x, y, iMin, xMin, yMin, xNew, yNew;
     double distX, distY;
-    CxtCxtNodeObject *node;
-    CxtCxtEdgeObject *edgeX, *edgeY, *edge;
+    CxtNodeObject *node;
+    CxtEdgeObject *edgeX, *edgeY, *edge;
 
     cxmCheckPtr(aDistances);
     cxmAssert(aNtaxa > 1);
@@ -329,7 +329,7 @@ CxpTreeNj(CxtCxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
 }
 
 PyObject *
-CxTreeNj(CxtCxtTreeObject *self, PyObject *args)
+CxTreeNj(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval, *distList, *tobj;
     double *distances;
@@ -379,7 +379,7 @@ CxTreeNj(CxtCxtTreeObject *self, PyObject *args)
 	if (okay)
 	{
 	    CxtTrNode oldTrNode, trNode;
-	    CxtCxtNodeObject *node;
+	    CxtNodeObject *node;
 
 	    oldTrNode = CxTrBaseGet(self->tr);
 
@@ -390,14 +390,14 @@ CxTreeNj(CxtCxtTreeObject *self, PyObject *args)
 	    trNode = CxTrBaseGet(self->tr);
 	    if (trNode != CxmTrNodeNone)
 	    {
-		node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, trNode);
+		node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, trNode);
 		Py_INCREF(node);
 	    }
 
 	    /* Decref old base. */
 	    if (oldTrNode != CxmTrNodeNone)
 	    {
-		node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
+		node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
 		Py_DECREF(node);
 	    }
 	}

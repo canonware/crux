@@ -12,7 +12,7 @@
 #include "../include/_cruxmodule.h"
 
 PyObject *
-CxTreeMpPrepare(CxtCxtTreeObject *self, PyObject *args)
+CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -155,7 +155,7 @@ CxTreeMpPrepare(CxtCxtTreeObject *self, PyObject *args)
 }
 
 PyObject *
-CxTreeMpFinish(CxtCxtTreeObject *self)
+CxTreeMpFinish(CxtTreeObject *self)
 {
     CxTrMpFinish(self->tr);
 
@@ -164,13 +164,13 @@ CxTreeMpFinish(CxtCxtTreeObject *self)
 }
 
 PyObject *
-CxTreeMp(CxtCxtTreeObject *self)
+CxTreeMp(CxtTreeObject *self)
 {
     return Py_BuildValue("i", CxTrMpScore(self->tr));
 }
 
 PyObject *
-CxTreeTbrBestNeighborsMp(CxtCxtTreeObject *self, PyObject *args)
+CxTreeTbrBestNeighborsMp(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -212,7 +212,7 @@ CxTreeTbrBestNeighborsMp(CxtCxtTreeObject *self, PyObject *args)
 }
 
 PyObject *
-CxTreeTbrBetterNeighborsMp(CxtCxtTreeObject *self, PyObject *args)
+CxTreeTbrBetterNeighborsMp(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -254,7 +254,7 @@ CxTreeTbrBetterNeighborsMp(CxtCxtTreeObject *self, PyObject *args)
 }
 
 PyObject *
-CxTreeTbrAllNeighborsMp(CxtCxtTreeObject *self)
+CxTreeTbrAllNeighborsMp(CxtTreeObject *self)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -281,7 +281,7 @@ CxTreeTbrAllNeighborsMp(CxtCxtTreeObject *self)
 }
 
 PyObject *
-CxTreeNheldGet(CxtCxtTreeObject *self)
+CxTreeNheldGet(CxtTreeObject *self)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -305,7 +305,7 @@ CxTreeNheldGet(CxtCxtTreeObject *self)
 }
 
 PyObject *
-CxTreeheldGet(CxtCxtTreeObject *self, PyObject *args)
+CxTreeheldGet(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
 #ifdef CxmCcSilence

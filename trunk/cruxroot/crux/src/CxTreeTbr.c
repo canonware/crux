@@ -12,16 +12,16 @@
 #include "../include/_cruxmodule.h"
 
 PyObject *
-CxTreeTbr(CxtCxtTreeObject *self, PyObject *args)
+CxTreeTbr(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
 #ifdef CxmCcSilence
 	= NULL
 #endif
 	;
-    uint32_t bisect, reconnect_a, reconnect_b;
+    uint32_t bisect, reconnectA, reconnectB;
 
-    if (PyArg_ParseTuple(args, "(iii)", &bisect, &reconnect_a, &reconnect_b)
+    if (PyArg_ParseTuple(args, "(iii)", &bisect, &reconnectA, &reconnectB)
 	== 0)
     {
 	retval = NULL;
@@ -31,7 +31,7 @@ CxTreeTbr(CxtCxtTreeObject *self, PyObject *args)
     CxmXepBegin();
     CxmXepTry
     {
-	CxTrTbr(self->tr, bisect, reconnect_a, reconnect_b);
+	CxTrTbr(self->tr, bisect, reconnectA, reconnectB);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
@@ -48,7 +48,7 @@ CxTreeTbr(CxtCxtTreeObject *self, PyObject *args)
 }
 
 PyObject *
-CxTreeTbrNneighborsGet(CxtCxtTreeObject *self)
+CxTreeTbrNneighborsGet(CxtTreeObject *self)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -72,14 +72,14 @@ CxTreeTbrNneighborsGet(CxtCxtTreeObject *self)
 }
 
 PyObject *
-CxTreeTbrNeighborGet(CxtCxtTreeObject *self, PyObject *args)
+CxTreeTbrNeighborGet(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval
 #ifdef CxmCcSilence
 	= NULL
 #endif
 	;
-    uint32_t neighbor, bisect, reconnect_a, reconnect_b;
+    uint32_t neighbor, bisect, reconnectA, reconnectB;
 
     if (PyArg_ParseTuple(args, "i", &neighbor) == 0)
     {
@@ -98,9 +98,9 @@ CxTreeTbrNeighborGet(CxtCxtTreeObject *self, PyObject *args)
 	else
 	{
 	    CxTrTbrNeighborGet(self->tr, neighbor,
-				&bisect, &reconnect_a, &reconnect_b);
+				&bisect, &reconnectA, &reconnectB);
 
-	    retval = Py_BuildValue("(iii)", bisect, reconnect_a, reconnect_b);
+	    retval = Py_BuildValue("(iii)", bisect, reconnectA, reconnectB);
 	}
     }
     CxmXepCatch(CxmXepOOM)

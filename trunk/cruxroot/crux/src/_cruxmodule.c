@@ -11,7 +11,7 @@
 
 #include "../include/_cruxmodule.h"
 
-static PyMethodDef crux_funcs[] =
+static PyMethodDef cruxFuncs[] =
 {
     {NULL}
 };
@@ -27,7 +27,7 @@ init_crux(void)
     CxmCpuInit();
 #endif
 
-    Py_InitModule3("_crux", crux_funcs, "crux extensions");
+    Py_InitModule3("_crux", cruxFuncs, "crux extensions");
     CxTreeInit();
     CxNodeInit();
     CxEdgeInit();

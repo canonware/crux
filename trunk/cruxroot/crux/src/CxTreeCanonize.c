@@ -12,7 +12,7 @@
 #include "../include/_cruxmodule.h"
 
 PyObject *
-CxTreeCanonize(CxtCxtTreeObject *self)
+CxTreeCanonize(CxtTreeObject *self)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -23,25 +23,25 @@ CxTreeCanonize(CxtCxtTreeObject *self)
     CxmXepBegin();
     CxmXepTry
     {
-	CxtTrNode old_tr_node, tr_node;
-	CxtCxtNodeObject *node;
+	CxtTrNode oldTrNode, trNode;
+	CxtNodeObject *node;
 
-	old_tr_node = CxTrBaseGet(self->tr);
+	oldTrNode = CxTrBaseGet(self->tr);
 
 	CxTrCanonize(self->tr);
 
 	/* Reference new base. */
-	tr_node = CxTrBaseGet(self->tr);
-	if (tr_node != CxmTrNodeNone)
+	trNode = CxTrBaseGet(self->tr);
+	if (trNode != CxmTrNodeNone)
 	{
-	    node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, tr_node);
+	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, trNode);
 	    Py_INCREF(node);
 	}
 
 	/* Decref old base. */
-	if (old_tr_node != CxmTrNodeNone)
+	if (oldTrNode != CxmTrNodeNone)
 	{
-	    node = (CxtCxtNodeObject *) CxTrNodeAuxGet(self->tr, old_tr_node);
+	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);
 	    Py_DECREF(node);
 	}
 
