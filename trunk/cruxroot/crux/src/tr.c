@@ -2989,102 +2989,16 @@ tr_p_hold(cw_tr_t *a_tr, uint32_t a_max_hold, uint32_t a_neighbor,
     return retval;
 }
 
-/* Iteratively (logically) reconnect every legitimate pairing of edges between
- * a_ps and the other subtree and calculate final parsimony scores.
- *
- * a_node specifies a node, if there is only one node in the subtree being
- * iterated over.
- */
-CW_P_INLINE void
-tr_p_tbr_neighbors_mp_inner(cw_tr_t *a_tr, cw_tr_ps_t *a_ps,
-			    cw_tr_node_t a_node,
-			    bool a_reversible, uint32_t a_max_hold,
-			    cw_tr_hold_how_t a_how,
-			    uint32_t *ar_neighbor, uint32_t *ar_curmax)
-{
-    uint32_t i, score;
-    cw_tr_edge_t edge;
-    cw_tr_ps_t *ps;
-
-    /* Skip (i == 0) if the reconnection would result in reversing the
-     * bisection. */
-    for (i = a_reversible ? 1 : 0; i < a_tr->nbedges_b; i++, (*ar_neighbor)++)
-    {
-	edge = a_tr->bedges[a_tr->nbedges_a + i];
-	if (edge != CW_TR_EDGE_NONE)
-	{
-	    ps = a_tr->tres[edge].ps;
-	}
-	else
-	{
-	    ps = a_tr->trrs[qli_first(&a_tr->trns[a_node].rings)].ps;
-	}
-
-	/* Calculate the final parsimony score for this reconnection. */
-	score = tr_p_mp_fscore(a_tr, a_ps, ps, *ar_curmax);
-
-	/* Hold the tree, if appropriate. */
-	switch (a_how)
-	{
-	    case TR_HOLD_BEST:
-	    {
-		if (score < *ar_curmax)
-		{
-		    a_tr->nheld = 0;
-		}
-
-		if (score <= *ar_curmax || a_tr->nheld == 0)
-		{
-		    /* No trees held, or this tree is as good as those currently
-		     * held. */
-		    if (tr_p_hold(a_tr, a_max_hold, *ar_neighbor, score))
-		    {
-			/* No more room for trees. */
-			*ar_curmax = score - 1;
-		    }
-		    else
-		    {
-			*ar_curmax = score;
-		    }
-		}
-		break;
-	    }
-	    case TR_HOLD_BETTER:
-	    {
-		if (score <= *ar_curmax)
-		{
-		    /* No trees held, or this (neighboring) tree is better than
-		     * the tree whose neighbors are being evaluated. */
-		    tr_p_hold(a_tr, a_max_hold, *ar_neighbor, score);
-		    *ar_curmax = score - 1;
-		}
-		break;
-	    }
-	    case TR_HOLD_ALL:
-	    {
-		/* Hold all trees. */
-		tr_p_hold(a_tr, a_max_hold, *ar_neighbor, score);
-		break;
-	    }
-	    default:
-	    {
-		cw_not_reached();
-	    }
-	}
-    }
-}
-
 /* Calculate the Fitch parsimony scores for all TBR neighbors of a_tr, and hold
  * results according to the function parameters. */
 CW_P_INLINE void
 tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
 		      uint32_t a_maxscore, cw_tr_hold_how_t a_how)
 {
-    uint32_t neighbor, i, j, curmax;
-    cw_tr_edge_t bisect;
+    uint32_t neighbor, i, j, k, curmax, score;
+    cw_tr_edge_t bisect, edge_a, edge_b;
     cw_tr_node_t node_a, node_b;
-    cw_tr_ring_t ring_a, ring_b;
-    cw_tr_ps_t *ps, *ps_a, *ps_b;
+    cw_tr_ps_t *ps_a, *ps_b;
 
     cw_dassert(tr_p_validate(a_tr));
 
@@ -3098,92 +3012,112 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, uint32_t a_max_hold,
     for (i = 0; i < a_tr->nedges; i++)
     {
 	bisect = a_tr->trti[i];
-	ps = a_tr->tres[bisect].ps;
 
 	/* Determine which edges are in each subtree. */
 	tr_p_bedges_gen(a_tr, bisect, &node_a, &node_b);
 
-	/* Calculate the partial score for each edge in the second edge list.
-	 * The partial scores for the first list are calculated on the fly. */
-	if (tr_p_bisection_edge_list_mp(a_tr, &a_tr->bedges[a_tr->nbedges_a],
-					a_tr->nbedges_b, bisect, curmax))
+	/* Calculate the partial score for each edge in the edge lists.  Don't
+	 * bother scoring the trees if either subtree exceeds the max score. */
+	if (tr_p_bisection_edge_list_mp(a_tr, a_tr->bedges,
+					a_tr->nbedges_a, bisect, curmax)
+	    || tr_p_bisection_edge_list_mp(a_tr, &a_tr->bedges[a_tr->nbedges_a],
+					   a_tr->nbedges_b, bisect, curmax))
 	{
-	    /* The subtree exceeds the max score, so don't bother trying any of
-	     * the trees that would result from reconnecting to it. */
 	    neighbor += (a_tr->trt[i + 1].offset - a_tr->trt[i].offset);
 	    continue;
 	}
 
-	/* Iteratively calculate the partial score for each edge in the first
-	 * edge list.  At each iteration, immediately use the edge to calculate
-	 * the scores of all TBR neighbors that can be reached by reconnecting
-	 * at that edge.
-	 *
-	 * By interleaving edge partial scoring, and tree scoring, it is
-	 * possible to re-use the same cw_tr_ps_t structure, thus improving
-	 * locality of reference. */
-	if (a_tr->bedges[0] != CW_TR_EDGE_NONE)
+	/* Iteratively (logically) reconnect every legitimate pairing of edges
+	 * between the two subtrees and calculate final parsimony scores. */
+	for (j = 0; j < a_tr->nbedges_a; j++)
 	{
-	    ring_a = tr_p_edge_ring_get(a_tr, a_tr->bedges[0], 0);
-	    ring_b = tr_p_edge_ring_get(a_tr, a_tr->bedges[0], 1);
-
-	    /* Recursively (post-order traversal) calculate the partial score at
-	     * each node, as viewed from the first edge in a_tr->bedges.  This
-	     * leaves one valid view at each node, which then makes it possible
-	     * to calculate the rest of the views during a pre-order traversal
-	     * of the tree. */
-	    ps_a = tr_p_mp_score_recurse(a_tr, ring_a, bisect);
-	    ps_b = tr_p_mp_score_recurse(a_tr, ring_b, bisect);
-
-	    /* The first edge must be calculated using ps_a and ps_b as
-	     * children, rather than using the ps's at the ends of the edge.
-	     * This is because one of the connected nodes is in turn connected
-	     * to the bisection edge, which means that the node does not have a
-	     * useful ps.  The first edge is the only one for which this is an
-	     * issue, so it is handled here. */
-	    tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
-	    if (ps->subtrees_score + ps->node_score > curmax)
+	    edge_a = a_tr->bedges[j];
+	    if (edge_a != CW_TR_EDGE_NONE)
 	    {
-		/* The subtree exceeds the max score, so don't bother trying any
-		 * of the trees that would result from reconnecting to it. */
-		neighbor += (a_tr->trt[i + 1].offset - a_tr->trt[i].offset);
-		continue;
+		ps_a = a_tr->tres[edge_a].ps;
 	    }
-	    tr_p_tbr_neighbors_mp_inner(a_tr, ps, node_b, true,
-					a_max_hold, a_how,
-					&neighbor, &curmax);
-
-	    /* Perform the pre-order traversal, calculating the remaining views
-	     * that were not calculated by the above post-order traversal.  Take
-	     * care to pass the appropriate ps's. */
-	    tr_p_mp_views_recurse(a_tr, ring_a, ps_b, bisect);
-	    tr_p_mp_views_recurse(a_tr, ring_b, ps_a, bisect);
-
-	    /* Calculate per-edge partial scores. */
-	    for (j = 1; j < a_tr->nbedges_a; j++)
+	    else
 	    {
-		tr_p_mp_pscore(a_tr, ps,
-			       a_tr->trrs[tr_p_edge_ring_get(a_tr,
-							     a_tr->bedges[j],
-							     0)].ps,
-			       a_tr->trrs[tr_p_edge_ring_get(a_tr,
-							     a_tr->bedges[j],
-							     1)].ps);
-		tr_p_tbr_neighbors_mp_inner(a_tr, ps, node_b, false,
-					    a_max_hold, a_how,
-					    &neighbor, &curmax);
+		ps_a = a_tr->trrs[qli_first(&a_tr->trns[node_a].rings)].ps;
 	    }
-	}
-	else
-	{
-	    /* There is only one node in this subtree. */
-	    tr_p_tbr_neighbors_mp_inner(a_tr,
-					a_tr->trrs[
-					    qli_first(&a_tr->trns[node_a].rings)
-					].ps,
-					node_b, true,
-					a_max_hold, a_how,
-					&neighbor, &curmax);
+
+	    for (k = 0; k < a_tr->nbedges_b; k++)
+	    {
+		/* Skip this iteration if the reconnection would result in
+		 * reversing the bisection. */
+		if (j == 0 && k == 0)
+		{
+		    continue;
+		}
+
+		edge_b = a_tr->bedges[a_tr->nbedges_a + k];
+		if (edge_b != CW_TR_EDGE_NONE)
+		{
+		    ps_b = a_tr->tres[edge_b].ps;
+		}
+		else
+		{
+		    ps_b = a_tr->trrs[qli_first(&a_tr->trns[node_b].rings)].ps;
+		}
+
+		/* Calculate the final parsimony score for this reconnection. */
+		score = tr_p_mp_fscore(a_tr, ps_a, ps_b, curmax);
+
+		/* Hold the tree, if appropriate. */
+		switch (a_how)
+		{
+		    case TR_HOLD_BEST:
+		    {
+			if (score < curmax)
+			{
+			    a_tr->nheld = 0;
+			}
+
+			if (score <= curmax || a_tr->nheld == 0)
+			{
+			    /* No trees held, or this tree is as good as those
+			     * currently held. */
+			    if (tr_p_hold(a_tr, a_max_hold, neighbor, score))
+			    {
+				/* No more room for trees. */
+				curmax = score - 1;
+			    }
+			    else
+			    {
+				curmax = score;
+			    }
+			}
+			break;
+		    }
+		    case TR_HOLD_BETTER:
+		    {
+			if (score <= curmax)
+			{
+			    /* No trees held, or this (neighboring) tree is
+			     * better than the tree whose neighbors are being
+			     * evaluated. */
+			    tr_p_hold(a_tr, a_max_hold, neighbor, score);
+			    curmax = score - 1;
+			}
+			break;
+		    }
+		    case TR_HOLD_ALL:
+		    {
+			/* Hold all trees. */
+			tr_p_hold(a_tr, a_max_hold, neighbor, score);
+			break;
+		    }
+		    default:
+		    {
+			cw_not_reached();
+		    }
+		}
+
+		/* Increment the neighbor index here.  Due to the possibility of
+		 * loop short-circuting above, this must happen at the end of
+		 * the loop body, rather than in the 'for' statement. */
+		neighbor++;
+	    }
 	}
     }
 }
