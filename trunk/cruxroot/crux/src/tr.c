@@ -1575,6 +1575,8 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
     /* Update trt and tre. */
     tr_p_trt_update(a_tr, a_tr->nedges);
     tr_p_tre_update(a_tr, a_tr->nedges);
+
+    cw_dassert(tr_p_validate(a_tr, FALSE));
 }
 
 cw_uint32_t
