@@ -30,6 +30,8 @@
 
 #include "../include/_cruxmodule.h"
 
+typedef struct cw_tr_njd_s cw_tr_njd_t;
+typedef struct cw_tr_njr_s cw_tr_njr_t;
 typedef struct cw_tr_ps_s cw_tr_ps_t;
 typedef struct cw_trn_s cw_trn_t;
 typedef struct cw_trr_s cw_trr_t;
@@ -39,6 +41,21 @@ typedef struct cw_trh_s cw_trh_t;
 
 typedef uint32_t cw_tr_ring_t;
 #define CW_TR_RING_NONE UINT_MAX
+
+/* Used by tr_nj() to represent a distance matrix cell. */
+struct cw_tr_njd_s
+{
+    double dist;  /* Distance. */
+    double trans; /* Transformed distance. */
+};
+
+/* Used by tr_nj(). */
+struct cw_tr_njr_s
+{
+    double r;
+    double r_scaled;   /* r/(m-2)). */
+    cw_tr_node_t node; /* Associated node. */
+};
 
 /* Character (in the systematics sense of the word). */
 typedef char cw_trc_t;
@@ -2731,7 +2748,11 @@ tr_p_mp_fscore(cw_tr_t *a_tr, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b,
 static cw_tr_ps_t *
 tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 {
-    cw_tr_ps_t *retval;
+    cw_tr_ps_t *retval
+#ifdef CW_CC_SILENCE
+	= NULL
+#endif
+	;
     uint32_t degree;
     bool adjacent;
     cw_tr_ring_t ring;
@@ -2820,7 +2841,6 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_edge_t a_bisect)
 	default:
 	{
 	    /* This is a multifurcating node. */
-	    retval = NULL; // XXX
 	    cw_error("XXX Not implemented");
 	}
     }
@@ -3345,10 +3365,231 @@ tr_canonize(cw_tr_t *a_tr)
     cw_dassert(tr_p_validate(a_tr));
 }
 
+/* The following function can be used to convert from row/column matrix
+ * coordinates to array offsets (n is ntaxa, and x < y) for neighbor-joining:
+ *
+ *                        2
+ *                       x  + 3x
+ *   f(n,x,y) = nx + y - ------- - 1
+ *                          2
+ */
+CW_P_INLINE uint32_t
+tr_p_nj_xy2i(uint32_t a_n, uint32_t a_x, uint32_t a_y)
+{
+    if (a_x > a_y)
+    {
+	uint32_t t;
+
+	t = a_x;
+	a_x = a_y;
+	a_y = t;
+    }
+
+    return a_n * a_x + a_y - (((a_x + 3) * a_x) / 2) - 1;
+}
+
+/*
+ * Create a tree from a pairwise distance matrix, using the neighbor-joining
+ * algorithm.
+ *
+ * The matrix is actually stored as an upper-triangle symmetric matrix, with
+ * additional bookkeeping, as necessary for the neighbor-joining algorithm.
+ * For example (m is current matrix size):
+ *
+ *                                                    |   r   ||
+ *                                                    |  ---  ||
+ *   |   A   |   B   |   C   |   D   |   E   ||   r   |  m-2  ||   
+ *   +=======+=======+=======+=======+=======++=======+=======++===
+ *           |   0   |   1   |   2   |   3   ||   6   |   2.0 || A 
+ *           | -10.5 | -12.0 | -12.5 | -13.0 ||       |       ||   
+ *           +-------+-------+-------+-------++-------+-------++---
+ *                   |   4   |   5   |   6   ||  15   |   5.0 || B 
+ *                   | -13.5 | -14.0 | -14.5 ||       |       ||   
+ *                   +-------+-------+-------++-------+-------++---
+ *                           |   7   |   8   ||  20   |   6.7 || C 
+ *                           | -14.5 | -15.0 ||       |       ||   
+ *                           +-------+-------++-------+-------++---
+ *                                   |   9   ||  23   |   7.7 || D 
+ *                                   | -15.5 ||       |       ||   
+ *                                   +-------++-------+-------++---
+ *                                           ||  26   |   8.7 || E 
+ *                                           ||       |       ||   
+ *                                           ++-------+-------++---
+ *
+ * is stored as:
+ *
+ *   /-------+-------+-------+-------+-------+-------+-------+-------+-------...
+ *   |   0   |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   
+ *   | -10.5 | -12.0 | -12.5 | -13.0 | -13.5 | -14.0 | -14.5 | -14.5 | -15.0 
+ *   \-------+-------+-------+-------+-------+-------+-------+-------+-------...
+ *
+ *   +-------++-------+-------+-------+-------+-------\
+ *   |   9   ||   6   |  15   |  20   |  23   |  26   |
+ *   | -15.5 ||   2.0 |   5.0 |   6.7 |   7.7 |   8.7 |
+ *   +-------++-------+-------+-------+-------+-------/
+ */
 void
 tr_nj(cw_tr_t *a_tr, double *a_distances, uint32_t a_ntaxa)
 {
-    cw_error("XXX Not implemented");
+    cw_tr_njd_t *d, *d_prev, *t_d; /* Distance matrix. */
+    cw_tr_njr_t *r; /* Distance sums. */
+    uint32_t ndists, nleft, i, x, y, i_min, x_min, y_min, x_inc, y_inc;
+    double dist_x, dist_y;
+    cw_tr_node_t node;
+    cw_tr_edge_t edge_x, edge_y, edge;
+
+    tr_p_update(a_tr);
+    cw_dassert(tr_p_validate(a_tr));
+    cw_check_ptr(a_distances);
+    cw_assert(a_ntaxa > 1);
+
+    /* Allocate an array that is large enough to hold the distances. */
+    ndists = tr_p_nj_xy2i(a_ntaxa, a_ntaxa - 2, a_ntaxa - 1);
+    d = (cw_tr_njd_t *) cw_malloc(sizeof(cw_tr_njd_t) * ndists);
+    /* d_prev can be smaller, since it won't be used until the matrix is shrunk
+     * once. */
+    d_prev = (cw_tr_njd_t *) cw_malloc(sizeof(cw_tr_njd_t)
+				       * tr_p_nj_xy2i(a_ntaxa, a_ntaxa - 3,
+						      a_ntaxa - 2));
+
+    /* Initialize untransformed distances. */
+    for (i = 0; i < ndists; i++)
+    {
+	d[i].dist = a_distances[i];
+    }
+
+    /* Allocate an array that is large enough to hold all the distance sums. */
+    r = (cw_tr_njr_t *) cw_malloc(sizeof(cw_tr_njr_t) * a_ntaxa);
+
+    /* Create a node for each taxon in the matrix. */
+    for (i = 0; i < a_ntaxa; i++)
+    {
+	r[i].node = tr_node_new(a_tr);
+	tr_node_taxon_num_set(a_tr, r[i].node, i);
+    }
+
+    /* Iteratitively join two nodes in the matrix, until only two are left. */
+    for (nleft = a_ntaxa; nleft > 2; nleft--)
+    {
+	/* Calculate r (sum of distances to other nodes) and r/(nleft-2)
+	 * for each node. */
+	for (i = 0; i < nleft; i++)
+	{
+	    r[i].r = 0.0;
+	}
+
+	for (x = i = 0; x < nleft; x++)
+	{
+	    for (y = x + 1; y < nleft; y++)
+	    {
+		r[x].r += d[i].dist;
+		r[y].r += d[i].dist;
+
+		i++;
+	    }
+	}
+
+	for (i = 0; i < nleft; i++)
+	{
+	    r[i].r_scaled = r[i].r / (nleft - 2);
+	}
+
+	/* Calculate trans (transformed distance) for each pairwise distance.
+	 * Keep track of the minimum trans, so that the corresponding nodes can
+	 * be joined.  Ties are broken arbitrarily (the first minimum found is
+	 * used). */
+	for (x = i = 0, i_min = x_min = 0, y_min = 1; x < nleft; x++)
+	{
+	    for (y = x + 1; y < nleft; y++)
+	    {
+		d[i].trans = d[i].dist - ((r[x].r + r[y].r) / 2);
+
+		if (d[i].trans < d[i_min].trans)
+		{
+		    i_min = i;
+		    x_min = x;
+		    y_min = y;
+		}
+
+		i++;
+	    }
+	}
+
+	/* Join the nodes with the minimum transformed distance. */
+	node = tr_p_node_wrapped_new(a_tr);
+	edge_x = tr_p_edge_wrapped_new(a_tr);
+	tr_edge_attach(a_tr, edge_x, node, r[x_min].node);
+	dist_x = (d[i_min].dist + r[x_min].r_scaled - r[y_min].r_scaled) / 2;
+	tr_edge_length_set(a_tr, edge_x, dist_x);
+	edge_y = tr_p_edge_wrapped_new(a_tr);
+	tr_edge_attach(a_tr, edge_y, node, r[y_min].node);
+	dist_y = d[i_min].dist - dist_x;
+	tr_edge_length_set(a_tr, edge_y, dist_y);
+
+	/* Swap to new matrix. */
+	t_d = d;
+	d = d_prev;
+	d_prev = t_d;
+
+	/* Create compacted matrix. */
+	for (x = i = 0, x_inc = 0; x < nleft; x++)
+	{
+	    /* Avoid rows that are being removed. */
+	    if (x == x_min || x == y_min)
+	    {
+		x_inc++;
+	    }
+
+	    for (y = x + 1, y_inc = 0; y < nleft; y++)
+	    {
+		/* Avoid columns that are being removed. */
+		if (y == x_min || y == y_min)
+		{
+		    y_inc++;
+		}
+
+		d[i].dist = d_prev[tr_p_nj_xy2i(nleft,
+						x + x_inc,
+						y + y_inc)].dist;
+
+		i++;
+	    }
+	}
+
+	/* Calculate distances to new node. */
+	for (y = nleft - 1, x = x_inc = 0; x < nleft - 1; x++)
+	{
+	    /* Avoid rows that are being removed. */
+	    if (x == x_min || x == y_min)
+	    {
+		x_inc++;
+	    }
+
+	    d[tr_p_nj_xy2i(nleft - 1, x, y)].dist
+		= ((d_prev[tr_p_nj_xy2i(nleft, x + x_inc, x_min)].dist - dist_x)
+		   + (d_prev[tr_p_nj_xy2i(nleft, x + x_inc, y_min)].dist
+		      - dist_y)
+		   ) / 2;
+	}
+
+	/* Compact and update r. */
+	memmove(&r[x_min], &r[x_min + 1],
+		sizeof(cw_tr_njr_t) * (nleft - x_min - 1));
+	memmove(&r[y_min], &r[y_min + 1],
+		sizeof(cw_tr_njr_t) * (nleft - y_min - 1));
+	r[nleft - 2].node = node;
+    }
+
+    /* Join the remaining two nodes. */
+    edge = tr_p_edge_wrapped_new(a_tr);
+    tr_edge_attach(a_tr, edge, r[0].node, r[1].node);
+
+    /* Set the tree base. */
+    tr_base_set(a_tr, r[0].node);
+
+    /* Clean up. */
+    cw_free(d);
+    cw_free(r);
 }
 
 void
