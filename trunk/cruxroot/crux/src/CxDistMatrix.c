@@ -948,7 +948,14 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 		 * TaxonMap. */
 
 		result = PyEval_CallMethod(self->map, "ntaxaGet", "()");
-		// XXX Check type of result.
+		if (PyInt_Check(result) == false)
+		{
+		    CxError(CxgDistMatrixTypeError,
+			    "Integer expected from distMatrix.ntaxaGet()");
+		    Py_DECREF(retval);
+		    retval = NULL;
+		    break;
+		}
 		self->ntaxa = PyInt_AsLong(result);
 		Py_DECREF(result);
 
