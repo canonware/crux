@@ -424,10 +424,10 @@ static PyMethodDef CxpTreeMethods[] =
 	"tbrNeighborGet"
     },
     {
-	"mpPrepare",
+	"_mpPrepare",
 	(PyCFunction) CxTreeMpPrepare,
 	METH_VARARGS,
-	"mpPrepare"
+	"_mpPrepare"
     },
     {
 	"mpFinish",

@@ -9,14 +9,27 @@
 #
 ################################################################################
 
-import sys
-
 print "Test begin"
 
-matrix = crux.CTMatrix.CTMatrix()
-f = open(opts.scriptargs[1] + "/test/treezilla.fasta")
-matrix.fastaParse(f, 'DNA')
+ctm = crux.CTMatrix.CTMatrix()
+ctm.fastaParse("""
+>a
+C
+>b
+A
+>c
+C
+>d
+A
+>e
+G
+""")
 
-matrix.fastaPrint(sys.stdout)
+taxonMap = crux.TaxonMap.TaxonMap(['a', 'b', 'c', 'd', 'e'])
+t = crux.Tree.Tree('((a,b),(c,(d,e)));', taxonMap=taxonMap)
+
+t.mpPrepare(ctm)
+
+print "Score: %d" % t.mp()
 
 print "Test end"

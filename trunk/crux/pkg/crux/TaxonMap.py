@@ -67,6 +67,22 @@ class TaxonMap(object):
 
         return rVal
 
+    def equal(self, other):
+        if other is self:
+            rVal = True
+        elif self.ntaxaGet() != other.ntaxaGet():
+            rVal = False
+        else:
+            keys = self._ind2label.keys()
+            keys.sort()
+            for key in keys:
+                if other.labelGet(key) == None:
+                    rVal = False
+                    break
+            rVal = True
+
+        return rVal
+
     # Map a label to an index.  Typical usage is something like:
     #
     #   m.map('Label', m.ntaxaGet())

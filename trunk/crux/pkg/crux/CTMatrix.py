@@ -65,12 +65,12 @@ class CTMatrix(object):
 
         # Row-major character data.  Each element in _taxonData is a string of
         # characters that belong to the corresponding taxon in _taxonMap.  The
-        # keys are the integer indexes, as reported by self._taxonMap.indGet().
+        # keys are the integer indices, as reported by self._taxonMap.indGet().
         self._taxonData = {}
 
-    def fastaFileParse(self, file, chartype='DNA'):
+    def fastaParse(self, input, chartype='DNA'):
         parser = _FastaParser(self, self._taxonMap)
-        parser.parse(file, chartype)
+        parser.parse(input, chartype)
 
     def fastaPrint(self, file):
         taxa = self._taxonMap.taxaGet()

@@ -32,21 +32,13 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 #endif
 	;
 
-    elim = 1;
-    if (PyArg_ParseTuple(args, "O!|i", &PyList_Type, &taxa, &elim) == 0)
+    if (PyArg_ParseTuple(args, "O!i", &PyList_Type, &taxa, &elim) == 0)
     {
 	rVal = NULL;
 	goto RETURN;
     }
 
     ntaxa = PyList_Size(taxa);
-    if (elim != 0 && elim != 1)
-    {
-	CxError(CxgTreeValueError,
-		"elim: False or True expected");
-	rVal = NULL;
-	goto RETURN;
-    }
 
     CxmXepBegin();
     CxmXepTry

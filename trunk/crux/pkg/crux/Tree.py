@@ -224,6 +224,18 @@ class Tree(C_Tree):
         else:
             return self._rfSequence(other)
 
+    def mpPrepare(self, cTMatrix, elimUninformative=True):
+        # Make sure that taxon maps are identical.
+        if not self._taxonMap.equal(cTMatrix.taxonMapGet()):
+            raise crux.Tree.ValueError(
+                "TaxonMaps for Tree and CTMatrix must be equal")
+
+        chars = []
+        for taxon in self._taxonMap.taxaGet():
+            chars.append(cTMatrix.dataGet(taxon))
+
+        self._mpPrepare(chars, elimUninformative)
+
     # Render the tree in Newick format to a string or a file.
     def render(self, labels=False, lengths=False, lengthFormat="%.5e",
                outFile=None):
