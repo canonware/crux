@@ -11,6 +11,8 @@
 
 #include "../include/_cruxmodule.h"
 
+#ifdef CxmCpuIa32
+
 bool CxgIa32UseSse2;
 
 /* Check for the cpuid instruction.  If the ID bit (21) in EFLAGS is writable
@@ -88,3 +90,5 @@ CxIa32CpuInit(void)
 	CxgIa32UseSse2 = false;
     }
 }
+
+#endif /* CxmCpuIa32 */
