@@ -19,5 +19,6 @@ import Edge
 import Ring
 
 import DistMatrix
+import FastaParser
 import NewickParser
 import TaxonMap
