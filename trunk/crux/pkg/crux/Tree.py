@@ -153,10 +153,11 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, nodeA)
 
 class Tree(C_Tree):
-    def __init__(self, with=None, map=TaxonMap.TaxonMap(), autoMap=False):
+    def __init__(self, with=None, map=TaxonMap.TaxonMap(), autoMap=False,
+                 maxLength=10):
         if type(with) == int:
             self._map = map
-            self._randomNew(with)
+            self._randomNew(with, maxLength)
         elif type(with) == str or type(with) == file:
             self._map = map
             self._newickNew(with, autoMap)
@@ -164,14 +165,14 @@ class Tree(C_Tree):
             self._map = with.taxonMapGet()
             self._nj(with)
 
-    def _randomNew(self, ntaxa):
+    def _randomNew(self, ntaxa, maxLength):
         # Create a stack of leaf nodes.
         subtrees = []
         for i in forints(ntaxa):
             nnode = Node.Node(self)
             nnode.taxonNumSet(i)
             subtrees.append(nnode)
-            self._map.map(str(i), i)
+            self._map.map("T%d" % i, i)
 
         # Iteratively randomly remove two items from the stack, join them, and
         # push the result back onto the stack.  Stop when there are two subtrees
@@ -180,15 +181,21 @@ class Tree(C_Tree):
             subtreeA = subtrees.pop(random.randint(0, len(subtrees) - 1))
             subtreeB = subtrees.pop(random.randint(0, len(subtrees) - 1))
             nnode = Node.Node(self)
-            Edge.Edge(self).attach(nnode, subtreeA)
-            Edge.Edge(self).attach(nnode, subtreeB)
+            edgeA = Edge.Edge(self)
+            edgeA.lengthSet(random.randint(1, maxLength))
+            edgeA.attach(nnode, subtreeA)
+            edgeB = Edge.Edge(self)
+            edgeB.lengthSet(random.randint(1, maxLength))
+            edgeB.attach(nnode, subtreeB)
             subtrees.append(nnode)
 
         # Attach the last two subtrees directly, in order to finish constructing
         # an unrooted tree.
         subtreeA = subtrees.pop(0)
         subtreeB = subtrees.pop(0)
-        Edge.Edge(self).attach(subtreeA, subtreeB)
+        edge = Edge.Edge(self)
+        edge.lengthSet(random.randint(1, maxLength))
+        edge.attach(subtreeA, subtreeB)
 
         self.baseSet(subtreeA)
 
@@ -196,16 +203,19 @@ class Tree(C_Tree):
         parser = _NewickParser(self, self._map, autoMap)
         return parser.parse(input)
 
-    def render(self, labels=False, lengths=False, outFile=None):
+    def taxonMapGet(self):
+        return self._map
+
+    def render(self, labels=False, lengths=False, nDigits=6, outFile=None):
         if outFile == None:
-            retval = self._stringRender(labels, lengths)
+            retval = self._stringRender(labels, lengths, nDigits)
         else:
-            self._fileRender(labels, lengths, outFile)
+            self._fileRender(labels, lengths, nDigits, outFile)
             retval = None
 
         return retval
 
-    def _stringRender(self, labels, lengths):
+    def _stringRender(self, labels, lengths, nDigits):
         n = self.baseGet()
         if n != None:
             if n.taxonNumGet() != None:
@@ -218,26 +228,27 @@ class Tree(C_Tree):
                         # Start with the internal node.
                         retval = "%s;" % \
                                  neighbor.rrender(None, self._map, labels,
-                                                  lengths)
+                                                  lengths, nDigits)
                     else:
                         # This tree only has two taxa; start with the tree base.
                         retval = "(%s);" % \
                              n.rrender(None, self._map, labels, lengths,
-                                       twoTaxa=True)
+                                       nDigits, twoTaxa=True)
                 else:
                     # There is only one node in the tree.
                     retval = "%s;" % \
-                             n.rrender(None, self._map, labels, lengths)
+                             n.rrender(None, self._map, labels, lengths,
+                                       nDigits)
             else:
                 # Internal node.
                 retval = "%s;" % \
-                         n.rrender(None, self._map, labels, lengths)
+                         n.rrender(None, self._map, labels, lengths, nDigits)
         else:
             retval = ";"
 
         return retval
 
-    def _fileRender(self, labels, lengths, outFile):
+    def _fileRender(self, labels, lengths, nDigits, outFile):
         n = self.baseGet()
         if n != None:
             if n.taxonNumGet() != None:
@@ -249,21 +260,22 @@ class Tree(C_Tree):
                     if neighbor.taxonNumGet() == None:
                         # Start with the internal node.
                         neighbor.rrender(None, self._map, labels, lengths,
-                                         outFile)
+                                         nDigits, outFile)
                         outFile.write(";\n")
                     else:
                         # This tree only has two taxa; start with the tree base.
                         outFile.write("(")
-                        n.rrender(None, self._map, labels, lengths, outFile,
-                                  twoTaxa=True)
+                        n.rrender(None, self._map, labels, lengths, nDigits,
+                                  outFile, twoTaxa=True)
                         outFile.write(");\n")
                 else:
                     # There is only one node in the tree.
-                    n.rrender(None, self._map, labels, lengths, outFile)
+                    n.rrender(None, self._map, labels, lengths, nDigits,
+                              outFile)
                     outFile.write(";\n")
             else:
                 # Internal node.
-                n.rrender(None, self._map, labels, lengths, outFile)
+                n.rrender(None, self._map, labels, lengths, nDigits, outFile)
                 outFile.write(";\n")
         else:
             outFile.write(";\n")

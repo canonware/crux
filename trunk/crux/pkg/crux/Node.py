@@ -17,16 +17,19 @@ class Node(C_Node):
     def __init__(self, tree):
         pass
 
-    def rrender(self, prev, map, labels, lengths, outFile=None, twoTaxa=False):
+    def rrender(self, prev, map, labels, lengths, nDigits, outFile=None,
+                twoTaxa=False):
         if outFile == None:
-            retval = self._stringRrender(prev, map, labels, lengths, twoTaxa)
+            retval = self._stringRrender(prev, map, labels, lengths, nDigits,
+                                         twoTaxa)
         else:
-            self._fileRrender(prev, map, labels, lengths, outFile, twoTaxa)
+            self._fileRrender(prev, map, labels, lengths, nDigits, outFile,
+                              twoTaxa)
             retval = None
 
         return retval
 
-    def _stringRrender(self, prev, map, labels, lengths, twoTaxa):
+    def _stringRrender(self, prev, map, labels, lengths, nDigits, twoTaxa):
         retval = ""
         did_something = False
         did_paren = False
@@ -51,9 +54,11 @@ class Node(C_Node):
                     if twoTaxa:
                         # This tree only has two taxa; take care not to double
                         # the branch length.
-                        retval = "%s:%f" % (retval, ring.edge().lengthGet() / 2)
+                        retval = "%s:%.*f" % (retval, nDigits,
+                                              ring.edge().lengthGet() / 2)
                     else:
-                        retval = "%s:%f" % (retval, ring.edge().lengthGet())
+                        retval = "%s:%.*f" % (retval, nDigits,
+                                              ring.edge().lengthGet())
             did_something = True
 
         # Iterate through neighbors.
@@ -74,11 +79,13 @@ class Node(C_Node):
                     retval = "%s%s" % \
                              (retval,
                               neighbor._stringRrender(self, map, labels,
-                                                      lengths, twoTaxa))
+                                                      lengths, nDigits,
+                                                      twoTaxa))
 
                     if lengths:
                         if neighbor.taxonNumGet() == None:
-                            retval = "%s:%f" % (retval, ring.edge().lengthGet())
+                            retval = "%s:%.*f" % (retval, nDigits,
+                                                  ring.edge().lengthGet())
 
                 ring = ring.next()
 
@@ -87,7 +94,8 @@ class Node(C_Node):
 
         return retval
 
-    def _fileRrender(self, prev, map, labels, lengths, outFile, twoTaxa):
+    def _fileRrender(self, prev, map, labels, lengths, nDigits, outFile,
+                     twoTaxa):
         did_something = False
         did_paren = False
 
@@ -111,9 +119,11 @@ class Node(C_Node):
                     if twoTaxa:
                         # This tree only has two taxa; take care not to double
                         # the branch length.
-                        outFile.write(":%f" % (ring.edge().lengthGet() / 2))
+                        outFile.write(":%.*f" % (nDigits,
+                                                 ring.edge().lengthGet() / 2))
                     else:
-                        outFile.write(":%f" % ring.edge().lengthGet())
+                        outFile.write(":%.*f" % (nDigits,
+                                                 ring.edge().lengthGet()))
             did_something = True
 
         # Iterate through neighbors.
@@ -131,12 +141,13 @@ class Node(C_Node):
                         did_paren = True
                         did_something = True
 
-                    neighbor._fileRrender(self, map, labels, lengths, outFile,
-                                          twoTaxa)
+                    neighbor._fileRrender(self, map, labels, lengths, nDigits,
+                                          outFile, twoTaxa)
 
                     if lengths:
                         if neighbor.taxonNumGet() == None:
-                            outFile.write(":%f" % ring.edge().lengthGet())
+                            outFile.write(":%.*f" % (nDigits,
+                                                     ring.edge().lengthGet()))
 
                 ring = ring.next()
 
