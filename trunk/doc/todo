@@ -1,15 +1,15 @@
-* Subclass DistMatrix inside of the NJ code, and add the ability to do NJ given
-  a file or string, rather than just a pre-constructed distance matrix.  This
-  will avoid the problem of having multiple copies of the matrix in memory.
-
-* Implement optional randomization of the input matrix for NJ.
-
 * Consider making exact mode for NJ optional.  This would potentially be useful
   if wanting to avoid any bias for bootstrap replicates.
 
-* Convert C comments to // style.
+* Add isSymmetric(), symmetricize(), and unsymmetricize() methods to DistMatrix
+  class.
 
 * Write regression tests for DistMatrix.distance[GS]et().
+
+* Figure out how to use command line parsing module on crux.opts, and write some
+  canned scripts for inclusion in crux releases.
+
+================================================================================
 
 * Use CTMatrix for MP.
 
@@ -17,6 +17,12 @@
 
 * Add true tree holding, rather than just the limited form of holding that the
   tr code supports.
+
+* Convert C comments to // style.
+
+* Collapse rendering code into single code paths, which are passed a callback
+  method (or something like that).  The current setup requires testing both
+  file and string rendering, and is a pain to update.
 
 ================================================================================
 
