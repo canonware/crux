@@ -207,9 +207,17 @@ CxpTreeRfBipartitionsInit(CxtTreeObject *self)
     // Initialize rVal.
     rVal = (CxtTreeRfTree *) CxmMalloc(sizeof(CxtTreeRfTree));
     CxpTreeRfVecNew(&rVal->treeVec, ntaxa);
-    // Allocate at least enough slots in edgeVecs.
-    rVal->edgeVecs = (CxtTreeRfVec *) CxmCalloc(ntaxa * 2,
-						sizeof(CxtTreeRfVec));
+    // Allocate ((2 * ntaxa) - 3) slots in edgeVecs, unless the tree has one or
+    // no taxa.
+    if (ntaxa > 1)
+    {
+	rVal->edgeVecs = (CxtTreeRfVec *) CxmCalloc((ntaxa * 2) - 3,
+						    sizeof(CxtTreeRfVec));
+    }
+    else
+    {
+	rVal->edgeVecs = NULL;
+    }
     rVal->nEdgeVecs = 0;
 
     // Recurse through tree and determine bipartitions.
@@ -270,6 +278,13 @@ CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
     if (CxpTreeRfVecCompare(&aTreeARfVec->treeVec, &aTreeBRfVec->treeVec) != 0)
     {
 	rVal = 1.0;
+	goto RETURN;
+    }
+
+    // If there are no edges in the trees, treat them as being equal.
+    if (aTreeARfVec->nEdgeVecs == 0)
+    {
+	rVal = 0.0;
 	goto RETURN;
     }
 
@@ -338,7 +353,11 @@ CxpTreeRfBipartitionsCleanup(CxtTreeObject *self, CxtTreeRfTree *aRfTree)
     {
 	CxpTreeRfVecDelete(&aRfTree->edgeVecs[i]);
     }
-    CxmFree(aRfTree->edgeVecs);
+
+    if (aRfTree->edgeVecs != NULL)
+    {
+	CxmFree(aRfTree->edgeVecs);
+    }
 
     CxmFree(aRfTree);
 }
@@ -374,15 +393,27 @@ CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
     CxmXepBegin();
     CxmXepTry
     {
-	// Make sure that all elements of the sequence are Trees.
+	unsigned ntaxa, otherNtaxa;
+
+	ntaxa = CxTreeNtaxaGet(self);
+
+	// Make sure that all elements of the sequence are Trees, and that they
+	// have the same number of taxa as self.
 	size = PySequence_Size(sequence);
 	for (i = 0; i < size; i++)
 	{
-	    if (PyObject_IsInstance(PySequence_GetItem(sequence, i),
-				    (PyObject *) &CxtTree)
-		== 0)
+	    other = PySequence_GetItem(sequence, i);
+	    if (PyObject_IsInstance(other, (PyObject *) &CxtTree) == 0)
 	    {
 		CxError(CxgTreeTypeError, "Tree expected");
+		goto ERROR;
+	    }
+
+	    if (otherNtaxa = CxTreeNtaxaGet((CxtTreeObject *) other) != ntaxa)
+	    {
+		CxError(CxgTreeTypeError,
+			"Wrong number of taxa (%ld), %ld expected",
+			otherNtaxa, ntaxa);
 		goto ERROR;
 	    }
 	}
@@ -461,6 +492,14 @@ CxTreeRfPair(CxtTreeObject *self, PyObject *args)
     if (other == self)
     {
 	rVal = PyFloat_FromDouble(0.0);
+	goto RETURN;
+    }
+    if (CxTreeNtaxaGet(self) != CxTreeNtaxaGet((CxtTreeObject *) other))
+    {
+	CxError(CxgTreeTypeError,
+		"Wrong number of taxa (%ld), %ld expected",
+		CxTreeNtaxaGet((CxtTreeObject *) other),
+		CxTreeNtaxaGet(self));
 	goto RETURN;
     }
 

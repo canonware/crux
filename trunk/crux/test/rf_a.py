@@ -28,8 +28,26 @@ for distance in r:
     print "  %.2f" % distance
 print ")"
 
+d = crux.Tree.Tree(';', map=map)
+e = crux.Tree.Tree(';', map=map)
+print "%.2f" % d.rf(e)
+
 d = crux.Tree.Tree('A;', map=map)
+e = crux.Tree.Tree('A;', map=map)
+print "%.2f" % d.rf(e)
+
+d = crux.Tree.Tree('(A,B);', map=map)
 e = crux.Tree.Tree('(A,B);', map=map)
 print "%.2f" % d.rf(e)
+
+try:
+    d = crux.Tree.Tree('A;', map=map)
+    e = crux.Tree.Tree('(A,B);', map=map)
+    print "%.2f" % d.rf(e)
+except:
+    import sys
+
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
 
 print "Test end"
