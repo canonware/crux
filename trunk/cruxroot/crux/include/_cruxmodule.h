@@ -51,6 +51,10 @@ typedef unsigned char bool;
 #endif
 
 #include "tree.h"
+#include "tree_canonize.h"
+#include "tree_mp.h"
+#include "tree_nj.h"
+#include "tree_tbr.h"
 
 #define CW_CRUXX_OOM 2
 #define CW_CRUXX_ValueError 3

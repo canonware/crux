@@ -17,41 +17,18 @@ static PyTypeObject Tree_Type;
 static PyTypeObject Node_Type;
 static PyTypeObject Edge_Type;
 
-typedef struct
-{
-    PyObject_HEAD
-    cw_tr_t *tr;
-} TreeObject;
-
-typedef struct
-{
-    PyObject_HEAD
-    TreeObject *tree;
-    cw_tr_node_t node;
-} NodeObject;
-
-typedef struct
-{
-    PyObject_HEAD
-    TreeObject *tree;
-    cw_tr_edge_t edge;
-} EdgeObject;
-
 static cw_tr_t *
-tree_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
+tree_p_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
 static cw_tr_node_t
-tree_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
+tree_p_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
 static cw_tr_edge_t
-tree_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
-
-static PyObject *
-edge_detach(EdgeObject *self);
+tree_p_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque);
 
 /******************************************************************************/
 /* Begin tree. */
 
 static PyObject *
-tree_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+tree_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *retval
 #ifdef CW_CC_SILENCE
@@ -70,8 +47,8 @@ tree_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     xep_begin();
     xep_try
     {
-	self->tr = tr_new(tree_wrapped_new, tree_node_wrapped_new,
-			  tree_edge_wrapped_new, self);
+	self->tr = tr_new(tree_p_wrapped_new, tree_p_node_wrapped_new,
+			  tree_p_edge_wrapped_new, self);
 	tr_aux_set(self->tr, self);
 	retval = (PyObject *) self;
     }
@@ -87,7 +64,7 @@ tree_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 static int
-tree_traverse(TreeObject *self, visitproc visit, void *arg)
+tree_p_traverse(TreeObject *self, visitproc visit, void *arg)
 {
     int retval;
     cw_tr_node_t base;
@@ -111,7 +88,7 @@ tree_traverse(TreeObject *self, visitproc visit, void *arg)
 }
 
 static int
-tree_clear(TreeObject *self)
+tree_p_clear(TreeObject *self)
 {
     cw_tr_node_t base;
 
@@ -129,14 +106,14 @@ tree_clear(TreeObject *self)
 }
 
 static void
-tree_delete(TreeObject *self)
+tree_p_delete(TreeObject *self)
 {
-    tree_clear(self);
+    tree_p_clear(self);
     tr_delete(self->tr);
     self->ob_type->tp_free((PyObject*) self);
 }
 
-static PyObject *
+PyObject *
 tree_ntaxa_get(TreeObject *self)
 {
     PyObject *retval
@@ -160,7 +137,7 @@ tree_ntaxa_get(TreeObject *self)
     return retval;
 }
 
-static PyObject *
+PyObject *
 tree_nedges_get(TreeObject *self)
 {
     PyObject *retval
@@ -184,7 +161,7 @@ tree_nedges_get(TreeObject *self)
     return retval;
 }
 
-static PyObject *
+PyObject *
 tree_base_get(TreeObject *self)
 {
     PyObject *retval;
@@ -205,7 +182,7 @@ tree_base_get(TreeObject *self)
     return retval;
 }
 
-static PyObject *
+PyObject *
 tree_base_set(TreeObject *self, PyObject *args)
 {
     PyObject *retval;
@@ -247,582 +224,7 @@ tree_base_set(TreeObject *self, PyObject *args)
     return retval;
 }
 
-static PyObject *
-tree_canonize(TreeObject *self)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-
-    xep_begin();
-    xep_try
-    {
-	cw_tr_node_t old_tr_node, tr_node;
-	NodeObject *node;
-
-	old_tr_node = tr_base_get(self->tr);
-
-	tr_canonize(self->tr);
-
-	/* Reference new base. */
-	tr_node = tr_base_get(self->tr);
-	if (tr_node != CW_TR_NODE_NONE)
-	{
-	    node = (NodeObject *) tr_node_aux_get(self->tr, tr_node);
-	    Py_INCREF(node);
-	}
-
-	/* Decref old base. */
-	if (old_tr_node != CW_TR_NODE_NONE)
-	{
-	    node = (NodeObject *) tr_node_aux_get(self->tr, old_tr_node);
-	    Py_DECREF(node);
-	}
-
-	Py_INCREF(Py_None);
-	retval = Py_None;
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    return retval;
-}
-
-static PyObject *
-tree__nj(TreeObject *self, PyObject *args)
-{
-    PyObject *retval, *dist_list, *tobj;
-    double *distances;
-    uint32_t ntaxa, nelms, i;
-    bool okay;
-
-    if (PyArg_ParseTuple(args, "O!", &PyList_Type, &dist_list) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-
-    nelms = PyList_Size(dist_list);
-    ntaxa = sqrt(nelms);
-    if (ntaxa * ntaxa != nelms)
-    {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
-	goto RETURN;
-    }
-
-    xep_begin();
-    xep_try
-    {
-	distances = (double *) cw_malloc(sizeof(double) * nelms);
-
-	okay = true;
-	for (i = 0; i < nelms; i++)
-	{
-	    tobj = PyList_GetItem(dist_list, i);
-	    if (PyFloat_Check(tobj))
-	    {
-		distances[i] = PyFloat_AsDouble(tobj);
-	    }
-	    else if (PyInt_Check(tobj))
-	    {
-		distances[i] = PyInt_AsLong(tobj);
-	    }
-	    else
-	    {
-		Py_INCREF(PyExc_ValueError);
-		retval = PyExc_ValueError;
-		okay = false;
-	    }
-	}
-
-	if (okay)
-	{
-	    cw_tr_node_t old_tr_node, tr_node;
-	    NodeObject *node;
-
-	    old_tr_node = tr_base_get(self->tr);
-
-	    /* Neighbor-join. */
-	    tr_nj(self->tr, distances, ntaxa);
-	    
-	    /* Reference new base. */
-	    tr_node = tr_base_get(self->tr);
-	    if (tr_node != CW_TR_NODE_NONE)
-	    {
-		node = (NodeObject *) tr_node_aux_get(self->tr, tr_node);
-		Py_INCREF(node);
-	    }
-
-	    /* Decref old base. */
-	    if (old_tr_node != CW_TR_NODE_NONE)
-	    {
-		node = (NodeObject *) tr_node_aux_get(self->tr, old_tr_node);
-		Py_DECREF(node);
-	    }
-	}
-
-	cw_free(distances);
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    Py_INCREF(Py_None);
-    retval = Py_None;
-    RETURN:
-    return retval;
-}
-
-static PyObject *
-tree_tbr(TreeObject *self, PyObject *args)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-    uint32_t bisect, reconnect_a, reconnect_b;
-
-    if (PyArg_ParseTuple(args, "(iii)", &bisect, &reconnect_a, &reconnect_b)
-	== 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-
-    xep_begin();
-    xep_try
-    {
-	tr_tbr(self->tr, bisect, reconnect_a, reconnect_b);
-
-	Py_INCREF(Py_None);
-	retval = Py_None;
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    RETURN:
-    return retval;
-}
-
-static PyObject *
-tree_tbr_nneighbors_get(TreeObject *self)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-
-    xep_begin();
-    xep_try
-    {
-	retval = Py_BuildValue("i", tr_tbr_nneighbors_get(self->tr));
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    return retval;
-}
-
-static PyObject *
-tree_tbr_neighbor_get(TreeObject *self, PyObject *args)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-    uint32_t neighbor, bisect, reconnect_a, reconnect_b;
-
-    if (PyArg_ParseTuple(args, "i", &neighbor) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-
-    xep_begin();
-    xep_try
-    {
-	if (neighbor >= tr_tbr_nneighbors_get(self->tr))
-	{
-	    Py_INCREF(PyExc_ValueError);
-	    retval = PyExc_ValueError;
-	}
-	else
-	{
-	    tr_tbr_neighbor_get(self->tr, neighbor,
-				&bisect, &reconnect_a, &reconnect_b);
-
-	    retval = Py_BuildValue("(iii)", bisect, reconnect_a, reconnect_b);
-	}
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    RETURN:
-    return retval;
-}
-
-static PyObject *
-tree_mp_prepare(TreeObject *self, PyObject *args)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-    PyObject *taxa, *tobj;
-    uint32_t elim, ntaxa, i, j;
-    uint32_t nchars
-#ifdef CW_CC_SILENCE
-	= 0
-#endif
-	;
-    char **tarr
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-
-    elim = 1;
-    if (PyArg_ParseTuple(args, "O!|i", &PyList_Type, &taxa, &elim) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-
-    ntaxa = PyList_Size(taxa);
-    if (elim != 0 && elim != 1)
-    {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
-	goto RETURN;
-    }
-
-    xep_begin();
-    xep_try
-    {
-	/* Make sure that all taxa have the same number of characters. */
-	if (ntaxa > 0)
-	{
-	    tobj = PyList_GetItem(taxa, 0);
-	    /* Don't worry about throwing a ValueError error here, since the for
-	     * loop below will do so. */
-	    if (PyString_Check(tobj))
-	    {
-		nchars = PyString_Size(tobj);
-	    }
-
-	    /* Create an array of string pointers. */
-	    tarr = (char **) cw_malloc(sizeof(char *) * ntaxa);
-	}
-
-	for (i = 0; i < ntaxa; i++)
-	{
-	    tobj = PyList_GetItem(taxa, i);
-	    if (PyString_Check(tobj) == 0 || PyString_Size(tobj) != nchars)
-	    {
-		cw_free(tarr);
-		xep_throw(CW_CRUXX_ValueError);
-	    }
-	    tarr[i] = PyString_AsString(tobj);
-
-	    /* Make sure characters are valid codes. */
-	    for (j = 0; j < nchars; j++)
-	    {
-		switch (tarr[i][j])
-		{
-		    case 'N':
-		    case 'n':
-		    case 'X':
-		    case 'x':
-		    case 'V':
-		    case 'v':
-		    case 'H':
-		    case 'h':
-		    case 'M':
-		    case 'm':
-		    case 'D':
-		    case 'd':
-		    case 'R':
-		    case 'r':
-		    case 'W':
-		    case 'w':
-		    case 'A':
-		    case 'a':
-		    case 'B':
-		    case 'b':
-		    case 'S':
-		    case 's':
-		    case 'Y':
-		    case 'y':
-		    case 'C':
-		    case 'c':
-		    case 'K':
-		    case 'k':
-		    case 'G':
-		    case 'g':
-		    case 'T':
-		    case 't':
-		    case '-':
-		    {
-			break;
-		    }
-		    default:
-		    {
-			cw_free(tarr);
-			xep_throw(CW_CRUXX_ValueError);
-		    }
-		}
-	    }
-	}
-
-	// XXX Recurse through the tree and make sure that the taxa are numbered
-	// correctly.
-
-	/* Do preparation. */
-	tr_mp_prepare(self->tr, elim, tarr, ntaxa, nchars);
-
-	/* Clean up. */
-	cw_free(tarr);
-
-	Py_INCREF(Py_None);
-	retval = Py_None;
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_catch(CW_CRUXX_ValueError)
-    {
-	xep_handled();
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
-    }
-    xep_end();
-
-    RETURN:
-    return retval;
-}
-
-static PyObject *
-tree_mp_finish(TreeObject *self)
-{
-    tr_mp_finish(self->tr);
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-static PyObject *
-tree_mp(TreeObject *self)
-{
-    return Py_BuildValue("i", tr_mp_score(self->tr));
-}
-
-static PyObject *
-tree_tbr_best_neighbors_mp(TreeObject *self, PyObject *args)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-    uint32_t maxhold;
-
-    maxhold = CW_TR_HOLD_ALL;
-    if (PyArg_ParseTuple(args, "|i", &maxhold) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-    if (maxhold < 0 && maxhold != CW_TR_HOLD_ALL)
-    {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
-	goto RETURN;
-    }
-
-    xep_begin();
-    xep_try
-    {
-	tr_tbr_best_neighbors_mp(self->tr, maxhold);
-
-	Py_INCREF(Py_None);
-	retval = Py_None;
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    RETURN:
-    return retval;
-}
-
-static PyObject *
-tree_tbr_better_neighbors_mp(TreeObject *self, PyObject *args)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-    uint32_t maxhold;
-
-    maxhold = CW_TR_HOLD_ALL;
-    if (PyArg_ParseTuple(args, "|i", &maxhold) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-    if (maxhold < 0 && maxhold != CW_TR_HOLD_ALL)
-    {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
-	goto RETURN;
-    }
-
-    xep_begin();
-    xep_try
-    {
-	tr_tbr_better_neighbors_mp(self->tr, maxhold);
-
-	Py_INCREF(Py_None);
-	retval = Py_None;
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    RETURN:
-    return retval;
-}
-
-static PyObject *
-tree_tbr_all_neighbors_mp(TreeObject *self)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-
-    xep_begin();
-    xep_try
-    {
-	tr_tbr_all_neighbors_mp(self->tr);
-
-	Py_INCREF(Py_None);
-	retval = Py_None;
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    return retval;
-}
-
-static PyObject *
-tree_nheld_get(TreeObject *self)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-
-    xep_begin();
-    xep_try
-    {
-	retval = Py_BuildValue("i", tr_nheld_get(self->tr));
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    return retval;
-}
-
-static PyObject *
-tree_held_get(TreeObject *self, PyObject *args)
-{
-    PyObject *retval
-#ifdef CW_CC_SILENCE
-	= NULL
-#endif
-	;
-    uint32_t held, neighbor, score, bisect, reconnect_a, reconnect_b;
-
-    if (PyArg_ParseTuple(args, "i", &held) == 0)
-    {
-	retval = NULL;
-	goto RETURN;
-    }
-    if (held >= tr_nheld_get(self->tr))
-    {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
-	goto RETURN;
-    }
-
-    xep_begin();
-    xep_try
-    {
-	tr_held_get(self->tr, held, &neighbor, &score);
-	tr_tbr_neighbor_get(self->tr, neighbor,
-			    &bisect, &reconnect_a, &reconnect_b);
-
-	retval = Py_BuildValue("(i(iii))", score,
-			       bisect, reconnect_a, reconnect_b);
-    }
-    xep_catch(CW_CRUXX_OOM)
-    {
-	xep_handled();
-	retval = PyErr_NoMemory();
-    }
-    xep_end();
-
-    RETURN:
-    return retval;
-}
-
-static PyMethodDef tree_methods[] =
+static PyMethodDef tree_p_methods[] =
 {
     {
 	"ntaxa_get",
@@ -936,7 +338,7 @@ static PyTypeObject Tree_Type =
     "_tree.Tree",	/* char *tp_name */
     sizeof(TreeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
-    (destructor) tree_delete,	/* destructor tp_dealloc */
+    (destructor) tree_p_delete,	/* destructor tp_dealloc */
     0,			/* printfunc tp_print */
     0,			/* getattrfunc tp_getattr */
     0,			/* setattrfunc tp_setattr */
@@ -953,13 +355,13 @@ static PyTypeObject Tree_Type =
     0,			/* PyBufferProcs *tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
     "Tree(): Create the C portion of a tree.",	/* char *tp_doc */
-    (traverseproc) tree_traverse,	/* traverseproc tp_traverse */
-    (inquiry) tree_clear,	/* inquiry tp_clear */
+    (traverseproc) tree_p_traverse,	/* traverseproc tp_traverse */
+    (inquiry) tree_p_clear,	/* inquiry tp_clear */
     0,			/* richcmpfunc tp_richcompare */
     0,			/* long tp_weaklistoffset */
     0,			/* getiterfunc tp_iter */
     0,			/* iternextfunc tp_iternext */
-    tree_methods,	/* struct PyMethodDef *tp_methods */
+    tree_p_methods,	/* struct PyMethodDef *tp_methods */
     0,			/* struct PyMemberDef *tp_members */
     0,			/* struct PyGetSetDef *tp_getset */
     0,			/* struct _typeobject *tp_base */
@@ -969,20 +371,20 @@ static PyTypeObject Tree_Type =
     0,			/* long tp_dictoffset */
     0,			/* initproc tp_init */
     0,			/* allocfunc tp_alloc */
-    tree_new,		/* newfunc tp_new */
+    tree_p_new,		/* newfunc tp_new */
     _PyObject_Del,	/* freefunc tp_free */
     0			/* inquiry tp_is_gc */
 };
 
-static PyMethodDef tree_funcs[] =
+static PyMethodDef tree_p_funcs[] =
 {
     {NULL}
 };
 
-static PyObject *tree_wrapped_new_code;
+static PyObject *tree_p_wrapped_new_code;
 
 static cw_tr_t *
-tree_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
+tree_p_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
 {
     TreeObject *tree;
     PyObject *globals, *locals;
@@ -991,7 +393,7 @@ tree_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
     locals = Py_BuildValue("{}");
 
     tree = (TreeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_wrapped_new_code,
+	PyEval_EvalCode((PyCodeObject *) tree_p_wrapped_new_code,
 			globals,
 			locals);
 
@@ -1009,14 +411,14 @@ crux_tree_init(void)
     {
 	return;
     }
-    m = Py_InitModule3("_tree", tree_funcs, "tree extensions");
+    m = Py_InitModule3("_tree", tree_p_funcs, "tree extensions");
     Py_INCREF(&Tree_Type);
     PyModule_AddObject(m, "Tree", (PyObject *) &Tree_Type);
 
     /* Pre-compile Python code that is used for creating a wrapped tree. */
-    tree_wrapped_new_code = Py_CompileString("crux.tree()",
-					     "<string>",
-					     Py_eval_input);
+    tree_p_wrapped_new_code = Py_CompileString("crux.tree()",
+					       "<string>",
+					       Py_eval_input);
 }
 
 /* End tree. */
@@ -1024,7 +426,7 @@ crux_tree_init(void)
 /* Begin node. */
 
 static PyObject *
-node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+node_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *retval
 #ifdef CW_CC_SILENCE
@@ -1069,7 +471,7 @@ node_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 static int
-node_traverse(NodeObject *self, visitproc visit, void *arg)
+node_p_traverse(NodeObject *self, visitproc visit, void *arg)
 {
     int retval;
     cw_tr_edge_t first_edge, cur_edge;
@@ -1105,7 +507,7 @@ node_traverse(NodeObject *self, visitproc visit, void *arg)
 }
 
 static int
-node_clear(NodeObject *self)
+node_p_clear(NodeObject *self)
 {
     cw_tr_edge_t edge;
     EdgeObject *edge_obj;
@@ -1134,19 +536,19 @@ node_clear(NodeObject *self)
 }
 
 static void
-node_delete(NodeObject *self)
+node_p_delete(NodeObject *self)
 {
-    node_clear(self);
+    node_p_clear(self);
     self->ob_type->tp_free((PyObject*) self);
 }
 
-static PyObject *
+PyObject *
 node_tree(NodeObject *self)
 {
     return Py_BuildValue("O", self->tree);
 }
 
-static PyObject *
+PyObject *
 node_taxon_num_get(NodeObject *self)
 {
     PyObject *retval;
@@ -1167,7 +569,7 @@ node_taxon_num_get(NodeObject *self)
     return retval;
 }
 
-static PyObject *
+PyObject *
 node_taxon_num_set(NodeObject *self, PyObject *args)
 {
     PyObject *retval;
@@ -1188,7 +590,7 @@ node_taxon_num_set(NodeObject *self, PyObject *args)
     return retval;
 }
 
-static PyObject *
+PyObject *
 node_edge(NodeObject *self)
 {
     PyObject *retval;
@@ -1210,13 +612,13 @@ node_edge(NodeObject *self)
     return retval;
 }
 
-static PyObject *
+PyObject *
 node_degree(NodeObject *self)
 {
     return Py_BuildValue("i", tr_node_degree(self->tree->tr, self->node));
 }
 
-static PyMethodDef node_methods[] =
+static PyMethodDef node_p_methods[] =
 {
     {
 	"tree",
@@ -1258,7 +660,7 @@ static PyTypeObject Node_Type =
     "_node.Node",	/* char *tp_name */
     sizeof(NodeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
-    (destructor) node_delete,	/* destructor tp_dealloc */
+    (destructor) node_p_delete,	/* destructor tp_dealloc */
     0,			/* printfunc tp_print */
     0,			/* getattrfunc tp_getattr */
     0,			/* setattrfunc tp_setattr */
@@ -1275,13 +677,13 @@ static PyTypeObject Node_Type =
     0,			/* PyBufferProcs *tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
     "Node(): Create the C portion of a node.",	/* char *tp_doc */
-    (traverseproc) node_traverse,	/* traverseproc tp_traverse */
-    (inquiry) node_clear,	/* inquiry tp_clear */
+    (traverseproc) node_p_traverse,	/* traverseproc tp_traverse */
+    (inquiry) node_p_clear,	/* inquiry tp_clear */
     0,			/* richcmpfunc tp_richcompare */
     0,			/* long tp_weaklistoffset */
     0,			/* getiterfunc tp_iter */
     0,			/* iternextfunc tp_iternext */
-    node_methods,	/* struct PyMethodDef *tp_methods */
+    node_p_methods,	/* struct PyMethodDef *tp_methods */
     0,			/* struct PyMemberDef *tp_members */
     0,			/* struct PyGetSetDef *tp_getset */
     0,			/* struct _typeobject *tp_base */
@@ -1291,20 +693,20 @@ static PyTypeObject Node_Type =
     0,			/* long tp_dictoffset */
     0,			/* initproc tp_init */
     0,			/* allocfunc tp_alloc */
-    node_new,		/* newfunc tp_new */
+    node_p_new,		/* newfunc tp_new */
     _PyObject_Del,	/* freefunc tp_free */
     0			/* inquiry tp_is_gc */
 };
 
-static PyMethodDef node_funcs[] =
+static PyMethodDef node_p_funcs[] =
 {
     {NULL}
 };
 
-static PyObject *tree_node_wrapped_new_code;
+static PyObject *tree_p_node_wrapped_new_code;
 
 static cw_tr_node_t
-tree_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
+tree_p_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
 {
     NodeObject *node;
     PyObject *globals, *locals;
@@ -1313,7 +715,7 @@ tree_node_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
     locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_opaque);
 
     node = (NodeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_node_wrapped_new_code,
+	PyEval_EvalCode((PyCodeObject *) tree_p_node_wrapped_new_code,
 			globals,
 			locals);
 
@@ -1331,14 +733,14 @@ crux_node_init(void)
     {
 	return;
     }
-    m = Py_InitModule3("_node", node_funcs, "node extensions");
+    m = Py_InitModule3("_node", node_p_funcs, "node extensions");
     Py_INCREF(&Node_Type);
     PyModule_AddObject(m, "Node", (PyObject *) &Node_Type);
 
     /* Pre-compile Python code that is used for creating a wrapped node. */
-    tree_node_wrapped_new_code = Py_CompileString("crux.node(tree)",
-						  "<string>",
-						  Py_eval_input);
+    tree_p_node_wrapped_new_code = Py_CompileString("crux.node(tree)",
+						    "<string>",
+						    Py_eval_input);
 }
 
 /* End node. */
@@ -1346,7 +748,7 @@ crux_node_init(void)
 /* Begin edge. */
 
 static PyObject *
-edge_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+edge_p_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *retval
 #ifdef CW_CC_SILENCE
@@ -1391,7 +793,7 @@ edge_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 static int
-edge_traverse(EdgeObject *self, visitproc visit, void *arg)
+edge_p_traverse(EdgeObject *self, visitproc visit, void *arg)
 {
     int retval;
     cw_tr_node_t tr_node;
@@ -1429,7 +831,7 @@ edge_traverse(EdgeObject *self, visitproc visit, void *arg)
 }
 
 static int
-edge_clear(EdgeObject *self)
+edge_p_clear(EdgeObject *self)
 {
     cw_tr_node_t node_a;
 
@@ -1456,19 +858,19 @@ edge_clear(EdgeObject *self)
 }
 
 static void
-edge_delete(EdgeObject *self)
+edge_p_delete(EdgeObject *self)
 {
-    edge_clear(self);
+    edge_p_clear(self);
     self->ob_type->tp_free((PyObject*) self);
 }
 
-static PyObject *
+PyObject *
 edge_tree(EdgeObject *self)
 {
     return Py_BuildValue("O", self->tree);
 }
 
-static PyObject *
+PyObject *
 edge_node(EdgeObject *self, PyObject *args)
 {
     PyObject *retval;
@@ -1503,7 +905,7 @@ edge_node(EdgeObject *self, PyObject *args)
     return retval;
 }
 
-static PyObject *
+PyObject *
 edge_next(EdgeObject *self, PyObject *args)
 {
     PyObject *retval;
@@ -1532,7 +934,7 @@ edge_next(EdgeObject *self, PyObject *args)
     return retval;
 }
 
-static PyObject *
+PyObject *
 edge_prev(EdgeObject *self, PyObject *args)
 {
     PyObject *retval;
@@ -1561,13 +963,13 @@ edge_prev(EdgeObject *self, PyObject *args)
     return retval;
 }
 
-static PyObject *
+PyObject *
 edge_length_get(EdgeObject *self)
 {
     return Py_BuildValue("d", tr_edge_length_get(self->tree->tr, self->edge));
 }
 
-static PyObject *
+PyObject *
 edge_length_set(EdgeObject *self, PyObject *args)
 {
     PyObject *retval;
@@ -1594,7 +996,7 @@ edge_length_set(EdgeObject *self, PyObject *args)
     return retval;
 }
 
-static PyObject *
+PyObject *
 edge_attach(EdgeObject *self, PyObject *args)
 {
     PyObject *retval;
@@ -1626,7 +1028,7 @@ edge_attach(EdgeObject *self, PyObject *args)
     return retval;
 }
 
-static PyObject *
+PyObject *
 edge_detach(EdgeObject *self)
 {
     cw_tr_node_t node_a;
@@ -1651,7 +1053,7 @@ edge_detach(EdgeObject *self)
     return Py_None;
 }
 
-static PyMethodDef edge_methods[] =
+static PyMethodDef edge_p_methods[] =
 {
     {
 	"tree",
@@ -1711,7 +1113,7 @@ static PyTypeObject Edge_Type =
     "_edge.Edge",	/* char *tp_name */
     sizeof(EdgeObject),	/* int tp_basicsize */
     0,			/* int tp_itemsize */
-    (destructor) edge_delete,	/* destructor tp_dealloc */
+    (destructor) edge_p_delete,	/* destructor tp_dealloc */
     0,			/* printfunc tp_print */
     0,			/* getattrfunc tp_getattr */
     0,			/* setattrfunc tp_setattr */
@@ -1728,13 +1130,13 @@ static PyTypeObject Edge_Type =
     0,			/* PyBufferProcs *tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
     "Edge(): Create the C portion of an edge.",	/* char *tp_doc */
-    (traverseproc) edge_traverse,	/* traverseproc tp_traverse */
-    (inquiry) edge_clear,	/* inquiry tp_clear */
+    (traverseproc) edge_p_traverse,	/* traverseproc tp_traverse */
+    (inquiry) edge_p_clear,	/* inquiry tp_clear */
     0,			/* richcmpfunc tp_richcompare */
     0,			/* long tp_weaklistoffset */
     0,			/* getiterfunc tp_iter */
     0,			/* iternextfunc tp_iternext */
-    edge_methods,	/* struct PyMethodDef *tp_methods */
+    edge_p_methods,	/* struct PyMethodDef *tp_methods */
     0,			/* struct PyMemberDef *tp_members */
     0,			/* struct PyGetSetDef *tp_getset */
     0,			/* struct _typeobject *tp_base */
@@ -1744,20 +1146,20 @@ static PyTypeObject Edge_Type =
     0,			/* long tp_dictoffset */
     0,			/* initproc tp_init */
     0,			/* allocfunc tp_alloc */
-    edge_new,		/* newfunc tp_new */
+    edge_p_new,		/* newfunc tp_new */
     _PyObject_Del,	/* freefunc tp_free */
     0			/* inquiry tp_is_gc */
 };
 
-static PyMethodDef edge_funcs[] =
+static PyMethodDef edge_p_funcs[] =
 {
     {NULL}
 };
 
-static PyObject *tree_edge_wrapped_new_code;
+static PyObject *tree_p_edge_wrapped_new_code;
 
 static cw_tr_edge_t
-tree_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
+tree_p_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
 {
     EdgeObject *edge;
     PyObject *globals, *locals;
@@ -1766,7 +1168,7 @@ tree_edge_wrapped_new(cw_tr_t *a_tr, void *a_opaque)
     locals = Py_BuildValue("{sO}", "tree", (PyObject *) a_opaque);
 
     edge = (EdgeObject *)
-	PyEval_EvalCode((PyCodeObject *) tree_edge_wrapped_new_code,
+	PyEval_EvalCode((PyCodeObject *) tree_p_edge_wrapped_new_code,
 			globals,
 			locals);
 
@@ -1784,14 +1186,14 @@ crux_edge_init(void)
     {
 	return;
     }
-    m = Py_InitModule3("_edge", edge_funcs, "edge extensions");
+    m = Py_InitModule3("_edge", edge_p_funcs, "edge extensions");
     Py_INCREF(&Edge_Type);
     PyModule_AddObject(m, "Edge", (PyObject *) &Edge_Type);
 
     /* Pre-compile Python code that is used for creating a wrapped edge. */
-    tree_edge_wrapped_new_code = Py_CompileString("crux.edge(tree)",
-						  "<string>",
-						  Py_eval_input);
+    tree_p_edge_wrapped_new_code = Py_CompileString("crux.edge(tree)",
+						    "<string>",
+						    Py_eval_input);
 }
 
 /* End edge. */
