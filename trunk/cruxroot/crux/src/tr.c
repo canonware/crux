@@ -87,6 +87,11 @@ struct cw_trt_s
     /* Bisection edge. */
     cw_uint32_t bisect_edge;
 
+    /* Root nodes (lowest-numbered taxa) in the two subtrees.  root_a is always
+     * less than root_b. */
+    cw_tr_node_t root_a;
+    cw_tr_node_t root_b;
+
     /* Number of edges in the two subtrees.  Note that 0 and 1 are different
      * logical cases, but the number of connections possible for those two cases
      * is the same. */
@@ -785,6 +790,9 @@ tr_p_edge_get(cw_tr_t *a_tr, cw_uint32_t a_edge, cw_tr_node_t *r_node_a,
     *r_node_b = a_tr->tres[a_edge].node_b;
 }
 
+/* Pretend that the tree is bisected a the edge between a_node and a_other.
+ * Count the number of edges that would be in the subtree that containse a_node.
+ * Also return the edge index for the bisection. */
 static void
 tr_p_bisection_edge_get_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
 				cw_tr_node_t a_other, cw_tr_node_t a_prev,
@@ -835,7 +843,7 @@ static void
 tr_p_bisection_edges_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_edge,
 			 cw_trt_t *r_trt)
 {
-    cw_tr_node_t node, adj_a, adj_b;
+    cw_tr_node_t adj_a, adj_b, tnode;
 
     /* Count the number of edges that would be in each half of the tree, were it
      * bisected.  Also, determine which edges of the subtrees would be used to
@@ -844,23 +852,37 @@ tr_p_bisection_edges_get(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_uint32_t a_edge,
     /* Get the nodes adjacent to the bisection edge. */
     tr_p_edge_get(a_tr, a_edge, &adj_a, &adj_b);
 
+    /* Get the root nodes (lowest-numbered taxa) for the two subtrees. */
+    r_trt->root_a = tr_p_root_get(a_tr, adj_a, adj_b, CW_TR_NODE_NONE);
+    r_trt->root_b = tr_p_root_get(a_tr, adj_b, adj_a, CW_TR_NODE_NONE);
+
+    /* Make sure that root_a is less than root_b. */
+    if (a_tr->trns[r_trt->root_a].taxon_num
+	> a_tr->trns[r_trt->root_b].taxon_num)
+    {
+	tnode = r_trt->root_a;
+	r_trt->root_a = r_trt->root_b;
+	r_trt->root_b = tnode;
+
+	tnode = adj_a;
+	adj_a = adj_b;
+	adj_b = tnode;
+    }
+
     /* Get the number of edges in the first half of the bisection, as well as
      * the index of the edge adjacent to the bisection. */
     r_trt->nedges_a = 0;
-    tr_p_bisection_edge_get_recurse(a_tr, a_node, adj_b, CW_TR_NODE_NONE,
+    tr_p_bisection_edge_get_recurse(a_tr, r_trt->root_a, adj_b, CW_TR_NODE_NONE,
 				    &r_trt->nedges_a, &r_trt->self_a);
     if (r_trt->nedges_a > 0)
     {
 	r_trt->nedges_a--;
     }
 
-    /* Get the lowest numbered taxon in the second half of the bisection. */
-    node = tr_p_root_get(a_tr, adj_b, adj_a, CW_TR_NODE_NONE);
-
     /* Get the number of edges in the second half of the bisection, as well as
      * the index of the edge adjacent to the bisection. */
     r_trt->nedges_b = 0;
-    tr_p_bisection_edge_get_recurse(a_tr, node, adj_a, CW_TR_NODE_NONE,
+    tr_p_bisection_edge_get_recurse(a_tr, r_trt->root_b, adj_a, CW_TR_NODE_NONE,
 				    &r_trt->nedges_b, &r_trt->self_b);
     if (r_trt->nedges_b > 0)
     {
@@ -2002,7 +2024,29 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
     cw_check_ptr(trt);
     *r_bisect = trt->bisect_edge;
 
-    /* Get the reconnection edges. */
+    /* Get the reconnection edges.  The indices for a and b are mapped onto the
+     * edges of each subtree, in a peculiar fashion.  The actual ordering isn't
+     * important, as long as it is consistent (repeatable) and correct (all TBR
+     * neighbors are enumerated).  The edge index mapping can be summarized as
+     * follows:
+     *
+     * 1) Start with a full tree.
+     *
+     * 2) (Pretend to) bisect the tree at the appropriate edge.
+     *
+     * 3) For the subtree that contains the globally lowest-numbered taxon,
+     *    traverse the tree starting at the lowest-numbered taxon, counting
+     *    edges along the way, until edge a is reached.  Return the index of
+     *    this edge as *r_reconnect_a, where the index is the number that was
+     *    set by tr_p_tre_update().
+     *
+     * 4) For the subtree not considered in step 3, start traversing the tree at
+     *    the lowest-numbered taxon in the subtree, counting edges along the
+     *    way, until edge b is reached.  Return the index of this edge as
+     *    *r_reconnect_b, where the index is the number that was set for that
+     *    edge by tr_p_tre_update().
+     */
+
     rem = a_neighbor - trt->offset;
 
     nedges_a = trt->nedges_a;
@@ -2057,6 +2101,9 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 	    b = nedges_b - 1;
 	}
     }
+
+    /* Convert a and b to actual edge indices. */
+    // XXX
 
     *r_reconnect_a = a;
     *r_reconnect_b = b;
