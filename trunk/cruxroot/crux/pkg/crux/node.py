@@ -26,13 +26,13 @@ class node(_node.Node):
             # Leaf node.
             if labels:
                 # Protect special characters, if necessary.
-                #XXX
-                #m = re.compile("([ ()[\]':;,])").match(rmap[self.taxon_num_get()])
-                #if m.:
-                #    label_str = re.compile("'").sub("\\'", rmap[self.taxon_num_get()])
-                #    retval = "%s'%s'" % (retval, label_str)
-                #else:
-                retval = "%s%s" % (retval, rmap[self.taxon_num_get()])
+                taxon_label = rmap[self.taxon_num_get()]
+                m = re.compile("[^ ()[\]':;,]*[ ()[\]':;,]").match(taxon_label)
+                if m:
+                    taxon_label = re.compile("'").sub("''", taxon_label)
+                    retval = "%s'%s'" % (retval, taxon_label)
+                else:
+                    retval = "%s%s" % (retval, taxon_label)
             else:
                 retval = "%s%d" % (retval, self.taxon_num_get())
 
