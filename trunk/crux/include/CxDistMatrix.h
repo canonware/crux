@@ -50,6 +50,7 @@ typedef struct
     PyObject *map;
     long ntaxa;
     float *matrix;
+    bool symmetric;
 } CxtDistMatrixObject;
 
 extern PyObject *CxgDistMatrixException;
@@ -66,7 +67,11 @@ PyObject *
 CxDistMatrixNtaxaGet(CxtDistMatrixObject *self);
 PyObject *
 CxDistMatrixTaxonMapGet(CxtDistMatrixObject *self);
+float
+CxDistMatrixDistanceGet(CxtDistMatrixObject *self, long x, long y);
 PyObject *
-CxDistMatrixDistanceGet(CxtDistMatrixObject *self, PyObject *args);
+CxDistMatrixDistanceGetPargs(CxtDistMatrixObject *self, PyObject *args);
+void
+CxDistMatrixDistanceSet(CxtDistMatrixObject *self, long x, long y, float dist);
 PyObject *
-CxDistMatrixDistanceSet(CxtDistMatrixObject *self, PyObject *args);
+CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args);

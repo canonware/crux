@@ -69,19 +69,19 @@ class DistMatrix(C_DistMatrix):
     #
     #   TaxonMap : Create an uninitialized distance matrix of the appropriate
     #              size, given the number of taxa in the TaxonMap.
-    def __init__(self, input=None):
+    def __init__(self, input=None, symmetric=False):
         # Validate input before calling the C_DistMatrix constructor.  I'm not
         # aware of a simple way to check the type of a Python-created class
         # in C code, which is why the check is done here.
         #
         # Also, make sure to pass in a TaxonMap.
         if type(input) == file or type(input) == str:
-            C_DistMatrix._parse(self, input, TaxonMap.TaxonMap())
+            C_DistMatrix._parse(self, input, TaxonMap.TaxonMap(), symmetric)
         elif type(input) == TaxonMap.TaxonMap:
-            C_DistMatrix._parse(self, None, input)
+            C_DistMatrix._parse(self, None, input, symmetric)
         else:
             raise crux.DistMatrix\
-                  .ValueError("input: file, string, or TaxonMap expected")
+                  .ValueError("input: File, string, or TaxonMap expected")
 
     # Print the matrix to a string in 'full', 'upper', or 'lower' format.
     def render(self, format='full', outFile=None):
