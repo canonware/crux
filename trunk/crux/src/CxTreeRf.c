@@ -66,6 +66,14 @@ CxpTreeRfVecCompare(const CxtTreeRfVec *aVecA, const CxtTreeRfVec *aVecB)
     CxmAssert(aVecA->nBits == aVecB->nBits);
 
     rVal = memcmp(aVecA->bits, aVecB->bits, (aVecA->nBits >> 3));
+    if (rVal < 0)
+    {
+	rVal = -1;
+    }
+    else if (rVal > 0)
+    {
+	rVal = 1;
+    }
 
     return rVal;
 }
