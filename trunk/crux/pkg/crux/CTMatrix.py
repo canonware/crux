@@ -68,6 +68,13 @@ class CTMatrix(object):
         # keys are the integer indices, as reported by self._taxonMap.indGet().
         self._taxonData = {}
 
+        # Initialize sequence number.  0 is skipped here so that it can be used
+        # as a special value by users of CTMatrix.
+        self._seq = 1
+
+    def setGet(self):
+        return self._seq
+
     def fastaParse(self, input, chartype='DNA'):
         parser = _FastaParser(self, self._taxonMap)
         parser.parse(input, chartype)
@@ -105,6 +112,7 @@ class CTMatrix(object):
     # Append CharacterType objects to _chars.
     def charsAppend(self, chars):
         self._chars += chars
+        self._seq += 1
 
     # Return the array of character types.
     def charsGet(self):
@@ -134,6 +142,8 @@ class CTMatrix(object):
                   .ValueError("Taxon %r not in taxon map" % taxon)
 
         self._taxonData[self._taxonMap.indGet(taxon)] = data
+
+        self._seq += 1
 
     # Callback method that is used by the print method for printing of the
     # CTMatrix in FASTA format.
