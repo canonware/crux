@@ -138,7 +138,11 @@ fi
 ,
   PYTHON=
 )
-if test "x$PYTHON" = "x" ; then
+if test "x$PYTHON" != "x" ; then
+   if test ! -x "${PYTHON}" ; then
+     AC_MSG_ERROR([Unusable or missing python: ${PYTHON}])
+   fi
+else
   AC_PATH_PROG([PYTHON], [python], , [$PATH])
   if test "x$PYTHON" = "x" ; then
     AC_MSG_ERROR([Cannot build without python])
