@@ -1,3 +1,5 @@
+* Write a nexus parser.
+
 === Conversion to Python =======================================================
 
 * Move MP code from CxTr.c to CxTreeMp.c.
@@ -101,6 +103,14 @@
 
 === Long range possibilities ===================================================
 
+* It looks like the python code that is used to create tree/node/edge/ring
+  objects could be sped up quite a bit.  Right now, it imports, then does a
+  lookup of something like crux.Ring.Ring, then calls the constructor.  Instead,
+  the constructor could probably be looked up once, then called directly.  The
+  node/edge/ring constructors just pass, so they can probably be removed
+  completely, which would mean no python code interpretation for node/edge/ring
+  object creation.
+
 * Implement client-server job processing and comprehensive checkpointing
   capabilities.  This will deal with the unreliability of the cluster, and make
   it possible for all nodes to work cooperatively.
@@ -142,8 +152,6 @@
 * Implement Bayesian MCMC estimation.
 
 === Maybe ======================================================================
-
-* Write a nexus parser?
 
 * Come up with a better scheme for dealing with machine-specific vector
   optimizations?

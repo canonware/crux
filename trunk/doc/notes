@@ -76,4 +76,207 @@ necessary (give up after a certain number of attempts, keep a log, or some other
 method).
 
 --------------------------------------------------------------------------------
+20 February 2005
+--------------------------------------------------------------------------------
+
+It has become clear that before I go about rewriting the MP code and adding
+features, I need a good way to access and test that functionality.  Although it
+is perfectly reasonable to provide Python APIs (which I will definitely do), the
+various combinations of options are complex enough that I'm realizing the need
+for a higher level API.  As much as I dislike the NEXUS file format, NEXUS is in
+fact a higher level API that is streamlined for these sorts of input.
+Therefore, it makes sense to write a NEXUS parser now, rather than later, so
+that I can more easily access and test various MP functionality.
+
+There are two facets to what I have planned.  At a basic level, I am going to
+write a NEXUS parser with extensible block/statement handling capabilities, so
+that I can implement handlers as needed.  This architecture will reduce the
+amount of work that I have to do up front, without limiting the usefulness of
+the parser in the long run.  At a higher level, I need a way to drive Crux with
+NEXUS inputs.  To this end, I am going to write a Crux wrapper that behaves
+somewhat like PAUP.  And I even have a good name for it: Phylogenetic Analysis
+Using CruX (PAUCX).  PAUCX will interpret a subset of PAUP's commands, though it
+will make no attempt at formatting its informative output in a fashion similar
+to PAUP.  I haven't decided yet whether to implement interactive command input
+for PAUCX, but chances are that at some point I will find it useful to do so.
+
+Even though I plan to implement PAUCX, I do not plan to make it the primary mode
+of interaction with Crux.  Instead, I plan to continue exposing Python-based
+APIs, and make the main interactive mode for Crux a Python prompt.  I may go so
+far as to implement a CRUX block for NEXUS input, but that will probably only
+support the INCLUDEFILE statement.
+
+--------------------------------------------------------------------------------
+
+Okay, so how will the NEXUS parser be structured?  It occurred to me to
+implement block/statement handlers as class methods that are dynamically looked
+up by name.  However, that isn't a very robust solution, since the
+block/statement handlers need to be organized as a tree.  That means that I can
+either:
+
+1) Use some sort of handler registration mechanism that uses a hierarchy of
+   dictinaries to store handlers.  Default handlers are set/accessed via a
+   separate API.
+
+2) Use dynamic lookup of class members that handle blocks, where block handlers
+   are classes with specially named top level methods, and statement handlers
+   are methods of the block handler classes.
+
+The latter may be a bit easier to deal with, but I need to finish reading the
+NEXUS paper to make sure it isn't overly limiting.
+
+--------------------------------------------------------------------------------
+
+How should the abstract syntax tree (AST) be represented?  Since NEXUS inputs
+must be able to be rewritten, it will be necessary to keep a syntax tree in
+memory (a streaming parser will not be adequate).  An easy way to store tokens
+is to slurp the entire input file into a string, then during parsing, simply
+keep track of the offset/length/line/column info for each token.  This does not
+allow for token reformatting (for example 'Taxon_name' --> 'Taxon name'), but it
+has the advantage of perfectly preserving the input, and ultimately, reformatted
+tokens can be stored alongside the pristine original tokens.
+
+Incidentally, if the entire input file is going to be stored in memory anyway,
+it is potentially acceptable to do parsing in two passes; the first creates the
+syntax tree, and the second operates on and annotates the syntax tree.  This has
+the disadvantage of not catching all types of errors in the same pass, but it is
+simpler.  Hmm, actually, I think I can do parsing in a single pass, yet make it
+look to the handlers like the part of the tree it cares about is already in
+place, and is simply being traversed (well, except that parse errors have to
+propagate up through the handlers).  If the C APIs pass pointers to substrings
+around, then the entire file must be pre-read into memory, in order to guarantee
+that addresses won't change due to string expansion.  This seems acceptable;
+read the whole file in in advance, but parse it in a single pass.
+
+Actually, it makes the symantic analysis a lot easier if the entire AST is
+already in place, since there only needs to be one API for AST traversal.
+However, I really want errors to be reported as if the file is parsed in a
+single pass.  So here's how I want to pull this off: 1) Read the entire file in,
+2) create an AST for the whole file, and 3) use the AST to drive symantic
+analysis.  If there is an error during (2), create and insert an error node,
+then go on to (3).  As soon as the error node is traversed to, an exception is
+raised regarding the syntax error that was encountered.
+
+Another problem to consider is whitespace and comments.  As for rewriting the
+file, if we keep the pristine source in memory, then we know that the gaps
+between tokens are full of whitespace/comments.  That's fine.  The problem has
+to do with storage of comment info.  This is important because some comments are
+actually commands ([!...]) or print formatting ([\i]).  Therefore, they need to
+be referenced in the syntax tree, but in such a way as to not get in the way of
+normal tokens.  I am thinking that each normal token should have a pointer to a
+list of comments that come after it, but before the next token.  Incidentally,
+this means that the #NEXUS token would be more important to the syntax tree,
+since it would have to store pointers to comments that immediately follow it.
+
+--------------------------------------------------------------------------------
+
+------
+Nexus:
+
+- __init__(input, inputName) (parse from string or file descriptor)
+
+- inputName (returns filename, "<stdin>", "<string>", etc.)
+
+- tokenGet (return next token string/line/column/offset)
+- tokenUnget (push token back into input)
+- textRange(offset, length) (return raw text)
+
+- handlerSearch (search for a handler, like "NexusFile", "BlockTaxa", etc.)
+
+- root (return root node of AST, which is a NexusFile)
+- print (write AST to a callback function)
+
+-- NexusFile (default file parser)
+
+
+----------
+NexusBase:
+
+- __init__(input, parent, index,
+           offset/length/line/column=None) (input is a Nexus object)
+- input (return Nexus object that this object was created from)
+- text/offset/line/column (return raw text/location)
+- lengthGet/Set (length isn't always known at creation time, so make it
+                 settable)
+
+- print
+
+- childAppend
+
+- next/prev (in-order traversal of entire syntax tree, including comments)
+- parent/index/nChildren/child (index is offset in child list of parent)
+
+- left/right
+- accessCallback (used for throwing syntax errors)
+
+
+----------------------------
+NexusSyntaxError(NexusBase):
+
+- __init__(+message)
+- accessCallback (throw SyntaxError)
+
+
+---------------------
+NexusFile(NexusBase):
+
+- nBlocks (return number of blocks)
+- blockGet(index) (return block by index)
+- blockSearch (search for block by name ("taxa", "trees", etc.)
+
+-- NexusBlock (default block parser)
+-- NexusBlockCharacters... (standard block parsers.
+
+
+----------------------
+NexusBlock(NexusBase):
+
+- blockName (returns canonized name: "taxa", "trees", etc.)
+- statementSearch(command) (search for statement by command ("dimensions",
+  "taxlabels", etc.)
+- nStatements (return number of statements)
+- statementGet(index) (return statement by index)
+
+-- NexusStatement (default statement parser)
+
+
+--------------------------
+NexusStatement(NexusBase):
+
+- commandName
+- nWords (return number of words that follow the command, not including ';')
+- wordGet(index)
+
+
+---------------------
+NexusWord(NexusBase):
+
+- word (returns processed text -- '' collapse, '...'-->... , etc.)
+- nSeparators
+- separatorGet(index)
+
+
+------------------------
+NexusSeparator(NexusBase): (whitespace or comment)
+
+
+
+--------------------------------------------------------------------------------
+
+In order to integrate the Newick parser into the Nexus parser, I think it's
+going to be necessary to substantially revise the Newick parser.  There will
+need to be a tokenGet() method that can be overridden, and it will be necessary
+to be able override others, such as offset().  This should be enough to allow
+full wrapping, so that the Nexus parser can tokenize, then pass the tokens to
+the Newick parser.  The only alternative is to have a special statement parser
+for Newick trees that finds the ';' terminator, then passes the string to the
+Newick parser.  This double parsing is both inefficient and error prone.
+
+--------------------------------------------------------------------------------
+
+In order to write large portions of the NEXUS parser in C, I'm going to have to
+figure out how to subclass Python objects in C.  It looks like we do that by
+defining the tp_base field of the PyTypeObject data structure.
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
