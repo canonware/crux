@@ -176,7 +176,7 @@ AC_SUBST([crux_version])
 
 dnl Packages.
 crux_packages=""
-for p in crux newick ; do
+for p in crux newick dist_matrix ; do
   crux_packages="${crux_packages} '${p}',"
 done
 crux_packages="[[${crux_packages}]]"
