@@ -21,10 +21,11 @@ import DistMatrix
 import random
 
 class _NewickParser(NewickParser.NewickParser):
-    def __init__(self, tree, map):
+    def __init__(self, tree, map, autoMap=False):
         self._tree = tree
         self._map = map
         self._taxonStack = []
+        self._autoMap = autoMap
 
     # Overridden method.
     def parse(self, input):
@@ -88,14 +89,16 @@ class _NewickParser(NewickParser.NewickParser):
                 val = int(self.token())
                 self._map.map(self.token(), val)
             except ValueError:
-                # Failed conversion.  Create a new mapping.
-                # XXX This allows horrible failures to easily happen later on,
-                # and it's difficult to figure out what went wrong.  Is this a
-                # good idea?  Perhaps raising an exception is a better way to
-                # go.
-                print "Create new mapping for '%s' (dangerous)" % self.token()
-                val = self._map.ntaxaGet()
-                self._map.map(self.token(), val)
+                if self._autoMap:
+                    # Create a new mapping.
+                    print "Create new mapping for '%s' (dangerous)" \
+                          % self.token()
+                    val = self._map.ntaxaGet()
+                    self._map.map(self.token(), val)
+                else:
+                    # Failed conversion.
+                    raise crux.Tree.ValueError, "No mapping for '%s'" \
+                          % self.token()
 
         # Create a new node and push it onto the stack.
         nnode = Node.Node(self._tree)
@@ -150,13 +153,13 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, nodeA)
 
 class Tree(C_Tree):
-    def __init__(self, with=None, map=TaxonMap.TaxonMap()):
+    def __init__(self, with=None, map=TaxonMap.TaxonMap(), autoMap=False):
         if type(with) == int:
             self._map = map
             self._randomNew(with)
         elif type(with) == str or type(with) == file:
             self._map = map
-            self._newickNew(with)
+            self._newickNew(with, autoMap)
         elif type(with) == DistMatrix.DistMatrix:
             self._map = with.taxonMapGet()
             self._nj(with)
@@ -189,8 +192,8 @@ class Tree(C_Tree):
 
         self.baseSet(subtreeA)
 
-    def _newickNew(self, input):
-        parser = _NewickParser(self, self._map)
+    def _newickNew(self, input, autoMap):
+        parser = _NewickParser(self, self._map, autoMap)
         return parser.parse(input)
 
     def prints(self, labels=False, lengths=False):
