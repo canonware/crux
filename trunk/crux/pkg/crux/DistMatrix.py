@@ -71,6 +71,9 @@ class DistMatrix(C_DistMatrix):
     #
     #   TaxonMap : Create an uninitialized distance matrix of the appropriate
     #              size, given the number of taxa in the TaxonMap.
+    #
+    #   DistMatrix : Duplicate or sample from the input DistMatrix, depending
+    #                on the value of the 'sample' parameter.
     def __init__(self, input=None, symmetric=False, sample=None):
         # Validate input before calling the C_DistMatrix constructor.  I'm not
         # aware of a simple way to check the type of a Python-created class
