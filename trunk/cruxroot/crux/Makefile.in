@@ -10,7 +10,6 @@ SHELL := /bin/sh
 
 all:
 	@PYTHON@ setup.py build
-	chmod a+x crux
 
 install:
 	@PYTHON@ setup.py install

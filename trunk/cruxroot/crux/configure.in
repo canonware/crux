@@ -44,7 +44,7 @@ MANDIR=`eval echo $mandir`
 MANDIR=`eval echo $MANDIR`
 AC_SUBST([MANDIR])
 
-cfgoutputs="Makefile setup.py crux bin/crux pkg/crux/__init__.py"
+cfgoutputs="Makefile setup.py bin/crux pkg/crux/__init__.py"
 cfghdrs="config.stamp include/_cruxmodule_defs.h"
 bins=
 mods=
@@ -206,10 +206,11 @@ dnl Process .in files.
 AC_SUBST([cfghdrs])
 AC_CONFIG_HEADER([$cfghdrs])
 
-dnl verify is handled separately, since it must be executable.
+dnl verify and crux are handled separately, since they must be executable.
 AC_CONFIG_FILES([$cfgoutputs], [chmod +x $objroot/test/verify])
 AC_CONFIG_FILES([test/verify], [chmod +x test/verify])
-cfgoutputs="$cfgoutputs test/verify"
+AC_CONFIG_FILES([crux], [chmod +x crux])
+cfgoutputs="$cfgoutputs test/verify crux"
 AC_SUBST([cfgoutputs])
 AC_OUTPUT
 
