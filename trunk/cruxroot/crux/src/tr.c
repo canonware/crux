@@ -1730,9 +1730,7 @@ tr_p_mp_finish_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
 }
 
 #ifdef CW_CPU_IA32
-//XXX
-//CW_P_INLINE cw_uint32_t
-static cw_uint32_t
+CW_P_INLINE cw_uint32_t
 tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		    cw_tr_ps_t *a_b)
 {
@@ -1770,27 +1768,22 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 	/* Use SSE2 to evaluate as many of the characters as possible.  This
 	 * loop handles 16 characters per iteration. */
 
-	/* Fill xmm6 with 16 255's.
-	 * Fill xmm7 with 16 1's. */
+	/* Fill xmm7 with 16 255's. */
 	{
 	    static const unsigned char ones[] =
 		"\x01\x01\x01\x01\x01\x01\x01\x01"
 		"\x01\x01\x01\x01\x01\x01\x01\x01";
-	    static const unsigned char max[] =
-		"\xff\xff\xff\xff\xff\xff\xff\xff"
-		"\xff\xff\xff\xff\xff\xff\xff\xff";
 
 	    asm volatile (
-		"movdqu %[ones], %%xmm6;" /* xmm6 contains 16 1's. */
-		"movdqu %[max], %%xmm7;" /* xmm7 contains 16 255's. */
+		"movdqu %[ones], %%xmm7;"
 		:
-		: [ones] "m" (*ones), [max] "m" (*max)
-		: "%xmm6", "%xmm7"
+		: [ones] "m" (*ones)
+		: "%xmm7"
 		);
 	}
 
 	/* Clear pns. */
-	asm ("pxor %xmm5, %xmm5;");
+	asm volatile ("pxor %xmm5, %xmm5;");
 
 	// XXX Use prefetch?
 	for (pend = &chars_p[nchars ^ (nchars & 0xf)];
@@ -1805,20 +1798,22 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		 * p = a & b;
 		 * d = a | b;
 		 */
-		"movdqa %[a], %%xmm0;" /* xmm0 contains a. */
-		"movdqa %[b], %%xmm2;" /* xmm2 contains b. */
-		"movdqa %%xmm2, %%xmm1;"
-		"pand %%xmm0, %%xmm1;" /* xmm1 contains p. */
-		"por %%xmm1, %%xmm0;" /* xmm0 contains d. */
+		"movdqa %[a], %%xmm0;"
+		"movdqa %%xmm0, %%xmm1;"
+		"por %[b], %%xmm0;" /* xmm0 contains d. */
+		"pand %[b], %%xmm1;" /* xmm1 contains p. */
 
 		/* Create bitmasks according to whether the character state sets
 		 * are empty.
 		 *
+		 * c = p ? 0x00 : 0xff;
+		 * e = (c & d);
 		 * s = p ? 0 : 1;
 		 */
-		"movdqa %%xmm1, %%xmm2;"
-		"pminub %%xmm6, %%xmm2;"
-		"pxor %%xmm6, %%xmm2;" /* xmm2 contains s. */
+		"pxor %%xmm2, %%xmm2;"
+		"pcmpeqb %%xmm1, %%xmm2;" /* xmm2 contains c. */
+		"pand %%xmm2, %%xmm0;" /* xmm0 contains e. */
+		"pand %%xmm7, %%xmm2;" /* xmm2 contains s. */
 
 		/* Update node score.
 		 *
@@ -1827,11 +1822,7 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		// XXX In the worst case, this only works 255 times.
 		"paddusb %%xmm2, %%xmm5;"
 
-		/* c = -s; */
-		"paddusb %%xmm7, %%xmm2;" /* xmm2 contains c. */
-
-		/* p = (p | (c & d)); */
-		"pand %%xmm2, %%xmm0;"
+		/* p = (p | e); */
 		"por %%xmm1, %%xmm0;" /* xmm0 contains p. */
 
 		/* Store results.
@@ -1846,27 +1837,56 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 
 #if (0) // XXX
 	    {
+		cw_uint32_t i, a, b, p, c, s;
 		unsigned char bytes[16];
 
 		asm volatile (
-		    "movdqa %%xmm0, %[bytes];"
+		    "movdqa %%xmm3, %[bytes];"
 		    : [bytes] "=m" (*bytes)
 		    );
 
+#if (0)
 		fprintf(stderr,
-			"bytes: %p, %02x %02x %02x %02x %02x %02x %02x %02x"
-			" %02x %02x %02x %02x %02x %02x %02x %02x \n", bytes,
+			"bytes: %02x %02x %02x %02x %02x %02x %02x %02x"
+			" %02x %02x %02x %02x %02x %02x %02x %02x \n",
 			bytes[0], bytes[1], bytes[2], bytes[3],
 			bytes[4], bytes[5], bytes[6], bytes[7],
 			bytes[8], bytes[9], bytes[10], bytes[11],
 			bytes[12], bytes[13], bytes[14], bytes[15]);
-		exit(1);
+#endif
+
+		for (i = 0; i < 16; i++)
+		{
+		    a = chars_a[i];
+		    b = chars_b[i];
+
+		    p = a & b;
+		    s = p ? 0 : 1;
+		    c = -s;
+		    p = (p | (c & (a | b)));
+
+		    if (p != chars_p[i])
+		    {
+			fprintf(stderr,
+				"set %02x, want %02x : %02x | (%02x & (%02x | %02x)) [%u]\n",
+				chars_p[i], p, a & b,
+				c, a, b, i);
+		    }
+		    if (s != bytes[i])
+		    {
+			fprintf(stderr,
+				"score %02x, want %02x : %02x | (%02x & (%02x | %02x)) [%u]\n",
+				bytes[i], s, a & b,
+				c, a, b, i);
+		    }
+		}
 	    }
 #endif
 	}
 
 	/* Update ns. */
 	{
+	    cw_uint32_t i;
 	    unsigned char pns[16];
 
 	    asm volatile (
@@ -1875,6 +1895,11 @@ tr_p_mp_ia32_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 		:
 		: "memory"
 	    );
+
+	    for (i = 0; i < 16; i++)
+	    {
+		ns += pns[i];
+	    }
 	}
 
 	/* Evaluate the last 0-15 characters that weren't evaluated in the above
