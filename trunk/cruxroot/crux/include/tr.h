@@ -53,7 +53,10 @@ tr_base_get(cw_tr_t *a_tr);
 void
 tr_base_set(cw_tr_t *a_tr, cw_tr_node_t a_base);
 
-/* Canonize the tree. */
+/* Canonize the tree.  The base of the tree is set to the lowest numbered taxon,
+ * and internal nodes are adjusted such that their edge rings are ordered
+ * (subtrees with lower minimum taxon numbers come first), and the edge returned
+ * by tr_node_edge_get() is the edge that leads back to the base. */
 void
 tr_canonize(cw_tr_t *a_tr);
 
