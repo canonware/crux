@@ -146,8 +146,8 @@ class dist_matrix(object):
                 self._tokens = re.split(r'\s+', input)
         elif type(self._input) == file:
             if self._tokens == None or len(self._tokens) == 0:
-                line = readline(self._input)
-                self._tokens = re.split(r'\s+', re.M | re.S, line)
+                line = self._input.readline()
+                self._tokens = re.split(r'\s+', line)
         else:
             raise TypeError
 
@@ -196,6 +196,8 @@ class dist_matrix(object):
                 i += 1
         elif self._matrix_format == 'lower':
             if len(distances) != row:
+                # XXX Add informative error messages?
+                print "XXX row: %d, len: %d" % (row, len(distances))
                 raise ValueError
             self._matrix[row * self._ntaxa + row] = 0.0
             i = 0
