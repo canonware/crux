@@ -1928,11 +1928,11 @@ CxpTrMpCPscore(CxtTr *aTr, CxtTrPs *aP, CxtTrPs *aA,
     uint32_t i, nwords, ns, a, b, m, r, un;
     uint32_t *charsP, *charsA, *charsB;
     static const uint32_t bitsTable[] =
-	{
-	    2, 1, -1, -1, -1, -1, -1, -1,
-	    -1, -1, -1, -1, -1, -1, -1, -1,
-	    1, 0
-	};
+    {
+	2, 1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	1, 0
+    };
 
     /* Calculate node score. */
     ns = 0;
@@ -2235,11 +2235,11 @@ CxpTrMpCFscore(CxtTr *aTr, CxtTrPs *aA, CxtTrPs *aB,
     uint32_t retval, i, nwords, a, b, m;
     uint32_t *charsA, *charsB;
     static const uint32_t bitsTable[] =
-	{
-	    2, 1, -1, -1, -1, -1, -1, -1,
-	    -1, -1, -1, -1, -1, -1, -1, -1,
-	    1, 0
-	};
+    {
+	2, 1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	1, 0
+    };
 
     /* Calculate sum of subtree scores. */
     retval
