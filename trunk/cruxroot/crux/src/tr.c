@@ -415,7 +415,8 @@ tr_p_ps_char_set(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_trc_t a_char,
 {
     cw_check_ptr(a_ps->chars);
     cw_assert((a_char & 0xfU) == a_char);
-    cw_assert(a_offset < a_ps->nchars);
+    cw_assert(a_offset
+	      < a_ps->nchars + ((32 - (a_ps->nchars & 0x1fU)) & 0x1fU));
 
     if ((a_offset & 1) == 0)
     {
@@ -445,31 +446,42 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
     /* Allocate character vector if necessary. */
     if (a_ps->chars == NULL)
     {
-	uint32_t npad, i;
-
-	/* Calculate the number of pad characters to append, such that the total
-	 * number of characters is a multiple of 16. */
-	npad = (32 - (a_nchars & 0x1f)) & 0xfU;
-	cw_assert(((a_nchars + npad) & 0x1f) == 0);
-
-	/* Tack on 8 bytes; all modern systems provide at least 8 byte
-	 * alignment. */
-	a_ps->achars = (cw_trc_t *) cw_malloc(sizeof(cw_trc_t)
-					      * (((a_nchars + npad) >> 1)) + 8);
-
-	/* Make sure that chars is 16 byte-aligned.  Assume that chars is at
-	 * least 8 byte-aligned. */
-	a_ps->chars = &a_ps->achars[((unsigned) a_ps->achars) & 0xfU];
-
-	/* Set all pad characters to {ACGT}.  This allows the pad characters to
-	 * be calculated along with the actual characters, without affecting the
-	 * score. */
-	for (i = a_nchars; i < a_nchars + npad; i++)
+	if (a_nchars != 0)
 	{
-	    tr_p_ps_char_set(a_tr, a_ps, 0xfU, i);
-	}
+	    uint32_t npad, i;
 
-	a_ps->nchars = a_nchars + npad;
+	    /* Calculate the number of pad bytes to append, such that the total
+	     * number of bytes is a multiple of 16 (total number of taxonomical
+	     * characters is a multiple of 32). */
+	    npad = (32 - (a_nchars & 0x1fU)) & 0x1fU;
+	    cw_assert(((a_nchars + npad) & 0x1fU) == 0);
+
+	    /* Tack on 8 bytes; all modern systems provide at least 8 byte
+	     * alignment. */
+	    a_ps->achars = (cw_trc_t *) cw_malloc(sizeof(cw_trc_t)
+						  * (((a_nchars + npad) >> 1))
+						  + 8);
+
+	    /* Make sure that chars is 16 byte-aligned.  Assume that achars is
+	     * at least 8 byte-aligned. */
+	    a_ps->chars = &a_ps->achars[((unsigned) a_ps->achars) & 0xfU];
+
+	    a_ps->nchars = a_nchars + npad;
+
+	    /* Set all pad characters to {ACGT}.  This allows the pad characters
+	     * to be calculated along with the actual characters, without
+	     * affecting the score. */
+	    for (i = a_nchars; i < a_nchars + npad; i++)
+	    {
+		tr_p_ps_char_set(a_tr, a_ps, 0xfU, i);
+	    }
+	}
+	else
+	{
+	    a_ps->achars = NULL;
+	    a_ps->chars = NULL;
+	    a_ps->nchars = 0;
+	}
     }
 }
 
