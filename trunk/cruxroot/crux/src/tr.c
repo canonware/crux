@@ -25,6 +25,12 @@ struct cw_tr_ps_s
      * the cached results to be valid. */
     cw_tr_ps_t *parent;
 
+    /* If this node is adjacent to the bisection edge, then this variable
+     * records the node on the other end of the bisection edge.  This is used
+     * when deciding whether to push the value of parent down to the child when
+     * recursively scoring. */
+    cw_tr_node_t other;
+
     /* Sum of the subtree scores, and this node's score, given particular
      * children.  In order for this to be useful, both childrens' parent
      * pointers must still point to this node. */
@@ -75,6 +81,12 @@ struct cw_tre_s
     /* Used for Fitch parsimony scoring. */
     cw_tr_ps_t *ps;
     cw_uint32_t pscore;
+
+    /* Used to make sure that irrelevant edges are not used for Fitch parsimony
+     * scoring. */
+#ifdef CW_DBG
+    cw_bool_t tbr_mp_avoid;
+#endif
 };
 
 /* TBR neighbor. */
@@ -1158,7 +1170,6 @@ tr_p_update(cw_tr_t *a_tr)
     }
 }
 
-// XXX Check for malformed trees during recursion.
 /* Convert a tree to canonical form by re-ordering the neighbors array such that
  * subtrees are in increasing order of minimum taxon number contained. */
 static cw_uint32_t
@@ -1170,6 +1181,9 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
     cw_uint32_t subtree_inds[CW_TR_NODE_MAX_NEIGHBORS - 1];
     cw_bool_t swapped;
     cw_trn_t *trn;
+#ifdef CW_DBG
+    cw_uint32_t nneighbors = 0;
+#endif
 
     cw_dassert(tr_p_node_validate(a_tr, a_node));
 
@@ -1190,6 +1204,13 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
      * seen overall, as well as for each subtree. */
     for (i = j = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
+#ifdef CW_DBG
+	if (trn->neighbors[i] != CW_TR_NODE_NONE)
+	{
+	    nneighbors++;
+	}
+#endif
+
 	if (trn->neighbors[i] != CW_TR_NODE_NONE && trn->neighbors[i] != a_prev)
 	{
 	    /* A neighboring subtree that hasn't been visited yet. */
@@ -1203,6 +1224,10 @@ tr_p_canonize(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev)
 	    j++;
 	}
     }
+
+    cw_dassert((trn->taxon_num != CW_TR_NODE_TAXON_NONE && nneighbors <= 1)
+	       || (trn->taxon_num == CW_TR_NODE_TAXON_NONE &&
+		   nneighbors == CW_TR_NODE_MAX_NEIGHBORS));
 
     /* Bubble sort the subtrees.  This algorithm works regardless of the value
      * of CW_TR_NODE_MAX_NEIGHBORS, but for bifurcating trees it only requires a
@@ -1652,13 +1677,14 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 CW_P_INLINE cw_uint32_t
 tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 {
-#ifdef CW_DBG
+//#define CW_TR_MP_PSCORE_VALIDATE
+#ifdef CW_TR_MP_PSCORE_VALIDATE
     cw_bool_t cached;
 #endif
 
     /* Only calculate the parent's node score if the cached value is invalid. */
     if (a_a->parent != a_p || a_b->parent != a_p)
-#ifdef CW_DBG
+#ifdef CW_TR_MP_PSCORE_VALIDATE
     {
 	cached = FALSE;
     }
@@ -1670,7 +1696,7 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
     {
 	cw_uint32_t i, nchars, ns, a, b, p, c, s;
 
-#ifdef CW_DBG
+#ifdef CW_TR_MP_PSCORE_VALIDATE
 	if (cached)
 	{
 	    if (a_p->subtrees_score
@@ -1719,7 +1745,7 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 	    ns += s;
 	}
 
-#ifdef CW_DBG
+#ifdef CW_TR_MP_PSCORE_VALIDATE
 	if (cached)
 	{
 	    if (ns != a_p->node_score)
@@ -1733,21 +1759,6 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a, cw_tr_ps_t *a_b)
 #endif
 	a_p->node_score = ns;
     }
-
-//    if (cached)
-//    {
-//	fprintf(stderr, ".");
-//    }
-//    else
-//    {
-//	fprintf(stderr, "+");
-//    }
-//    fprintf(stderr, "[(%u + %u) + (%u + %u)] + %u --> %u\n",
-//	    a_a->subtrees_score, a_a->node_score,
-//	    a_b->subtrees_score, a_b->node_score,
-//	    a_p->node_score,
-//	    a_p->subtrees_score + a_p->node_score
-//	    );
 
     return (a_p->subtrees_score + a_p->node_score);
 }
@@ -1771,9 +1782,10 @@ tr_p_mp_nopscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a,
 CW_P_INLINE void
 tr_p_mp_passpscore(cw_tr_t *a_tr, cw_tr_ps_t *a_p, cw_tr_ps_t *a_a)
 {
+    a_p->parent = a_a->parent;
     a_p->subtrees_score = a_a->subtrees_score;
     a_p->node_score = a_a->node_score;
-    memcpy(a_p->chars, a_a->chars, a_p->nchars);
+    memcpy(a_p->chars, a_a->chars, sizeof(cw_uint32_t) * a_p->nchars);
 }
 
 static void
@@ -1783,13 +1795,16 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 {
     cw_uint32_t i;
     cw_tr_node_t node, a, b, o;
+    cw_trn_t *trn;
 
-//    fprintf(stderr, "==> %u\n", a_node);
+    trn = &a_tr->trns[a_node];
+
     a = CW_TR_NODE_NONE;
     b = CW_TR_NODE_NONE;
     o = CW_TR_NODE_NONE;
 
-    /* Recurse into subtrees. */
+    /* Set a, b, and o, according to which neighbors are subtrees or on the
+     * other side of the bisection. */
     for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
     {
 	node = tr_node_neighbor_get(a_tr, a_node, i);
@@ -1810,21 +1825,26 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 		    cw_assert(b == CW_TR_NODE_NONE);
 		    b = node;
 		}
-
-		tr_p_mp_score_recurse(a_tr, node, a_node, a_other, a_maxscore,
-				      ar_maxed);
 	    }
 	}
     }
 
+    /* Recursively calculate partial scores for the subtrees, then calculate the
+     * partial score for this node. */
     if (b != CW_TR_NODE_NONE)
     {
+	/* Recurse into subtrees. */
+	tr_p_mp_score_recurse(a_tr, a, a_node, a_other, a_maxscore, ar_maxed);
+	tr_p_mp_score_recurse(a_tr, b, a_node, a_other, a_maxscore, ar_maxed);
+
+	/* Clear cached other value. */
+	trn->ps->other = o;
+
 	/* Calculate this node's partial score. */
 
 	cw_assert(a != CW_TR_NODE_NONE);
 	if (*ar_maxed == FALSE)
 	{
-//	    fprintf(stderr, "score\n");
 	    /* Calculate the partial score for this node. */
 	    if (tr_p_mp_pscore(a_tr, a_tr->trns[a_node].ps,
 			       a_tr->trns[a].ps, a_tr->trns[b].ps)
@@ -1839,23 +1859,39 @@ tr_p_mp_score_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 	{
 	    /* Clear invalid cached parial score if necessary, but do not
 	     * calculate the partial score. */
-//	    fprintf(stderr, "none\n");
 	    tr_p_mp_nopscore(a_tr, a_tr->trns[a_node].ps, a_tr->trns[a].ps,
 			     a_tr->trns[b].ps);
 	}
     }
     else if (o != CW_TR_NODE_NONE)
     {
+	cw_assert(a != CW_TR_NODE_NONE);
+	cw_assert(b == CW_TR_NODE_NONE);
+
+	/* Recurse into subtree, and pass down cached parent value, if the last
+	 * time this node was recursed through, o was the same. */
+	if (trn->ps->other == o)
+	{
+	    /* Pass cached parent value to the child. */
+	    a_tr->trns[a].ps->parent = trn->ps->parent;
+	}
+	else
+	{
+	    /* Clear cached other value. */
+	    trn->ps->other = o;
+	}
+
+	/* Recurse into subtree. */
+	tr_p_mp_score_recurse(a_tr, a, a_node, a_other, a_maxscore, ar_maxed);
+
 	/* Copy a's scores to this node, rather than calculating a partial
 	 * score.  This node is merely a filler node, as far as scoring is
 	 * concerned. */
 	if (a != CW_TR_NODE_NONE)
 	{
-//	    fprintf(stderr, "pass\n");
 	    tr_p_mp_passpscore(a_tr, a_tr->trns[a_node].ps, a_tr->trns[a].ps);
 	}
     }
-//    fprintf(stderr, "<== %u\n", a_node);
 }
 
 static cw_uint32_t
@@ -1899,6 +1935,287 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
     retval = a_ps->subtrees_score + a_ps->node_score;
     RETURN:
     return retval;
+}
+
+CW_P_INLINE void
+tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_uint32_t *a_edges,
+			    cw_uint32_t a_nedges, cw_tr_node_t a_other,
+			    cw_uint32_t a_maxscore)
+{
+    cw_uint32_t i;
+    cw_tre_t *tre;
+
+    for (i = 0; i < a_nedges; i++)
+    {
+	if (a_edges[i] != CW_TR_NODE_EDGE_NONE)
+	{
+	    tre = &a_tr->tres[a_edges[i]];
+
+	    tre->pscore = tr_p_mp_score(a_tr, tre->ps, tre->node_a, tre->node_b,
+					a_other, a_maxscore);
+	}
+    }
+}
+
+static void
+tr_p_bisection_edge_list_gen_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
+				     cw_tr_node_t a_prev, cw_uint32_t *ar_edges,
+				     cw_uint32_t *ar_nedges)
+{
+    cw_uint32_t i;
+    cw_trn_t *trn;
+
+    trn = &a_tr->trns[a_node];
+
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    {
+	if (trn->neighbors[i] != CW_TR_NODE_NONE
+	    && trn->neighbors[i] != a_prev)
+	{
+	    /* Add edge to list. */
+	    ar_edges[*ar_nedges] = trn->edges[i];
+	    (*ar_nedges)++;
+
+	    /* Recurse into neighbor subtree. */
+	    tr_p_bisection_edge_list_gen_recurse(a_tr, trn->neighbors[i],
+						 a_node, ar_edges, ar_nedges);
+	}
+    }
+}
+
+/* Pretend that the tree is bisected at the edge between a_node and a_other.
+ * Construct a list of edges that are in the subtree that contains a_node.
+ *
+ * The first element in the list is always the edge that is adjacent to the
+ * bisection.  This facilitates recognition of reconnections that would reverse
+ * bisection. */
+CW_P_INLINE void
+tr_p_bisection_edge_list_gen(cw_tr_t *a_tr, cw_tr_node_t a_node,
+			     cw_tr_node_t a_other, cw_uint32_t *ar_edges,
+			     cw_uint32_t *ar_nedges)
+{
+    cw_trn_t *trn;
+    cw_tr_node_t a, b;
+    cw_uint32_t i, i_a;
+#ifdef CW_DBG
+    cw_uint32_t i_b;
+#endif
+
+    /* Initialize the length of the list before recursing. */
+    *ar_nedges = 0;
+
+    trn = &a_tr->trns[a_node];
+
+    /* Get trn's neighbors. */
+    for (i = 0, a = b = CW_TR_NODE_NONE;
+	 i < CW_TR_NODE_MAX_NEIGHBORS && b == CW_TR_NODE_NONE;
+	 i++)
+    {
+	cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
+
+	if (trn->neighbors[i] != CW_TR_NODE_NONE
+	    && trn->neighbors[i] != a_other)
+	{
+	    if (a == CW_TR_NODE_NONE)
+	    {
+		a = trn->neighbors[i];
+		i_a = i;
+	    }
+	    else
+	    {
+		b = trn->neighbors[i];
+#ifdef CW_DBG
+		i_b = i;
+#endif
+	    }
+	}
+    }
+
+    /* Recurse into subtree below a, if this isn't a leaf node. */
+    if (a != CW_TR_NODE_NONE)
+    {
+	/* Add edge to list. */
+	ar_edges[*ar_nedges] = trn->edges[i_a];
+	(*ar_nedges)++;
+
+	tr_p_bisection_edge_list_gen_recurse(a_tr, a, a_node, ar_edges,
+					     ar_nedges);
+    }
+
+    /* Recurse into subtree below b, if this isn't a leaf node. */
+    if (b != CW_TR_NODE_NONE)
+    {
+	/* Do not add edge to list, since logically, this edge and the one next
+	 * to a are the same for the purposes of TBR. */
+#ifdef CW_DBG
+	a_tr->tres[trn->edges[i_b]].tbr_mp_avoid = TRUE;
+#endif
+
+	tr_p_bisection_edge_list_gen_recurse(a_tr, b, a_node, ar_edges,
+					     ar_nedges);
+    }
+
+    /* If the edge list is still empty (bisection edge next to a leaf node), add
+     * a single entry to the list. */
+    if (*ar_nedges == 0)
+    {
+	ar_edges[0] = CW_TR_NODE_EDGE_NONE;
+	(*ar_nedges)++;
+    }
+}
+
+CW_P_INLINE void
+tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
+		      cw_uint32_t a_maxscore, cw_uint32_t a_best_only)
+{
+    cw_uint32_t i, j, k, nedges_a, nedges_b, edge_a, edge_b;
+    cw_uint32_t score;
+    cw_uint32_t *edges_a, *edges_b;
+    cw_tre_t *tre, *tre_a, *tre_b;
+    cw_tr_ps_t *ps, *ps_a, *ps_b;
+
+    cw_dassert(tr_p_validate(a_tr));
+
+    /* Set up tree holding data structures. */
+    // XXX
+
+    /* Allocate an array that is big enough to hold both edge lists (used below
+     * for reconnection iteration.  edges_a always points to the beginning of
+     * the array, and edges_b points to &edges_a[nedges_a]. */
+    edges_a = (cw_uint32_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+					      mema_arg_get(a_tr->mema),
+					      sizeof(cw_uint32_t)
+					      * a_tr->nedges);
+
+    // XXX
+    cw_uint32_t nneighbors = 0;
+    static cw_uint32_t bestscore = CW_TR_MAXSCORE_NONE;
+    static cw_uint32_t count = 0;
+
+    /* Iteratively (logically) bisect at each edge in the tree. */
+    ps = a_tr->trns[0].ps;
+    for (i = 0; i < a_tr->nedges; i++)
+    {
+	tre = &a_tr->tres[i];
+
+//	fprintf(stderr, "%s:%d:%s(): Bisect edge %u\n",
+//		__FILE__, __LINE__, __FUNCTION__, i);
+	/* Determine which edges are in each subtree.  Make sure that
+	 * tre->node_[ab] and edges_[ab] correspond. */
+#ifdef CW_DBG
+	for (j = 0; j < a_tr->nedges; j++)
+	{
+	    a_tr->tres[j].tbr_mp_avoid = FALSE;
+	}
+	a_tr->tres[i].tbr_mp_avoid = TRUE;
+#endif
+	tr_p_bisection_edge_list_gen(a_tr, tre->node_a, tre->node_b,
+				     edges_a, &nedges_a);
+	edges_b = &edges_a[nedges_a];
+	tr_p_bisection_edge_list_gen(a_tr, tre->node_b, tre->node_a,
+				     edges_b, &nedges_b);
+
+//	fprintf(stderr, "%s:%d:%s(): nedges_[ab]: %u %u\n",
+//		__FILE__, __LINE__, __FUNCTION__,
+//		nedges_a, nedges_b);
+	cw_assert((nedges_a == 1 && (nedges_b == a_tr->nedges - 2
+				     || nedges_b == a_tr->nedges - 4))
+		  || (nedges_b == 1 && (nedges_a == a_tr->nedges - 2
+					|| nedges_a == a_tr->nedges - 4))
+		  || (nedges_a != 1 && nedges_b != 1
+		      && nedges_a + nedges_b == a_tr->nedges - 3));
+
+	/* Calculate the partial score for each edge in the edge lists. */
+	tr_p_bisection_edge_list_mp(a_tr, edges_a, nedges_a, tre->node_b,
+				    a_maxscore);
+	tr_p_bisection_edge_list_mp(a_tr, edges_b, nedges_b, tre->node_a,
+				    a_maxscore);
+
+	/* Iteratively (logically) reconnect every legitimate pairing of edges
+	 * between the two subtrees and calculate final parsimony scores. */
+	for (j = 0; j < nedges_a; j++)
+	{
+	    edge_a = edges_a[j];
+	    if (edge_a != CW_TR_NODE_EDGE_NONE)
+	    {
+		tre_a = &a_tr->tres[edge_a];
+		cw_dassert(tre_a->tbr_mp_avoid == FALSE);
+		ps_a = a_tr->tres[edge_a].ps;
+	    }
+	    else
+	    {
+		tre_a = NULL;
+		ps_a = a_tr->trns[tre->node_a].ps;
+	    }
+
+	    /* Skip this iteration if edge_a's partial score exceeded
+	     * a_maxscore. */
+	    if (tre_a != NULL && tre_a->pscore == CW_TR_MAXSCORE_NONE)
+	    {
+		continue;
+	    }
+
+	    for (k = 0; k < nedges_b; k++)
+	    {
+		edge_b = edges_b[k];
+		if (edge_b != CW_TR_NODE_EDGE_NONE)
+		{
+		    tre_b = &a_tr->tres[edge_b];
+		    cw_dassert(tre_b->tbr_mp_avoid == FALSE);
+		    ps_b = a_tr->tres[edge_b].ps;
+		}
+		else
+		{
+		    tre_b = NULL;
+		    ps_b = a_tr->trns[tre->node_b].ps;
+		}
+
+		/* Skip this iteration if the reconnection would result in
+		 * reversing the bisection, or if edge_b's partial score
+		 * exceeded a_maxscore. */
+		if ((j == 0 && k == 0)
+		    || (tre_b != NULL && tre_b->pscore == CW_TR_MAXSCORE_NONE))
+		{
+		    continue;
+		}
+
+		nneighbors++;
+		/* Calculate the final parsimony score for this reconnection.
+		 * Clear the parent pointers of ps_[ab], to make sure that the
+		 * score is actually calculated. */
+		ps_a->parent = NULL;
+		ps_b->parent = NULL;
+		score = tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
+
+		// XXX Do something with the score.
+
+		if (score < bestscore)
+		{
+		    bestscore = score;
+		    fprintf(stderr,
+			    "Score (bisect %u, reconnect %u %u)[%u,%u,%u]: %u"
+			    " (prev count %u)\n",
+			    i, edge_a, edge_b,
+			    i, j, k,
+			    score, count);
+		    count = 1;
+		}
+		else if (score == bestscore)
+		{
+		    count++;
+		}
+		// XXX
+	    }
+	}
+    }
+    fprintf(stderr, "Score: %u (count %u)\n", bestscore, count);
+    fprintf(stderr, "%s:%d:%s(): nneighbors: %u (should be %u)\n",
+	    __FILE__, __LINE__, __FUNCTION__,
+	    nneighbors, a_tr->trt[a_tr->trtused].offset);
+
+    /* Clean up. */
+    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema), mema_arg_get(a_tr->mema),
+		      edges_a, sizeof(cw_uint32_t) * a_tr->nedges);
 }
 
 cw_tr_t *
@@ -2355,301 +2672,6 @@ tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore)
     return tr_p_mp_score(a_tr, a_tr->trns[0].ps,
 			 a_tr->trns[a_tr->base].neighbors[0], a_tr->base,
 			 CW_TR_NODE_NONE, a_maxscore);
-}
-
-CW_P_INLINE void
-tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, cw_uint32_t *a_edges,
-			    cw_uint32_t a_nedges, cw_tr_node_t a_other,
-			    cw_uint32_t a_maxscore)
-{
-    cw_uint32_t i;
-    cw_tre_t *tre;
-
-    for (i = 0; i < a_nedges; i++)
-    {
-	if (a_edges[i] != CW_TR_NODE_EDGE_NONE)
-	{
-	    tre = &a_tr->tres[a_edges[i]];
-
-//	    fprintf(stderr,
-//		    "%s:%d:%s() p %u, a %u (%d), b %u (%d), o %u (%d)\n",
-//		    __FILE__, __LINE__, __FUNCTION__,
-//		    a_edges[i],
-//		    tre->node_a, a_tr->trns[tre->node_a].taxon_num,
-//		    tre->node_b, a_tr->trns[tre->node_b].taxon_num,
-//		    a_other, a_tr->trns[a_other].taxon_num
-//		    );
-	    tre->pscore = tr_p_mp_score(a_tr, tre->ps, tre->node_a, tre->node_b,
-					a_other, a_maxscore);
-	}
-    }
-}
-
-// XXX Move up.
-static void
-tr_p_bisection_edge_list_gen_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node,
-				     cw_tr_node_t a_prev, cw_uint32_t *ar_edges,
-				     cw_uint32_t *ar_nedges)
-{
-    cw_uint32_t i;
-    cw_trn_t *trn;
-
-    trn = &a_tr->trns[a_node];
-
-    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
-    {
-	if (trn->neighbors[i] != CW_TR_NODE_NONE
-	    && trn->neighbors[i] != a_prev)
-	{
-	    /* Add edge to list. */
-	    ar_edges[*ar_nedges] = trn->edges[i];
-	    (*ar_nedges)++;
-
-	    /* Recurse into neighbor subtree. */
-	    tr_p_bisection_edge_list_gen_recurse(a_tr, trn->neighbors[i],
-						 a_node, ar_edges, ar_nedges);
-	}
-    }
-}
-
-// XXX Move up.
-/* Pretend that the tree is bisected at the edge between a_node and a_other.
- * Construct a list of edges that are in the subtree that contains a_node.
- *
- * The first element in the list is always the edge that is adjacent to the
- * bisection.  This facilitates recognition of reconnections that would reverse
- * bisection. */
-CW_P_INLINE void
-tr_p_bisection_edge_list_gen(cw_tr_t *a_tr, cw_tr_node_t a_node,
-			     cw_tr_node_t a_other, cw_uint32_t *ar_edges,
-			     cw_uint32_t *ar_nedges)
-{
-    cw_trn_t *trn;
-    cw_uint32_t i, i_a;
-    cw_tr_node_t a, b;
-
-    /* Initialize the length of the list before recursing. */
-    *ar_nedges = 0;
-
-    trn = &a_tr->trns[a_node];
-
-    /* Get trn's neighbors. */
-    for (i = 0, a = b = CW_TR_NODE_NONE;
-	 i < CW_TR_NODE_MAX_NEIGHBORS && b == CW_TR_NODE_NONE;
-	 i++)
-    {
-	cw_assert(i < CW_TR_NODE_MAX_NEIGHBORS);
-
-	if (trn->neighbors[i] != CW_TR_NODE_NONE
-	    && trn->neighbors[i] != a_other)
-	{
-	    if (a == CW_TR_NODE_NONE)
-	    {
-		a = trn->neighbors[i];
-		i_a = i;
-	    }
-	    else
-	    {
-		b = trn->neighbors[i];
-	    }
-	}
-    }
-
-    /* Recurse into subtree below a, if this isn't a leaf node. */
-    if (a != CW_TR_NODE_NONE)
-    {
-	/* Add edge to list. */
-	ar_edges[*ar_nedges] = trn->edges[i_a];
-	(*ar_nedges)++;
-
-	tr_p_bisection_edge_list_gen_recurse(a_tr, a, a_node, ar_edges,
-					     ar_nedges);
-    }
-
-    /* Recurse into subtree below b, if this isn't a leaf node. */
-    if (b != CW_TR_NODE_NONE)
-    {
-	/* Do not add edge to list, since logically, this edge and the one next
-	 * to a are the same for the purposes of TBR. */
-	tr_p_bisection_edge_list_gen_recurse(a_tr, b, a_node, ar_edges,
-					     ar_nedges);
-    }
-
-    /* If the edge list is still empty (bisection edge next to a leaf node), add
-     * a single entry to the list. */
-    if (*ar_nedges == 0)
-    {
-	ar_edges[0] = CW_TR_NODE_EDGE_NONE;
-	(*ar_nedges)++;
-    }
-}
-
-CW_P_INLINE void
-tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
-		      cw_uint32_t a_maxscore, cw_uint32_t a_best_only)
-{
-    cw_uint32_t i, j, k, nedges_a, nedges_b, edge_a, edge_b;
-    cw_uint32_t score;
-    cw_uint32_t *edges_a, *edges_b;
-    cw_tre_t *tre, *tre_a, *tre_b;
-    cw_tr_ps_t *ps, *ps_a, *ps_b;
-
-    cw_dassert(tr_p_validate(a_tr));
-
-    /* Set up tree holding data structures. */
-    // XXX
-
-    /* Allocate an array that is big enough to hold both edge lists (used below
-     * for reconnection iteration.  edges_a always points to the beginning of
-     * the array, and edges_b points to &edges_a[nedges_a]. */
-    edges_a = (cw_uint32_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					      mema_arg_get(a_tr->mema),
-					      sizeof(cw_uint32_t)
-					      * a_tr->nedges);
-
-    // XXX
-    cw_uint32_t nneighbors = 0;
-    static cw_uint32_t bestscore = CW_TR_MAXSCORE_NONE;
-    static cw_uint32_t count = 0;
-
-    /* Iteratively (logically) bisect at each edge in the tree. */
-    ps = a_tr->trns[0].ps;
-    for (i = 0; i < a_tr->nedges; i++)
-    {
-	tre = &a_tr->tres[i];
-
-	fprintf(stderr, "%s:%d:%s(): Edge %u\n",
-		__FILE__, __LINE__, __FUNCTION__, i);
-	/* Determine which edges are in each subtree.  Make sure that
-	 * tre->node_[ab] and edges_[ab] correspond. */
-	tr_p_bisection_edge_list_gen(a_tr, tre->node_a, tre->node_b,
-				     edges_a, &nedges_a);
-	edges_b = &edges_a[nedges_a];
-	tr_p_bisection_edge_list_gen(a_tr, tre->node_b, tre->node_a,
-				     edges_b, &nedges_b);
-
-	fprintf(stderr, "%s:%d:%s(): nedges_[ab]: %u %u\n",
-		__FILE__, __LINE__, __FUNCTION__,
-		nedges_a, nedges_b);
-	cw_assert((nedges_a == 1 && (nedges_b == a_tr->nedges - 2
-				     || nedges_b == a_tr->nedges - 4))
-		  || (nedges_b == 1 && (nedges_a == a_tr->nedges - 2
-					|| nedges_a == a_tr->nedges - 4))
-		  || (nedges_a != 1 && nedges_b != 1
-		      && nedges_a + nedges_b == a_tr->nedges - 3));
-
-	/* Calculate the partial score for each edge in the edge lists. */
-//	fprintf(stderr, "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
-	tr_p_bisection_edge_list_mp(a_tr, edges_a, nedges_a, tre->node_b,
-				    a_maxscore);
-	tr_p_bisection_edge_list_mp(a_tr, edges_b, nedges_b, tre->node_a,
-				    a_maxscore);
-//	fprintf(stderr, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-
-	/* Iteratively (logically) reconnect every legitimate pairing of edges
-	 * between the two subtrees and calculate final parsimony scores. */
-	for (j = 0; j < nedges_a; j++)
-	{
-	    edge_a = edges_a[j];
-	    if (edge_a != CW_TR_NODE_EDGE_NONE)
-	    {
-		tre_a = &a_tr->tres[edge_a];
-		ps_a = a_tr->tres[edge_a].ps;
-	    }
-	    else
-	    {
-		tre_a = NULL;
-		ps_a = a_tr->trns[tre->node_a].ps;
-	    }
-
-	    /* Skip this iteration if edge_a's partial score exceeded
-	     * a_maxscore. */
-	    if (tre_a != NULL && tre_a->pscore == CW_TR_MAXSCORE_NONE)
-	    {
-		fprintf(stderr, "%s:%d:%s(): Skip (%u %d *)\n",
-			__FILE__, __LINE__, __FUNCTION__,
-			i, edge_a);
-		continue;
-	    }
-
-	    for (k = 0; k < nedges_b; k++)
-	    {
-		edge_b = edges_b[k];
-		if (edge_b != CW_TR_NODE_EDGE_NONE)
-		{
-		    tre_b = &a_tr->tres[edge_b];
-		    ps_b = a_tr->tres[edge_b].ps;
-		}
-		else
-		{
-		    tre_b = NULL;
-		    ps_b = a_tr->trns[tre->node_b].ps;
-		}
-
-		/* Skip this iteration if the reconnection would result in
-		 * reversing the bisection, or if edge_b's partial score
-		 * exceeded a_maxscore. */
-		if ((j == 0 && k == 0)
-		    || (tre_b != NULL && tre_b->pscore == CW_TR_MAXSCORE_NONE))
-		{
-		    fprintf(stderr, "%s:%d:%s(): Skip (%u %d %d)[%u %u %u]\n",
-			    __FILE__, __LINE__, __FUNCTION__,
-			    i, edge_a, edge_b,
-			    i, j, k);
-		    continue;
-		}
-
-		nneighbors++;
-		/* Calculate the final parsimony score for this reconnection. */
-		fprintf(stderr, ".");
-		score = tr_p_mp_pscore(a_tr, ps, ps_a, ps_b);
-
-		fprintf(stderr,
-			"%s:%d:%s(): Score (%u %d %d)[%u %u %u] --> %u\n",
-			__FILE__, __LINE__, __FUNCTION__,
-			i, edge_a, edge_b,
-			i, j, k,
-			score);
-
-		// XXX Do something with the score.
-		if (k == 0)
-		{
-		    fprintf(stderr,
-			    "\nScore (bisect %u, reconnect %u %u)[%u,%u,%u]: %u"
-			    "\n",
-			    i, edge_a, edge_b,
-			    i, j, k,
-			    score);
-		}
-
-		if (score < bestscore)
-		{
-		    bestscore = score;
-		    fprintf(stderr,
-			    "\nScore (bisect %u, reconnect %u %u)[%u,%u,%u]: %u"
-			    " (prev count %u)\n",
-			    i, edge_a, edge_b,
-			    i, j, k,
-			    score, count);
-		    count = 1;
-//		    abort();//XXX
-		}
-		else if (score == bestscore)
-		{
-		    count++;
-		}
-		// XXX
-	    }
-	}
-	fprintf(stderr, "\n");
-    }
-    fprintf(stderr, "Score: %u (count %u)\n", bestscore, count);
-    fprintf(stderr, "%s:%d:%s(): nneighbors: %u (should be %u)\n", __FILE__, __LINE__, __FUNCTION__, nneighbors, a_tr->trt[a_tr->trtused].offset);
-
-
-    /* Clean up. */
-    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema), mema_arg_get(a_tr->mema),
-		      edges_a, sizeof(cw_uint32_t) * a_tr->nedges);
 }
 
 void
