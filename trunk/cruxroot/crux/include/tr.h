@@ -109,10 +109,10 @@ struct cw_tr_s
      * array is done, and it also makes it easy to get the total number of
      * TBR neighbors this tree has (trt[nedges].offset).
      *
-     * Only the first trtlen elements are valid, since not all bisection edges
+     * Only the first trtused elements are valid, since not all bisection edges
      * necessarily result in neighbors. */
     cw_trt_t *trt;
-    cw_uint32_t trtlen;
+    cw_uint32_t trtused;
 
     /* Array of integers that is used for randomly iterating over all TBR
      * neighbors (which are enumerated by trt).  The following algorithm is used

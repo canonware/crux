@@ -428,6 +428,84 @@ trn_p_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
     cw_dassert(found);
 }
 
+static void
+trn_p_bisection_edge_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_other,
+				 cw_trn_t *a_prev, cw_uint32_t *r_edge_count,
+				 cw_uint32_t *r_bisection_edge)
+{
+    cw_uint32_t i, prev_edge_count;
+
+    /* Save the previous edge count, in case it ends up being the index of the
+     * edge adjacent to the bisection. */
+    prev_edge_count = *r_edge_count;
+
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_trn->neighbors[i] != NULL
+	    && a_trn->neighbors[i] != a_prev
+	    && a_trn->neighbors[i] != a_other)
+	{
+	    /* Increment edge count before recursing. */
+	    (*r_edge_count)++;
+
+	    /* Recurse into neighbor subtrees. */
+	    trn_p_bisection_edge_get_recurse(a_trn->neighbors[i], a_other,
+					     a_trn, r_edge_count,
+					     r_bisection_edge);
+	}
+	else if (a_trn->neighbors[i] == a_other)
+	{
+	    /* Store the index of the edge adjacent to the bisection. */
+	    if (prev_edge_count > 0)
+	    {
+		*r_bisection_edge = prev_edge_count - 1;
+	    }
+	    else
+	    {
+		*r_bisection_edge = CW_TRN_EDGE_NONE;
+	    }
+	}
+    }
+}
+
+static void
+trn_p_bisection_edges_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trt_t *r_trt)
+{
+    cw_uint32_t neighbor;
+    cw_trn_t *trn, *adj_a, *adj_b;
+
+    /* Count the number of edges that would be in each half of the tree, were it
+     * bisected.  Also, determine which edges of the subtrees would be used to
+     * reverse the bisection. */
+
+    /* Get the trn's adjacent to the bisection edge. */
+    trn_p_edge_get(a_trn, a_edge, &adj_a, &neighbor);
+    adj_b = adj_a->neighbors[neighbor];
+
+    /* Get the number of edges in the first half of the bisection, as well as
+     * the index of the edge adjacent to the bisection. */
+    r_trt->nedges_a = 0;
+    trn_p_bisection_edge_get_recurse(a_trn, adj_b, NULL, &r_trt->nedges_a,
+				     &r_trt->self_a);
+    if (r_trt->nedges_a > 0)
+    {
+	r_trt->nedges_a--;
+    }
+
+    /* Get the lowest numbered taxon in the second half of the bisection. */
+    trn = trn_p_root_get(adj_b, adj_a, NULL);
+
+    /* Get the number of edges in the second half of the bisection, as well as
+     * the index of the edge adjacent to the bisection. */
+    r_trt->nedges_b = 0;
+    trn_p_bisection_edge_get_recurse(trn, adj_a, NULL, &r_trt->nedges_b,
+				     &r_trt->self_b);
+    if (r_trt->nedges_b > 0)
+    {
+	r_trt->nedges_b--;
+    }
+}
+
 static cw_bool_t
 trn_p_edge_index_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
 			     cw_trn_t *a_trn_a, cw_trn_t *a_trn_b,
@@ -972,84 +1050,6 @@ tr_p_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
     cw_dassert(tr_p_validate(a_tr, TRUE));
 }
 
-static void
-trn_p_bisection_edge_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_other,
-				 cw_trn_t *a_prev, cw_uint32_t *r_edge_count,
-				 cw_uint32_t *r_bisection_edge)
-{
-    cw_uint32_t i, prev_edge_count;
-
-    /* Save the previous edge count, in case it ends up being the index of the
-     * edge adjacent to the bisection. */
-    prev_edge_count = *r_edge_count;
-
-    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
-    {
-	if (a_trn->neighbors[i] != NULL
-	    && a_trn->neighbors[i] != a_prev
-	    && a_trn->neighbors[i] != a_other)
-	{
-	    /* Increment edge count before recursing. */
-	    (*r_edge_count)++;
-
-	    /* Recurse into neighbor subtrees. */
-	    trn_p_bisection_edge_get_recurse(a_trn->neighbors[i], a_other,
-					     a_trn, r_edge_count,
-					     r_bisection_edge);
-	}
-	else if (a_trn->neighbors[i] == a_other)
-	{
-	    /* Store the index of the edge adjacent to the bisection. */
-	    if (prev_edge_count > 0)
-	    {
-		*r_bisection_edge = prev_edge_count - 1;
-	    }
-	    else
-	    {
-		*r_bisection_edge = CW_TRN_EDGE_NONE;
-	    }
-	}
-    }
-}
-
-static void
-trn_p_bisection_edges_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trt_t *r_trt)
-{
-    cw_uint32_t neighbor;
-    cw_trn_t *trn, *adj_a, *adj_b;
-
-    /* Count the number of edges that would be in each half of the tree, were it
-     * bisected.  Also, determine which edges of the subtrees would be used to
-     * reverse the bisection. */
-
-    /* Get the trn's adjacent to the bisection edge. */
-    trn_p_edge_get(a_trn, a_edge, &adj_a, &neighbor);
-    adj_b = adj_a->neighbors[neighbor];
-
-    /* Get the number of edges in the first half of the bisection, as well as
-     * the index of the edge adjacent to the bisection. */
-    r_trt->nedges_a = 0;
-    trn_p_bisection_edge_get_recurse(a_trn, adj_b, NULL, &r_trt->nedges_a,
-				     &r_trt->self_a);
-    if (r_trt->nedges_a > 0)
-    {
-	r_trt->nedges_a--;
-    }
-
-    /* Get the lowest numbered taxon in the second half of the bisection. */
-    trn = trn_p_root_get(adj_b, adj_a, NULL);
-
-    /* Get the number of edges in the second half of the bisection, as well as
-     * the index of the edge adjacent to the bisection. */
-    r_trt->nedges_b = 0;
-    trn_p_bisection_edge_get_recurse(trn, adj_a, NULL, &r_trt->nedges_b,
-				     &r_trt->self_b);
-    if (r_trt->nedges_b > 0)
-    {
-	r_trt->nedges_b--;
-    }
-}
-
 CW_P_INLINE cw_bool_t
 tr_p_tbr_trt_init(cw_tr_t *a_tr)
 {
@@ -1122,7 +1122,7 @@ tr_p_tbr_trt_init(cw_tr_t *a_tr)
 	 * may not be full, so keep track of the number of valid elements (not
 	 * counting the trailing one that stores the total number of TBR
 	 * neighbors). */
-	a_tr->trtlen = j;
+	a_tr->trtused = j;
     }
 
     return retval;
@@ -1168,7 +1168,7 @@ tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_trr)
 	if (a_use_trr)
 	{
 	    /* Allocate an array with one slot per TBR neighbor. */
-	    a_tr->trrlen = a_tr->trt[a_tr->nedges].offset;
+	    a_tr->trrlen = a_tr->trt[a_tr->trtused].offset;
 	    if (a_tr->nedges > 0)
 	    {
 		a_tr->trr = (cw_uint32_t *) nxa_malloc(sizeof(cw_uint32_t)
@@ -1182,7 +1182,7 @@ tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_trr)
 	     * here. */
 	    cw_assert(a_tr->trri == 0);
 	    cw_check_ptr(a_tr->trr);
-	    cw_assert(a_tr->trrlen >= a_tr->trt[a_tr->nedges].offset);
+	    cw_assert(a_tr->trrlen >= a_tr->trt[a_tr->trtused].offset);
 	}
     }
     else if (init)
@@ -1205,7 +1205,7 @@ tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_trr)
 	a_tr->trri = 0;
 
 	/* Make sure that trr is big enough. */
-	if (a_tr->trrlen < a_tr->trt[a_tr->nedges].offset)
+	if (a_tr->trrlen < a_tr->trt[a_tr->trtused].offset)
 	{
 	    /* This could result in lots of incrementally larger realloc's, but
 	     * it isn't reasonable to do iterative doubling here, unless we want
@@ -1213,35 +1213,35 @@ tr_p_tbr_init(cw_tr_t *a_tr, cw_bool_t a_use_trr)
 	     * of the realloc's should get lost in the noise. */
 	    a_tr->trr = nxa_realloc(a_tr->trr,
 				    sizeof(cw_uint32_t)
-				    * a_tr->trt[a_tr->nedges].offset,
+				    * a_tr->trt[a_tr->trtused].offset,
 				    sizeof(cw_uint32_t) * a_tr->trrlen);
 
 	    /* Initialize the new trailing elements. */
 	    memset(&a_tr->trr[a_tr->trrlen], 0xff,
-		   sizeof(cw_uint32_t) * (a_tr->trt[a_tr->nedges].offset
+		   sizeof(cw_uint32_t) * (a_tr->trt[a_tr->trtused].offset
 					  - a_tr->trrlen));
 
 	    /* Store the new trrlen. */
-	    a_tr->trrlen = a_tr->trt[a_tr->nedges].offset;
+	    a_tr->trrlen = a_tr->trt[a_tr->trtused].offset;
 	}
 
 	cw_check_ptr(a_tr->trr);
-	cw_assert(a_tr->trrlen >= a_tr->trt[a_tr->nedges].offset);
+	cw_assert(a_tr->trrlen >= a_tr->trt[a_tr->trtused].offset);
     }
-    else if (a_tr->trri == a_tr->trt[a_tr->nedges].offset)
+    else if (a_tr->trri == a_tr->trt[a_tr->trtused].offset)
     {
 	/* All neighbors have been iterated over.  Re-initialize. */
 	memset(a_tr->trr, 0xff, sizeof(cw_uint32_t) * a_tr->trri);
 	a_tr->trri = 0;
     }
-    cw_assert(a_tr->trri < a_tr->trt[a_tr->nedges].offset);
+    cw_assert(a_tr->trri < a_tr->trt[a_tr->trtused].offset);
 
 #ifdef CW_DBG
     if (a_tr->trri == 0 && a_tr->trr != NULL)
     {
 	cw_uint32_t i;
 
-	for (i = 0; i < a_tr->trt[a_tr->nedges].offset; i++)
+	for (i = 0; i < a_tr->trt[a_tr->trtused].offset; i++)
 	{
 	    if (a_tr->trr[i] != 0xffffffffU)
 	    {
@@ -1794,7 +1794,7 @@ tr_tbr_nneighbors_get(cw_tr_t *a_tr)
 
     tr_p_tbr_init(a_tr, FALSE);
 
-    return a_tr->trt[a_tr->nedges].offset;
+    return a_tr->trt[a_tr->trtused].offset;
 }
 
 void
@@ -1808,11 +1808,11 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
     cw_dassert(tr_p_validate(a_tr, TRUE));
 
     tr_p_tbr_init(a_tr, FALSE);
-    cw_assert(a_neighbor < a_tr->trt[a_tr->nedges].offset);
+    cw_assert(a_neighbor < a_tr->trt[a_tr->trtused].offset);
 
     /* Get the bisection edge. */
     key.offset = a_neighbor;
-    trt = bsearch(&key, a_tr->trt, a_tr->trtlen, sizeof(cw_trt_t),
+    trt = bsearch(&key, a_tr->trt, a_tr->trtused, sizeof(cw_trt_t),
 		  tr_p_trt_compare);
     cw_check_ptr(trt);
     *r_bisect = trt->bisect_edge;
@@ -1902,10 +1902,10 @@ tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt)
 
     /* 3) */
     r = a_tr->trri + mt_uint32_range_get(a_mt,
-					 a_tr->trt[a_tr->nedges].offset
+					 a_tr->trt[a_tr->trtused].offset
 					 - a_tr->trri);
     cw_assert(r >= a_tr->trri);
-    cw_assert(r < a_tr->trt[a_tr->nedges].offset);
+    cw_assert(r < a_tr->trt[a_tr->trtused].offset);
 
     /* 4) */
     if (a_tr->trr[r] == 0xffffffffU)
@@ -1914,7 +1914,7 @@ tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt)
     }
 
     /* 5) */
-    cw_assert(a_tr->trri < a_tr->trt[a_tr->nedges].offset);
+    cw_assert(a_tr->trri < a_tr->trt[a_tr->trtused].offset);
     if (a_tr->trr[a_tr->trri] == 0xffffffffU)
     {
 	a_tr->trr[a_tr->trri] = a_tr->trri;
@@ -1928,7 +1928,7 @@ tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt)
     /* 7) */
     a_tr->trri++;
 
-    cw_assert(retval < a_tr->trt[a_tr->nedges].offset);
+    cw_assert(retval < a_tr->trt[a_tr->trtused].offset);
     cw_assert(retval != 0xffffffff);
 #ifdef CW_DBG
     {
