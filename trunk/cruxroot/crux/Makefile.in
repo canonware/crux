@@ -32,26 +32,38 @@ all:
 install:
 	@PYTHON@ setup.py install
 
-check:
+check: all
 	@sh -c 'total=0; \
 		failures=0; \
+		echo "========================================="; \
 		for t in @crux_tests@; do \
 			total=`expr $$total + 1`; \
 			echo -n "$$t ... "; \
-			2>&1 @objroot@/crux --batch --quiet --infile=$$t \\\
-			  | diff -u $${t}.exp -; \
-			fail=$$?; \
-			if test "$$fail" -eq "1" ; then \
-				failures=`expr $$failures + 1`; \
-				echo "FAIL"; \
+			@objroot@/crux --batch --quiet --infile=$$t \\\
+                          > $${t}.out 2>&1; \
+			if test -e "$${t}.exp"; then \
+				diff -u $${t}.exp $${t}.out; \
+				fail=$$?; \
+				if test "$$fail" -eq "1" ; then \
+					failures=`expr $$failures + 1`; \
+					echo "*** FAIL ***"; \
+				else \
+					echo "pass"; \
+				fi; \
 			else \
-				echo "pass"; \
+				echo "*** FAIL *** (.exp file is missing)"; \
+				failures=`expr $$failures + 1`; \
 			fi; \
 		done; \
-		echo "===> Failures: $$failures/$$total <==="'
+		echo "========================================="; \
+		echo "Failures: $$failures/$$total"'
 
 clean:
 	rm -rf @objroot@/build
+	@sh -c 'for t in @crux_tests@; do \
+			echo "rm -f $${t}.out"; \
+			rm -f $${t}.out; \
+		done'
 
 distclean: clean
 	rm -f @objroot@/config.log
