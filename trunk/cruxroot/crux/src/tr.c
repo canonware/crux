@@ -274,7 +274,6 @@ trn_p_validate_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
 }
 #endif
 
-#ifdef CW_DBG
 /* Recursively traverse the tree and find the lowest numbered taxon. */
 static cw_trn_t *
 trn_p_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev, cw_trn_t *a_root)
@@ -310,7 +309,6 @@ trn_p_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev, cw_trn_t *a_root)
 
     return retval;
 }
-#endif
 
 /* Recursively traverse the tree and count the number of taxa. */
 static cw_uint32_t
@@ -1068,7 +1066,7 @@ trn_p_bisection_edges_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trt_t *r_trt)
 				     &r_trt->self_a);
 
     /* Get the lowest numbered taxon in the second half of the bisection. */
-    trn = trn_p_root_get(adj_b, NULL, NULL);
+    trn = trn_p_root_get(adj_b, adj_a, NULL);
 
     /* Get the number of edges in the second half of the bisection, as well as
      * the index of the edge adjacent to the bisection. */
@@ -1124,17 +1122,18 @@ tr_p_tbr_trt_init(cw_tr_t *a_tr)
 		a = 1;
 	    }
 
-	    if (a_tr->trt[i].nedges_a != 0)
+	    if (a_tr->trt[i].nedges_b != 0)
 	    {
-		a = a_tr->trt[i].nedges_a;
+		b = a_tr->trt[i].nedges_b;
 	    }
 	    else
 	    {
-		a = 1;
+		b = 1;
 	    }
 
 	    offset += (a * b) - 1;
 	}
+	a_tr->trt[i].offset = offset;
     }
 }
 
@@ -1631,7 +1630,7 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 		    cw_uint32_t *r_reconnect_b)
 {
     cw_trt_t key, *trt;
-    cw_uint32_t rem, a, b;
+    cw_uint32_t rem, nedges_a, nedges_b, a, b;
 
     cw_dassert(tr_p_validate(a_tr, TRUE));
 
@@ -1642,19 +1641,28 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
     trt = bsearch(&key, a_tr->trt, a_tr->nedges, sizeof(cw_trt_t),
 		  tr_p_trt_compare);
     cw_check_ptr(trt);
+    *r_bisect = (trt - a_tr->trt);
 
-    /* Get the reconnection edges.  If the reconnection edges happen to be those
-     * that would reverse the bisection, instead return the last possible
-     * reconnection combination for this bisection.  This results in a rather
-     * strange ordering for the enumeration, but is always correct. */
+    /* Get the reconnection edges. */
     rem = a_neighbor - trt->offset;
 
-    if (trt->nedges_a > 0)
+    nedges_a = trt->nedges_a;
+    if (nedges_a == 0)
     {
-	a = rem / trt->nedges_b;
-	if (trt->nedges_b > 0)
+	nedges_a = 1;
+    }
+    nedges_b = trt->nedges_b;
+    if (nedges_b == 0)
+    {
+	nedges_b = 1;
+    }
+
+    if (nedges_a > 0)
+    {
+	a = rem / nedges_b;
+	if (nedges_b > 0)
 	{
-	    b = rem % trt->nedges_b;
+	    b = rem % nedges_b;
 	}
 	else
 	{
@@ -1667,6 +1675,10 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 	b = rem;
     }
 
+    /* If the reconnection edges happen to be those that would reverse the
+     * bisection, instead return the last possible reconnection combination for
+     * this bisection.  This results in a rather strange ordering for the
+     * enumeration, but is always correct. */
     if (a == trt->self_a && b == trt->self_b)
     {
 	/* Avoid undoing the bisection. */
