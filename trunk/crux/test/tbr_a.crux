@@ -1,0 +1,56 @@
+################################################################################
+#
+# <Copyright = jasone>
+# <License>
+#
+################################################################################
+#
+# Version: Crux <Version = crux>
+#
+################################################################################
+
+print "Test begin"
+
+taxonMap = crux.TaxonMap.TaxonMap(['A', 'B', 'C', 'D', 'E',
+                                   'F', 'G', 'H', 'I', 'J'])
+
+trees = ["(A,B);",
+
+         "(A,(B,C));",
+         "(A,B,C);",
+
+         "(A,B,C,D);",
+         "((A,B),(C,D));",
+
+         "(A,B,C,D,E);",
+         "((A,B),(C,D,E));",
+         "((A,B),C,(D,E));",
+
+         "(A,B,C,D,E,F);",
+         "((A,B),(C,D,E,F));",
+         "((A,B,C),(D,E,F));",
+         "((A,B,C),D,(E,F));",
+         "(((A,B),C),(D,(E,F)));",
+         "((A,B),(C,D),(E,F));"
+         ]
+
+for tree in trees:
+    s = crux.Tree.Tree(tree, taxonMap)
+    s.canonize()
+    print "====================================="
+    sys.stdout.write("=== ")
+    s.render(labels=True, outFile=sys.stdout)
+    nneighbors = s.tbrNneighborsGet()
+    for i in forints(nneighbors):
+        t = crux.Tree.Tree(tree, taxonMap)
+        t.canonize()
+        tbrArgs = t.tbrNeighborGet(i)
+        sys.stdout.write("%d/%d %r --> " % (i, nneighbors, tbrArgs))
+        #sys.stdout.flush()
+        revTbrArgs = t.tbr(tbrArgs)
+        t.canonize()
+        t.render(labels=True, outFile=sys.stdout)
+
+print "====================================="
+
+print "Test end"
