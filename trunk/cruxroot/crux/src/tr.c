@@ -198,9 +198,6 @@ static cw_bool_t
 trn_p_tree_edge_get_recurse(cw_trn_t *a_trn, cw_uint32_t a_edge,
 			    cw_trn_t *a_prev, cw_uint32_t *r_edge_count,
 			    cw_trn_t **r_trn, cw_uint32_t *r_neighbor);
-static void
-trn_p_tree_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
-		    cw_uint32_t *r_neighbor);
 static cw_bool_t
 trn_p_tree_edge_index_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
 				  cw_trn_t *a_trn_a, cw_trn_t *a_trn_b,
@@ -1277,9 +1274,9 @@ trn_p_tree_edge_get_recurse(cw_trn_t *a_trn, cw_uint32_t a_edge,
 /* Do an in-order traversal of the tree and return the node that neighbors the
  * edge being sought, along with which neighbor of that node the edge is
  * between. */
-static void
-trn_p_tree_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
-		    cw_uint32_t *r_neighbor)
+void
+trn_tree_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
+		  cw_uint32_t *r_neighbor)
 {
     if (a_edge != CW_TRN_EDGE_NONE)
     {
@@ -1370,7 +1367,7 @@ trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
 
     /* Get the nodes to either side of the edge where the bisection will be
      * done. */
-    trn_p_tree_edge_get(a_trn, a_edge, &trn_a, &edge);
+    trn_tree_edge_get(a_trn, a_edge, &trn_a, &edge);
     trn_b = trn_a->neighbors[edge];
 
     /* Detach the two nodes. */
@@ -1509,7 +1506,7 @@ trn_tree_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
 	*ar_spare_a = *ar_spare_b;
 	*ar_spare_b = NULL;
 
-	trn_p_tree_edge_get(a_trn_a, a_edge_a, &a, &edge);
+	trn_tree_edge_get(a_trn_a, a_edge_a, &a, &edge);
 	b = a->neighbors[edge];
 
 	/* Detach a and b. */
@@ -1533,7 +1530,7 @@ trn_tree_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
 	trn_b = *ar_spare_a;
 	*ar_spare_a = NULL;
 
-	trn_p_tree_edge_get(a_trn_b, a_edge_b, &a, &edge);
+	trn_tree_edge_get(a_trn_b, a_edge_b, &a, &edge);
 	b = a->neighbors[edge];
 
 	/* Detach a and b. */

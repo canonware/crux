@@ -113,6 +113,10 @@ cw_trn_t *
 trn_tree_root_get(cw_trn_t *a_trn);
 
 void
+trn_tree_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
+		  cw_uint32_t *r_neighbor);
+
+void
 trn_tree_canonize(cw_trn_t *a_trn);
 
 void
