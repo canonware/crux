@@ -11,6 +11,28 @@
 
 #include "../include/_cruxmodule.h"
 
+//#define CxmTreeGCVerbose
+#ifdef CxmTreeGCVerbose
+#undef Py_INCREF
+#define Py_INCREF(op)							\
+	fprintf(stderr, "%s:%d:%s(): INCREF(%p) --> %d\n",		\
+		__FILE__, __LINE__, __func__, op,			\
+		((op)->ob_refcnt) + 1);					\
+	(_Py_INC_REFTOTAL  _Py_REF_DEBUG_COMMA				\
+	(op)->ob_refcnt++)
+
+#undef Py_DECREF
+#define Py_DECREF(op)							\
+	fprintf(stderr, "%s:%d:%s(): DECREF(%p) --> %d\n",		\
+		__FILE__, __LINE__, __func__, op,			\
+		((op)->ob_refcnt) - 1);					\
+	if (_Py_DEC_REFTOTAL  _Py_REF_DEBUG_COMMA			\
+	   --(op)->ob_refcnt != 0)					\
+		_Py_CHECK_REFCNT(op)					\
+	else								\
+		_Py_Dealloc((PyObject *)(op))
+#endif
+
 typedef struct CxsTreeTbrBisection CxtTreeTbrBisection;
 typedef struct CxsTreeTbrData CxtTreeTbrData;
 
@@ -404,6 +426,7 @@ CxpTreeTbrNodeExtract(CxtTreeObject *self, CxtNodeObject *aNode,
 	    nodeB = CxRingNode(ringBOther);
 
 	    // Detach.
+	    Py_INCREF(aNode); // +1
 	    Py_INCREF(edgeA); // +1
 	    Py_INCREF(nodeA); // +1
 	    CxEdgeDetach(edgeA);
@@ -411,7 +434,7 @@ CxpTreeTbrNodeExtract(CxtTreeObject *self, CxtNodeObject *aNode,
 	    Py_INCREF(edgeB); // +1
 	    CxEdgeDetach(edgeB);
 
-	    // Store aNode as a spare.  We already have a python ref to it.
+	    // Store aNode as a spare.
 	    arTNodes[*arNTNodes] = aNode;
 	    (*arNTNodes)++;
 
@@ -606,7 +629,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
     bool rVal;
     CxtTreeTbrData *data;
     CxtRingObject *ringA, *ringB;
-    CxtNodeObject *nodeA, *nodeB, *nodes[4];
+    CxtNodeObject *nodeA, *nodeB, *nodes[4] = {NULL, NULL, NULL, NULL};
     CxtEdgeObject *tEdges[2];
     unsigned nTEdges = 0;
     CxtNodeObject *tNodes[2];
@@ -629,7 +652,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
     // error, recovery is simpler.
     if (CxNodeDegree(nodeA) > 3)
     {
-	tEdges[nTEdges] = CxEdgeNew(self); // +1
+	tEdges[nTEdges] = CxEdgeNew(self); // =1
 	if (tEdges[nTEdges] == NULL)
 	{
 	    rVal = true;
@@ -637,7 +660,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
 	}
 	nTEdges++;
 
-	tNodes[nTNodes] = CxNodeNew(self); // +1
+	tNodes[nTNodes] = CxNodeNew(self); // =1
 	if (tNodes[nTNodes] == NULL)
 	{
 	    Py_DECREF(tEdges[0]); // -1
@@ -649,7 +672,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
 
     if (CxNodeDegree(nodeB) > 3)
     {
-	tEdges[nTEdges] = CxEdgeNew(self); // +1
+	tEdges[nTEdges] = CxEdgeNew(self); // =1
 	if (tEdges[nTEdges] == NULL)
 	{
 	    Py_DECREF(tNodes[0]); // -1
@@ -659,7 +682,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
 	}
 	nTEdges++;
 
-	tNodes[nTNodes] = CxNodeNew(self); // +1
+	tNodes[nTNodes] = CxNodeNew(self); // =1
 	if (tNodes[nTNodes] == NULL)
 	{
 	    Py_DECREF(tEdges[1]); // -1
@@ -679,18 +702,18 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
 
     // For node[AB], extract the node if it has only two neighbors.
     //
-    // nodes[0..1] are CxmTrNodeNone, unless they refer to the only node in a
-    // subtree.
+    // nodes[0..1] are NULL, unless they refer to the only node in a subtree.
     nodes[0] = CxpTreeTbrNodeExtract(self, nodeA, aReconnectA, aReconnectB,
 				     tEdges, &nTEdges, tNodes, &nTNodes);
+    // +1? nodeA === tNodes[nTNodes - 1]
     // +1? tEdges[nTEdges - 1]
     CxmAssert(nTEdges <= 2);
     CxmAssert(nTNodes <= 2);
 
     nodes[1] = CxpTreeTbrNodeExtract(self, nodeB, aReconnectA, aReconnectB,
 				     tEdges, &nTEdges, tNodes, &nTNodes);
+    // +1? nodeB === tNodes[nTNodes - 1]
     // +1? tEdges[nTEdges - 1]
-    // +1? tNodes[nTNodes - 1]
     CxmAssert(nTEdges <= 2);
     CxmAssert(nTNodes <= 2);
 
@@ -702,7 +725,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
     {
 	nodes[2] = CxpTreeTbrNodeSplice(self, aReconnectA,
 					tEdges, &nTEdges, tNodes, &nTNodes);
-	// +1 nodes[2] === -1 tNodes[nTNodes]
+	// +1? nodes[2] === -1? tNodes[nTNodes]
 	// -1 tEdges[nTEdges]
     }
     else
@@ -714,9 +737,8 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
     {
 	nodes[3] = CxpTreeTbrNodeSplice(self, aReconnectB,
 					tEdges, &nTEdges, tNodes, &nTNodes);
-	// +1 nodes[3]
+	// +1? nodes[3] === -1? tNodes[nTNodes]
 	// -1 tEdges[nTEdges]
-	// -1? tNodes[nTNodes]
     }
     else
     {
@@ -765,8 +787,14 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
     }
 
     // Clean up references.
-    Py_XDECREF(nodes[3]); // -1?
-    Py_XDECREF(nodes[2]); // -1?
+    if (nodes[3] != NULL)
+    {
+	Py_DECREF(nodes[3]); // -1
+    }
+    if (nodes[2] != NULL)
+    {
+	Py_XDECREF(nodes[2]); // -1
+    }
 
     Py_DECREF(aBisect); // -1
     Py_DECREF(nodeB); // -1
