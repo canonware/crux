@@ -40,40 +40,71 @@
  *             \   1   /
  * number of bits that are necessary to distinguish among the choices.
  *
- * The following example is in canonical form:
+ * Consider the following example tree:
  *
- *            C           A
- *             \         /
- *              \       /
- *               \     /
- *                \   /
- *                 \ /
- *                  V
- *                  |
- *                  |
- *                  |
- *                  |
- *                  |
- *                 / \
- *                /   \
- *               /     \
- *              /       \
- *   F---------/         \---------B
- *             |         |
- *             |         |
- *             |         |
- *             |         |
- *             |         |
- *             D         E
+ *
+ *          E           B
+ *           \         /
+ *            \       /
+ *             \     /
+ *              \   /
+ *               \ /
+ *                V         G
+ *                |         |
+ *                |         |
+ *                |         |
+ *                |         |
+ *                |         |
+ *               / \        /---------D
+ *              /   \      /
+ *             /     \    /
+ *            /       \  /
+ *   A-------/         \/
+ *           |         |
+ *           |         |
+ *           |         |
+ *           |         |
+ *           |         |
+ *           C         F
+ *
+ * Assume the following ordering of taxa: A B C D E F G.  The above tree is
+ * converted to canonical form by placing the lowest taxon (A) above the root
+ * node, and re-ordering subtrees such that for every internal node, the left
+ * subtree contains a lower taxon than any of the taxa in the right subtree.
+ * Following is the canonical form of the above tree:
+ *
+ *
+ *
+ *
+ *             A
+ *             |
+ *             |
+ *             |
+ *            /^\
+ *           /   \
+ *          /     \
+ *         /\      C
+ *        /  \
+ *       /    \
+ *      /\     \
+ *     /  \     \
+ *    /    \     \
+ *   B      E    /\
+ *              /  \
+ *             /    \
+ *            /\     F
+ *           /  \
+ *          /    \
+ *         D      G
  *
  * Doing an in-order traversal of the tree results in the following expression:
  *
- *   (((BE)(DF))C)
+ *   A(((BE)((DG)F))C)
  *
  * The topology for this tree can be represented by the following bit string:
  *
- *   ((()()))
- *   -0010111
+ *   ((()(())))
+ *   -001001111
  *
  * The `-' character represents implicit information.
  *
@@ -81,17 +112,23 @@
  * (keep in mind that only as many bits as are necessary are used for each
  * element):
  *
- *   A  B  E D F C
- *   - 00 10 1 1 -
+ *   A B   E  D  G F C
+ *   - - 010 01 10 1 -
  *
- * The `-' characters represent implicit information (A always comes first, and
- * 1 choose 1 is always the same).
+ * The `-' characters represent implicit information (A always comes first, B
+ * always comes second, and 1 choose 1 is always the same).
+ *
+ * Finally, padding bits are added to round the total number of bit up to a
+ * multiple of 8, in order to work well on byte-addressable machinery.
+ *
+ * 
+ *   001001111010011010000000
  *
  * In general, the number of bytes that are needed to store an n-taxon tree can
  * be calculated via the following formula:
  *
  *   __                                __
- *   |                 n-2              |
+ *   |                 n-3              |
  *   |                ____  __       __ |
  *   |                \     |         | |
  *   | (2(n-3) + 1) +  >    |log (n-i)| |
@@ -101,13 +138,13 @@
  *   |                    8             |
  *   |                                  |
  *
- * The first term in the numerator corresponds to the parenthetical expression,
- * and the summation term corresponds to the taxa permutation.
+ * The first term in the numerator corresponds to the parenthetical tree
+ * expression, and the summation term corresponds to the taxa permutation.
  *
  * In summary, a tree is represented by a parenthetical expression, immediately
- * followed by the taxon visitation order permutation.  The number of taxa in
- * the tree is implied by the parenthetical expression, and a well known taxon
- * ordering is assumed.
+ * followed by the taxon visitation order permutation, and padded to the nearest
+ * byte boundary.  The number of taxa in the tree is implied by the
+ * parenthetical expression, and a well known taxon ordering is assumed.
  *
  ******************************************************************************
  *
@@ -539,6 +576,7 @@ tr_trn(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
     cw_dassert(tr_p_validate(a_tr));
     cw_assert(tr_ntaxa(a_tr) == a_ntaxa);
 
+    /* Unimplemented for now, since it isn't needed for anything yet. */
     cw_error("XXX Not implemented");
     return NULL; /* XXX */
 }
