@@ -1758,7 +1758,7 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
     cw_dassert(tr_p_validate(a_tr, TRUE));
 
     tr_p_tbr_init(a_tr, FALSE);
-    cw_assert(a_neighbor < a_trt->[a_tr->nedges].offset);
+    cw_assert(a_neighbor < a_tr->trt[a_tr->nedges].offset);
 
     /* Get the bisection edge. */
     key.offset = a_neighbor;
@@ -1878,7 +1878,7 @@ tr_tbr_rneighbor_get(cw_tr_t *a_tr, cw_mt_t *a_mt)
     /* 7) */
     a_tr->trri++;
 
-    cw_assert(retval < a_trt->[a_tr->nedges].offset);
+    cw_assert(retval < a_tr->trt[a_tr->nedges].offset);
     return retval;
 }
 
