@@ -59,7 +59,8 @@ class FastaParser(object):
         pass
 
     # Parse input, which has either 'DNA' or 'protein' character data.
-    def parse(self, input, chartype='DNA'):
+    def parse(self, input, charType='DNA'):
+        self._charType = charType
         self._src = input
         self._srcOffset = 0
         self._line = 1
@@ -68,7 +69,7 @@ class FastaParser(object):
         self._token = []
 
         # Initialize regular expressions.
-        if chartype == 'DNA':
+        if charType == 'DNA':
             # Match DNA character data.
             reChars = re.compile(r'[NXVHMDRWABSYCKGT-]', re.I)
         else:
@@ -154,6 +155,10 @@ class FastaParser(object):
     # Return the current line within the input.
     def line(self):
         return self._line
+
+    # Return the character type being parsed.
+    def charType(self):
+        return self._charType
 
     def labelAccept(self):
         # Virtual method.

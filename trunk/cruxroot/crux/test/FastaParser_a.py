@@ -108,11 +108,11 @@ ABCDE789FGHIK
 
     )
 
-def testStrs(strs, chartype):
+def testStrs(strs, charType):
     for str in strs:
         print "\n=== %r ===" % str
         try:
-            test.parse(str, chartype)
+            test.parse(str, charType)
         except crux.FastaParser.Exception, x:
             print "Exception %s: %s" % (sys.exc_type, x.__str__())
 
@@ -122,7 +122,7 @@ def testStrs(strs, chartype):
             f = tempfile.TemporaryFile()
             f.write(str)
             f.seek(0, 0)
-            test.parse(f, chartype)
+            test.parse(f, charType)
         except crux.FastaParser.Exception, x:
             print "Exception %s: %s" % (sys.exc_type, x.__str__())
 
