@@ -76,11 +76,7 @@ typedef struct cw_trn_s cw_trn_t;
  * The topology for this tree can be represented by the following bit string:
  *
  *   ((()()))
- *   -001011-
- *
- * The `-' characters represent implicit information (the first internal node
- * that is visited always causes a set of parentheses to enclose the entire
- * expression).
+ *   00010111
  *
  * The taxon visitation order can be represented by the following bit string
  * (keep in mind that only as many bits as are necessary are used for each
