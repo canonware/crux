@@ -396,9 +396,12 @@ CxpDistMatrixSetLabel(CxtDistMatrixObject *self, long index,
 	}
 	case CxtDistMatrixTokenLabel:
 	{
+	    PyObject *result;
+
 	    /* Insert label into map. */
-	    PyEval_CallMethod(self->map, "map", "s#i", self->buf,
-			      self->tokenLen, index);
+	    result = PyEval_CallMethod(self->map, "map", "s#i", self->buf,
+				       self->tokenLen, index);
+	    Py_DECREF(result);
 	    break;
 	}
 	default:
@@ -500,6 +503,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     } matrixFormat;
     CxtDistMatrixTokenType tokenType;
     long line, column, x, y;
+    PyObject *result;
 
     self->buf = NULL;
     self->bufLen = 0;
@@ -608,8 +612,9 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     if (matrixFormat == CxDistMatrixFormatLower)
     {
 	/* Insert label into map. */
-	PyEval_CallMethod(self->map, "map", "s#i", self->buf, self->tokenLen,
-			  1);
+	result = PyEval_CallMethod(self->map, "map", "s#i",
+				   self->buf, self->tokenLen, 1);
+	Py_DECREF(result);
 
 	/* Get second row of distances. */
 	if (CxpDistMatrixSetDistance(self, 1, 0, "lower"))
@@ -726,8 +731,9 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    /* This is an upper-triangle matrix. */
 	    
 	    /* Insert label into map. */
-	    PyEval_CallMethod(self->map, "map", "s#i", self->buf,
-			      self->tokenLen, 1);
+	    result = PyEval_CallMethod(self->map, "map", "s#i", self->buf,
+				       self->tokenLen, 1);
+	    Py_DECREF(result);
 
 	    /* Get second row of distances. */
 	    for (y = 2; y < self->ntaxa; y++)
@@ -954,7 +960,6 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 	    case CxDistMatrixInputTaxonMap:
 	    {
 		PyObject *result;
-		int ntaxa;
 		long i;
 
 		/* Create an uninitialized (zero-filled) distance matrix of the
@@ -962,17 +967,15 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 		 * TaxonMap. */
 
 		result = PyEval_CallMethod(self->map, "ntaxaGet", "()");
-		if (PyArg_ParseTuple(result, "i", &ntaxa) == 0)
-		{
-		    Py_DECREF(retval);
-		    retval = NULL;
-		    break;
-		}
+		// XXX Check type of result.
+		self->ntaxa = PyInt_AsLong(result);
+		Py_DECREF(result);
 
 		self->matrix = (double *) CxmMalloc(sizeof(double)
-						    * ntaxa * ntaxa);
+						    * self->ntaxa
+						    * self->ntaxa);
 
-		for (i = 0; i < ntaxa * ntaxa; i++)
+		for (i = 0; i < self->ntaxa * self->ntaxa; i++)
 		{
 		    self->matrix[i] = 0.0;
 		}

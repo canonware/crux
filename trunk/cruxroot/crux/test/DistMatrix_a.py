@@ -196,4 +196,15 @@ for matrix in matrices:
         error = sys.exc_info()
         print "Exception %s: %s" % (error[0], error[1])
 
+try:
+    print "==="
+    taxonMap = crux.TaxonMap.TaxonMap(['A', 'B', 'C'])
+    distMatrix = crux.DistMatrix.DistMatrix(taxonMap)
+    print distMatrix.prints('full')
+except:
+    import sys
+
+    error = sys.exc_info()
+    print "Exception %s: %s" % (error[0], error[1])
+
 print "Test end"

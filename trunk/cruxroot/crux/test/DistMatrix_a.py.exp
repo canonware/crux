@@ -531,4 +531,10 @@ Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 
 
 Exception C_DistMatrix.SyntaxError: At 7:0 (full matrix format): End of input reached (4, 4)
+===
+3
+A          0.00000 0.00000 0.00000
+B          0.00000 0.00000 0.00000
+C          0.00000 0.00000 0.00000
+
 Test end
