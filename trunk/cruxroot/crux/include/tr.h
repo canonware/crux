@@ -37,6 +37,7 @@ struct cw_trn_s
      * is a leaf node. */
 #define CW_TRN_MAX_NEIGHBORS 3
     cw_trn_t *neighbors[CW_TRN_MAX_NEIGHBORS];
+#define CW_TRN_EDGE_NONE 0xffffffffU
 };
 
 /* tr. */
@@ -113,9 +114,11 @@ trn_tree_root_get(cw_trn_t *a_trn);
 
 void
 trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
-		cw_trn_t **r_trn_b, cw_trn_t **r_spare_a, cw_trn_t **r_spare_b);
+		cw_trn_t **r_trn_b, cw_uint32_t *r_edge_a, cw_trn_t **r_spare_a,
+		cw_trn_t **r_spare_b, cw_uint32_t *r_edge_b);
 
 void
 trn_tree_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
 		 cw_trn_t *a_trn_b, cw_uint32_t a_edge_b,
-		 cw_trn_t *a_spare_a, cw_trn_t *a_spare_b);
+		 cw_trn_t **ar_spare_a, cw_trn_t **ar_spare_b,
+		 cw_trn_t **r_trn, cw_uint32_t *r_edge);

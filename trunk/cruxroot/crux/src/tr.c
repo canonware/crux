@@ -201,6 +201,13 @@ trn_p_tree_edge_get_recurse(cw_trn_t *a_trn, cw_uint32_t a_edge,
 static void
 trn_p_tree_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
 		    cw_uint32_t *r_neighbor);
+static cw_bool_t
+trn_p_tree_edge_index_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
+				  cw_trn_t *a_trn_a, cw_trn_t *a_trn_b,
+				  cw_uint32_t *r_edge_count);
+static cw_uint32_t
+trn_p_tree_edge_index_get(cw_trn_t *a_trn, cw_trn_t *a_trn_a,
+			  cw_trn_t *a_trn_b);
 
 /* Get bit a_i in a_vec (cw_uint8_t *). */
 #define TR_BIT_GET(a_vec, a_i)						\
@@ -434,12 +441,13 @@ cw_tr_t *
 tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 {
     cw_tr_t *retval;
-    cw_trn_t *root, *node;
+    cw_trn_t *node;
     cw_uint32_t tr_sizeof, bitind_paren, bitind_perm, i, *unchosen, nunchosen;
 
     cw_check_ptr(a_mema);
     cw_check_ptr(mema_alloc_get(a_mema));
     cw_dassert(trn_p_tree_validate(a_trn));
+    cw_assert(trn_p_tree_root_get(a_trn, NULL, NULL) == a_trn);
     cw_assert(trn_tree_ntaxa_get(a_trn) == a_ntaxa);
 
     tr_sizeof = tr_ntaxa2sizeof(a_ntaxa);
@@ -450,8 +458,7 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
     retval[tr_sizeof - 1] = 0;
 
     /* Canonize the tree. */
-    root = trn_tree_root_get(a_trn);
-    trn_p_tree_canonize(root, NULL);
+    trn_p_tree_canonize(a_trn, NULL);
 
     /* The tree can now be converted to parenthetical form and taxa permutation
      * using an in-order traversal. */
@@ -476,12 +483,12 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
      * during the traversal, since it is implicit in the canonical tree
      * encoding.  Additionally, the first internal node must be handled here
      * rather than simply recursing to it, since the first '(' is implied. */
-    node = root->neighbors[0];
+    node = a_trn->neighbors[0];
     if (node != NULL && node->taxon_num == CW_TRN_TAXON_NONE)
     {
 	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
 	{
-	    if (node->neighbors[i] != NULL && node->neighbors[i] != root)
+	    if (node->neighbors[i] != NULL && node->neighbors[i] != a_trn)
 	    {
 		/* Recurse. */
 		tr_p_new_recurse(retval, &bitind_paren, &bitind_perm,
@@ -973,8 +980,8 @@ trn_p_tree_delete(cw_trn_t *a_trn)
     trn_delete(a_trn);
 }
 
-/* Generate a random tree. */
-/* XXX Take a function pointer to a random number function. */
+/* Generate a random tree.  This function assumes that the random number
+ * generator has been seeded, via srandom(3). */
 cw_trn_t *
 trn_tree_random(cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
 {
@@ -1161,6 +1168,9 @@ trn_p_tree_canonize(cw_trn_t *a_trn, cw_trn_t *a_prev)
     cw_uint32_t subtree_inds[CW_TRN_MAX_NEIGHBORS - 1];
     cw_bool_t swapped;
 
+    cw_assert(a_prev != NULL
+	      || trn_p_tree_root_get(a_trn, NULL, NULL) == a_trn);
+
     if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
     {
 	/* Leaf node. */
@@ -1246,7 +1256,7 @@ trn_p_tree_edge_get_recurse(cw_trn_t *a_trn, cw_uint32_t a_edge,
 		goto RETURN;
 	    }
 
-	    /* Iteratively recurse into neighbor subtrees. */
+	    /* Recurse into neighbor subtrees. */
 	    if (trn_p_tree_edge_get_recurse(a_trn->neighbors[i], a_edge,
 					    a_trn, r_edge_count,
 					    r_trn, r_neighbor))
@@ -1269,19 +1279,77 @@ static void
 trn_p_tree_edge_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn,
 		    cw_uint32_t *r_neighbor)
 {
-    cw_uint32_t edge_count = 0;
+    if (a_edge != CW_TRN_EDGE_NONE)
+    {
+	cw_uint32_t edge_count = 0;
+#ifdef CW_DBG
+	cw_bool_t found;
+#endif
 
-    cw_assert(trn_tree_ntaxa_get(a_trn) > 1);
+	cw_assert(trn_p_tree_ntaxa_get(a_trn, NULL) > 1);
 
-    trn_p_tree_edge_get_recurse(a_trn, a_edge, NULL, &edge_count,
-				r_trn, r_neighbor);
+#ifdef CW_DBG
+	found =
+#endif
+	    trn_p_tree_edge_get_recurse(a_trn, a_edge, NULL, &edge_count,
+					r_trn, r_neighbor);
+	cw_dassert(found);
+    }
 }
 
+static cw_bool_t
+trn_p_tree_edge_index_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
+				  cw_trn_t *a_trn_a, cw_trn_t *a_trn_b,
+				  cw_uint32_t *r_edge_count)
+{
+    cw_bool_t retval;
+    cw_uint32_t i;
+
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
+	{
+	    /* If this is the desired edge, terminate recursion.  Increment edge
+	     * count before recursing. */
+	    if ((a_trn == a_trn_a && a_trn->neighbors[i] == a_trn_b)
+		|| (a_trn == a_trn_b && a_trn->neighbors[i] == a_trn_a))
+	    {
+		retval = TRUE;
+		goto RETURN;
+	    }
+	    *r_edge_count++;
+
+	    /* Recurse into neighbor subtree. */
+	    if (trn_p_tree_edge_index_get_recurse(a_trn->neighbors[i], a_trn,
+						  a_trn_a, a_trn_b,
+						  r_edge_count))
+	    {
+		retval = TRUE;
+		goto RETURN;
+	    }
+	}
+    }
+
+    retval = FALSE;
+    RETURN:
+    return retval;
+}
+
+static cw_uint32_t
+trn_p_tree_edge_index_get(cw_trn_t *a_trn, cw_trn_t *a_trn_a, cw_trn_t *a_trn_b)
+{
+    cw_uint32_t retval = 0;
+
+    trn_p_tree_edge_index_get_recurse(a_trn, NULL, a_trn_a, a_trn_b, &retval);
+
+    return retval - 1;
+}
 
 /* a_trn must be the root of the tree. */
 void
 trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
-		cw_trn_t **r_trn_b, cw_trn_t **r_spare_a, cw_trn_t **r_spare_b)
+		cw_trn_t **r_trn_b, cw_uint32_t *r_edge_a, cw_trn_t **r_spare_a,
+		cw_trn_t **r_spare_b, cw_uint32_t *r_edge_b)
 {
     cw_trn_t *trn_a, *trn_b;
     cw_uint32_t edge;
@@ -1333,10 +1401,15 @@ trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
 	/* Join. */
 	trn_join(a, b);
 
+	*r_trn_a = trn_p_tree_root_get(trn_a, NULL, NULL);
+	trn_p_tree_canonize(*r_trn_a, NULL);
+	*r_edge_a = trn_p_tree_edge_index_get(*r_trn_a, a, b);
 	*r_spare_a = trn_a;
     }
     else
     {
+	*r_trn_a = trn_a;
+	*r_edge_a = CW_TRN_EDGE_NONE;
 	*r_spare_a = NULL;
     }
 
@@ -1371,10 +1444,15 @@ trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
 	/* Join. */
 	trn_join(a, b);
 
+	*r_trn_b = trn_p_tree_root_get(trn_b, NULL, NULL);
+	trn_p_tree_canonize(*r_trn_b, NULL);
+	*r_edge_b = trn_p_tree_edge_index_get(*r_trn_b, a, b);
 	*r_spare_b = trn_b;
     }
     else
     {
+	*r_trn_b = trn_b;
+	*r_edge_b = CW_TRN_EDGE_NONE;
 	*r_spare_b = NULL;
     }
 
@@ -1389,12 +1467,90 @@ trn_tree_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
 void
 trn_tree_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
 		 cw_trn_t *a_trn_b, cw_uint32_t a_edge_b,
-		 cw_trn_t *a_spare_a, cw_trn_t *a_spare_b)
+		 cw_trn_t **ar_spare_a, cw_trn_t **ar_spare_b,
+		 cw_trn_t **r_trn, cw_uint32_t *r_edge)
 {
-    cw_dassert(trn_p_tree_validate(a_trn_a));
-    cw_assert(a_edge_a < trn_p_tree_ntaxa_get(a_trn_a, NULL));
-    cw_dassert(trn_p_tree_validate(a_trn_b));
-    cw_assert(a_edge_b < trn_p_tree_ntaxa_get(a_trn_b, NULL));
+    cw_trn_t *trn_a, *trn_b;
 
-    cw_error("XXX not implemented");
+    cw_assert(trn_p_tree_root_get(a_trn_a, NULL, NULL) == a_trn_a);
+    cw_dassert(trn_p_tree_validate(a_trn_a));
+    cw_assert((a_edge_a == CW_TRN_EDGE_NONE
+	       && trn_p_tree_ntaxa_get(a_trn_a, NULL) == 0)
+	      || (a_edge_a < trn_tree_nedges_get(a_trn_a)));
+    cw_assert(trn_p_tree_root_get(a_trn_b, NULL, NULL) == a_trn_b);
+    cw_dassert(trn_p_tree_validate(a_trn_b));
+    cw_assert((a_edge_b == CW_TRN_EDGE_NONE
+	       && trn_p_tree_ntaxa_get(a_trn_b, NULL) == 0)
+	      || (a_edge_b < trn_tree_nedges_get(a_trn_b)));
+
+    /* There are two cases possible for each subtree.  Each is either a single
+     * leaf node, or a larger subtree.  For a leaf node, do nothing (recognize
+     * this case by checking for an edge number of CW_TRN_EDGE_NONE).  For a
+     * subtree, splice in one of the spares.  Then join the two subtrees. */
+
+    if (a_edge_a != CW_TRN_EDGE_NONE)
+    {
+	cw_trn_t *a, *b;
+	cw_uint32_t edge;
+
+	cw_check_ptr(*ar_spare_a);
+	trn_a = *ar_spare_a;
+	*ar_spare_a = *ar_spare_b;
+	*ar_spare_b = NULL;
+
+	trn_p_tree_edge_get(trn_a, a_edge_a, &a, &edge);
+	b = a->neighbors[edge];
+
+	/* Detach a and b. */
+	trn_detach(a, b);
+
+	/* Join a and b to trn_a. */
+	trn_join(trn_a, a);
+	trn_join(trn_a, b);
+    }
+    else
+    {
+	trn_a = a_trn_a;
+    }
+
+    if (a_edge_b != CW_TRN_EDGE_NONE)
+    {
+	cw_trn_t *a, *b;
+	cw_uint32_t edge;
+
+	cw_check_ptr(*ar_spare_a);
+	trn_b = *ar_spare_a;
+	*ar_spare_a = NULL;
+
+	trn_p_tree_edge_get(trn_b, a_edge_b, &a, &edge);
+	b = a->neighbors[edge];
+
+	/* Detach a and b. */
+	trn_detach(a, b);
+
+	/* Join a and b to trn_b. */
+	trn_join(trn_b, a);
+	trn_join(trn_b, b);
+    }
+    else
+    {
+	trn_b = a_trn_b;
+    }
+
+    /* Join trn_a and trn_b. */
+    trn_join(trn_a, trn_b);
+
+    /* Get the tree root, and canonize the tree. */
+    if (a_trn_a->taxon_num < a_trn_b->taxon_num)
+    {
+	*r_trn = a_trn_a;
+    }
+    else
+    {
+	*r_trn = a_trn_b;
+    }
+    trn_p_tree_canonize(*r_trn, NULL);
+
+    /* Get the edge index for the connection. */
+    *r_edge = trn_p_tree_edge_index_get(*r_trn, trn_a, trn_b);
 }
