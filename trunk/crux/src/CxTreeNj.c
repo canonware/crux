@@ -178,56 +178,6 @@ CxpTreeNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
 }
 
 static float *
-CxpTreeNjMatrixInit(PyObject *aDistMatrix, long aNtaxa)
-{
-    float *retval;
-    float *dElm;
-    long x, y;
-    PyObject *result;
-
-    /* Allocate an array that is large enough to hold the distances. */
-    retval = (float *) CxmMalloc(sizeof(float)
-				 * (CxpTreeNjXy2i(aNtaxa, aNtaxa - 2,
-						  aNtaxa - 1)
-				    + 1));
-
-    /* Initialize untransformed distances. */
-    for (x = 0, dElm = retval; x < aNtaxa; x++)
-    {
-	for (y = x + 1; y < aNtaxa; y++)
-	{
-	    result = PyEval_CallMethod(aDistMatrix, "distanceGet", "(ll)",
-				       x, y);
-	    if (PyFloat_Check(result))
-	    {
-		*dElm = (float) PyFloat_AsDouble(result);
-		Py_DECREF(result);
-	    }
-	    else if (PyInt_Check(result))
-	    {
-		*dElm = (float) PyInt_AsLong(result);
-		Py_DECREF(result);
-	    }
-	    else
-	    {
-		Py_DECREF(result);
-		CxError(CxgTreeTypeError,
-			"Int or float distance expected (%ld, %ld)",
-			x, y);
-		CxmFree(retval);
-		retval = NULL;
-		goto RETURN;
-	    }
-
-	    dElm++;
-	}
-    }
-
-    RETURN:
-    return retval;
-}
-
-static float *
 CxpTreeNjRInit(float *aD, long aNtaxa)
 {
     float *retval;
@@ -778,18 +728,23 @@ CxpTreeNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
  * 3) If x and min can be clustered, do so, then immediately try to cluster with
  *    x again (as long as collapsing the matrix didn't move row x). */
 static void
-CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
-		 CxtNodeObject ***arNodes, long *arNleft, CxtTreeObject *aTree)
+CxpTreeNjCluster(float **arD, float *aR, float *aRScaled,
+		 CxtNodeObject ***arNodes, long aNleft, CxtTreeObject *aTree)
 {
-    long x, y, min;
+    long x, y;
+    long min
+#ifdef CxmCcSilence
+	= -1
+#endif
+	;
     float *dElm;
     float dist, minDist, distX, distY;
     float *d = *arD;
-    float *r = *arR;
-    float *rScaled = *arRScaled;
+//    float *r = *arR;
+//    float *rScaled = *arRScaled;
     CxtNodeObject *node;
     CxtNodeObject **nodes = *arNodes;
-    long nleft = *arNleft;
+//    long nleft = *arNleft;
     bool additive, clustered;
 
     additive = true;
@@ -801,18 +756,18 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 	    additive = false;
 	}
 	clustered = false;
-	for (x = 0; x < nleft - 1;) /* y indexes one past x. */
+	for (x = 0; x < aNleft - 1;) /* y indexes one past x. */
 	{
 	    /* Find the minimum distance from the node on row x to any other
 	     * node that comes after it in the matrix.  This has the effect of
 	     * trying each node pairing only once. */
 	    for (y = x + 1,
-		     dElm = &d[CxpTreeNjXy2i(nleft, x, y)],
+		     dElm = &d[CxpTreeNjXy2i(aNleft, x, y)],
 		     minDist = HUGE_VAL;
-		 y < nleft;
+		 y < aNleft;
 		 y++)
 	    {
-		dist = *dElm - (rScaled[x] + rScaled[y]);
+		dist = *dElm - (aRScaled[x] + aRScaled[y]);
 		dElm++;
 
 		if (dist < minDist)
@@ -824,8 +779,8 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 	    CxmAssert(minDist != HUGE_VAL);
 
 	    if ((additive == false
-		 || CxpTreeNjPairClusterAdditive(d, rScaled, nleft, x, min))
-		&& CxpTreeNjPairClusterOk(d, rScaled, nleft, x, min))
+		 || CxpTreeNjPairClusterAdditive(d, aRScaled, aNleft, x, min))
+		&& CxpTreeNjPairClusterOk(d, aRScaled, aNleft, x, min))
 	    {
 		clustered = true;
 		// XXX Move randomization to matrix initialization, and expose
@@ -850,22 +805,22 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
 		}
 #endif
 #ifdef CxmTreeNjDump
-		CxpTreeNjDump(d, r, rScaled, nodes, nleft);
+		CxpTreeNjDump(d, aR, aRScaled, nodes, aNleft);
 #endif
-		CxpTreeNjNodesJoin(d, rScaled, nodes, aTree, nleft, x, min,
+		CxpTreeNjNodesJoin(d, aRScaled, nodes, aTree, aNleft, x, min,
 				   &node, &distX, &distY);
-		CxpTreeNjRSubtract(d, r, nleft, x, min);
-		CxpTreeNjCompact(d, r, rScaled, nodes, nleft, x, min,
+		CxpTreeNjRSubtract(d, aR, aNleft, x, min);
+		CxpTreeNjCompact(d, aR, aRScaled, nodes, aNleft, x, min,
 				 node, distX, distY);
-		CxpTreeNjDiscard(&d, &r, &rScaled, &nodes, nleft);
-		nleft--;
-		CxpTreeNjRScaledUpdate(rScaled, r, nleft);
+		CxpTreeNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
+		aNleft--;
+		CxpTreeNjRScaledUpdate(aRScaled, aR, aNleft);
 
 		/* Shrinking the matrix may have reduced it to the point that
 		 * the enclosing loop will no longer function correctly.  Check
 		 * this condition here, in order to reduce branch overhead for
 		 * the case where no join is done. */
-		if (nleft == 2)
+		if (aNleft == 2)
 		{
 		    goto OUT;
 		}
@@ -894,10 +849,7 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
     OUT:
 
     *arD = d;
-    *arR = r;
-    *arRScaled = rScaled;
     *arNodes = nodes;
-    *arNleft = nleft;
     // XXX Remove.
 //     if (retval == false)
 //     {
@@ -953,49 +905,37 @@ CxpTreeNjCluster(float **arD, float **arR, float **arRScaled,
  *   |  A   |  B   |  C   |  D   |  E   |
  *   \------+------+------+------+------/
  */
-static bool
-CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
+static void
+CxpTreeNj(CxtTreeObject *aTree, float *aD, long aNtaxa)
 {
-    bool retval;
-    float *dOrig, *d; /* Distance matrix. */
     float *rOrig, *r; /* Distance sums. */
     float *rScaledOrig, *rScaled; /* Scaled distance sums: r/(nleft-2)). */
     CxtNodeObject **nodesOrig, **nodes; /* Nodes associated with each row. */
-    long nleft;
     CxtNodeObject *node;
-    bool additive;
 #ifdef CxmTreeNjVerbose
     time_t t;
     struct tm *tm;
     time_t starttime;
 #endif
 
-    CxmCheckPtr(aDistMatrix);
+    CxmCheckPtr(aD);
     CxmAssert(aNtaxa > 1);
-
-    /* Initialize distance matrix, r, rScaled, and nodes. */
-    if ((dOrig = d = CxpTreeNjMatrixInit(aDistMatrix, aNtaxa)) == NULL)
-    {
-	retval = true;
-	goto RETURN;
-    }
 
 #ifdef CxmTreeNjVerbose
     time(&starttime);
 #endif
 
-    rOrig = r = CxpTreeNjRInit(d, aNtaxa);
+    /* Initialize distance matrix, r, rScaled, and nodes. */
+    rOrig = r = CxpTreeNjRInit(aD, aNtaxa);
     rScaledOrig = rScaled = CxpTreeNjRScaledInit(aNtaxa);
+    CxpTreeNjRScaledUpdate(rScaled, r, aNtaxa);
     nodesOrig = nodes = CxpTreeNjNodesInit(aTree, aNtaxa);
 
-    nleft = aNtaxa;
-
     /* Iteratively try all clusterings, until only two rows are left. */
-    additive = true;
-    CxpTreeNjRScaledUpdate(rScaled, r, nleft);
-    CxpTreeNjCluster(&d, &r, &rScaled, &nodes, &nleft, aTree);
+    CxpTreeNjCluster(&aD, r, rScaled, &nodes, aNtaxa, aTree);
 
-    node = CxpTreeNjFinalJoin(d, nodes, aTree);
+    /* Join last two nodes. */
+    node = CxpTreeNjFinalJoin(aD, nodes, aTree);
 
     /* Set the tree base. */
     CxTreeBaseSet(aTree, node);
@@ -1008,20 +948,17 @@ CxpTreeNj(CxtTreeObject *aTree, PyObject *aDistMatrix, long aNtaxa)
 	    (int)(t - starttime), (t - starttime) == 1 ? "" : "s");
 #endif
 
-    retval = false;
     /* Clean up. */
     CxmFree(nodesOrig);
     CxmFree(rScaledOrig);
     CxmFree(rOrig);
-    CxmFree(dOrig);
-    RETURN:
-    return retval;
 }
 
 PyObject *
 CxTreeNj(CxtTreeObject *self, PyObject *args)
 {
-    PyObject *retval, *result, *distMatrix;
+    PyObject *retval, *distMatrix;
+    float *d;
     long ntaxa;
 
     if (PyArg_ParseTuple(args, "O", &distMatrix) == 0)
@@ -1029,17 +966,6 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
 	retval = NULL;
 	goto RETURN;
     }
-
-    result = PyEval_CallMethod(distMatrix, "ntaxaGet", "()");
-    if (PyInt_Check(result) == false)
-    {
-	CxError(CxgDistMatrixTypeError,
-		"Integer expected from distMatrix.ntaxaGet()");
-	retval = NULL;
-	goto RETURN;
-    }
-    ntaxa = PyInt_AsLong(result);
-    Py_DECREF(result);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -1049,16 +975,14 @@ CxTreeNj(CxtTreeObject *self, PyObject *args)
 	CxtTrNode oldTrNode, trNode;
 	CxtNodeObject *node;
 
+	CxDistMatrixUpperHandoff((CxtDistMatrixObject *) distMatrix,
+				 &d, &ntaxa);
+
 	oldTrNode = CxTrBaseGet(self->tr);
 
 	/* Neighbor-join. */
-	if (CxpTreeNj(self, distMatrix, ntaxa))
-	{
-	    /* Error during neighbor join. */
-	    Py_DECREF(retval);
-	    retval = NULL;
-	    break;
-	}
+	CxpTreeNj(self, d, ntaxa);
+	CxmFree(d);
 
 	/* Reference new base. */
 	trNode = CxTrBaseGet(self->tr);

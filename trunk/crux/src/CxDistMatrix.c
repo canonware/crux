@@ -643,7 +643,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     self->column = 0;
 
     matrixFormat = CxDistMatrixFormatUnknown;
-    
+
     /* Get the number of taxa. */
     eof = CxpDistMatrixGetToken(self, &tokenType, &line, &column);
     switch (tokenType)
@@ -1267,6 +1267,46 @@ CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args)
     retval = Py_None;
     RETURN:
     return retval;
+}
+
+/* Hand off an array of floats that represent an upper-triangle distance matrix,
+ * and clean up such that this DistMatrix no longer refers to the data (though
+ * the TaxonMap continues to be referred to by the DistMatrix).
+ *
+ * This is not a terribly clean interface; ideally DistMatrix would be
+ * subclassed and initialization methods overridden, but the Python overhead for
+ * such a solution is unacceptably high. */
+void
+CxDistMatrixUpperHandoff(CxtDistMatrixObject *self, float **rMatrix,
+			 long *rNtaxa)
+{
+    if (self->symmetric == false)
+    {
+	unsigned long i;
+
+	/* Discard the lower triangle of the matrix by doing a series of
+	 * memmove() calls, followed by reallocating the matrix. */
+	self->symmetric = true;
+	for (i = 0; i < self->ntaxa - 1; i++)
+	{
+	    memmove(&self->matrix[CxpDistMatrixXy2i(self, i, i + 1)],
+		    &self->matrix[self->ntaxa * i + (i + 1)],
+		    sizeof(float) * (self->ntaxa - (i + 1)));
+	}
+
+	self->matrix
+	    = (float *) CxmRealloc(self->matrix, sizeof(float)
+				   * (CxpDistMatrixXy2i(self,
+							self->ntaxa - 2,
+							self->ntaxa - 1)
+				      + 1));
+    }
+
+    *rMatrix = self->matrix;
+    *rNtaxa = self->ntaxa;
+
+    self->matrix = NULL;
+    self->ntaxa = 0;
 }
 
 static PyMethodDef CxpDistMatrixMethods[] =

@@ -75,3 +75,7 @@ void
 CxDistMatrixDistanceSet(CxtDistMatrixObject *self, long x, long y, float dist);
 PyObject *
 CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args);
+
+void
+CxDistMatrixUpperHandoff(CxtDistMatrixObject *self, float **rMatrix,
+			 long *rNtaxa);
