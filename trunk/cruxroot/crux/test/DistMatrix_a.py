@@ -168,14 +168,6 @@ Epsilon    3.000 3.000 3.000 1.000
 print "Test begin"
 
 for matrix in matrices:
-    # XXX Remove:
-    print "==="
-    print matrix
-    distMatrix = crux.DistMatrix.DistMatrix(matrix)
-    print distMatrix.prints('full')
-    print distMatrix.prints('upper')
-    print distMatrix.prints('lower')
-    # XXX ^^^ Remove.
     try:
         print "==="
         print matrix

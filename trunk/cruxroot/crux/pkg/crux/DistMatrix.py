@@ -87,13 +87,13 @@ class DistMatrix(C_DistMatrix):
         retval = "%d\n" % self.taxonMapGet().ntaxaGet()
         if format == 'full':
             for x in forints(self.taxonMapGet().ntaxaGet()):
-                retval += "%-10s" % self._map.labelGet(x)
+                retval += "%-10s" % self.taxonMapGet().labelGet(x)
                 for y in forints(self.taxonMapGet().ntaxaGet()):
                     retval += " %1.5f" % self.distanceGet(x, y)
                 retval += "\n"
         elif format == 'upper':
             for x in forints(self.taxonMapGet().ntaxaGet()):
-                retval += "%-10s" % self._map.labelGet(x)
+                retval += "%-10s" % self.taxonMapGet().labelGet(x)
                 for y in forints(x + 1):
                     retval += "%8s" % ""
                 for y in forints(self.taxonMapGet().ntaxaGet(), start=x+1):
@@ -101,7 +101,7 @@ class DistMatrix(C_DistMatrix):
                 retval += "\n"
         elif format == 'lower':
             for x in forints(self.taxonMapGet().ntaxaGet()):
-                retval += "%-10s" % self._map.labelGet(x)
+                retval += "%-10s" % self.taxonMapGet().labelGet(x)
                 for y in forints(x):
                     retval += " %1.5f" % self.distanceGet(x, y)
                 retval += "\n"

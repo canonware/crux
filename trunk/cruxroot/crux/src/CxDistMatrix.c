@@ -119,6 +119,8 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
     char c;
     long line, column;
 
+    self->tokenLen = 0;
+
     CxDistMatrixTokenState = CxDistMatrixTokenStateStart;
     while (true)
     {
@@ -363,7 +365,8 @@ CxpDistMatrixTokenToDistance(CxtDistMatrixObject *self, double *rDistance)
 }
 
 static bool
-CxpDistMatrixSetLabel(CxtDistMatrixObject *self, long index)
+CxpDistMatrixSetLabel(CxtDistMatrixObject *self, long index,
+		      const char *matrixFormat)
 {
     bool retval, eof;
     CxtDistMatrixTokenType tokenType;
@@ -375,8 +378,9 @@ CxpDistMatrixSetLabel(CxtDistMatrixObject *self, long index)
 	case CxtDistMatrixTokenNone:
 	{
 	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			       "%ld:%ld: End of input reached",
-			       self->line, self->column);
+			       "At %ld:%ld (%s matrix format): End of input"
+			       " reached",
+			       self->line, self->column, matrixFormat);
 	    retval = true;
 	    goto RETURN;
 	}
@@ -384,8 +388,9 @@ CxpDistMatrixSetLabel(CxtDistMatrixObject *self, long index)
 	case CxtDistMatrixTokenDec:
 	{
 	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			       "%ld:%ld: Missing taxon label",
-			       line, column);
+			       "At %ld:%ld (%s matrix format): Missing taxon"
+			       " label",
+			       line, column, matrixFormat);
 	    retval = true;
 	    goto RETURN;
 	}
@@ -404,9 +409,9 @@ CxpDistMatrixSetLabel(CxtDistMatrixObject *self, long index)
     if (eof)
     {
 	CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			   "%ld:%ld: End of input reached while reading"
-			   " label %ld",
-			   self->line, self->column, index);
+			   "At %ld:%ld (%s matrix format): End of input reached"
+			   " while reading label %ld",
+			   self->line, self->column, matrixFormat, index);
 	retval = true;
 	goto RETURN;
     }
@@ -417,7 +422,8 @@ CxpDistMatrixSetLabel(CxtDistMatrixObject *self, long index)
 }
 
 static bool
-CxpDistMatrixSetDistance(CxtDistMatrixObject *self, long x, long y)
+CxpDistMatrixSetDistance(CxtDistMatrixObject *self, long x, long y,
+			 const char *matrixFormat)
 {
     bool retval, eof;
     CxtDistMatrixTokenType tokenType;
@@ -429,8 +435,9 @@ CxpDistMatrixSetDistance(CxtDistMatrixObject *self, long x, long y)
 	case CxtDistMatrixTokenNone:
 	{
 	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			       "%ld:%ld: End of input reached (%ld, %ld)",
-			       self->line, self->column, x, y);
+			       "At %ld:%ld (%s matrix format): End of input"
+			       " reached (%ld, %ld)",
+			       self->line, self->column, matrixFormat, x, y);
 	    retval = true;
 	    goto RETURN;
 	}
@@ -442,9 +449,9 @@ CxpDistMatrixSetDistance(CxtDistMatrixObject *self, long x, long y)
 							   + y]))
 	    {
 		CxpDistMatrixError(CxgDistMatrixSyntaxError,
-				   "%ld:%ld: Distance conversion"
-				   " error (%ld, %ld) '%s'",
-				   self->line, self->column,
+				   "At %ld:%ld (%s matrix format): Distance"
+				   " conversion error (%ld, %ld) '%s'",
+				   line, column, matrixFormat,
 				   x, y, self->buf);
 		retval = true;
 		goto RETURN;
@@ -454,9 +461,11 @@ CxpDistMatrixSetDistance(CxtDistMatrixObject *self, long x, long y)
 	case CxtDistMatrixTokenLabel:
 	{
 	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			       "%ld:%ld (lower matrix format):"
+			       "At %ld:%ld (%s matrix format):"
 			       " Missing distance (%ld, %ld)",
-			       self->line, self->column, x, y);
+			       line, column, matrixFormat, x, y);
+	    retval = true;
+	    goto RETURN;
 	}
 	default:
 	{
@@ -466,7 +475,7 @@ CxpDistMatrixSetDistance(CxtDistMatrixObject *self, long x, long y)
     if (eof)
     {
 	CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			   "%ld:%ld: End of input reached"
+			   "At %ld:%ld (%s matrix format): End of input reached"
 			   " (%ld, %ld)",
 			   self->line, self->column, x, y);
 	retval = true;
@@ -494,7 +503,6 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 
     self->buf = NULL;
     self->bufLen = 0;
-    self->tokenLen = 0;
     self->line = 1;
     self->column = 0;
 
@@ -519,7 +527,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    if (self->ntaxa < 2)
 	    {
 		CxpDistMatrixError(CxgDistMatrixSyntaxError,
-				   "%ld:%ld: Too few taxa (%ld)",
+				   "At %ld:%ld: Too few taxa (%ld)",
 				   line, column, self->ntaxa);
 		retval = true;
 		goto RETURN;
@@ -532,7 +540,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	case CxtDistMatrixTokenLabel:
 	{
 	    CxpDistMatrixError(CxgDistMatrixValueError,
-			       "%ld:%ld: Unspecified number of taxa", line,
+			       "At %ld:%ld: Unspecified number of taxa", line,
 			       column);
 	    retval = true;
 	    goto RETURN;
@@ -545,14 +553,14 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     if (eof)
     {
 	CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			   "%ld:%ld: End of input reached",
+			   "At %ld:%ld: End of input reached",
 			   self->line, self->column);
 	retval = true;
 	goto RETURN;
     }
 
     /* Get the first taxon label. */
-    if (CxpDistMatrixSetLabel(self, 0))
+    if (CxpDistMatrixSetLabel(self, 0, "unknown"))
     {
 	retval = true;
 	goto RETURN;
@@ -566,7 +574,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	case CxtDistMatrixTokenNone:
 	{
 	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			       "%ld:%ld: End of input reached",
+			       "At %ld:%ld: End of input reached",
 			       self->line, self->column);
 	    retval = true;
 	    goto RETURN;
@@ -591,7 +599,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     if (eof)
     {
 	CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			   "%ld:%ld: End of input reached",
+			   "At %ld:%ld: End of input reached",
 			   self->line, self->column);
 	retval = true;
 	goto RETURN;
@@ -604,7 +612,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 			  1);
 
 	/* Get second row of distances. */
-	if (CxpDistMatrixSetDistance(self, 1, 0))
+	if (CxpDistMatrixSetDistance(self, 1, 0, "lower"))
 	{
 	    retval = true;
 	    goto RETURN;
@@ -614,7 +622,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	for (x = 2; x < self->ntaxa; x++)
 	{
 	    /* Get taxon label. */
-	    if (CxpDistMatrixSetLabel(self, x))
+	    if (CxpDistMatrixSetLabel(self, x, "lower"))
 	    {
 		retval = true;
 		goto RETURN;
@@ -623,7 +631,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    /* Get distances. */
 	    for (y = 0; y < x; y++)
 	    {
-		if (CxpDistMatrixSetDistance(self, x, y))
+		if (CxpDistMatrixSetDistance(self, x, y, "lower"))
 		{
 		    retval = true;
 		    goto RETURN;
@@ -658,8 +666,8 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 						       + 1]))
 	{
 	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			       "%ld:%ld: Distance conversion error (%s)",
-			       self->line, self->column, self->buf);
+			       "At %ld:%ld: Distance conversion error (%s)",
+			       line, column, self->buf);
 	    retval = true;
 	    goto RETURN;
 	}
@@ -667,7 +675,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	 * though parsing an upper-triangle matrix. */
 	for (y = 2; y < self->ntaxa; y++)
 	{
-	    if (CxpDistMatrixSetDistance(self, 0, y))
+	    if (CxpDistMatrixSetDistance(self, 0, y, "full/upper"))
 	    {
 		retval = true;
 		goto RETURN;
@@ -681,7 +689,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    case CxtDistMatrixTokenNone:
 	    {
 		CxpDistMatrixError(CxgDistMatrixSyntaxError,
-				   "%ld:%ld: End of input reached",
+				   "At %ld:%ld: End of input reached",
 				   self->line, self->column);
 		retval = true;
 		goto RETURN;
@@ -707,7 +715,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	if (eof)
 	{
 	    CxpDistMatrixError(CxgDistMatrixSyntaxError,
-			       "%ld:%ld: End of input reached",
+			       "At %ld:%ld: End of input reached",
 			       self->line, self->column);
 	    retval = true;
 	    goto RETURN;
@@ -724,7 +732,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    /* Get second row of distances. */
 	    for (y = 2; y < self->ntaxa; y++)
 	    {
-		if (CxpDistMatrixSetDistance(self, 1, y))
+		if (CxpDistMatrixSetDistance(self, 1, y, "upper"))
 		{
 		    retval = true;
 		    goto RETURN;
@@ -735,7 +743,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    for (x = 2; x < self->ntaxa; x++)
 	    {
 		/* Get taxon label. */
-		if (CxpDistMatrixSetLabel(self, x))
+		if (CxpDistMatrixSetLabel(self, x, "upper"))
 		{
 		    retval = true;
 		    goto RETURN;
@@ -744,7 +752,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 		/* Get distances. */
 		for (y = x + 1; y < self->ntaxa; y++)
 		{
-		    if (CxpDistMatrixSetDistance(self, x, y))
+		    if (CxpDistMatrixSetDistance(self, x, y, "upper"))
 		    {
 			retval = true;
 			goto RETURN;
@@ -780,8 +788,15 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    }
 
 	    /* Set the last distance on the first row. */
-	    if (CxpDistMatrixSetDistance(self, 0, self->ntaxa - 1))
+	    if (CxpDistMatrixTokenToDistance(self,
+					     &self->matrix[0 * self->ntaxa
+							   + self->ntaxa - 1]))
 	    {
+		CxpDistMatrixError(CxgDistMatrixSyntaxError,
+				   "At %ld:%ld: Distance conversion"
+				   " error (%ld, %ld) '%s'",
+				   line, column,
+				   0, self->ntaxa - 1, self->buf);
 		retval = true;
 		goto RETURN;
 	    }
@@ -790,7 +805,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    for (x = 1; x < self->ntaxa; x++)
 	    {
 		/* Get taxon label. */
-		if (CxpDistMatrixSetLabel(self, x))
+		if (CxpDistMatrixSetLabel(self, x, "full"))
 		{
 		    retval = true;
 		    goto RETURN;
@@ -799,7 +814,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 		/* Get Distances. */
 		for (y = 0; y < self->ntaxa; y++)
 		{
-		    if (CxpDistMatrixSetDistance(self, x, y))
+		    if (CxpDistMatrixSetDistance(self, x, y, "full"))
 		    {
 			retval = true;
 			goto RETURN;
@@ -947,7 +962,6 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 		 * TaxonMap. */
 
 		result = PyEval_CallMethod(self->map, "ntaxaGet", "()");
-		// XXX Is a tuple returned?  I'm hoping for an integer here.
 		if (PyArg_ParseTuple(result, "i", &ntaxa) == 0)
 		{
 		    Py_DECREF(retval);

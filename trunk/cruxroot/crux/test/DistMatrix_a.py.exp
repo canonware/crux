@@ -237,7 +237,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 2: Unspecified number of taxa
+Exception C_DistMatrix.ValueError: At 2:0: Unspecified number of taxa
 ===
 5
            0.000 1.000 2.000 3.000 3.000
@@ -246,7 +246,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 2: Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 2:11 (unknown matrix format): Missing taxon label
 ===
 5
 Alpha            1.000 2.000 3.000 3.000
@@ -255,7 +255,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 3 (upper matrix format): Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 3:29 (upper matrix format): Missing taxon label
 ===
 5
 Alpha      0.000 1.000 2.000 3.000
@@ -264,7 +264,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 3 (upper matrix format): Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 3:29 (upper matrix format): Missing taxon label
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -273,7 +273,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 3 (full matrix format): Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 3:11 (full matrix format): Missing taxon label
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -282,7 +282,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 4 (full matrix format): Missing distance (1, 4)
+Exception C_DistMatrix.SyntaxError: At 4:0 (full matrix format): Missing distance (1, 4)
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -291,7 +291,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 4 (full matrix format): Missing distance (1, 4)
+Exception C_DistMatrix.SyntaxError: At 4:0 (full matrix format): Missing distance (1, 4)
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -301,7 +301,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 5 (full matrix format): Missing distance (1, 4)
+Exception C_DistMatrix.SyntaxError: At 5:0 (full matrix format): Missing distance (1, 4)
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -310,7 +310,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
            3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 6 (full matrix format): Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 6:11 (full matrix format): Missing taxon label
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -319,7 +319,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 
 
-Exception crux.DistMatrix.SyntaxError: Line 7 (full matrix format): Missing distance (4, 4)
+Exception C_DistMatrix.SyntaxError: At 7:0 (full matrix format): End of input reached (4, 4)
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -448,7 +448,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 2: Unspecified number of taxa
+Exception C_DistMatrix.ValueError: At 2:0: Unspecified number of taxa
 ===
 5
            0.000 1.000 2.000 3.000 3.000
@@ -457,7 +457,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 2: Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 2:11 (unknown matrix format): Missing taxon label
 ===
 5
 Alpha            1.000 2.000 3.000 3.000
@@ -466,7 +466,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 3 (upper matrix format): Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 3:29 (upper matrix format): Missing taxon label
 ===
 5
 Alpha      0.000 1.000 2.000 3.000
@@ -475,7 +475,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 3 (upper matrix format): Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 3:29 (upper matrix format): Missing taxon label
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -484,7 +484,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 3 (full matrix format): Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 3:11 (full matrix format): Missing taxon label
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -493,7 +493,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 4 (full matrix format): Missing distance (1, 4)
+Exception C_DistMatrix.SyntaxError: At 4:0 (full matrix format): Missing distance (1, 4)
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -502,7 +502,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 4 (full matrix format): Missing distance (1, 4)
+Exception C_DistMatrix.SyntaxError: At 4:0 (full matrix format): Missing distance (1, 4)
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -512,7 +512,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 5 (full matrix format): Missing distance (1, 4)
+Exception C_DistMatrix.SyntaxError: At 5:0 (full matrix format): Missing distance (1, 4)
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -521,7 +521,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
            3.000 3.000 3.000 1.000 0.000
 
-Exception crux.DistMatrix.SyntaxError: Line 6 (full matrix format): Missing taxon label
+Exception C_DistMatrix.SyntaxError: At 6:11 (full matrix format): Missing taxon label
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -530,5 +530,5 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 
 
-Exception crux.DistMatrix.SyntaxError: Line 7 (full matrix format): Missing distance (4, 4)
+Exception C_DistMatrix.SyntaxError: At 7:0 (full matrix format): End of input reached (4, 4)
 Test end
