@@ -53,12 +53,14 @@ class _FastaParser(FastaParser.FastaParser):
         self._matrix.dataSet(self._lastLabel, self.token())
 
 class CTMatrix(object):
-    def __init__(self, map=TaxonMap.TaxonMap()):
+    def __init__(self, map=None):
         # This is an array of CharacterType objects, and stores the character
         # types for the columns in _taxonData.
         self._chars = []
 
         # This is used to manage the rows of the data matrix (_taxonData).
+        if map == None:
+            map = TaxonMap.TaxonMap()
         self._taxonMap = map
 
         # Row-major character data.  Each element in _taxonData is a string of

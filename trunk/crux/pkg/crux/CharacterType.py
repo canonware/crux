@@ -60,7 +60,7 @@ class CharacterType(object):
         # Create a reverse lookup (val --> code).
         self._vals[val] = code
 
-    def ambiguityCodeAdd(self, code, oStates=[]):
+    def ambiguityCodeAdd(self, code, oStates=None):
         if self._aStates.has_key(code):
             raise crux.CharacterType\
                   .ValueError("State already defined: %r" % code)
@@ -68,8 +68,9 @@ class CharacterType(object):
         # Define a key in _ambiguities that makes it possible to get the state's
         # value in constant time.
         val = 0
-        for oState in oStates:
-            val |= self._aStates[oState]
+        if oStates != None:
+            for oState in oStates:
+                val |= self._aStates[oState]
         self._aStates[code] = val
 
         # Create a reverse lookup (val --> code) if one doesn't already exist.

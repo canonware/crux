@@ -153,12 +153,17 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, nodeA)
 
 class Tree(C_Tree):
-    def __init__(self, with=None, map=TaxonMap.TaxonMap(), autoMap=False,
+    def __init__(self, with=None, map=None, autoMap=False,
                  maxLength=10, tryAdditive=True):
+
         if type(with) == int:
+            if map == None:
+                map = TaxonMap.TaxonMap()
             self._map = map
             self._randomNew(with, maxLength)
         elif type(with) == str or type(with) == file:
+            if map == None:
+                map = TaxonMap.TaxonMap()
             self._map = map
             self._newickNew(with, autoMap)
         elif type(with) == DistMatrix.DistMatrix:
@@ -189,13 +194,14 @@ class Tree(C_Tree):
             edgeB.attach(nnode, subtreeB)
             subtrees.append(nnode)
 
-        # Attach the last two subtrees directly, in order to finish constructing
-        # an unrooted tree.
         subtreeA = subtrees.pop(0)
-        subtreeB = subtrees.pop(0)
-        edge = Edge.Edge(self)
-        edge.lengthSet(random.randint(1, maxLength))
-        edge.attach(subtreeA, subtreeB)
+        if (len(subtrees) > 0):
+            # Attach the last two subtrees directly, in order to finish
+            # constructing an unrooted tree.
+            subtreeB = subtrees.pop(0)
+            edge = Edge.Edge(self)
+            edge.lengthSet(random.randint(1, maxLength))
+            edge.attach(subtreeA, subtreeB)
 
         self.baseSet(subtreeA)
 

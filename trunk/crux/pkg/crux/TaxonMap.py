@@ -22,17 +22,15 @@ class ValueError(Exception, ValueError):
         return self._message
 
 class TaxonMap(object):
-    def __init__(self, taxa=[]):
+    def __init__(self, taxa=None):
         self._label2ind = {}
         self._ind2label = {}
 
         # Construct dictionaries for lookups in both directions.
-        i = 0
-        for label in taxa:
-            self._label2ind[label] = i
-            self._ind2label[i] = label
-
-            i += 1
+        if taxa != None:
+            for i in forints(len(taxa)):
+                self._label2ind[taxa[i]] = i
+                self._ind2label[i] = taxa[i]
 
     def ntaxaGet(self):
         return len(self._label2ind)
