@@ -2468,7 +2468,10 @@ tr_delete(cw_tr_t *a_tr)
 
 	for (i = 0; i < a_tr->nedges; i++)
 	{
-	    tr_p_ps_delete(a_tr, a_tr->tres[i].ps);
+	    if (a_tr->tres[i].ps != NULL)
+	    {
+		tr_p_ps_delete(a_tr, a_tr->tres[i].ps);
+	    }
 	}
 
 	cw_opaque_dealloc(dealloc, arg, a_tr->tres,
