@@ -25,10 +25,9 @@ struct cw_trn_s
 #define CW_TRN_MAGIC 0x63329478
     /* If this trn has been inserted into a tree, it should no longer be
      * externally modified.  This variable aids in asserting this invariant. */
+    // XXX Use this!
     cw_bool_t in_tr;
 #endif
-    /* If non-NULL, then the node was dynamically allocated. */
-    cw_mema_t *mema;
 
     /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
      * for reference iteration. */
@@ -58,6 +57,11 @@ struct cw_trt_s
      * is the same. */
     cw_uint32_t nedges_a;
     cw_uint32_t nedges_b;
+
+    /* Edge indices for the edges that will reverse bisection.  This is used to
+     * avoid enumerating reconnections that undo the bisections. */
+    cw_uint32_t self_a;
+    cw_uint32_t self_b;
 };
 
 struct cw_tr_s
@@ -66,15 +70,10 @@ struct cw_tr_s
     cw_uint32_t magic;
 #define CW_TR_MAGIC 0x39886394
 #endif
-    /* If non-NULL, then the node was dynamically allocated. */
-    cw_mema_t *mema;
 
     /* Auxiliary opaque data pointer.  This is used by the treenode wrapper code
      * for reference iteration. */
     void *aux;
-
-    /* Number of taxa in tree. */
-    cw_uint32_t ntaxa;
 
     /* TRUE if this is a rooted tree, false otherwise. */
     cw_bool_t rooted;
@@ -82,25 +81,36 @@ struct cw_tr_s
     /* Root node.  If this tree is unrooted, the root node has no neighbors. */
     cw_trn_t *root;
 
-    /* Taxon 0. */
+    /* Taxon 0 (canonical tree root). */
     cw_trn_t *croot;
+
+    /* Number of taxa in tree. */
+    cw_uint32_t ntaxa;
+
+    /* Number of edges in tree, assuming that the tree is unrooted.  This can be
+     * derived from ntaxa, but is used often enough to make storing it
+     * worthwhile. */
+    cw_uint32_t nedges;
 
     /* Undo information for the most recent TBR. */
     cw_bool_t tbr_undoable;
     cw_uint32_t tbr_undo_bisect;
-    cw_uint32_t tbr_undo_edge_a;
-    cw_uint32_t tbr_undo_edge_b;
+    cw_uint32_t tbr_undo_reconnect_a;
+    cw_uint32_t tbr_undo_reconnect_b;
 
-    /* Array of triplets that store information that is used for TBR-related
-     * functions. */
+    /* Array of triplets that store per-edge information that is used for
+     * TBR-related functions.  There is one more element in trt than there are
+     * edges in the tree.  This is critical to the way binary searching on the
+     * array is done, and it also makes it easy to get the total number of
+     * TBR neighbors this tree has (trt[nedges].offset). */
     cw_trt_t *trt;
 };
 
 /* trn. */
 
 /* Constructor. */
-cw_trn_t *
-trn_new(cw_trn_t *a_trn, cw_mema_t *a_mema);
+void
+trn_new(cw_trn_t *a_trn);
 
 /* Destructor. */
 void
@@ -143,12 +153,12 @@ trn_aux_set(cw_trn_t *a_trn, void *a_aux);
 /* tr. */
 
 /* Constructor. */
-cw_tr_t *
-tr_new(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_trn_t *a_trn);
+void
+tr_new(cw_tr_t *a_tr, cw_trn_t *a_root);
 
 /* Destructor. */
 void
-tr_delete(cw_tr_t *a_tr);
+tr_delete(cw_tr_t *a_tr, cw_bool_t a_delete_trns);
 
 /* Get the number of taxa in the tree. */
 cw_uint32_t
@@ -181,9 +191,9 @@ tr_root_get(cw_tr_t *a_tr);
 cw_bool_t
 tr_rooted(cw_tr_t *a_tr);
 
-/* Root the tree at the edge between a_trn and neighbor a_neighbor. */
+/* Root the tree at the edge between a_trn_a and a_trn_b. */
 void
-tr_root(cw_tr_t *a_tr, cw_trn_t *a_trn, cw_uint32_t a_neighbor);
+tr_root(cw_tr_t *a_tr, cw_trn_t *a_trn_a, cw_trn_t *a_trn_b);
 
 /* Unroot the tree. */
 void
@@ -214,32 +224,25 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,
 		    cw_uint32_t *r_reconnect_b);
 
-/* trs. */
-
-/* Constructor. */
-cw_trs_t *
-trs_new(cw_mema_t *a_mema, cw_tr_t *a_tr);
-
-/* Destructor. */
+/* Create a canonical string representation of a_tr (which must be unrooted).
+ * ar_string must point to a_len bytes of storage, which must in turn be
+ * tr_string_ntaxa2sizeof(tr_ntaxa_get(a_tr)). */
 void
-trs_delete(cw_trs_t *a_trs, cw_mema_t *a_mema, cw_uint32_t a_ntaxa);
+tr_string(cw_tr_t *a_tr, cw_uint8_t *ar_string, cw_uint32_t a_len);
 
-/* Get the number of taxa in the tree. */
+/* Get the number of taxa in the canonical tree represented by a_string. */
 cw_uint32_t
-trs_ntaxa(const cw_trs_t *a_trs);
+tr_string_ntaxa(const cw_uint8_t *a_string);
 
-/* Get the size (in bytes) of a trs with a_ntaxa taxa. */
+/* Return the number of bytes needed to store a canonical tree with a_ntaxa taxa
+ * in string format. */
 cw_uint32_t
-trs_ntaxa2sizeof(cw_uint32_t a_ntaxa);
+tr_string_ntaxa2sizeof(cw_uint32_t a_ntaxa);
 
-/* Copy a_trs to a string. */
-void
-trs_memcopy(cw_uint8_t *a_dest, cw_trs_t *a_trs);
-
-/* Hash a trs. */
+/* Hash a string that represents a canonical tree. */
 cw_uint32_t
-trs_hash(const void *a_key);
+tr_string_hash(const void *a_key);
 
-/* Compare two trs's. */
+/* Compare two strings that represent canonical trees. */
 cw_bool_t
-trs_key_comp(const void *a_k1, const void *a_k2);
+tr_string_key_comp(const void *a_k1, const void *a_k2);

@@ -10,11 +10,11 @@
  *
  ******************************************************************************
  *
- * cw_trs_t contains a space-efficient representation of an unrooted bifurcating
- * phylogenetic tree.  The feasible duration of each iteration of tabu search is
- * bounded by the number of trees (and assoicated tabu lists) that can be
- * stored.  As such, the internal tree representation is as compact as
- * reasonably possible.
+ * A cw_tr_t can be converted to a space-efficient representation of an unrooted
+ * bifurcating phylogenetic tree.  The feasible duration of each iteration of
+ * tabu search is bounded by the number of trees (and assoicated tabu lists)
+ * that can be stored.  As such, the internal tree representation is as compact
+ * as reasonably possible.
  *
  * Since tabu search depends on being able to determine if a tree has been
  * previously visited, tree comparison must be fast.  Therefore, a canonical
@@ -154,20 +154,18 @@
  ******************************************************************************
  *
  * cw_trn_t contains a time-efficient representation of a node of an
- * (optionally) unrooted bifurcating phlyogenetic tree.  This data structure
- * takes much more space than cw_trs_t does, but tree operations are much more
- * efficient than they would be for cw_trs_t.
+ * (optionally) unrooted bifurcating phlyogenetic tree.
  *
  ******************************************************************************/
 
 #include "../include/modcrux.h"
 
 /* Get bit a_i in a_vec (cw_uint8_t *). */
-#define TRS_BIT_GET(a_vec, a_i)						\
+#define TR_STRING_BIT_GET(a_vec, a_i)					\
     (( ((a_vec)[(a_i) >> 3]) >> (7 - ((a_i) & 0x7)) ) & 0x1)
 
 /* Set bit a_i in a_vec (cw_uint8_t *) to a_val (0 or 1). */
-#define TRS_BIT_SET(a_vec, a_i, a_val)					\
+#define TR_STRING_BIT_SET(a_vec, a_i, a_val)				\
     (a_vec)[(a_i) >> 3] =						\
 	((a_vec)[(a_i) >> 3] & (~(0x1 << (7 - ((a_i) & 0x7)))))		\
 	| ((a_val) << ((7 - ((a_i) & 0x7))))
@@ -449,8 +447,8 @@ trn_p_edge_index_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
 
 	    /* Recurse into neighbor subtree. */
 	    if (trn_p_edge_index_get_recurse(a_trn->neighbors[i], a_trn,
-					    a_trn_a, a_trn_b,
-					    r_edge_count))
+					     a_trn_a, a_trn_b,
+					     r_edge_count))
 	    {
 		retval = TRUE;
 		goto RETURN;
@@ -548,9 +546,9 @@ trn_p_canonize(cw_trn_t *a_trn, cw_trn_t *a_prev)
 
 static void
 trn_p_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
-	    cw_uint32_t *r_edge_a, cw_trn_t **r_trn_b,
-	    cw_uint32_t *r_edge_b, cw_trn_t **r_spare_a,
-	    cw_trn_t **r_spare_b)
+	     cw_uint32_t *r_edge_a, cw_trn_t **r_trn_b,
+	     cw_uint32_t *r_edge_b, cw_trn_t **r_spare_a,
+	     cw_trn_t **r_spare_b)
 {
     cw_trn_t *trn_a, *trn_b;
     cw_uint32_t edge;
@@ -666,9 +664,9 @@ trn_p_bisect(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trn_t **r_trn_a,
 
 static void
 trn_p_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
-	     cw_trn_t *a_trn_b, cw_uint32_t a_edge_b,
-	     cw_trn_t **ar_spare_a, cw_trn_t **ar_spare_b,
-	     cw_trn_t **r_trn, cw_uint32_t *r_edge)
+	      cw_trn_t *a_trn_b, cw_uint32_t a_edge_b,
+	      cw_trn_t **ar_spare_a, cw_trn_t **ar_spare_b,
+	      cw_trn_t **r_trn, cw_uint32_t *r_edge)
 {
     cw_trn_t *trn_a, *trn_b;
 
@@ -753,35 +751,17 @@ trn_p_connect(cw_trn_t *a_trn_a, cw_uint32_t a_edge_a,
     *r_edge = trn_p_edge_index_get(*r_trn, trn_a, trn_b);
 }
 
-cw_trn_t *
-trn_new(cw_trn_t *a_trn, cw_mema_t *a_mema)
+void
+trn_new(cw_trn_t *a_trn)
 {
-    cw_trn_t *retval;
+    cw_check_ptr(a_trn);
 
-    if (a_trn != NULL)
-    {
-	retval = a_trn;
-	memset(a_trn, 0, sizeof(cw_trn_t));
-	a_trn->mema = NULL;
-    }
-    else
-    {
-	cw_check_ptr(a_mema);
-	cw_check_ptr(mema_calloc_get(a_mema));
-	cw_check_ptr(mema_dealloc_get(a_mema));
-
-	retval = cw_opaque_calloc(mema_calloc_get(a_mema),
-				  mema_arg_get(a_mema), 1, sizeof(cw_trn_t));
-	a_trn->mema = a_mema;
-    }
-
-    retval->taxon_num = CW_TRN_TAXON_NONE;
+    memset(a_trn, 0, sizeof(cw_trn_t));
+    a_trn->taxon_num = CW_TRN_TAXON_NONE;
 
 #ifdef CW_DBG
-    retval->magic = CW_TRN_MAGIC;
+    a_trn->magic = CW_TRN_MAGIC;
 #endif
-
-    return retval;
 }
 
 void
@@ -789,16 +769,8 @@ trn_delete(cw_trn_t *a_trn)
 {
     cw_dassert(trn_p_validate(a_trn));
 
-    if (a_trn->mema != NULL)
-    {
-	cw_opaque_dealloc(mema_dealloc_get(a_trn->mema),
-			  mema_arg_get(a_trn->mema), a_trn, sizeof(cw_trn_t));
-    }
 #ifdef CW_DBG
-    else
-    {
-	memset(a_trn, 0x5a, sizeof(cw_trn_t));
-    }
+    memset(a_trn, 0x5a, sizeof(cw_trn_t));
 #endif
 }
 
@@ -947,8 +919,13 @@ tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
     cw_trn_t *root;
     cw_uint32_t i, j, n;
 
+    cw_check_ptr(a_tr);
+    cw_assert(a_tr->magic == CW_TR_MAGIC);
     cw_assert(trn_p_root_get(a_tr->croot, NULL, NULL) == a_tr->croot);
     cw_assert(a_tr->ntaxa == trn_p_ntaxa_get_recurse(a_tr->root, NULL));
+    cw_assert((a_tr->rooted == FALSE
+	       && a_tr->nedges == trn_p_nedges_get(a_tr->croot) - 1)
+	      || a_tr->nedges == trn_p_nedges_get(a_tr->croot));
 
     /* Traverse the tree, and make sure that the following invariants hold:
      *
@@ -1015,46 +992,260 @@ tr_p_validate(cw_tr_t *a_tr, cw_bool_t a_validate_contiguous)
 }
 #endif
 
-cw_tr_t *
-tr_new(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_trn_t *a_trn)
+static void
+tr_p_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
+	 cw_uint32_t a_reconnect_b, cw_uint32_t *r_bisect,
+	 cw_uint32_t *r_reconnect_a, cw_uint32_t *r_reconnect_b)
 {
-    cw_error("XXX Not implemented");
+    cw_trn_t *trn, *trn_a, *trn_b, *spare_a, *spare_b;
+
+    /* Bisect. */
+    cw_assert(a_bisect < trn_p_nedges_get(a_tr->croot));
+    trn_p_bisect(a_tr->croot, a_bisect,
+		 &trn_a, r_reconnect_a,
+		 &trn_b, r_reconnect_b,
+		 &spare_a, &spare_b);
+
+    /* Reconnect. */
+    cw_assert(a_reconnect_a < trn_p_nedges_get(trn_a));
+    cw_assert(a_reconnect_b < trn_p_nedges_get(trn_b));
+    trn_p_connect(trn_a, a_reconnect_a,
+		  trn_b, a_reconnect_b,
+		  &spare_a, &spare_b,
+		  &trn, r_bisect);
+    cw_assert(trn == a_tr->croot);
+
+    cw_dassert(tr_p_validate(a_tr, TRUE));
 }
 
-void
-tr_delete(cw_tr_t *a_tr)
+static void
+trn_p_bisection_edge_get_recurse(cw_trn_t *a_trn, cw_trn_t *a_other,
+				 cw_trn_t *a_prev, cw_uint32_t *r_edge_count,
+				 cw_uint32_t *r_bisection_edge)
 {
-    cw_dassert(tr_p_validate(a_tr, TRUE));
+    cw_uint32_t i, prev_edge_count;
 
-    cw_error("XXX Not implemented");
+    /* Save the previous edge count, in case it ends up being the index of the
+     * edge adjacent to the bisection. */
+    prev_edge_count = *r_edge_count;
 
-    /* Unroot the tree (if rooted) to simplify recursive trn deletion. */
-    if (a_tr->rooted)
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
     {
-	tr_unroot(a_tr);
+	if (a_trn->neighbors[i] != NULL
+	    && a_trn->neighbors[i] != a_prev
+	    && a_trn->neighbors[i] != a_other)
+	{
+	    /* Increment edge count before recursing. */
+	    (*r_edge_count)++;
+
+	    /* Recurse into neighbor subtrees. */
+	    trn_p_bisection_edge_get_recurse(a_trn->neighbors[i], a_other,
+					     a_trn, r_edge_count,
+					     r_bisection_edge);
+	}
+	else if (a_trn->neighbors[i] == a_other)
+	{
+	    /* Store the index of the edge adjacent to the bisection. */
+	    *r_bisection_edge = prev_edge_count;
+	}
     }
-    trn_p_delete_recurse(a_tr->croot);
-    trn_delete(a_tr->root);
 }
 
-cw_uint32_t
-tr_ntaxa_get(cw_tr_t *a_tr)
+static void
+trn_p_bisection_edges_get(cw_trn_t *a_trn, cw_uint32_t a_edge, cw_trt_t *r_trt)
 {
-    cw_dassert(tr_p_validate(a_tr, TRUE));
+    cw_uint32_t edge_count, neighbor;
+    cw_trn_t *trn, *adj_a, *adj_b;
 
-    return trn_p_ntaxa_get_recurse(a_tr->croot, NULL);
+    /* Count the number of edges that would be in each half of the tree, were it
+     * bisected.  Also, determine which edges of the subtrees would be used to
+     * reverse the bisection. */
+
+    /* Get the trn's adjacent to the bisection edge. */
+    edge_count = 0;
+    trn_p_edge_get_recurse(a_trn, a_edge, NULL, &edge_count, &adj_a, &neighbor);
+    adj_b = adj_a->neighbors[neighbor];
+
+    /* Get the number of edges in the first half of the bisection, as well as
+     * the index of the edge adjacent to the bisection. */
+    r_trt->nedges_a = 0;
+    trn_p_bisection_edge_get_recurse(a_trn, adj_b, NULL, &r_trt->nedges_a,
+				     &r_trt->self_a);
+
+    /* Get the lowest numbered taxon in the second half of the bisection. */
+    trn = trn_p_root_get(adj_b, NULL, NULL);
+
+    /* Get the number of edges in the second half of the bisection, as well as
+     * the index of the edge adjacent to the bisection. */
+    r_trt->nedges_b = 0;
+    trn_p_bisection_edge_get_recurse(trn, adj_a, NULL, &r_trt->nedges_b,
+				     &r_trt->self_b);
 }
 
-cw_uint32_t
-tr_nedges_get(cw_tr_t *a_tr)
+static void
+tr_p_tbr_trt_init(cw_tr_t *a_tr)
+{
+    cw_uint32_t i, offset, a, b;
+    cw_bool_t init = FALSE;
+
+    if (a_tr->trt == NULL)
+    {
+	/* Build table to make neighbor iteration fast. */
+	if (a_tr->nedges > 0)
+	{
+	    a_tr->trt = (cw_trt_t *) nxa_malloc(sizeof(cw_trt_t)
+						* (a_tr->nedges + 1));
+	}
+	init = TRUE;
+    }
+    if (a_tr->tbr_undoable)
+    {
+	/* Rebuild table to make neighbor iteration fast. */
+	a_tr->tbr_undoable = FALSE;
+	init = TRUE;
+    }
+
+    if (init)
+    {
+	for (i = offset = 0; i < a_tr->nedges; i++)
+	{
+	    /* Record offset. */
+	    a_tr->trt[i].offset = offset;
+
+	    /* Record number of subtree edges. */
+	    a_tr->trt[i].nedges_a = 0;
+	    a_tr->trt[i].nedges_b = 0;
+
+	    /* Set trt[i].{nedges,self}_[ab]. */
+	    trn_p_bisection_edges_get(a_tr->croot, i, &a_tr->trt[i]);
+
+	    /* Update offset. */
+	    if (a_tr->trt[i].nedges_a != 0)
+	    {
+		a = a_tr->trt[i].nedges_a;
+	    }
+	    else
+	    {
+		a = 1;
+	    }
+
+	    if (a_tr->trt[i].nedges_a != 0)
+	    {
+		a = a_tr->trt[i].nedges_a;
+	    }
+	    else
+	    {
+		a = 1;
+	    }
+
+	    offset += (a * b) - 1;
+	}
+    }
+}
+
+static int
+tr_p_trt_compare(const void *a_key, const void *a_val)
+{
+    int retval;
+    const cw_trt_t *key = (const cw_trt_t *) a_key;
+    const cw_trt_t *val = (const cw_trt_t *) a_val;
+
+    if (key->offset < val->offset)
+    {
+	retval = -1;
+    }
+    else if (key->offset < (&val[1])->offset)
+    {
+	retval = 0;
+    }
+    else
+    {
+	retval = 1;
+    }
+
+    return retval;
+}
+
+/*           __         __
+ *           |           |
+ * Calculate |log (a_val)|.  This is accomplished by counting the number of bits
+ *           |   2       |
+ * set to 1 while iterating to find the most significant bit set.  If there
+ * was more than one 1 bit, the result is incremented (ceiling).
+ *
+ * Note that the result for a_val == 1 should be 1, but this function would
+ * return 0.  However, we never care about that case in this code, so it doesn't
+ * matter.
+ */
+static cw_uint32_t
+tr_p_string_log2ceil(cw_uint32_t a_val)
 {
     cw_uint32_t retval;
+    cw_uint32_t ones;
 
-    cw_dassert(tr_p_validate(a_tr, TRUE));
+    cw_assert(a_val > 1);
 
-    if (a_tr->ntaxa > 1)
+    /* Find the most significant 1 bit. */
+    for (retval = ones = 0; a_val != 0; retval++, a_val >>= 1)
     {
-	retval = (a_tr->ntaxa * 2) - 3;
+	ones += (a_val & 0x1);
+    }
+
+    /* Decrement unless ceiling needs to be taken. */
+    if (ones == 1)
+    {
+	retval--;
+    }
+
+    return retval;
+}
+
+/* Calculatet bit vector bit count, given the number of taxa in the tree. */
+static cw_uint32_t
+tr_p_string_ntaxa2nbits(cw_uint32_t a_ntaxa)
+{
+    cw_uint32_t retval;
+    cw_uint32_t i;
+
+    /* Use the numerator of the formula at the beginning of this file to
+     * calculate the number of bits required to store a tree with a_ntaxa. */
+
+    /* First term of numerator (parenthetical tree). */
+    retval = 2 * (a_ntaxa - 3) + 1;
+
+    /* Second term of numerator (summation, taxa permutation). */
+    for (i = 0; i < a_ntaxa - 2; i++)
+    {
+	retval += tr_p_string_log2ceil(a_ntaxa - i);
+    }
+
+    return retval;
+}
+
+/* Calculate bit vector byte count, using the bit representation of the encoded
+ * tree. */
+static cw_uint32_t
+tr_p_string_sizeof(const cw_uint8_t *a_string)
+{
+    return tr_string_ntaxa2sizeof(tr_string_ntaxa(a_string));
+}
+
+/* Comparison function passed to bsearch(3) when searching for a taxon to build
+ * a taxa permutation. */
+static int
+tr_p_string_taxon_num_compar(const void *a_a, const void *a_b)
+{
+    int retval;
+    cw_uint32_t *a = (cw_uint32_t *) a_a;
+    cw_uint32_t *b = (cw_uint32_t *) a_b;
+
+    if (*a < *b)
+    {
+	retval = -1;
+    }
+    else if (*a > *b)
+    {
+	retval = 1;
     }
     else
     {
@@ -1062,6 +1253,219 @@ tr_nedges_get(cw_tr_t *a_tr)
     }
 
     return retval;
+}
+
+#ifdef CW_DBG
+static cw_bool_t
+tr_p_string_validate(const cw_uint8_t *a_string)
+{
+    cw_uint32_t ntaxa, nbytes, nbits;
+    cw_uint32_t i, j, bitind, npbits, pbits;
+
+    cw_check_ptr(a_string);
+
+    ntaxa = tr_string_ntaxa(a_string);
+    nbytes = tr_string_ntaxa2sizeof(ntaxa);
+    nbits = tr_p_string_ntaxa2nbits(ntaxa);
+
+    /* Assert that trailing bits are all 0. */
+    cw_assert((a_string[nbytes - 1] & (0xff >> (nbits & 0x7))) == 0);
+
+    /* Assert that no invalid choices exist in the taxon permutation.  The taxa
+     * permutation is stored in a format that makes it impossible to encode the
+     * same taxon number twice.  However, there can still be invalid numbers in
+     * the encoding (for example 7 cannot be used for a 5 choose 1 choice). */
+    for (i = ntaxa - 2, bitind = 2 * (ntaxa - 3) + 1;
+	 i > 1;
+	 i--)
+    {
+	for (j = 0, npbits = tr_p_string_log2ceil(i), pbits = 0;
+	     j < npbits;
+	     j++, bitind++)
+	{
+	    pbits <<= 1;
+	    pbits |= TR_STRING_BIT_GET(a_string, bitind);
+
+	    cw_assert(pbits < i);
+	}
+    }
+
+    return TRUE;
+}
+#endif
+
+static void
+tr_p_string_new_recurse(cw_uint8_t *a_string, cw_uint32_t *a_bitind_paren,
+			cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn, cw_trn_t *a_prev,
+			cw_uint32_t *a_unchosen, cw_uint32_t *a_nunchosen)
+{
+    cw_uint32_t i;
+
+    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    {
+	if (*a_nunchosen > 1)
+	{
+	    cw_uint32_t *taxon, offset, nbits;
+
+	    /* Leaf node. */
+
+	    /* Avoid encoding taxon 1, since it is implicit. */
+	    if (a_trn->taxon_num != 1)
+	    {
+		/* Get the offset of this taxon within the array of unchosen
+		 * taxa. */
+		taxon = (cw_uint32_t *) bsearch(&a_trn->taxon_num,
+						a_unchosen, *a_nunchosen,
+						sizeof(cw_uint32_t),
+						tr_p_string_taxon_num_compar);
+		cw_check_ptr(taxon);
+		offset = (cw_uint32_t) (taxon - a_unchosen);
+
+		/* Determine how many bits to use in storing this choice. */
+		nbits = tr_p_string_log2ceil(*a_nunchosen);
+
+		/* Remove the taxon from the array of unchosen taxa. */
+		if (offset < *a_nunchosen - 1)
+		{
+		    memmove(&a_unchosen[offset], &a_unchosen[offset + 1],
+			    (*a_nunchosen - offset - 1) * sizeof(cw_uint32_t));
+		}
+		(*a_nunchosen)--;
+
+		/* Store this choice. */
+		for (i = 0; i < nbits; i++)
+		{
+		    TR_STRING_BIT_SET(a_string, *a_bitind_perm,
+				      ((offset >> (nbits - i - 1) & 0x1)));
+//		    fprintf(stderr, "%c",
+//			    ((offset >> (nbits - i - 1) & 0x1)) ? '1' : '0');
+		    (*a_bitind_perm)++;
+		}
+//		fprintf(stderr, " ");
+	    }
+	}
+    }
+    else
+    {
+	cw_bool_t did_paren = FALSE;
+
+	/* Internal node. */
+
+	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	{
+	    if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
+	    {
+		if (did_paren == FALSE)
+		{
+		    did_paren = TRUE;
+
+		    /* Insert open paren. */
+		    TR_STRING_BIT_SET(a_string, *a_bitind_paren, 0);
+		    (*a_bitind_paren)++;
+//		    fprintf(stderr, "(");
+		}
+
+		/* Recurse. */
+		tr_p_string_new_recurse(a_string, a_bitind_paren, a_bitind_perm,
+					a_trn->neighbors[i], a_trn,
+					a_unchosen, a_nunchosen);
+	    }
+	}
+
+	if (did_paren)
+	{
+	    /* Insert close paren. */
+	    TR_STRING_BIT_SET(a_string, *a_bitind_paren, 1);
+	    (*a_bitind_paren)++;
+//	    fprintf(stderr, ")");
+	}
+    }
+}
+
+void
+tr_new(cw_tr_t *a_tr, cw_trn_t *a_trn)
+{
+    cw_check_ptr(a_tr);
+    cw_dassert(trn_p_validate(a_trn));
+
+    memset(a_tr, 0, sizeof(cw_tr_t));
+
+#ifdef CW_DBG
+    {
+	cw_uint32_t i, nneighbors;
+
+	/* Make sure this is a rooted tree. */
+	for (i = nneighbors = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	{
+	    if (a_trn->neighbors[i] != NULL)
+	    {
+		nneighbors++;
+	    }
+	}
+	cw_assert(nneighbors == 2);
+	cw_assert(a_trn->taxon_num == CW_TRN_TAXON_NONE);
+    }
+#endif
+    a_tr->rooted = TRUE;
+    a_tr->root = a_trn;
+
+    a_tr->croot = trn_p_root_get(a_trn, NULL, NULL);
+
+    a_tr->ntaxa = trn_p_ntaxa_get_recurse(a_trn, NULL);
+
+    if (a_tr->ntaxa > 1)
+    {
+	a_tr->nedges = (a_tr->ntaxa * 2) - 3;
+    }
+    else
+    {
+	a_tr->nedges = 0;
+    }
+
+#ifdef CW_DBG
+    a_tr->magic = CW_TR_MAGIC;
+#endif
+}
+
+void
+tr_delete(cw_tr_t *a_tr, cw_bool_t a_delete_trns)
+{
+    cw_dassert(tr_p_validate(a_tr, TRUE));
+
+    if (a_delete_trns)
+    {
+	if (a_tr->rooted == FALSE)
+	{
+	    trn_delete(a_tr->root);
+	}
+
+	trn_p_delete_recurse(a_tr->croot);
+    }
+
+    if (a_tr->trt != NULL)
+    {
+	nxa_free(a_tr->trt, sizeof(cw_trt_t) * (a_tr->nedges + 1));
+    }
+
+#ifdef CW_DBG
+    memset(a_tr, 0x5a, sizeof(cw_tr_t));
+#endif
+}
+
+cw_uint32_t
+tr_ntaxa_get(cw_tr_t *a_tr)
+{
+    cw_dassert(tr_p_validate(a_tr, TRUE));
+
+    return a_tr->ntaxa;
+}
+
+cw_uint32_t
+tr_nedges_get(cw_tr_t *a_tr)
+{
+    cw_dassert(tr_p_validate(a_tr, TRUE));
+
+    return a_tr->nedges;
 }
 
 /* Do an in-order traversal of the tree and return the node that neighbors the
@@ -1125,15 +1529,48 @@ tr_rooted(cw_tr_t *a_tr)
 }
 
 void
-tr_root(cw_tr_t *a_tr, cw_trn_t *a_trn, cw_uint32_t a_neighbor)
+tr_root(cw_tr_t *a_tr, cw_trn_t *a_trn_a, cw_trn_t *a_trn_b)
 {
-    cw_error("XXX Not implemented");
+    cw_dassert(tr_p_validate(a_tr, TRUE));
+    cw_assert(a_tr->rooted == FALSE);
+
+    trn_detach(a_trn_a, a_trn_b);
+    trn_join(a_tr->root, a_trn_a);
+    trn_join(a_tr->root, a_trn_b);
 }
 
 void
 tr_unroot(cw_tr_t *a_tr)
 {
-    cw_error("XXX Not implemented");
+    cw_uint32_t i;
+    cw_trn_t *trn_a, *trn_b;
+
+    cw_dassert(tr_p_validate(a_tr, TRUE));
+    cw_assert(a_tr->rooted);
+
+    trn_a = NULL;
+    trn_b = NULL;
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_tr->root->neighbors[i] != NULL)
+	{
+	    if (trn_a == NULL)
+	    {
+		trn_a = a_tr->root->neighbors[i];
+	    }
+	    else
+	    {
+		trn_b = a_tr->root->neighbors[i];
+		break;
+	    }
+	}
+    }
+    cw_check_ptr(trn_a);
+    cw_check_ptr(trn_b);
+
+    trn_detach(a_tr->root, trn_a);
+    trn_detach(a_tr->root, trn_b);
+    trn_join(trn_a, trn_b);
 }
 
 void
@@ -1151,21 +1588,42 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
        cw_uint32_t *r_reconnect_a, cw_uint32_t *r_reconnect_b)
 {
     cw_dassert(tr_p_validate(a_tr, TRUE));
-    cw_error("XXX Not implemented");
+
+    /* Perform TBR. */
+    tr_p_tbr(a_tr, a_bisect, a_reconnect_a, a_reconnect_b, r_bisect,
+	     r_reconnect_a, r_reconnect_b);
+
+    /* Record undo information. */
+    a_tr->tbr_undoable = TRUE;
+    a_tr->tbr_undo_bisect = *r_bisect;
+    a_tr->tbr_undo_reconnect_a = *r_reconnect_a;
+    a_tr->tbr_undo_reconnect_b = *r_reconnect_b;
 }
 
 void
 tr_tbr_undo(cw_tr_t *a_tr)
 {
+    cw_uint32_t bisect, reconnect_a, reconnect_b;
+
     cw_dassert(tr_p_validate(a_tr, TRUE));
-    cw_error("XXX Not implemented");
+    cw_assert(a_tr->tbr_undoable);
+
+    /* Perform TBR. */
+    tr_p_tbr(a_tr, a_tr->tbr_undo_bisect, a_tr->tbr_undo_reconnect_a,
+	     a_tr->tbr_undo_reconnect_b, &bisect, &reconnect_a, &reconnect_b);
+
+    /* Clear undoable flag. */
+    a_tr->tbr_undoable = FALSE;
 }
 
 cw_uint32_t
 tr_tbr_nneighbors_get(cw_tr_t *a_tr)
 {
     cw_dassert(tr_p_validate(a_tr, TRUE));
-    cw_error("XXX Not implemented");
+
+    tr_p_tbr_trt_init(a_tr);
+
+    return a_tr->trt[a_tr->nedges].offset;
 }
 
 void
@@ -1173,247 +1631,81 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,
 		    cw_uint32_t *r_reconnect_b)
 {
+    cw_trt_t key, *trt;
+    cw_uint32_t rem, a, b;
+
     cw_dassert(tr_p_validate(a_tr, TRUE));
-    cw_error("XXX Not implemented");
-}
 
+    tr_p_tbr_trt_init(a_tr);
 
-/* trs. */
+    /* Get the bisection edge. */
+    key.offset = a_neighbor;
+    trt = bsearch(&key, a_tr->trt, a_tr->nedges, sizeof(cw_trt_t),
+		  tr_p_trt_compare);
+    cw_check_ptr(trt);
 
-/*           __         __
- *           |           |
- * Calculate |log (a_val)|.  This is accomplished by counting the number of bits
- *           |   2       |
- * set to 1 while iterating to find the most significant bit set.  If there
- * was more than one 1 bit, the result is incremented (ceiling).
- *
- * Note that the result for a_val == 1 should be 1, but this function would
- * return 0.  However, we never care about that case in this code, so it doesn't
- * matter.
- */
-static cw_uint32_t
-trs_p_log2ceil(cw_uint32_t a_val)
-{
-    cw_uint32_t retval;
-    cw_uint32_t ones;
+    /* Get the reconnection edges.  If the reconnection edges happen to be those
+     * that would reverse the bisection, instead return the last possible
+     * reconnection combination for this bisection.  This results in a rather
+     * strange ordering for the enumeration, but is always correct. */
+    rem = a_neighbor - trt->offset;
 
-    cw_assert(a_val > 1);
-
-    /* Find the most significant 1 bit. */
-    for (retval = ones = 0; a_val != 0; retval++, a_val >>= 1)
+    if (trt->nedges_a > 0)
     {
-	ones += (a_val & 0x1);
-    }
-
-    /* Decrement unless ceiling needs to be taken. */
-    if (ones == 1)
-    {
-	retval--;
-    }
-
-    return retval;
-}
-
-/* Calculatet bit vector bit count, given the number of taxa in the tree. */
-static cw_uint32_t
-trs_p_ntaxa2nbits(cw_uint32_t a_ntaxa)
-{
-    cw_uint32_t retval;
-    cw_uint32_t i;
-
-    /* Use the numerator of the formula at the beginning of this file to
-     * calculate the number of bits required to store a tree with a_ntaxa. */
-
-    /* First term of numerator (parenthetical tree). */
-    retval = 2 * (a_ntaxa - 3) + 1;
-
-    /* Second term of numerator (summation, taxa permutation). */
-    for (i = 0; i < a_ntaxa - 2; i++)
-    {
-	retval += trs_p_log2ceil(a_ntaxa - i);
-    }
-
-    return retval;
-}
-
-/* Calculate bit vector byte count, using the bit representation of the encoded
- * tree. */
-static cw_uint32_t
-trs_p_sizeof(const cw_trs_t *a_trs)
-{
-    return trs_ntaxa2sizeof(trs_ntaxa(a_trs));
-}
-
-/* Comparison function passed to bsearch(3) when searching for a taxon to build
- * a taxa permutation. */
-static int
-trs_p_taxon_num_compar(const void *a_a, const void *a_b)
-{
-    int retval;
-    cw_uint32_t *a = (cw_uint32_t *) a_a;
-    cw_uint32_t *b = (cw_uint32_t *) a_b;
-
-    if (*a < *b)
-    {
-	retval = -1;
-    }
-    else if (*a > *b)
-    {
-	retval = 1;
-    }
-    else
-    {
-	retval = 0;
-    }
-
-    return retval;
-}
-
-#ifdef CW_DBG
-static cw_bool_t
-trs_p_validate(const cw_trs_t *a_trs)
-{
-    cw_uint32_t ntaxa, nbytes, nbits;
-    cw_uint32_t i, j, bitind, npbits, pbits;
-
-    cw_check_ptr(a_trs);
-
-    ntaxa = trs_ntaxa(a_trs);
-    nbytes = trs_ntaxa2sizeof(ntaxa);
-    nbits = trs_p_ntaxa2nbits(ntaxa);
-
-    /* Assert that trailing bits are all 0. */
-    cw_assert((a_trs[nbytes - 1] & (0xff >> (nbits & 0x7))) == 0);
-
-    /* Assert that no invalid choices exist in the taxon permutation.  The taxa
-     * permutation is stored in a format that makes it impossible to encode the
-     * same taxon number twice.  However, there can still be invalid numbers in
-     * the encoding (for example 7 cannot be used for a 5 choose 1 choice). */
-    for (i = ntaxa - 2, bitind = 2 * (ntaxa - 3) + 1;
-	 i > 1;
-	 i--)
-    {
-	for (j = 0, npbits = trs_p_log2ceil(i), pbits = 0;
-	     j < npbits;
-	     j++, bitind++)
+	a = rem / trt->nedges_b;
+	if (trt->nedges_b > 0)
 	{
-	    pbits <<= 1;
-	    pbits |= TRS_BIT_GET(a_trs, bitind);
-
-	    cw_assert(pbits < i);
+	    b = rem % trt->nedges_b;
 	}
-    }
-
-    return TRUE;
-}
-#endif
-
-static void
-trs_p_new_recurse(cw_trs_t *a_trs, cw_uint32_t *a_bitind_paren,
-		  cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn, cw_trn_t *a_prev,
-		  cw_uint32_t *a_unchosen, cw_uint32_t *a_nunchosen)
-{
-    cw_uint32_t i;
-
-    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
-    {
-	if (*a_nunchosen > 1)
+	else
 	{
-	    cw_uint32_t *taxon, offset, nbits;
-
-	    /* Leaf node. */
-
-	    /* Avoid encoding taxon 1, since it is implicit. */
-	    if (a_trn->taxon_num != 1)
-	    {
-		/* Get the offset of this taxon within the array of unchosen
-		 * taxa. */
-		taxon = (cw_uint32_t *) bsearch(&a_trn->taxon_num,
-						a_unchosen, *a_nunchosen,
-						sizeof(cw_uint32_t),
-						trs_p_taxon_num_compar);
-		cw_check_ptr(taxon);
-		offset = (cw_uint32_t) (taxon - a_unchosen);
-
-		/* Determine how many bits to use in storing this choice. */
-		nbits = trs_p_log2ceil(*a_nunchosen);
-
-		/* Remove the taxon from the array of unchosen taxa. */
-		if (offset < *a_nunchosen - 1)
-		{
-		    memmove(&a_unchosen[offset], &a_unchosen[offset + 1],
-			    (*a_nunchosen - offset - 1) * sizeof(cw_uint32_t));
-		}
-		(*a_nunchosen)--;
-
-		/* Store this choice. */
-		for (i = 0; i < nbits; i++)
-		{
-		    TRS_BIT_SET(a_trs, *a_bitind_perm,
-				((offset >> (nbits - i - 1) & 0x1)));
-//		    fprintf(stderr, "%c",
-//			    ((offset >> (nbits - i - 1) & 0x1)) ? '1' : '0');
-		    (*a_bitind_perm)++;
-		}
-//		fprintf(stderr, " ");
-	    }
+	    b = 0;
 	}
     }
     else
     {
-	cw_bool_t did_paren = FALSE;
+	a = 0;
+	b = rem;
+    }
 
-	/* Internal node. */
-
-	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    if (a == trt->self_a && b == trt->self_b)
+    {
+	/* Avoid undoing the bisection. */
+	if (trt->nedges_a > 1)
 	{
-	    if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
-	    {
-		if (did_paren == FALSE)
-		{
-		    did_paren = TRUE;
-
-		    /* Insert open paren. */
-		    TRS_BIT_SET(a_trs, *a_bitind_paren, 0);
-		    (*a_bitind_paren)++;
-//		    fprintf(stderr, "(");
-		}
-
-		/* Recurse. */
-		trs_p_new_recurse(a_trs, a_bitind_paren, a_bitind_perm,
-				  a_trn->neighbors[i], a_trn,
-				  a_unchosen, a_nunchosen);
-	    }
+	    a = trt->nedges_a - 1;
+	}
+	else
+	{
+	    a = 0;
 	}
 
-	if (did_paren)
+	if (trt->nedges_b > 1)
 	{
-	    /* Insert close paren. */
-	    TRS_BIT_SET(a_trs, *a_bitind_paren, 1);
-	    (*a_bitind_paren)++;
-//	    fprintf(stderr, ")");
+	    b = trt->nedges_b - 1;
+	}
+	else
+	{
+	    b = 0;
 	}
     }
+    *r_reconnect_a = a;
+    *r_reconnect_b = b;
 }
 
-cw_trs_t *
-trs_new(cw_mema_t *a_mema, cw_tr_t *a_tr)
+// XXX Move.
+void
+tr_string(cw_tr_t *a_tr, cw_uint8_t *ar_string, cw_uint32_t a_len)
 {
-    cw_trs_t *retval;
     cw_trn_t *node;
-    cw_uint32_t trs_sizeof, bitind_paren, bitind_perm, i, *unchosen, nunchosen;
+    cw_uint32_t bitind_paren, bitind_perm, i, *unchosen, nunchosen;
 
-    cw_check_ptr(a_mema);
-    cw_check_ptr(mema_alloc_get(a_mema));
     cw_dassert(tr_p_validate(a_tr, TRUE));
     cw_assert(tr_rooted(a_tr) == FALSE);
-
-    trs_sizeof = trs_ntaxa2sizeof(a_tr->ntaxa);
-    retval = cw_opaque_alloc(mema_alloc_get(a_mema),
-			     mema_arg_get(a_mema), trs_sizeof);
+    cw_assert(a_len == tr_string_ntaxa2sizeof(a_tr->ntaxa));
 
     /* Set the last byte to 0 to assure that there is no trailing garbage. */
-    retval[trs_sizeof - 1] = 0;
+    ar_string[a_len - 1] = 0;
 
     /* Canonize the tree. */
     trn_p_canonize(a_tr->croot, NULL);
@@ -1425,12 +1717,15 @@ trs_new(cw_mema_t *a_mema, cw_tr_t *a_tr)
 
     /* The first open paren is implied. */
 
-    /* Create a taxon permutation from a_trn.  This requires maintaining a list
-     * of the taxa that remain to be chosen from.  An array of taxon numbers is
-     * maintained in compact form (already chosen taxa are removed, and trailing
-     * space in the array is ignored). */
-    unchosen = cw_opaque_alloc(mema_alloc_get(a_mema), mema_arg_get(a_mema),
-			       (a_tr->ntaxa - 2) * sizeof(cw_uint32_t));
+    /* Create a taxon permutation from a_tr->croot.  This requires maintaining a
+     * list of the taxa that remain to be chosen from.  An array of taxon
+     * numbers is maintained in compact form (already chosen taxa are removed,
+     * and trailing space in the array is ignored).
+     *
+     * Use generic allocation here rather than nxa, since this is transient
+     * allocation that lasts only for the duration of this function. */
+    unchosen = (cw_uint32_t *) cw_malloc((a_tr->ntaxa - 2)
+					 * sizeof(cw_uint32_t));
     for (i = 0; i < (a_tr->ntaxa - 2); i++)
     {
 	unchosen[i] = i + 2;
@@ -1450,41 +1745,25 @@ trs_new(cw_mema_t *a_mema, cw_tr_t *a_tr)
 		&& node->neighbors[i] != a_tr->croot)
 	    {
 		/* Recurse. */
-		trs_p_new_recurse(retval, &bitind_paren, &bitind_perm,
-				  node->neighbors[i], node,
-				  unchosen, &nunchosen);
+		tr_p_string_new_recurse(ar_string, &bitind_paren, &bitind_perm,
+					node->neighbors[i], node,
+					unchosen, &nunchosen);
 	    }
 	}
     }
 
     /* Insert close paren. */
-    TRS_BIT_SET(retval, bitind_paren, 1);
+    TR_STRING_BIT_SET(ar_string, bitind_paren, 1);
 //    fprintf(stderr, ")\n");
     cw_assert(bitind_paren == 2 * (a_tr->ntaxa - 3));
 
     /* Clean up. */
-    cw_opaque_dealloc(mema_dealloc_get(a_mema), mema_arg_get(a_mema),
-		      unchosen, (a_tr->ntaxa - 2) * sizeof(cw_uint32_t));
-
-    return retval;
+    cw_free(unchosen);
 }
 
-void
-trs_delete(cw_trs_t *a_trs, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
-{
-    cw_check_ptr(a_mema);
-    cw_check_ptr(mema_dealloc_get(a_mema));
-    cw_dassert(trs_p_validate(a_trs));
-    cw_assert(trs_p_sizeof(a_trs) == trs_ntaxa2sizeof(a_ntaxa));
-
-    cw_opaque_dealloc(mema_dealloc_get(a_mema),
-		      mema_arg_get(a_mema),
-		      a_trs, trs_ntaxa2sizeof(a_ntaxa));
-}
-
-/* Determine the number of taxa in a_trs. */
+/* Determine the number of taxa in a_string. */
 cw_uint32_t
-trs_ntaxa(const cw_trs_t *a_trs)
+tr_string_ntaxa(const cw_uint8_t *a_string)
 {
     cw_uint32_t retval;
     cw_uint32_t i, npairs, curdepth;
@@ -1492,7 +1771,7 @@ trs_ntaxa(const cw_trs_t *a_trs)
     /* Determine how many pairs of parentheses there are in the bit vector. */
     for (i = 0, npairs = curdepth = 1; curdepth > 0; i++)
     {
-	if (TRS_BIT_GET(a_trs, i))
+	if (TR_STRING_BIT_GET(a_string, i))
 	{
 	    curdepth--;
 	}
@@ -1527,7 +1806,7 @@ trs_ntaxa(const cw_trs_t *a_trs)
 
 /* Calculate bit vector byte count, given the number of taxa in the tree. */
 cw_uint32_t
-trs_ntaxa2sizeof(cw_uint32_t a_ntaxa)
+tr_string_ntaxa2sizeof(cw_uint32_t a_ntaxa)
 {
     cw_uint32_t retval;
     cw_uint32_t ceil;
@@ -1535,7 +1814,7 @@ trs_ntaxa2sizeof(cw_uint32_t a_ntaxa)
     /* Use the formula at the beginning of this file to calculate the number of
      * bytes required to store a tree with a_ntaxa. */
 
-    retval = trs_p_ntaxa2nbits(a_ntaxa);
+    retval = tr_p_string_ntaxa2nbits(a_ntaxa);
 
     /* Ceiling of denominator division. */
     ceil = !!(retval & 0x7);
@@ -1547,57 +1826,51 @@ trs_ntaxa2sizeof(cw_uint32_t a_ntaxa)
     return retval;
 }
 
-void
-trs_memcopy(cw_uint8_t *a_dest, cw_trs_t *a_trs)
-{
-    memcpy(a_dest, a_trs, trs_ntaxa2sizeof(trs_ntaxa(a_trs)));
-}
-
 cw_uint32_t
-trs_hash(const void *a_key)
+tr_string_hash(const void *a_key)
 {
     cw_uint32_t retval;
-    const cw_trs_t *tr;
+    const cw_uint8_t *string;
     cw_uint32_t len, i;
 
     cw_check_ptr(a_key);
 
-    tr = (const cw_trs_t *) a_key;;
-    cw_dassert(trs_p_validate(tr));
+    string = (const cw_uint8_t *) a_key;;
+    cw_dassert(tr_p_string_validate(string));
 
-    len = trs_p_sizeof(tr);
+    len = tr_p_string_sizeof(string);
     for (i = retval = 0; i < len; i++)
     {
-	retval = retval * 33 + ((cw_uint8_t *) tr)[i];
+	retval = retval * 33 + string[i];
     }
 
     return retval;
 }
 
 cw_bool_t
-trs_key_comp(const void *a_k1, const void *a_k2)
+tr_string_key_comp(const void *a_k1, const void *a_k2)
 {
     cw_bool_t retval;
-    const cw_trs_t *tr1, *tr2;
+    const cw_uint8_t *string1, *string2;
     cw_uint32_t len1, len2;
 
     cw_check_ptr(a_k1);
     cw_check_ptr(a_k2);
 
-    tr1 = (const cw_trs_t *) a_k1;
-    tr2 = (const cw_trs_t *) a_k2;
-    cw_dassert(trs_p_validate(tr1));
-    cw_dassert(trs_p_validate(tr2));
+    string1 = (const cw_uint8_t *) a_k1;
+    string2 = (const cw_uint8_t *) a_k2;
+    cw_dassert(tr_p_string_validate(string1));
+    cw_dassert(tr_p_string_validate(string2));
 
-    len1 = trs_p_sizeof(tr1);
-    len2 = trs_p_sizeof(tr2);
+    len1 = tr_p_string_sizeof(string1);
+    len2 = tr_p_string_sizeof(string2);
     if (len1 != len2)
     {
 	retval = FALSE;
     }
     else
     {
-	retval = memcmp(tr1, tr2, len1) ? FALSE : TRUE;
+	retval = memcmp(string1, string2, len1) ? FALSE : TRUE;
     }
 
     return retval;
