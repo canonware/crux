@@ -470,9 +470,9 @@ CxTrEdgeDetach(CxtTr *aTr, CxtTrEdge aEdge)
 
     CxmDassert(CxpTrEdgeValidate(aTr, aEdge));
     CxmDassert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 0))
-	       == CxmTrNodeNone);
+	       != CxmTrNodeNone);
     CxmDassert(CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge, 1))
-	       == CxmTrNodeNone);
+	       != CxmTrNodeNone);
     CxmAssert(CxTrNodeDistance(aTr,
 			       CxTrRingNodeGet(aTr, CxTrEdgeRingGet(aTr, aEdge,
 								    0)),
