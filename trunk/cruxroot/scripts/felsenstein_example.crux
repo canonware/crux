@@ -6,11 +6,12 @@ ctmatrix = [['a', 'C'],
 
 # Create map and chars list.
 i = 0
-map = {}
-chars = range(len(ctmatrix))
+chars = [None] * len(ctmatrix)
+map = crux.TaxonMap.TaxonMap()
 for sublist in ctmatrix:
-    map[sublist[0]] = i
+    map.map(sublist[0], i)
     chars[i] = sublist[1]
+
     i += 1
 
 print "Taxa: %s" % map
@@ -18,11 +19,11 @@ print "Character by taxon matrix: %s" % ctmatrix
 
 ntree = '((a,b),(c,(d,e)));'
 
-t = crux.tree(ntree, map)
+t = crux.Tree.Tree(ntree, map)
 #t.canonize()
 print t.prints(labels=True)
 
 print chars
 
-t.mp_prepare(chars)
+t.mpPrepare(chars)
 print "Score: %d" % t.mp()
