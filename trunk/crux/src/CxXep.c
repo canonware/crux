@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 #include "../include/_cruxmodule.h"
 
@@ -46,8 +46,8 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
     CxmAssert(CxpXepInitialized);
     CxmAssert(aValue > CxeXepsCatch);
 
-    /* Iterate backward through the exception handlers until the exception is
-     * handled or there are no more exception handlers. */
+    // Iterate backward through the exception handlers until the exception is
+    // handled or there are no more exception handlers.
     xep = xepFirst = CxpXepFirst;
     if (xepFirst != NULL)
     {
@@ -55,7 +55,7 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
     }
     else
     {
-	/* No exception handlers at all. */
+	// No exception handlers at all.
 	fprintf(stderr, "%s(): Unhandled exception %u thrown at %s:%d\n",
 		__func__, aValue, aFilename, aLineNum);
 	abort();
@@ -71,7 +71,7 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
 	{
 	    case CxeXepsTry:
 	    {
-		/* Execute the handler. */
+		// Execute the handler.
 		xep->value = aValue;
 		xep->state = CxeXepsCatch;
 		longjmp(xep->context, (int) aValue);
@@ -79,7 +79,7 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
 	    }
 	    case CxeXepsCatch:
 	    {
-		/* Exception thrown within handler; propagate. */
+		// Exception thrown within handler; propagate.
 		break;
 	    }
 	    default:
@@ -91,7 +91,7 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
 	xep = CxmQrPrev(xep, link);
     } while (xep != xepFirst);
 
-    /* No more exception handlers. */
+    // No more exception handlers.
     fprintf(stderr, "%s(): Unhandled exception %u thrown at %s:%d\n",
 	    __func__, aValue, xep->filename, xep->lineNum);
     abort();
@@ -162,7 +162,7 @@ CxpXepLink(CxtXep *aXep)
 
     xepFirst = CxpXepFirst;
 
-    /* Link into the xep ring, if it exists. */
+    // Link into the xep ring, if it exists.
     CxmQrNew(aXep, link);
     if (xepFirst != NULL)
     {
@@ -195,7 +195,7 @@ CxpXepUnlink(CxtXep *aXep)
 	CxmCheckPtr(CxmQrPrev(xepFirst, link));
 	CxmCheckPtr(CxmQrNext(xepFirst, link));
 
-	/* Remove handler from ring. */
+	// Remove handler from ring.
 	if (aXep != xepFirst)
 	{
 	    CxmQrRemove(aXep, link);
@@ -210,13 +210,13 @@ CxpXepUnlink(CxtXep *aXep)
 	{
 	    if (aXep != xepFirst)
 	    {
-		/* Propagate exception. */
+		// Propagate exception.
 		CxXepThrowE(aXep->value, aXep->filename,
 			    aXep->lineNum);
 	    }
 	    else
 	    {
-		/* No more exception handlers. */
+		// No more exception handlers.
 		fprintf(stderr, "%s(): Unhandled exception "
 			"%u thrown at %s:%d\n", __func__,
 			aXep->value, aXep->filename,

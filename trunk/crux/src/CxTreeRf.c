@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 // XXX This implementation assumes that taxon numbers start at 0, and are
 // contiguous.
@@ -27,7 +27,7 @@ typedef struct
     unsigned nEdgeVecs;
 } CxtTreeRfTree;
 
-/******************************************************************************/
+//==============================================================================
 
 static void
 CxpTreeRfVecNew(CxtTreeRfVec *aVec, unsigned aNBits)
@@ -63,7 +63,7 @@ CxpTreeRfVecCompare(const CxtTreeRfVec *aVecA, const CxtTreeRfVec *aVecB)
     return rVal;
 }
 
-/* qsort(3)-compatible vector comparison function. */
+// qsort(3)-compatible vector comparison function.
 static int
 CxpTreeRfVecQsortCompare(const void *aA, const void *aB)
 {
@@ -125,7 +125,7 @@ CxpTreeRfVecInvert(CxtTreeRfVec *aVec)
     }
 }
 
-/* Create the union of aA and aB, and store the result in aA. */
+// Create the union of aA and aB, and store the result in aA.
 static void
 CxpTreeRfVecUnion(CxtTreeRfVec *aA, CxtTreeRfVec *aB)
 {
@@ -139,7 +139,7 @@ CxpTreeRfVecUnion(CxtTreeRfVec *aA, CxtTreeRfVec *aB)
     }
 }
 
-/******************************************************************************/
+//==============================================================================
 
 static CxtTreeRfVec *
 CxpTreeRfBipartitionsInitRecurse(CxtTreeObject *self,
@@ -160,17 +160,17 @@ CxpTreeRfBipartitionsInitRecurse(CxtTreeObject *self,
 
     if ((taxonNum = CxNodeTaxonNumGet(curNode)) != CxmTrNodeTaxonNone)
     {
-	/* Leaf node. */
+	// Leaf node.
 
-	/* Note that this taxon exists in the tree. */
+	// Note that this taxon exists in the tree.
 	CxpTreeRfVecSet(&aRfTree->treeVec, taxonNum, true);
 
-	/* Mark this taxon as being in the set. */
+	// Mark this taxon as being in the set.
 	CxpTreeRfVecSet(rVal, taxonNum, true);
     }
     else
     {
-	/* Recurse. */
+	// Recurse.
 	firstRing = CxNodeRing(curNode);
 	if (firstRing != NULL)
 	{
@@ -204,23 +204,23 @@ CxpTreeRfBipartitionsInit(CxtTreeObject *self)
 
     ntaxa = CxTreeNtaxaGet(self);
 
-    /* Initialize rVal. */
+    // Initialize rVal.
     rVal = (CxtTreeRfTree *) CxmMalloc(sizeof(CxtTreeRfTree));
     CxpTreeRfVecNew(&rVal->treeVec, ntaxa);
-    /* Allocate at least enough slots in edgeVecs. */
+    // Allocate at least enough slots in edgeVecs.
     rVal->edgeVecs = (CxtTreeRfVec *) CxmCalloc(ntaxa * 2,
 						sizeof(CxtTreeRfVec));
     rVal->nEdgeVecs = 0;
 
-    /* Recurse through tree and determine bipartitions. */
+    // Recurse through tree and determine bipartitions.
     baseNode = CxTreeBaseGet(self);
     if (baseNode != NULL)
     {
 	if ((taxonNum = CxNodeTaxonNumGet(baseNode)) != CxmTrNodeTaxonNone)
 	{
-	    /* Leaf node. */
+	    // Leaf node.
 
-	    /* Note that this taxon exists in the tree. */
+	    // Note that this taxon exists in the tree.
 	    CxpTreeRfVecSet(&rVal->treeVec, taxonNum, true);
 	}
 
@@ -240,8 +240,8 @@ CxpTreeRfBipartitionsInit(CxtTreeObject *self)
 	}
     }
 
-    /* Iterate through bipartitions and make sure that taxon 0 is never in the
-     * set represented by the bit vector. */
+    // Iterate through bipartitions and make sure that taxon 0 is never in the
+    // set represented by the bit vector.
     for (i = 0; i < rVal->nEdgeVecs; i++)
     {
 	if (CxpTreeRfVecGet(&rVal->edgeVecs[i], 0))
@@ -250,7 +250,7 @@ CxpTreeRfBipartitionsInit(CxtTreeObject *self)
 	}
     }
 
-    /* Sort the list of bipartions. */
+    // Sort the list of bipartions.
     qsort(rVal->edgeVecs, rVal->nEdgeVecs, sizeof(CxtTreeRfVec),
 	  CxpTreeRfVecQsortCompare);
 
@@ -265,15 +265,15 @@ CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
     unsigned iA, iB, nUniqueA, nUniqueB;
     int relation;
 
-    /* If the trees don't have precisely the same taxa, treat them as being
-     * infinitely distant. */
+    // If the trees don't have precisely the same taxa, treat them as being
+    // infinitely distant.
     if (CxpTreeRfVecCompare(&aTreeARfVec->treeVec, &aTreeBRfVec->treeVec) != 0)
     {
 	rVal = 1.0;
 	goto RETURN;
     }
 
-    /* Count the number of unique bipartitions in each tree. */
+    // Count the number of unique bipartitions in each tree.
     for (iA = iB = nUniqueA = nUniqueB = 0;
 	 iA < aTreeARfVec->nEdgeVecs && iB < aTreeBRfVec->nEdgeVecs;
 	 )
@@ -284,7 +284,7 @@ CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
 	{
 	    case -1:
 	    {
-		/* aTreeA has a unique bipartion. */
+		// aTreeA has a unique bipartion.
 		nUniqueA++;
 		iA++;
 		break;
@@ -297,7 +297,7 @@ CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
 	    }
 	    case 1:
 	    {
-		/* aTreeB has a unique bipartion. */
+		// aTreeB has a unique bipartion.
 		nUniqueB++;
 		iB++;
 		break;
@@ -318,7 +318,7 @@ CxpTreeRfDistanceCalc(CxtTreeObject *aTreeA, CxtTreeRfTree *aTreeARfVec,
 	nUniqueB += aTreeBRfVec->nEdgeVecs - iB;
     }
 
-    /* Convert counts to the Robinson-Foulds distance. */
+    // Convert counts to the Robinson-Foulds distance.
     rVal = ((((float) nUniqueA / (float) aTreeARfVec->nEdgeVecs)
 	     + ((float) nUniqueB / (float) aTreeBRfVec->nEdgeVecs))
 	    / 2.0);
@@ -343,10 +343,10 @@ CxpTreeRfBipartitionsCleanup(CxtTreeObject *self, CxtTreeRfTree *aRfTree)
     CxmFree(aRfTree);
 }
 
-/******************************************************************************/
+//==============================================================================
 
-/* Calculate the RF distances between self and other trees, and return a
- * sequence of the corresponding distances. */
+// Calculate the RF distances between self and other trees, and return a
+// sequence of the corresponding distances.
 PyObject *
 CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
 {
@@ -374,7 +374,7 @@ CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
     CxmXepBegin();
     CxmXepTry
     {
-	/* Make sure that all elements of the sequence are Trees. */
+	// Make sure that all elements of the sequence are Trees.
 	size = PySequence_Size(sequence);
 	for (i = 0; i < size; i++)
 	{
@@ -387,7 +387,7 @@ CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
 	    }
 	}
 
-	/* Create a sorted list of edge-induced bipartitions for self. */
+	// Create a sorted list of edge-induced bipartitions for self.
 	rfTreeSelf = CxpTreeRfBipartitionsInit(self);
 
 	rVal = PyTuple_New(size);
@@ -401,28 +401,28 @@ CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
 	    }
 	    else
 	    {
-		/* Create a sorted list of edge-induced bipartitions for
-		 * other. */
+		// Create a sorted list of edge-induced bipartitions for
+		// other.
 		rfTreeOther =
 		    CxpTreeRfBipartitionsInit((CxtTreeObject *) other);
 
-		/* Calculate the Robinson-Foulds distance between self and
-		 * other. */
+		// Calculate the Robinson-Foulds distance between self and
+		// other.
 		distance =
 		    CxpTreeRfDistanceCalc(self, rfTreeSelf,
 					  (CxtTreeObject *) other,
 					  rfTreeOther);
 
-		/* Discard the bipartition data for other. */
+		// Discard the bipartition data for other.
 		CxpTreeRfBipartitionsCleanup((CxtTreeObject *) other,
 					     rfTreeOther);
 	    }
 
-	    /* Set the distance in rVal. */
+	    // Set the distance in rVal.
 	    PyTuple_SetItem(rVal, i, PyFloat_FromDouble(distance));
 	}
 
-	/* Discard the bipartition data for self. */
+	// Discard the bipartition data for self.
 	CxpTreeRfBipartitionsCleanup(self, rfTreeSelf);
 
 	break;
@@ -440,7 +440,7 @@ CxTreeRfSequence(CxtTreeObject *self, PyObject *args)
     return rVal;
 }
 
-/* Calculate the RF distance between two trees and return the distance. */
+// Calculate the RF distance between two trees and return the distance.
 PyObject *
 CxTreeRfPair(CxtTreeObject *self, PyObject *args)
 {
@@ -467,19 +467,19 @@ CxTreeRfPair(CxtTreeObject *self, PyObject *args)
     CxmXepBegin();
     CxmXepTry
     {
-	/* Create a sorted list of edge-induced bipartitions for each tree. */
+	// Create a sorted list of edge-induced bipartitions for each tree.
 	rfTreeSelf = CxpTreeRfBipartitionsInit(self);
 	rfTreeOther = CxpTreeRfBipartitionsInit(other);
 
-	/* Calculate the Robinson-Foulds distance between self and other. */
+	// Calculate the Robinson-Foulds distance between self and other.
 	distance = CxpTreeRfDistanceCalc(self, rfTreeSelf,
 					 other, rfTreeOther);
 
-	/* Discard the bipartition data. */
+	// Discard the bipartition data.
 	CxpTreeRfBipartitionsCleanup(self, rfTreeSelf);
 	CxpTreeRfBipartitionsCleanup(other, rfTreeOther);
 
-	/* Set rVal. */
+	// Set rVal.
 	rVal = PyFloat_FromDouble(distance);
     }
     CxmXepCatch(CxmXepOOM)

@@ -1,15 +1,15 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
-/* Python headers. */
+// Python headers.
 #include <Python.h>
 #include <compile.h>
 #include <eval.h>
@@ -43,7 +43,7 @@ typedef unsigned char bool;
 
 extern PyObject *CxgException;
 
-/* assert()-alike.  It's a bit prettier and cleaner, but the same idea. */
+// assert()-alike.  It's a bit prettier and cleaner, but the same idea.
 #define CxmError(a)							\
     do									\
     {									\
@@ -72,7 +72,7 @@ extern PyObject *CxgException;
 	}								\
     } while (0)
 
-/* Macro to do the drudgery of assuring that a pointer is non-NULL. */
+// Macro to do the drudgery of assuring that a pointer is non-NULL.
 #define CxmCheckPtr(x)							\
     do									\
     {									\
@@ -90,9 +90,9 @@ extern PyObject *CxgException;
 #define CxmCheckPtr(a)
 #endif
 
-/* CxmDassert() is used internally in places that the assertion should only
- * be made if CxmDebug is defined, such as checking magic variables that only
- * exist in that case. */
+// CxmDassert() is used internally in places that the assertion should only be
+// made if CxmDebug is defined, such as checking magic variables that only exist
+// in that case.
 #if (defined(CxmDebug) && defined(CxmAssertions))
 #define CxmDassert(a)							\
     do									\
@@ -108,8 +108,7 @@ extern PyObject *CxgException;
 #define CxmDassert(a)
 #endif
 
-/* Convenience macro for determining the offset of a field within a
- * structure. */
+// Convenience macro for determining the offset of a field within a structure.
 #define CxmOffsetOf(aType, aField)					\
     ((uint32_t) &(((aType *)NULL)->aField))
 

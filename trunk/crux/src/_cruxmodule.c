@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 #include "../include/_cruxmodule.h"
 #ifndef HAVE_ASPRINTF
@@ -26,10 +26,10 @@ init_crux(void)
 {
     PyObject *m;
 
-    /* Initialize the exception handling machinery. */
+    // Initialize the exception handling machinery.
     CxXepInit();
 
-    /* Do processor-specific initialization, if necessary. */
+    // Do processor-specific initialization, if necessary.
 #ifdef CxmCpuInit
     CxmCpuInit();
 #endif

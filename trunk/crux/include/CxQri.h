@@ -1,15 +1,15 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
-/* Ring definitions. */
+// Ring definitions.
 #define CxmQri								\
 struct									\
 {									\
@@ -17,7 +17,7 @@ struct									\
     uint32_t CxQriePrev;						\
 }
 
-/* Ring functions. */
+// Ring functions.
 #define CxmQriNew(aArr, aInd, aField)					\
     do									\
     {									\
@@ -67,8 +67,8 @@ struct									\
 	(aArr)[aIndB].aField.CxQriePrev = t;				\
     } while (0)
 
-/* CxmQriMeld() and CxmQriSplit() are functionally equivalent, so there's no
- * need to have two copies of the code. */
+// CxmQriMeld() and CxmQriSplit() are functionally equivalent, so there's no
+// need to have two copies of the code.
 #define CxmQriSplit(aArr, aIndA, aIndB, aField)				\
     CxmQriMeld((aArr), (aIndA), (aIndB), aField)
 

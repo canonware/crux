@@ -23,6 +23,13 @@
   from malformed trees.  Right now, the tree validation code is only useful for
   Crux debugging.
 
+* Clean up Tree constructor.  Consider making distance-based tree constructors
+  into methods of DistMatrix.  This may make more sense, and it reduces
+  constructor clutter.
+
+* Start using kargs for complex methods that have lots of optional arguments?
+  Using optional positional args is kinda gnarly.
+
 ================================================================================
 
 * Use CTMatrix for MP.
@@ -31,8 +38,6 @@
 
 * Add true tree holding, rather than just the limited form of holding that the
   tr code supports.
-
-* Convert C comments to // style.
 
 * Collapse rendering code into single code paths, which are passed a callback
   method (or something like that).  The current setup requires testing both

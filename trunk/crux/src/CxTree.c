@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 #define CxmTree_c
 #include "../include/_cruxmodule.h"
@@ -36,8 +36,8 @@
 		_Py_Dealloc((PyObject *)(op))
 #endif
 
-/******************************************************************************/
-/* Begin Tree. */
+//==============================================================================
+// Begin Tree.
 
 static PyObject *
 CxpTreeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -309,8 +309,8 @@ CxTreeBaseSet(CxtTreeObject *self, CxtNodeObject *aNode)
     CxtNodeObject *oldNode;
     CxtTrNode oldTrNode;
 
-    /* Decref if clobbering an already-set base (but wait until after the
-     * new base is set so that the nodes/edges/rings are always reachable. */
+    // Decref if clobbering an already-set base (but wait until after the
+    // new base is set so that the nodes/edges/rings are always reachable.
     oldTrNode = CxTrBaseGet(self->tr);
     if (oldTrNode != CxmTrNodeNone)
     {
@@ -489,46 +489,46 @@ static PyMethodDef CxpTreeMethods[] =
 PyTypeObject CxtTree =
 {
     PyObject_HEAD_INIT(NULL)
-    0,			/* int ob_size */
-    "C_Tree.C_Tree",	/* char *tp_name */
-    sizeof(CxtTreeObject),	/* int tp_basicsize */
-    0,			/* int tp_itemsize */
-    (destructor) CxpTreeDelete,	/* destructor tp_dealloc */
-    0,			/* printfunc tp_print */
-    0,			/* getattrfunc tp_getattr */
-    0,			/* setattrfunc tp_setattr */
-    0,			/* cmpfunc tp_compare */
-    0,			/* reprfunc tp_repr */
-    0,			/* PyNumberMethods *tp_as_number */
-    0,			/* PySequenceMethods *tp_as_sequence */
-    0,			/* PyMappingMethods *tp_as_mapping */
-    0,			/* hashfunc tp_hash */
-    0,			/* ternaryfunc tp_call */
-    0,			/* reprfunc tp_str */
-    PyObject_GenericGetAttr,	/* getattrofunc tp_getattro */
-    0,			/* setattrofunc tp_setattro */
-    0,			/* PyBufferProcs *tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
-    "Tree(): Create the C portion of a tree.",	/* char *tp_doc */
-    (traverseproc) CxpTreeTraverse,	/* traverseproc tp_traverse */
-    (inquiry) CxpTreeClear,	/* inquiry tp_clear */
-    0,			/* richcmpfunc tp_richcompare */
-    0,			/* long tp_weaklistoffset */
-    0,			/* getiterfunc tp_iter */
-    0,			/* iternextfunc tp_iternext */
-    CxpTreeMethods,	/* struct PyMethodDef *tp_methods */
-    0,			/* struct PyMemberDef *tp_members */
-    0,			/* struct PyGetSetDef *tp_getset */
-    0,			/* struct _typeobject *tp_base */
-    0,			/* PyObject *tp_dict */
-    0,			/* descrgetfunc tp_descr_get */
-    0,			/* descrsetfunc tp_descr_set */
-    0,			/* long tp_dictoffset */
-    0,			/* initproc tp_init */
-    0,			/* allocfunc tp_alloc */
-    CxpTreeNew,		/* newfunc tp_new */
-    _PyObject_Del,	/* freefunc tp_free */
-    0			/* inquiry tp_is_gc */
+    0,			// int ob_size
+    "C_Tree.C_Tree",	// char *tp_name
+    sizeof(CxtTreeObject),	// int tp_basicsize
+    0,			// int tp_itemsize
+    (destructor) CxpTreeDelete,	// destructor tp_dealloc
+    0,			// printfunc tp_print
+    0,			// getattrfunc tp_getattr
+    0,			// setattrfunc tp_setattr
+    0,			// cmpfunc tp_compare
+    0,			// reprfunc tp_repr
+    0,			// PyNumberMethods *tp_as_number
+    0,			// PySequenceMethods *tp_as_sequence
+    0,			// PyMappingMethods *tp_as_mapping
+    0,			// hashfunc tp_hash
+    0,			// ternaryfunc tp_call
+    0,			// reprfunc tp_str
+    PyObject_GenericGetAttr,	// getattrofunc tp_getattro
+    0,			// setattrofunc tp_setattro
+    0,			// PyBufferProcs *tp_as_buffer
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // long tp_flags
+    "Tree(): Create the C portion of a tree.",	// char *tp_doc
+    (traverseproc) CxpTreeTraverse,	// traverseproc tp_traverse
+    (inquiry) CxpTreeClear,	// inquiry tp_clear
+    0,			// richcmpfunc tp_richcompare
+    0,			// long tp_weaklistoffset
+    0,			// getiterfunc tp_iter
+    0,			// iternextfunc tp_iternext
+    CxpTreeMethods,	// struct PyMethodDef *tp_methods
+    0,			// struct PyMemberDef *tp_members
+    0,			// struct PyGetSetDef *tp_getset
+    0,			// struct _typeobject *tp_base
+    0,			// PyObject *tp_dict
+    0,			// descrgetfunc tp_descr_get
+    0,			// descrsetfunc tp_descr_set
+    0,			// long tp_dictoffset
+    0,			// initproc tp_init
+    0,			// allocfunc tp_alloc
+    CxpTreeNew,		// newfunc tp_new
+    _PyObject_Del,	// freefunc tp_free
+    0			// inquiry tp_is_gc
 };
 
 static PyMethodDef CxpTreeFuncs[] =
@@ -545,7 +545,7 @@ CxTreeInit(void)
 {
     PyObject *m;
 
-    /* Create new type. */
+    // Create new type.
     if (PyType_Ready(&CxtTree) < 0)
     {
 	return;
@@ -554,28 +554,28 @@ CxTreeInit(void)
     Py_INCREF(&CxtTree);
     PyModule_AddObject(m, "C_Tree", (PyObject *) &CxtTree);
 
-    /* Create exception objects. */
-    /* Exception. */
+    // Create exception objects.
+    // Exception.
     CxgTreeException = PyErr_NewException("C_Tree.Exception", CxgException,
 					  NULL);
     Py_INCREF(CxgTreeException);
     PyModule_AddObject(m, "Exception", CxgTreeException);
 
-    /* ValueError. */
+    // ValueError.
     CxgTreeValueError = PyErr_NewException("C_Tree.ValueError",
 					   CxgTreeException,
 					   NULL);
     Py_INCREF(CxgTreeValueError);
     PyModule_AddObject(m, "ValueError", CxgTreeValueError);
 
-    /* TypeError. */
+    // TypeError.
     CxgTreeTypeError = PyErr_NewException("C_Tree.TypeError",
 					  CxgTreeException,
 					  NULL);
     Py_INCREF(CxgTreeTypeError);
     PyModule_AddObject(m, "TypeError", CxgTreeTypeError);
 
-    /* Pre-compile Python code that is used for creating a tree. */
+    // Pre-compile Python code that is used for creating a tree.
     CxpTreeNewCode = Py_CompileString("\
 import crux.Tree\n\
 tree = crux.Tree.Tree()\n\
@@ -585,9 +585,9 @@ tree = crux.Tree.Tree()\n\
     CxmCheckPtr(CxpTreeNewCode);
 }
 
-/* End Tree. */
-/******************************************************************************/
-/* Begin Node. */
+// End Tree.
+//==============================================================================
+// Begin Node.
 
 static PyObject *
 CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -661,9 +661,9 @@ CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
 	    goto RETURN;
 	}
 
-	/* Report all rings.  It is not good enough to simply report one, since
-	 * Python's mark/sweep GC apparently keeps track of how many times each
-	 * object is visited. */
+	// Report all rings.  It is not good enough to simply report one, since
+	// Python's mark/sweep GC apparently keeps track of how many times each
+	// object is visited.
 	trRing = CxTrNodeRingGet(self->tree->tr, self->node);
 	if (trRing != CxmTrRingNone)
 	{
@@ -706,7 +706,7 @@ CxpNodeClear(CxtNodeObject *self)
 
     if (self->GcCleared == false)
     {
-	/* Detach from rings. */
+	// Detach from rings.
 	trRing = CxTrNodeRingGet(self->tree->tr, self->node);
 	if (trRing != CxmTrRingNone)
 	{
@@ -718,7 +718,7 @@ CxpNodeClear(CxtNodeObject *self)
 		ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr,
 							trCurRing);
 
-		/* Get next ring before detaching. */
+		// Get next ring before detaching.
 		trRing = trCurRing;
 		trCurRing = CxTrRingNextGet(self->tree->tr, trCurRing);
 
@@ -728,7 +728,7 @@ CxpNodeClear(CxtNodeObject *self)
 	    } while (trCurRing != trRing);
 	}
 
-	/* Detach from tree if tree base. */
+	// Detach from tree if tree base.
 	base = CxTrBaseGet(self->tree->tr);
 	if (base == self->node)
 	{
@@ -739,10 +739,10 @@ CxpNodeClear(CxtNodeObject *self)
 	    Py_DECREF(node);
 	}
 
-	/* Delete node. */
+	// Delete node.
 	CxTrNodeDelete(self->tree->tr, self->node);
 
-	/* Drop reference to tree. */
+	// Drop reference to tree.
 	Py_DECREF(self->tree);
 
 	self->GcCleared = true;
@@ -961,46 +961,46 @@ static PyMethodDef CxpNodeMethods[] =
 PyTypeObject CxtNode =
 {
     PyObject_HEAD_INIT(NULL)
-    0,			/* int ob_size */
-    "C_Node.C_Node",	/* char *tp_name */
-    sizeof(CxtNodeObject),	/* int tp_basicsize */
-    0,			/* int tp_itemsize */
-    (destructor) CxpNodeDelete,	/* destructor tp_dealloc */
-    0,			/* printfunc tp_print */
-    0,			/* getattrfunc tp_getattr */
-    0,			/* setattrfunc tp_setattr */
-    0,			/* cmpfunc tp_compare */
-    0,			/* reprfunc tp_repr */
-    0,			/* PyNumberMethods *tp_as_number */
-    0,			/* PySequenceMethods *tp_as_sequence */
-    0,			/* PyMappingMethods *tp_as_mapping */
-    0,			/* hashfunc tp_hash */
-    0,			/* ternaryfunc tp_call */
-    0,			/* reprfunc tp_str */
-    PyObject_GenericGetAttr,	/* getattrofunc tp_getattro */
-    0,			/* setattrofunc tp_setattro */
-    0,			/* PyBufferProcs *tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
-    "Node(): Create the C portion of a node.",	/* char *tp_doc */
-    (traverseproc) CxpNodeTraverse,	/* traverseproc tp_traverse */
-    (inquiry) CxpNodeClear,	/* inquiry tp_clear */
-    0,			/* richcmpfunc tp_richcompare */
-    0,			/* long tp_weaklistoffset */
-    0,			/* getiterfunc tp_iter */
-    0,			/* iternextfunc tp_iternext */
-    CxpNodeMethods,	/* struct PyMethodDef *tp_methods */
-    0,			/* struct PyMemberDef *tp_members */
-    0,			/* struct PyGetSetDef *tp_getset */
-    0,			/* struct _typeobject *tp_base */
-    0,			/* PyObject *tp_dict */
-    0,			/* descrgetfunc tp_descr_get */
-    0,			/* descrsetfunc tp_descr_set */
-    0,			/* long tp_dictoffset */
-    0,			/* initproc tp_init */
-    0,			/* allocfunc tp_alloc */
-    CxpNodeNew,		/* newfunc tp_new */
-    _PyObject_Del,	/* freefunc tp_free */
-    0			/* inquiry tp_is_gc */
+    0,			// int ob_size
+    "C_Node.C_Node",	// char *tp_name
+    sizeof(CxtNodeObject),	// int tp_basicsize
+    0,			// int tp_itemsize
+    (destructor) CxpNodeDelete,	// destructor tp_dealloc
+    0,			// printfunc tp_print
+    0,			// getattrfunc tp_getattr
+    0,			// setattrfunc tp_setattr
+    0,			// cmpfunc tp_compare
+    0,			// reprfunc tp_repr
+    0,			// PyNumberMethods *tp_as_number
+    0,			// PySequenceMethods *tp_as_sequence
+    0,			// PyMappingMethods *tp_as_mapping
+    0,			// hashfunc tp_hash
+    0,			// ternaryfunc tp_call
+    0,			// reprfunc tp_str
+    PyObject_GenericGetAttr,	// getattrofunc tp_getattro
+    0,			// setattrofunc tp_setattro
+    0,			// PyBufferProcs *tp_as_buffer
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // long tp_flags
+    "Node(): Create the C portion of a node.",	// char *tp_doc
+    (traverseproc) CxpNodeTraverse,	// traverseproc tp_traverse
+    (inquiry) CxpNodeClear,	// inquiry tp_clear
+    0,			// richcmpfunc tp_richcompare
+    0,			// long tp_weaklistoffset
+    0,			// getiterfunc tp_iter
+    0,			// iternextfunc tp_iternext
+    CxpNodeMethods,	// struct PyMethodDef *tp_methods
+    0,			// struct PyMemberDef *tp_members
+    0,			// struct PyGetSetDef *tp_getset
+    0,			// struct _typeobject *tp_base
+    0,			// PyObject *tp_dict
+    0,			// descrgetfunc tp_descr_get
+    0,			// descrsetfunc tp_descr_set
+    0,			// long tp_dictoffset
+    0,			// initproc tp_init
+    0,			// allocfunc tp_alloc
+    CxpNodeNew,		// newfunc tp_new
+    _PyObject_Del,	// freefunc tp_free
+    0			// inquiry tp_is_gc
 };
 
 static PyMethodDef CxpNodeFuncs[] =
@@ -1013,7 +1013,7 @@ CxNodeInit(void)
 {
     PyObject *m;
 
-    /* Create new type. */
+    // Create new type.
     if (PyType_Ready(&CxtNode) < 0)
     {
 	return;
@@ -1022,7 +1022,7 @@ CxNodeInit(void)
     Py_INCREF(&CxtNode);
     PyModule_AddObject(m, "C_Node", (PyObject *) &CxtNode);
 
-    /* Pre-compile Python code that is used for creating a node. */
+    // Pre-compile Python code that is used for creating a node.
     CxpNodeNewCode = Py_CompileString("\
 import crux.Node\n\
 node = crux.Node.Node(tree)\n\
@@ -1032,9 +1032,9 @@ node = crux.Node.Node(tree)\n\
     CxmCheckPtr(CxpNodeNewCode);
 }
 
-/* End Node. */
-/******************************************************************************/
-/* Begin Edge. */
+// End Node.
+//==============================================================================
+// Begin Edge.
 
 static PyObject *
 CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -1064,8 +1064,8 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     CxmXepBegin();
     CxmXepTry
     {
-	/* Avoid traversing this object in GC until it is fully constructed, and
-	 * its rings are fully constructed. */
+	// Avoid traversing this object in GC until it is fully constructed, and
+	// its rings are fully constructed.
 	PyObject_GC_UnTrack(self);
 
 	Py_INCREF(tree);
@@ -1075,11 +1075,11 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	memset(self->aux, 0x0, sizeof(void *) * CxmEdgeObjectAuxCount);
 	tryStage = 1;
 
-	/* Create associated ring objects. */
+	// Create associated ring objects.
 	self->ringA = CxRingNew(self, 0);
 	tryStage = 2;
 
-	/* Avoid traversing ringA until after ringB has been constructed. */
+	// Avoid traversing ringA until after ringB has been constructed.
 	PyObject_GC_UnTrack(self->ringA);
 
 	self->ringB = CxRingNew(self, 1);
@@ -1088,7 +1088,7 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	self->GcCleared = false;
 	retval = (PyObject *) self;
 
-	/* It's okay to traverse the edge and rings now. */
+	// It's okay to traverse the edge and rings now.
 	PyObject_GC_Track(self->ringA);
 	PyObject_GC_Track(self);
     }
@@ -1178,7 +1178,7 @@ CxpEdgeClear(CxtEdgeObject *self)
 
     if (self->GcCleared == false)
     {
-	/* Detach from nodes, if not already done. */
+	// Detach from nodes, if not already done.
 	if (self->GcDetached == false)
 	{
 	    self->GcDetached = true;
@@ -1194,7 +1194,7 @@ CxpEdgeClear(CxtEdgeObject *self)
 	    }
 	}
 
-	/* Drop references to rings. */
+	// Drop references to rings.
 	Py_DECREF(self->ringA);
 	Py_DECREF(self->ringB);
 
@@ -1218,13 +1218,13 @@ CxpEdgeDelete(CxtEdgeObject *self)
 
     CxpEdgeClear(self);
 
-    /* Delete the CxTrEdge (and associated CxTrRing objects).  The
-     * CxtRingObject clear/delete code held onto a reference to this
-     * CxtEdgeOjbect long enough to ensure that both CxtRingObject's
-     * associated with this CxtEdgeObject have already been deallocated. */
+    // Delete the CxTrEdge (and associated CxTrRing objects).  The CxtRingObject
+    // clear/delete code held onto a reference to this CxtEdgeOjbect long enough
+    // to ensure that both CxtRingObject's associated with this CxtEdgeObject
+    // have already been deallocated.
     CxTrEdgeDelete(self->tree->tr, self->edge);
 
-    /* Drop reference to tree. */
+    // Drop reference to tree.
     Py_DECREF(self->tree);
 
     self->ob_type->tp_free((PyObject*) self);
@@ -1327,18 +1327,18 @@ void
 CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
 	     CxtNodeObject *aNodeB)
 {
-    /* Rings refer to nodes. */
+    // Rings refer to nodes.
     Py_INCREF(aNodeA);
     Py_INCREF(aNodeB);
 
-    /* Nodes refer to rings.  In actuality, a node only refers to one element of
-     * a ring, but doing all the "correct" reference management for the ring
-     * would be hard (and slow), so instead, pretend that a node refers to each
-     * ring element. */
+    // Nodes refer to rings.  In actuality, a node only refers to one element of
+    // a ring, but doing all the "correct" reference management for the ring
+    // would be hard (and slow), so instead, pretend that a node refers to each
+    // ring element.
     Py_INCREF(self->ringA);
     Py_INCREF(self->ringB);
 
-    /* Attach. */
+    // Attach.
     CxTrEdgeAttach(self->tree->tr, self->edge, aNodeA->node, aNodeB->node);
 }
 
@@ -1354,7 +1354,7 @@ CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args)
 	retval = NULL;
 	goto RETURN;
     }
-    /* Make sure that the edge is currently detached. */
+    // Make sure that the edge is currently detached.
     if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring) != CxmTrNodeNone)
     {
 	CxError(CxgEdgeValueError, "Edge is already attached");
@@ -1384,7 +1384,7 @@ CxEdgeDetach(CxtEdgeObject *self)
     CxtNodeObject *nodeA, *nodeB;
     CxtTrRing trRingA, trRingB;
 
-    /* Make sure that the edge is currently attached. */
+    // Make sure that the edge is currently attached.
     if (CxTrRingNodeGet(self->tree->tr, self->ringA->ring) == CxmTrNodeNone)
     {
 	CxError(CxgEdgeValueError, "Edge is already detached");
@@ -1402,14 +1402,14 @@ CxEdgeDetach(CxtEdgeObject *self)
     trNodeB = CxTrRingNodeGet(self->tree->tr, trRingB);
     nodeB = (CxtNodeObject *) CxTrNodeAuxGet(self->tree->tr, trNodeB);
 
-    /* Detach. */
+    // Detach.
     CxTrEdgeDetach(self->tree->tr, self->edge);
 
-    /* Rings refer to nodes. */
+    // Rings refer to nodes.
     Py_DECREF(nodeA);
     Py_DECREF(nodeB);
 
-    /* Nodes refer to rings. */
+    // Nodes refer to rings.
     Py_DECREF(self->ringA);
     Py_DECREF(self->ringB);
 
@@ -1463,46 +1463,46 @@ static PyMethodDef CxpEdgeMethods[] =
 PyTypeObject CxtEdge =
 {
     PyObject_HEAD_INIT(NULL)
-    0,			/* int ob_size */
-    "C_Edge.C_Edge",	/* char *tp_name */
-    sizeof(CxtEdgeObject),	/* int tp_basicsize */
-    0,			/* int tp_itemsize */
-    (destructor) CxpEdgeDelete,	/* destructor tp_dealloc */
-    0,			/* printfunc tp_print */
-    0,			/* getattrfunc tp_getattr */
-    0,			/* setattrfunc tp_setattr */
-    0,			/* cmpfunc tp_compare */
-    0,			/* reprfunc tp_repr */
-    0,			/* PyNumberMethods *tp_as_number */
-    0,			/* PySequenceMethods *tp_as_sequence */
-    0,			/* PyMappingMethods *tp_as_mapping */
-    0,			/* hashfunc tp_hash */
-    0,			/* ternaryfunc tp_call */
-    0,			/* reprfunc tp_str */
-    PyObject_GenericGetAttr,	/* getattrofunc tp_getattro */
-    0,			/* setattrofunc tp_setattro */
-    0,			/* PyBufferProcs *tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
-    "Edge(): Create the C portion of an edge.",	/* char *tp_doc */
-    (traverseproc) CxpEdgeTraverse,	/* traverseproc tp_traverse */
-    (inquiry) CxpEdgeClear,	/* inquiry tp_clear */
-    0,			/* richcmpfunc tp_richcompare */
-    0,			/* long tp_weaklistoffset */
-    0,			/* getiterfunc tp_iter */
-    0,			/* iternextfunc tp_iternext */
-    CxpEdgeMethods,	/* struct PyMethodDef *tp_methods */
-    0,			/* struct PyMemberDef *tp_members */
-    0,			/* struct PyGetSetDef *tp_getset */
-    0,			/* struct _typeobject *tp_base */
-    0,			/* PyObject *tp_dict */
-    0,			/* descrgetfunc tp_descr_get */
-    0,			/* descrsetfunc tp_descr_set */
-    0,			/* long tp_dictoffset */
-    0,			/* initproc tp_init */
-    0,			/* allocfunc tp_alloc */
-    CxpEdgeNew,		/* newfunc tp_new */
-    _PyObject_Del,	/* freefunc tp_free */
-    0			/* inquiry tp_is_gc */
+    0,			// int ob_size
+    "C_Edge.C_Edge",	// char *tp_name
+    sizeof(CxtEdgeObject),	// int tp_basicsize
+    0,			// int tp_itemsize
+    (destructor) CxpEdgeDelete,	// destructor tp_dealloc
+    0,			// printfunc tp_print
+    0,			// getattrfunc tp_getattr
+    0,			// setattrfunc tp_setattr
+    0,			// cmpfunc tp_compare
+    0,			// reprfunc tp_repr
+    0,			// PyNumberMethods *tp_as_number
+    0,			// PySequenceMethods *tp_as_sequence
+    0,			// PyMappingMethods *tp_as_mapping
+    0,			// hashfunc tp_hash
+    0,			// ternaryfunc tp_call
+    0,			// reprfunc tp_str
+    PyObject_GenericGetAttr,	// getattrofunc tp_getattro
+    0,			// setattrofunc tp_setattro
+    0,			// PyBufferProcs *tp_as_buffer
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // long tp_flags
+    "Edge(): Create the C portion of an edge.",	// char *tp_doc
+    (traverseproc) CxpEdgeTraverse,	// traverseproc tp_traverse
+    (inquiry) CxpEdgeClear,	// inquiry tp_clear
+    0,			// richcmpfunc tp_richcompare
+    0,			// long tp_weaklistoffset
+    0,			// getiterfunc tp_iter
+    0,			// iternextfunc tp_iternext
+    CxpEdgeMethods,	// struct PyMethodDef *tp_methods
+    0,			// struct PyMemberDef *tp_members
+    0,			// struct PyGetSetDef *tp_getset
+    0,			// struct _typeobject *tp_base
+    0,			// PyObject *tp_dict
+    0,			// descrgetfunc tp_descr_get
+    0,			// descrsetfunc tp_descr_set
+    0,			// long tp_dictoffset
+    0,			// initproc tp_init
+    0,			// allocfunc tp_alloc
+    CxpEdgeNew,		// newfunc tp_new
+    _PyObject_Del,	// freefunc tp_free
+    0			// inquiry tp_is_gc
 };
 
 static PyMethodDef CxpEdgeFuncs[] =
@@ -1518,7 +1518,7 @@ CxEdgeInit(void)
 {
     PyObject *m;
 
-    /* Create new type. */
+    // Create new type.
     if (PyType_Ready(&CxtEdge) < 0)
     {
 	return;
@@ -1527,7 +1527,7 @@ CxEdgeInit(void)
     Py_INCREF(&CxtEdge);
     PyModule_AddObject(m, "C_Edge", (PyObject *) &CxtEdge);
 
-    /* Create exception objects. */
+    // Create exception objects.
     CxgEdgeException = PyErr_NewException("C_Edge.Exception", CxgException,
 					  NULL);
     Py_INCREF(CxgEdgeException);
@@ -1539,7 +1539,7 @@ CxEdgeInit(void)
     Py_INCREF(CxgEdgeValueError);
     PyModule_AddObject(m, "ValueError", CxgEdgeValueError);
 
-    /* Pre-compile Python code that is used for creating a wrapped edge. */
+    // Pre-compile Python code that is used for creating a wrapped edge.
     CxpEdgeNewCode = Py_CompileString("\
 import crux.Edge\n\
 edge = crux.Edge.Edge(tree)\n\
@@ -1549,9 +1549,9 @@ edge = crux.Edge.Edge(tree)\n\
     CxmCheckPtr(CxpEdgeNewCode);
 }
 
-/* End Edge. */
-/******************************************************************************/
-/* Begin Ring. */
+// End Edge.
+//==============================================================================
+// Begin Ring.
 
 static PyObject *
 CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -1659,14 +1659,14 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
 	    }
 	}
 
-	/* Report edge. */
+	// Report edge.
 	if (visit((PyObject *) self->edge, arg) < 0)
 	{
 	    retval = -1;
 	    goto RETURN;
 	}
 
-	/* Report next ring element. */
+	// Report next ring element.
 	trRing = CxTrRingNextGet(self->tree->tr, self->ring);
 	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
 	if (visit((PyObject *) ring, arg) < 0)
@@ -1675,7 +1675,7 @@ CxpRingTraverse(CxtRingObject *self, visitproc visit, void *arg)
 	    goto RETURN;
 	}
 
-	/* Report previous ring element. */
+	// Report previous ring element.
 	trRing = CxTrRingPrevGet(self->tree->tr, self->ring);
 	ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
 	if (visit((PyObject *) ring, arg) < 0)
@@ -1704,7 +1704,7 @@ CxpRingClear(CxtRingObject *self)
 
     if (self->GcCleared == false)
     {
-	/* Detach from nodes, if not already done. */
+	// Detach from nodes, if not already done.
 	if (self->GcDetached == false)
 	{
 	    self->edge->GcDetached = true;
@@ -1719,10 +1719,10 @@ CxpRingClear(CxtRingObject *self)
 	    }
 	}
 
-	/* Drop reference to tree. */
+	// Drop reference to tree.
 	Py_DECREF(self->tree);
 
-	/* Drop references to self. */
+	// Drop references to self.
 	Py_DECREF(self);
 	Py_DECREF(self);
 
@@ -1746,8 +1746,8 @@ CxpRingDelete(CxtRingObject *self)
 
     CxpRingClear(self);
 
-    /* Drop the reference to the associated edge, now that there is no chance of
-     * accessing it again. */
+    // Drop the reference to the associated edge, now that there is no chance of
+    // accessing it again.
     Py_DECREF(self->edge);
 
     self->ob_type->tp_free((PyObject*) self);
@@ -1999,46 +1999,46 @@ static PyMethodDef CxpRingMethods[] =
 PyTypeObject CxtRing =
 {
     PyObject_HEAD_INIT(NULL)
-    0,			/* int ob_size */
-    "C_Ring.C_Ring",	/* char *tp_name */
-    sizeof(CxtRingObject),	/* int tp_basicsize */
-    0,			/* int tp_itemsize */
-    (destructor) CxpRingDelete,	/* destructor tp_dealloc */
-    0,			/* printfunc tp_print */
-    0,			/* getattrfunc tp_getattr */
-    0,			/* setattrfunc tp_setattr */
-    0,			/* cmpfunc tp_compare */
-    0,			/* reprfunc tp_repr */
-    0,			/* PyNumberMethods *tp_as_number */
-    0,			/* PySequenceMethods *tp_as_sequence */
-    0,			/* PyMappingMethods *tp_as_mapping */
-    0,			/* hashfunc tp_hash */
-    0,			/* ternaryfunc tp_call */
-    0,			/* reprfunc tp_str */
-    PyObject_GenericGetAttr,	/* getattrofunc tp_getattro */
-    0,			/* setattrofunc tp_setattro */
-    0,			/* PyBufferProcs *tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
-    "Ring(): Create the C portion of an ring.",	/* char *tp_doc */
-    (traverseproc) CxpRingTraverse,	/* traverseproc tp_traverse */
-    (inquiry) CxpRingClear,	/* inquiry tp_clear */
-    0,			/* richcmpfunc tp_richcompare */
-    0,			/* long tp_weaklistoffset */
-    0,			/* getiterfunc tp_iter */
-    0,			/* iternextfunc tp_iternext */
-    CxpRingMethods,	/* struct PyMethodDef *tp_methods */
-    0,			/* struct PyMemberDef *tp_members */
-    0,			/* struct PyGetSetDef *tp_getset */
-    0,			/* struct _typeobject *tp_base */
-    0,			/* PyObject *tp_dict */
-    0,			/* descrgetfunc tp_descr_get */
-    0,			/* descrsetfunc tp_descr_set */
-    0,			/* long tp_dictoffset */
-    0,			/* initproc tp_init */
-    0,			/* allocfunc tp_alloc */
-    CxpRingNew,		/* newfunc tp_new */
-    _PyObject_Del,	/* freefunc tp_free */
-    0			/* inquiry tp_is_gc */
+    0,			// int ob_size
+    "C_Ring.C_Ring",	// char *tp_name
+    sizeof(CxtRingObject),	// int tp_basicsize
+    0,			// int tp_itemsize
+    (destructor) CxpRingDelete,	// destructor tp_dealloc
+    0,			// printfunc tp_print
+    0,			// getattrfunc tp_getattr
+    0,			// setattrfunc tp_setattr
+    0,			// cmpfunc tp_compare
+    0,			// reprfunc tp_repr
+    0,			// PyNumberMethods *tp_as_number
+    0,			// PySequenceMethods *tp_as_sequence
+    0,			// PyMappingMethods *tp_as_mapping
+    0,			// hashfunc tp_hash
+    0,			// ternaryfunc tp_call
+    0,			// reprfunc tp_str
+    PyObject_GenericGetAttr,	// getattrofunc tp_getattro
+    0,			// setattrofunc tp_setattro
+    0,			// PyBufferProcs *tp_as_buffer
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // long tp_flags
+    "Ring(): Create the C portion of an ring.",	// char *tp_doc
+    (traverseproc) CxpRingTraverse,	// traverseproc tp_traverse
+    (inquiry) CxpRingClear,	// inquiry tp_clear
+    0,			// richcmpfunc tp_richcompare
+    0,			// long tp_weaklistoffset
+    0,			// getiterfunc tp_iter
+    0,			// iternextfunc tp_iternext
+    CxpRingMethods,	// struct PyMethodDef *tp_methods
+    0,			// struct PyMemberDef *tp_members
+    0,			// struct PyGetSetDef *tp_getset
+    0,			// struct _typeobject *tp_base
+    0,			// PyObject *tp_dict
+    0,			// descrgetfunc tp_descr_get
+    0,			// descrsetfunc tp_descr_set
+    0,			// long tp_dictoffset
+    0,			// initproc tp_init
+    0,			// allocfunc tp_alloc
+    CxpRingNew,		// newfunc tp_new
+    _PyObject_Del,	// freefunc tp_free
+    0			// inquiry tp_is_gc
 };
 
 static PyMethodDef CxpRingFuncs[] =
@@ -2054,7 +2054,7 @@ CxRingInit(void)
 {
     PyObject *m;
 
-    /* Create new type. */
+    // Create new type.
     if (PyType_Ready(&CxtRing) < 0)
     {
 	return;
@@ -2063,7 +2063,7 @@ CxRingInit(void)
     Py_INCREF(&CxtRing);
     PyModule_AddObject(m, "C_Ring", (PyObject *) &CxtRing);
 
-    /* Create exception objects. */
+    // Create exception objects.
     CxgRingException = PyErr_NewException("C_Ring.Exception", CxgException,
 					  NULL);
     Py_INCREF(CxgRingException);
@@ -2075,7 +2075,7 @@ CxRingInit(void)
     Py_INCREF(CxgRingValueError);
     PyModule_AddObject(m, "ValueError", CxgRingValueError);
 
-    /* Pre-compile Python code that is used for creating a wrapped ring. */
+    // Pre-compile Python code that is used for creating a wrapped ring.
     CxpRingNewCode = Py_CompileString("\
 import crux.Ring\n\
 ring = crux.Ring.Ring(edge, end)\n\
@@ -2085,5 +2085,5 @@ ring = crux.Ring.Ring(edge, end)\n\
     CxmCheckPtr(CxpRingNewCode);
 }
 
-/* End Ring. */
-/******************************************************************************/
+// End Ring.
+//==============================================================================

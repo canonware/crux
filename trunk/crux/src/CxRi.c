@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 #include "../include/_cruxmodule.h"
 
@@ -34,35 +34,34 @@ CxRiInit(CxtRi *aRi, uint32_t aNints)
 {
     if (aRi->arr == NULL)
     {
-	/* Allocate an array with one slot per integer. */
+	// Allocate an array with one slot per integer.
 	aRi->arrLen = aNints;
 	if (aNints > 0)
 	{
 	    aRi->arr = (uint32_t *) CxmCalloc(aNints, sizeof(uint32_t));
 	}
 
-	/* ind was already initialized to 0, so there is no need to do so
-	 * here. */
+	// ind was already initialized to 0, so there is no need to do so here.
     }
     else if (aRi->arrLen < aNints)
     {
-	/* arr isn't big enough. */
+	// arr isn't big enough.
 
-	/* Deallocate old array. */
+	// Deallocate old array.
 	CxmFree(aRi->arr);
 
-	/* Allocate new array. */
+	// Allocate new array.
 	aRi->arrLen = aNints;
 	aRi->arr = (uint32_t *) CxmCalloc(aNints, sizeof(uint32_t));
 
-	/* Reset ind. */
+	// Reset ind.
 	aRi->ind = 0;
     }
     else
     {
 	uint32_t i;
 
-	/* Undo damage to arr. */
+	// Undo damage to arr.
 	for (i = 0; i < aRi->ind; i++)
 	{
 	    CxmAssert(i < aRi->arrLen);
@@ -74,14 +73,14 @@ CxRiInit(CxtRi *aRi, uint32_t aNints)
 	    aRi->arr[i] = 0;
 	}
 
-	/* Reset ind. */
+	// Reset ind.
 	aRi->ind = 0;
     }
 
-    /* Finally, set nints. */
+    // Finally, set nints.
     aRi->nints = aNints;
 
-    /* Make sure arr is properly initialized. */
+    // Make sure arr is properly initialized.
     CxmAssert(aRi->ind == 0);
 #ifdef CxmDebug
     if (aRi->arr != NULL)
@@ -119,38 +118,38 @@ CxRiRandomGet(CxtRi *aRi, CxtMt *aMt)
 
     CxmAssert(aRi->nints > 0);
 
-    /* This algorithm is explained in CxRi.h. */
+    // This algorithm is explained in CxRi.h.
 
-    /* If all integers have been iterated over, re-initialize. */
+    // If all integers have been iterated over, re-initialize.
     if (aRi->ind == aRi->nints)
     {
 	CxRiInit(aRi, aRi->nints);
     }
 
-    /* 2) */
+    // 2)
     r = aRi->ind + CxMtUint32RangeGet(aMt, aRi->nints - aRi->ind);
     CxmAssert(r >= aRi->ind);
     CxmAssert(r < aRi->nints);
 
-    /* 3) */
+    // 3)
     if (aRi->arr[r] == 0)
     {
 	aRi->arr[r] = r + 1;
     }
 
-    /* 4) */
+    // 4)
     CxmAssert(aRi->ind < aRi->nints);
     if (aRi->arr[aRi->ind] == 0)
     {
 	aRi->arr[aRi->ind] = aRi->ind + 1;
     }
 
-    /* 5) */
+    // 5)
     retval = aRi->arr[r];
     aRi->arr[r] = aRi->arr[aRi->ind];
     aRi->arr[aRi->ind] = retval;
 
-    /* 6) */
+    // 6)
     aRi->ind++;
 
     CxmAssert(retval != 0);
@@ -166,8 +165,8 @@ CxRiRandomGet(CxtRi *aRi, CxtMt *aMt)
     }
 #endif
 
-    /* Decrement, in order to deal with the fact that all numbers in the array
-     * are one greater than actual (allows 0 to mean "invalid"). */
+    // Decrement, in order to deal with the fact that all numbers in the array
+    // are one greater than actual (allows 0 to mean "invalid").
     retval--;
 
     return retval;

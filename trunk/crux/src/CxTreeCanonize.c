@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 #include "../include/_cruxmodule.h"
 
@@ -30,7 +30,7 @@ CxTreeCanonize(CxtTreeObject *self)
 
 	CxTrCanonize(self->tr);
 
-	/* Reference new base. */
+	// Reference new base.
 	trNode = CxTrBaseGet(self->tr);
 	if (trNode != CxmTrNodeNone)
 	{
@@ -38,7 +38,7 @@ CxTreeCanonize(CxtTreeObject *self)
 	    Py_INCREF(node);
 	}
 
-	/* Decref old base. */
+	// Decref old base.
 	if (oldTrNode != CxmTrNodeNone)
 	{
 	    node = (CxtNodeObject *) CxTrNodeAuxGet(self->tr, oldTrNode);

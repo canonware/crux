@@ -1,21 +1,20 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 #include "../include/_cruxmodule.h"
 
 static PyTypeObject CxtDistMatrix;
 
-/* Convert from row/column matrix coordinates to array offsets for a symmetric
- * matrix.  See CxTreeNj.c for more information about the underlying algorithms.
- */
+// Convert from row/column matrix coordinates to array offsets for a symmetric
+// matrix.  See CxTreeNj.c for more information about the underlying algorithms.
 CxmpInline unsigned long
 CxpDistMatrixXy2i(CxtDistMatrixObject *self, unsigned long aX, unsigned long aY)
 {
@@ -48,7 +47,7 @@ CxpDistMatrixXy2i(CxtDistMatrixObject *self, unsigned long aX, unsigned long aY)
 CxmInline void
 CxpDistMatrixAppendC(CxtDistMatrixObject *self, char c)
 {
-    /* Expand the token buffer, if necessary. */
+    // Expand the token buffer, if necessary.
     if (self->tokenLen + 1 > self->bufLen)
     {
 	if (self->buf == NULL)
@@ -65,7 +64,7 @@ CxpDistMatrixAppendC(CxtDistMatrixObject *self, char c)
 	}
     }
 
-    /* Append the character. */
+    // Append the character.
     self->buf[self->tokenLen] = c;
     self->tokenLen++;
 }
@@ -98,7 +97,7 @@ CxpDistMatrixGetC(CxtDistMatrixObject *self, char *rC, long *rLine,
 	}
     }
 
-    /* Update line and column info. */
+    // Update line and column info.
     if (c == '\n')
     {
 	self->line++;
@@ -109,7 +108,7 @@ CxpDistMatrixGetC(CxtDistMatrixObject *self, char *rC, long *rLine,
 	self->column++;
     }
 
-    /* Set returns. */
+    // Set returns.
     *rC = c;
     *rLine = line;
     *rColumn = column;
@@ -144,7 +143,7 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
     {
 	if (CxpDistMatrixGetC(self, &c, &line, &column))
 	{
-	    /* End of input.  Accept final token. */
+	    // End of input.  Accept final token.
 	    retval = true;
 	    switch (CxDistMatrixTokenState)
 	    {
@@ -188,7 +187,7 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
 		    {
 			case ' ': case '\t': case '\n': case '\r':
 			{
-			    /* Stay in the start state. */
+			    // Stay in the start state.
 			    break;
 			}
 			case '+': case '-':
@@ -214,7 +213,7 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
 		    {
 			case ' ': case '\t': case '\n': case '\r':
 			{
-			    /* Accept. */
+			    // Accept.
 			    *rTokenType = CxtDistMatrixTokenInt;
 			    goto RETURN;
 			}
@@ -253,7 +252,7 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
 		    {
 			case ' ': case '\t': case '\n': case '\r':
 			{
-			    /* Accept. */
+			    // Accept.
 			    *rTokenType = CxtDistMatrixTokenDec;
 			    goto RETURN;
 			}
@@ -285,7 +284,7 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
 		    {
 			case ' ': case '\t': case '\n': case '\r':
 			{
-			    /* Accept. */
+			    // Accept.
 			    *rTokenType = CxtDistMatrixTokenDec;
 			    goto RETURN;
 			}
@@ -311,7 +310,7 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
 		    {
 			case ' ': case '\t': case '\n': case '\r':
 			{
-			    /* Accept. */
+			    // Accept.
 			    *rTokenType = CxtDistMatrixTokenDec;
 			    goto RETURN;
 			}
@@ -336,7 +335,7 @@ CxpDistMatrixGetToken(CxtDistMatrixObject *self,
 		    {
 			case ' ': case '\t': case '\n': case '\r':
 			{
-			    /* Accept. */
+			    // Accept.
 			    *rTokenType = CxtDistMatrixTokenLabel;
 			    goto RETURN;
 			}
@@ -473,7 +472,7 @@ CxpDistMatrixProcessLabel(CxtDistMatrixObject *self, long index,
 	}
 	case CxtDistMatrixTokenLabel:
 	{
-	    /* Insert label into map. */
+	    // Insert label into map.
 	    if (CxpDistMatrixLabelAccept(self, index))
 	    {
 		retval = true;
@@ -648,7 +647,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 
     matrixFormat = CxDistMatrixFormatUnknown;
 
-    /* Get the number of taxa. */
+    // Get the number of taxa.
     eof = CxpDistMatrixGetToken(self, &tokenType, &line, &column);
     switch (tokenType)
     {
@@ -696,15 +695,15 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	goto RETURN;
     }
 
-    /* Get the first taxon label. */
+    // Get the first taxon label.
     if (CxpDistMatrixProcessLabel(self, 0, "unknown"))
     {
 	retval = true;
 	goto RETURN;
     }
 
-    /* Get the next token; if it is a taxon label, then this matrix is in lower
-     * triangle format. */
+    // Get the next token; if it is a taxon label, then this matrix is in lower
+    // triangle format.
     eof = CxpDistMatrixGetToken(self, &tokenType, &line, &column);
     switch (tokenType)
     {
@@ -719,12 +718,12 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	case CxtDistMatrixTokenInt:
 	case CxtDistMatrixTokenDec:
 	{
-	    /* This matrix is either in full or upper triangle format. */
+	    // This matrix is either in full or upper triangle format.
 	    break;
 	}
 	case CxtDistMatrixTokenLabel:
 	{
-	    /* The matrix is in lower triangle format. */
+	    // The matrix is in lower triangle format.
 	    matrixFormat = CxDistMatrixFormatLower;
 	    break;
 	}
@@ -744,35 +743,35 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     
     if (matrixFormat == CxDistMatrixFormatLower)
     {
-	/* Allocate a symmetric matrix. */
+	// Allocate a symmetric matrix.
 	self->symmetric = true;
 	CxpDistMatrixNtaxaAccept(self);
 
-	/* Insert label into map. */
+	// Insert label into map.
 	if (CxpDistMatrixLabelAccept(self, 1))
 	{
 	    retval = true;
 	    goto RETURN;
 	}
 
-	/* Get second row of distances. */
+	// Get second row of distances.
 	if (CxpDistMatrixProcessDistance(self, 1, 0, "lower"))
 	{
 	    retval = true;
 	    goto RETURN;
 	}
 
-	/* Get remaining rows. */
+	// Get remaining rows.
 	for (x = 2; x < self->ntaxa; x++)
 	{
-	    /* Get taxon label. */
+	    // Get taxon label.
 	    if (CxpDistMatrixProcessLabel(self, x, "lower"))
 	    {
 		retval = true;
 		goto RETURN;
 	    }
 
-	    /* Get distances. */
+	    // Get distances.
 	    for (y = 0; y < x; y++)
 	    {
 		if (CxpDistMatrixProcessDistance(self, x, y, "lower"))
@@ -787,15 +786,15 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     {
 	float *tdists;
 
-	/* Full or upper triangle format. */
+	// Full or upper triangle format.
 
-	/* Allocate a temporary array that is large enough to store the
-	 * distances until it's possible to tell whether this is a symmetric
-	 * matrix. */
+	// Allocate a temporary array that is large enough to store the
+	// distances until it's possible to tell whether this is a symmetric
+	// matrix.
 	tdists = (float *) CxmMalloc(sizeof(float) * (self->ntaxa - 1));
 
-	/* Insert the first distance as though parsing an upper-triangle
-	 * matrix. */
+	// Insert the first distance as though parsing an upper-triangle
+	// matrix.
 	if (CxpDistMatrixTokenToDistance(self, &tdists[0]))
 	{
 	    CxError(CxgDistMatrixSyntaxError,
@@ -805,8 +804,8 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    retval = true;
 	    goto RETURN;
 	}
-	/* Insert the rest of the first row of distances into the matrix as
-	 * though parsing an upper-triangle matrix. */
+	// Insert the rest of the first row of distances into the matrix as
+	// though parsing an upper-triangle matrix.
 	for (y = 2; y < self->ntaxa; y++)
 	{
 	    if (CxpDistMatrixStashDistance(self, tdists, y - 1))
@@ -817,7 +816,7 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    }
 	}
 
-	/* Determine whether this is a full or upper-triangle matrix. */
+	// Determine whether this is a full or upper-triangle matrix.
 	eof = CxpDistMatrixGetToken(self, &tokenType, &line, &column);
 	switch (tokenType)
 	{
@@ -833,13 +832,13 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	    case CxtDistMatrixTokenInt:
 	    case CxtDistMatrixTokenDec:
 	    {
-		/* This matrix is in full-matrix format. */
+		// This matrix is in full-matrix format.
 		matrixFormat = CxDistMatrixFormatFull;
 		break;
 	    }
 	    case CxtDistMatrixTokenLabel:
 	    {
-		/* The matrix is in upper-triangle format. */
+		// The matrix is in upper-triangle format.
 		matrixFormat = CxDistMatrixFormatUpper;
 		break;
 	    }
@@ -860,13 +859,13 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 
 	if (matrixFormat == CxDistMatrixFormatUpper)
 	{
-	    /* This is an upper-triangle matrix. */
+	    // This is an upper-triangle matrix.
 
-	    /* Allocate a symmetric matrix. */
+	    // Allocate a symmetric matrix.
 	    self->symmetric = true;
 	    CxpDistMatrixNtaxaAccept(self);
 
-	    /* Move distances from tdists to matrix. */
+	    // Move distances from tdists to matrix.
 	    for (y = 0; y < self->ntaxa - 1; y++)
 	    {
 		CxDistMatrixDistanceSet(self, 0, y + 1, tdists[y]);
@@ -874,14 +873,14 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 
 	    CxmFree(tdists);
 
-	    /* Insert label into map. */
+	    // Insert label into map.
 	    if (CxpDistMatrixLabelAccept(self, 1))
 	    {
 		retval = true;
 		goto RETURN;
 	    }
 
-	    /* Get second row of distances. */
+	    // Get second row of distances.
 	    for (y = 2; y < self->ntaxa; y++)
 	    {
 		if (CxpDistMatrixProcessDistance(self, 1, y, "upper"))
@@ -891,17 +890,17 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 		}
 	    }
 
-	    /* Get remaining rows. */
+	    // Get remaining rows.
 	    for (x = 2; x < self->ntaxa; x++)
 	    {
-		/* Get taxon label. */
+		// Get taxon label.
 		if (CxpDistMatrixProcessLabel(self, x, "upper"))
 		{
 		    retval = true;
 		    goto RETURN;
 		}
 
-		/* Get distances. */
+		// Get distances.
 		for (y = x + 1; y < self->ntaxa; y++)
 		{
 		    if (CxpDistMatrixProcessDistance(self, x, y, "upper"))
@@ -914,20 +913,20 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 	}
 	else
 	{
-	    /* This is a full matrix. */
+	    // This is a full matrix.
 
-	    /* Allocate a full matrix. */
+	    // Allocate a full matrix.
 	    self->symmetric = false;
 	    CxpDistMatrixNtaxaAccept(self);
 
-	    /* Move distances from tdists to matrix. */
+	    // Move distances from tdists to matrix.
 	    for (y = 0; y < self->ntaxa - 1; y++)
 	    {
 		CxDistMatrixDistanceSet(self, 0, y, tdists[y]);
 	    }
 	    CxmFree(tdists);
 
-	    /* Set the last distance on the first row. */
+	    // Set the last distance on the first row.
 	    if (CxpDistMatrixTokenSetDistance(self, 0, self->ntaxa - 1))
 	    {
 		CxError(CxgDistMatrixSyntaxError,
@@ -937,17 +936,17 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
 		goto RETURN;
 	    }
 
-	    /* Get remaining rows. */
+	    // Get remaining rows.
 	    for (x = 1; x < self->ntaxa; x++)
 	    {
-		/* Get taxon label. */
+		// Get taxon label.
 		if (CxpDistMatrixProcessLabel(self, x, "full"))
 		{
 		    retval = true;
 		    goto RETURN;
 		}
 
-		/* Get Distances. */
+		// Get Distances.
 		for (y = 0; y < self->ntaxa; y++)
 		{
 		    if (CxpDistMatrixProcessDistance(self, x, y, "full"))
@@ -975,7 +974,7 @@ CxpDistMatrixNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	;
     CxtDistMatrixObject *self;
 
-    /* Allocate object. */
+    // Allocate object.
     self = (CxtDistMatrixObject *) type->tp_alloc(type, 0);
     if (self == NULL)
     {
@@ -1051,7 +1050,7 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
     PyObject *input, *map;
     int symmetric;
 
-    /* Parse arguments. */
+    // Parse arguments.
     if (PyArg_ParseTuple(args, "OOi", &input, &map, &symmetric) == 0)
     {
 	retval = NULL;
@@ -1065,7 +1064,7 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    /* Determine input type. */
+    // Determine input type.
     if (PyFile_Check(input))
     {
 	if (symmetric)
@@ -1091,7 +1090,7 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 	self->i.s.string = PyString_AsString(input);
 	self->i.s.offset = 0;
     }
-    else /* TaxonMap. */
+    else // TaxonMap.
     {
 	self->inputType = CxDistMatrixInputTaxonMap;
     }
@@ -1100,7 +1099,7 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
     self->map = map;
     Py_INCREF(self->map);
 
-    /* Handle input. */
+    // Handle input.
     retval = Py_None;
     Py_INCREF(retval);
     CxmXepBegin();
@@ -1111,7 +1110,7 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 	    case CxDistMatrixInputFile:
 	    case CxDistMatrixInputString:
 	    {
-		/* Parse. */
+		// Parse.
 		if (CxpDistMatrixParse(self))
 		{
 		    Py_DECREF(retval);
@@ -1124,9 +1123,8 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 		PyObject *result;
 		long i, nelms;
 
-		/* Create an uninitialized (zero-filled) distance matrix of the
-		 * appropriate size, given the number of taxa in the
-		 * TaxonMap. */
+		// Create an uninitialized (zero-filled) distance matrix of the
+		// appropriate size, given the number of taxa in the TaxonMap.
 
 		result = PyEval_CallMethod(self->map, "ntaxaGet", "()");
 		if (result == NULL)
@@ -1276,8 +1274,8 @@ CxpDistMatrixSample(CxtDistMatrixObject *self, PyObject *args)
     {
 	CxpDistMatrixNtaxaAccept(self);
 
-	/* Create a row table, then sort it so that orig matrix access will be
-	 * linear. */
+	// Create a row table, then sort it so that orig matrix access will be
+	// linear.
 	rowTab = (long *) CxmMalloc((sizeof(long) << 1) * self->ntaxa);
 
 	for (i = 0; i < self->ntaxa; i++)
@@ -1368,7 +1366,7 @@ CxDistMatrixDistanceGetPargs(CxtDistMatrixObject *self, PyObject *args)
     long fr, to;
     float distance;
 
-    /* Parse arguments. */
+    // Parse arguments.
     if (PyArg_ParseTuple(args, "ll", &fr, &to) == 0)
     {
 	retval = NULL;
@@ -1391,7 +1389,7 @@ CxDistMatrixDistanceGetPargs(CxtDistMatrixObject *self, PyObject *args)
 	distance = CxDistMatrixDistanceGet(self, fr, to);
     }
 
-    /* Get distance. */
+    // Get distance.
     retval = Py_BuildValue("f", distance);
     RETURN:
     return retval;
@@ -1410,7 +1408,7 @@ CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args)
     long fr, to;
     float distance;
 
-    /* Parse arguments. */
+    // Parse arguments.
     if (PyArg_ParseTuple(args, "llf", &fr, &to, &distance) == 0)
     {
 	retval = NULL;
@@ -1433,7 +1431,7 @@ CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    /* Set distance. */
+    // Set distance.
     CxDistMatrixDistanceSet(self, fr, to, distance);
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -1449,7 +1447,7 @@ CxpDistMatrixRowsSwap(CxtDistMatrixObject *self, long aA, long aB)
 
     if (self->symmetric)
     {
-	/* Swap rows.  Avoid the diagonal. */
+	// Swap rows.  Avoid the diagonal.
 	for (i = 0; i < self->ntaxa; i++)
 	{
 	    if (i != aA && i != aB)
@@ -1464,7 +1462,7 @@ CxpDistMatrixRowsSwap(CxtDistMatrixObject *self, long aA, long aB)
     }
     else
     {
-	/* Swap rows. */
+	// Swap rows.
 	for (i = 0; i < self->ntaxa; i++)
 	{
 	    distA = CxDistMatrixDistanceGet(self, i, aA);
@@ -1474,7 +1472,7 @@ CxpDistMatrixRowsSwap(CxtDistMatrixObject *self, long aA, long aB)
 	    CxDistMatrixDistanceSet(self, i, aB, distA);
 	}
 
-	/* Swap columns. */
+	// Swap columns.
 	for (i = 0; i < self->ntaxa; i++)
 	{
 	    distA = CxDistMatrixDistanceGet(self, aA, i);
@@ -1492,7 +1490,7 @@ CxpDistMatrixShuffle(CxtDistMatrixObject *self, PyObject *args)
     PyObject *retval, *order, *tobj;
     long i, a, b, t, fromRow, *curOrder, *rowTab;
 
-    /* Parse arguments. */
+    // Parse arguments.
     if (PyArg_ParseTuple(args, "O!", &PyList_Type, &order) == 0)
     {
 	retval = NULL;
@@ -1500,10 +1498,10 @@ CxpDistMatrixShuffle(CxtDistMatrixObject *self, PyObject *args)
     }
     CxmAssert(PyList_Size(order) == self->ntaxa);
 
-    /* Create a lookup table that maps original row to the current row of the
-     * matrix (rowTab), as well as a table that represents the current row order
-     * of the matrix (curOrder).  This is needed to keep track of where rows end
-     * up as repeated row swaps are done. */
+    // Create a lookup table that maps original row to the current row of the
+    // matrix (rowTab), as well as a table that represents the current row order
+    // of the matrix (curOrder).  This is needed to keep track of where rows end
+    // up as repeated row swaps are done.
     rowTab = (long *) CxmMalloc(sizeof(long) * self->ntaxa);
     curOrder = (long *) CxmMalloc(sizeof(long) * self->ntaxa);
     for (i = 0; i < self->ntaxa; i++)
@@ -1512,8 +1510,8 @@ CxpDistMatrixShuffle(CxtDistMatrixObject *self, PyObject *args)
 	curOrder[i] = i;
     }
 
-    /* Iteratively swap the correct row into row i.  The last row need not be
-     * swapped with itself. */
+    // Iteratively swap the correct row into row i.  The last row need not be
+    // swapped with itself.
     for (i = 0; i < self->ntaxa - 1; i++)
     {
 	tobj = PyList_GetItem(order, i);
@@ -1525,12 +1523,12 @@ CxpDistMatrixShuffle(CxtDistMatrixObject *self, PyObject *args)
 
 	CxpDistMatrixRowsSwap(self, a, b);
 
-	/* Update curOrder. */
+	// Update curOrder.
 	t = curOrder[a];
 	curOrder[a] = curOrder[b];
 	curOrder[b] = t;
 
-	/* Update rowTab. */
+	// Update rowTab.
 	t = rowTab[curOrder[a]];
 	rowTab[curOrder[a]] = rowTab[curOrder[b]];
 	rowTab[curOrder[b]] = t;
@@ -1588,7 +1586,7 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
     FILE *f;
     long x, y;
 
-    /* Parse arguments. */
+    // Parse arguments.
     if (PyArg_ParseTuple(args, "ssO!",
 			 &format,
 			 &distFormat,
@@ -1706,13 +1704,13 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
     return retval;
 }
 
-/* Hand off an array of floats that represent an upper-triangle distance matrix,
- * and clean up such that this DistMatrix no longer refers to the data (though
- * the TaxonMap continues to be referred to by the DistMatrix).
- *
- * This is not a terribly clean interface; ideally DistMatrix would be
- * subclassed and initialization methods overridden, but the Python overhead for
- * such a solution is unacceptably high. */
+// Hand off an array of floats that represent an upper-triangle distance matrix,
+// and clean up such that this DistMatrix no longer refers to the data (though
+// the TaxonMap continues to be referred to by the DistMatrix).
+//
+// This is not a terribly clean interface; ideally DistMatrix would be
+// subclassed and initialization methods overridden, but the Python overhead for
+// such a solution is unacceptably high.
 void
 CxDistMatrixUpperHandoff(CxtDistMatrixObject *self, float **rMatrix,
 			 long *rNtaxa)
@@ -1721,8 +1719,8 @@ CxDistMatrixUpperHandoff(CxtDistMatrixObject *self, float **rMatrix,
     {
 	unsigned long i;
 
-	/* Discard the lower triangle of the matrix by doing a series of
-	 * memmove() calls, followed by reallocating the matrix. */
+	// Discard the lower triangle of the matrix by doing a series of
+	// memmove() calls, followed by reallocating the matrix.
 	self->symmetric = true;
 	for (i = 0; i < self->ntaxa - 1; i++)
 	{
@@ -1814,46 +1812,46 @@ static PyMethodDef CxpDistMatrixMethods[] =
 static PyTypeObject CxtDistMatrix =
 {
     PyObject_HEAD_INIT(NULL)
-    0,			/* int ob_size */
-    "C_DistMatrix.C_DistMatrix",	/* char *tp_name */
-    sizeof(CxtDistMatrixObject),	/* int tp_basicsize */
-    0,			/* int tp_itemsize */
-    (destructor) CxpDistMatrixDelete,	/* destructor tp_dealloc */
-    0,			/* printfunc tp_print */
-    0,			/* getattrfunc tp_getattr */
-    0,			/* setattrfunc tp_setattr */
-    0,			/* cmpfunc tp_compare */
-    0,			/* reprfunc tp_repr */
-    0,			/* PyNumberMethods *tp_as_number */
-    0,			/* PySequenceMethods *tp_as_sequence */
-    0,			/* PyMappingMethods *tp_as_mapping */
-    0,			/* hashfunc tp_hash */
-    0,			/* ternaryfunc tp_call */
-    0,			/* reprfunc tp_str */
-    PyObject_GenericGetAttr,	/* getattrofunc tp_getattro */
-    0,			/* setattrofunc tp_setattro */
-    0,			/* PyBufferProcs *tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
-    "DistMatrix(): Create the C portion of a tree.",	/* char *tp_doc */
-    (traverseproc) CxpDistMatrixTraverse,	/* traverseproc tp_traverse */
-    (inquiry) CxpDistMatrixClear,	/* inquiry tp_clear */
-    0,			/* richcmpfunc tp_richcompare */
-    0,			/* long tp_weaklistoffset */
-    0,			/* getiterfunc tp_iter */
-    0,			/* iternextfunc tp_iternext */
-    CxpDistMatrixMethods,	/* struct PyMethodDef *tp_methods */
-    0,			/* struct PyMemberDef *tp_members */
-    0,			/* struct PyGetSetDef *tp_getset */
-    0,			/* struct _typeobject *tp_base */
-    0,			/* PyObject *tp_dict */
-    0,			/* descrgetfunc tp_descr_get */
-    0,			/* descrsetfunc tp_descr_set */
-    0,			/* long tp_dictoffset */
-    0,			/* initproc tp_init */
-    0,			/* allocfunc tp_alloc */
-    CxpDistMatrixNew,		/* newfunc tp_new */
-    _PyObject_Del,	/* freefunc tp_free */
-    0			/* inquiry tp_is_gc */
+    0,			// int ob_size
+    "C_DistMatrix.C_DistMatrix",	// char *tp_name
+    sizeof(CxtDistMatrixObject),	// int tp_basicsize
+    0,			// int tp_itemsize
+    (destructor) CxpDistMatrixDelete,	// destructor tp_dealloc
+    0,			// printfunc tp_print
+    0,			// getattrfunc tp_getattr
+    0,			// setattrfunc tp_setattr
+    0,			// cmpfunc tp_compare
+    0,			// reprfunc tp_repr
+    0,			// PyNumberMethods *tp_as_number
+    0,			// PySequenceMethods *tp_as_sequence
+    0,			// PyMappingMethods *tp_as_mapping
+    0,			// hashfunc tp_hash
+    0,			// ternaryfunc tp_call
+    0,			// reprfunc tp_str
+    PyObject_GenericGetAttr,	// getattrofunc tp_getattro
+    0,			// setattrofunc tp_setattro
+    0,			// PyBufferProcs *tp_as_buffer
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // long tp_flags
+    "DistMatrix(): Create the C portion of a tree.",	// char *tp_doc
+    (traverseproc) CxpDistMatrixTraverse,	// traverseproc tp_traverse
+    (inquiry) CxpDistMatrixClear,	// inquiry tp_clear
+    0,			// richcmpfunc tp_richcompare
+    0,			// long tp_weaklistoffset
+    0,			// getiterfunc tp_iter
+    0,			// iternextfunc tp_iternext
+    CxpDistMatrixMethods,	// struct PyMethodDef *tp_methods
+    0,			// struct PyMemberDef *tp_members
+    0,			// struct PyGetSetDef *tp_getset
+    0,			// struct _typeobject *tp_base
+    0,			// PyObject *tp_dict
+    0,			// descrgetfunc tp_descr_get
+    0,			// descrsetfunc tp_descr_set
+    0,			// long tp_dictoffset
+    0,			// initproc tp_init
+    0,			// allocfunc tp_alloc
+    CxpDistMatrixNew,		// newfunc tp_new
+    _PyObject_Del,	// freefunc tp_free
+    0			// inquiry tp_is_gc
 };
 
 static PyMethodDef CxpDistMatrixFuncs[] =
@@ -1872,7 +1870,7 @@ CxDistMatrixInit(void)
 {
     PyObject *m;
 
-    /* Create new type. */
+    // Create new type.
     if (PyType_Ready(&CxtDistMatrix) < 0)
     {
 	return;
@@ -1882,36 +1880,36 @@ CxDistMatrixInit(void)
     Py_INCREF(&CxtDistMatrix);
     PyModule_AddObject(m, "C_DistMatrix", (PyObject *) &CxtDistMatrix);
 
-    /* Create exception objects. */
-    /* Exception. */
+    // Create exception objects.
+    // Exception.
     CxgDistMatrixException = PyErr_NewException("C_DistMatrix.Exception",
 						 CxgException,
 						 NULL);
     Py_INCREF(CxgDistMatrixException);
     PyModule_AddObject(m, "Exception", CxgDistMatrixException);
 
-    /* ValueError. */
+    // ValueError.
     CxgDistMatrixValueError = PyErr_NewException("C_DistMatrix.ValueError",
 						  CxgDistMatrixException,
 						  NULL);
     Py_INCREF(CxgDistMatrixValueError);
     PyModule_AddObject(m, "ValueError", CxgDistMatrixValueError);
 
-    /* TypeError. */
+    // TypeError.
     CxgDistMatrixTypeError = PyErr_NewException("C_DistMatrix.TypeError",
 						  CxgDistMatrixException,
 						  NULL);
     Py_INCREF(CxgDistMatrixTypeError);
     PyModule_AddObject(m, "TypeError", CxgDistMatrixTypeError);
 
-    /* SyntaxError. */
+    // SyntaxError.
     CxgDistMatrixSyntaxError = PyErr_NewException("C_DistMatrix.SyntaxError",
 						   CxgDistMatrixException,
 						   NULL);
     Py_INCREF(CxgDistMatrixSyntaxError);
     PyModule_AddObject(m, "SyntaxError", CxgDistMatrixSyntaxError);
 
-    /* IOError. */
+    // IOError.
     CxgDistMatrixIOError = PyErr_NewException("C_DistMatrix.IOError",
 					      CxgDistMatrixException,
 					      NULL);

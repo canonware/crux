@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 void *
 CxMemMallocE(size_t aSize, const char *aFilename, uint32_t aLineNum);
@@ -23,10 +23,10 @@ CxMemReallocE(void *aPtr, size_t aSize, const char *aFilename,
 void
 CxMemFreeE(void *aPtr, const char *aFilename, uint32_t aLineNum);
 
-/* These macros are declared differently, depending on whether this is a debug
- * library, because consistently using arguments of NULL and 0 reduces the size
- * of the generated binary.  Since these arguments aren't used in the non-debug
- * version anyway, this is a free (though perhaps small) memory savings. */
+// These macros are declared differently, depending on whether this is a debug
+// library, because consistently using arguments of NULL and 0 reduces the size
+// of the generated binary.  Since these arguments aren't used in the non-debug
+// version anyway, this is a free (though perhaps small) memory savings.
 #ifdef CxmDebug
 #define CxmMalloc(aSize)						\
     CxMemMallocE((aSize), __FILE__, __LINE__)

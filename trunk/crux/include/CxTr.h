@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 typedef struct CxsTr CxtTr;
 #define CxmTrMaxscoreNone 0xffffffffU
@@ -30,38 +30,38 @@ typedef struct CxsTre CxtTre;
 typedef struct CxsTrt CxtTrt;
 typedef struct CxsTrh CxtTrh;
 
-/* Character (in the systematics sense of the word). */
+// Character (in the systematics sense of the word).
 typedef char CxtTrc;
 
-/* Partial parsimony score information. */
+// Partial parsimony score information.
 struct CxsTrPs
 {
-    /* Parent which most recently used this node's partial score when caching
-     * its results.  Both children must still point to the parent in order for
-     * the cached results to be valid. */
+    // Parent which most recently used this node's partial score when caching
+    // its results.  Both children must still point to the parent in order for
+    // the cached results to be valid.
     CxtTrPs *parent;
 
-    /* Sum of the subtree scores, and this node's score, given particular
-     * children.  In order for this to be useful, both childrens' parent
-     * pointers must still point to this node. */
+    // Sum of the subtree scores, and this node's score, given particular
+    // children.  In order for this to be useful, both childrens' parent
+    // pointers must still point to this node.
     uint32_t subtreesScore;
     uint32_t nodeScore;
 
-    /* chars points to an array of Fitch parsimony state sets.  Each element in
-     * the array contains a bitmap representation of a subset of {ACGT} in the 4
-     * least significant bits.  T is the least significant bit.  1 means that a
-     * nucleotide is in the set.
-     *
-     * There are nchars character state sets.
-     *
-     * achars is the actual allocation, which is padded in order to
-     * be able to guarantee that chars is 16 byte-aligned. */
+    // chars points to an array of Fitch parsimony state sets.  Each element in
+    // the array contains a bitmap representation of a subset of {ACGT} in the 4
+    // least significant bits.  T is the least significant bit.  1 means that a
+    // nucleotide is in the set.
+    //
+    // There are nchars character state sets.
+    //
+    // achars is the actual allocation, which is padded in order to
+    // be able to guarantee that chars is 16 byte-aligned.
     CxtTrc *chars;
     uint32_t nchars;
     CxtTrc *achars;
 };
 
-/* Tree node for an unrooted bifurcating phylogenetic tree. */
+// Tree node for an unrooted bifurcating phylogenetic tree.
 struct CxsTrn
 {
 #ifdef CxmDebug
@@ -71,37 +71,37 @@ struct CxsTrn
 
     union
     {
-	/* Auxiliary opaque data pointer. */
+	// Auxiliary opaque data pointer.
 	void *aux;
 
-	/* Spares linkage. */
+	// Spares linkage.
 	CxtTrNode link;
     } u;
 
-    /* If CxmTrNodeTaxonNone, then the node is not a leaf node. */
+    // If CxmTrNodeTaxonNone, then the node is not a leaf node.
     uint32_t taxonNum;
 
-    /* Ring of trr's, which are associated with tre's. */
+    // Ring of trr's, which are associated with tre's.
     CxmQliHead rings;
 };
 
-/* Tree node edge ring element. */
+// Tree node edge ring element.
 struct CxsTrr
 {
-    /* Ring linkage. */
+    // Ring linkage.
     CxmQri link;
 
-    /* Auxiliary opaque data pointer. */
+    // Auxiliary opaque data pointer.
     void *aux;
 
-    /* Node whose ring this trr is a part of. */
+    // Node whose ring this trr is a part of.
     CxtTrNode node;
 
-    /* Used for Fitch parsimony scoring. */
+    // Used for Fitch parsimony scoring.
     CxtTrPs *ps;
 };
 
-/* Tree edge information. */
+// Tree edge information.
 struct CxsTre
 {
 #ifdef CxmDebug
@@ -111,44 +111,44 @@ struct CxsTre
 
     union
     {
-	/* Auxiliary opaque data pointer. */
+	// Auxiliary opaque data pointer.
 	void *aux;
 
-	/* Spares linkage. */
+	// Spares linkage.
 	CxtTrEdge link;
     } u;
 
-    /* Edge length. */
+    // Edge length.
     double length;
 
-    /* Used for Fitch parsimony scoring. */
+    // Used for Fitch parsimony scoring.
     CxtTrPs *ps;
 };
 
-/* TBR neighbor. */
+// TBR neighbor.
 struct CxsTrt
 {
-    /* Number of neighbors that can be reached by doing TBR at edges before this
-     * one.  This is also the neighbor index of the first neighbor that can be
-     * reached by doing TBR on this edge. */
+    // Number of neighbors that can be reached by doing TBR at edges before this
+    // one.  This is also the neighbor index of the first neighbor that can be
+    // reached by doing TBR on this edge.
     uint32_t offset;
 
-    /* Bisection edge. */
+    // Bisection edge.
     CxtTrEdge bisectEdge;
 };
 
-/* Held neighbor tree. */
+// Held neighbor tree.
 struct CxsTrh
 {
-    /* Neighbor index for the tree.  This can be passed to CxTrTbrNeighborGet()
-     * to get the associated TBR parameters. */
+    // Neighbor index for the tree.  This can be passed to CxTrTbrNeighborGet()
+    // to get the associated TBR parameters.
     uint32_t neighbor;
 
-    /* Fitch parsimony score for the neighboring tree. */
+    // Fitch parsimony score for the neighboring tree.
     uint32_t score;
 };
 
-/* Specifies different tree holding strategies. */
+// Specifies different tree holding strategies.
 typedef enum
 {
     CxeTrHoldBest,
@@ -163,81 +163,80 @@ struct CxsTr
 #define CxmTrMagic 0x39886394
 #endif
 
-    /* Auxiliary opaque data pointer. */
+    // Auxiliary opaque data pointer.
     void *aux;
 
-    /* True if this tree has been modified since the internal state (ntaxa,
-     * nedges, bedges, trt) was updated, false otherwise. */
+    // True if this tree has been modified since the internal state (ntaxa,
+    // nedges, bedges, trt) was updated, false otherwise.
     bool modified;
 
-    /* Base of the tree (may or may not be set). */
+    // Base of the tree (may or may not be set).
     CxtTrNode base;
 
-    /* Number of taxa in tree. */
+    // Number of taxa in tree.
     uint32_t ntaxa;
 
-    /* Number of edges in tree.  This has to be calculated separately from
-     * ntaxa, since there is no simple formula for nedges in multifurcating
-     * trees (unlike for strictly trifurcating trees). */
+    // Number of edges in tree.  This has to be calculated separately from
+    // ntaxa, since there is no simple formula for nedges in multifurcating
+    // trees (unlike for strictly trifurcating trees).
     uint32_t nedges;
 
-    /* bedges is an array of edges that is used for enumerating the edges on
-     * each side of a logical tree bisection (used by TBR/MP-related functions).
-     * The first list starts at offset 0 and has nbedgesA elements.  The second
-     * list starts at offset nbedgesA and has nbedgesB elements. */
+    // bedges is an array of edges that is used for enumerating the edges on
+    // each side of a logical tree bisection (used by TBR/MP-related functions).
+    // The first list starts at offset 0 and has nbedgesA elements.  The second
+    // list starts at offset nbedgesA and has nbedgesB elements.
     CxtTrEdge *bedges;
     uint32_t nbedgesA;
     uint32_t nbedgesB;
 
-    /* trt is an array of elements that store per-edge information that is used
-     * for TBR-related functions.  There is one more element in trt than there
-     * are edges in the tree.  This is critical to the way binary searching on
-     * the array is done, and it also makes it easy to get the total number of
-     * TBR neighbors this tree has (trt[nedges].offset).
-     *
-     * Only the first trtused elements are valid, since not all bisection edges
-     * necessarily result in neighbors. */
+    // trt is an array of elements that store per-edge information that is used
+    // for TBR-related functions.  There is one more element in trt than there
+    // are edges in the tree.  This is critical to the way binary searching on
+    // the array is done, and it also makes it easy to get the total number of
+    // TBR neighbors this tree has (trt[nedges].offset).
+    //
+    // Only the first trtused elements are valid, since not all bisection edges
+    // necessarily result in neighbors.
     CxtTrt *trt;
     uint32_t trtused;
 
-    /* Pointer to an array of trn's.  ntrns is the total number of trn's, not
-     * all of which are necessarily in use.
-     *
-     * sparetrns is the index of the first spare trn in the spares stack. */
+    // Pointer to an array of trn's.  ntrns is the total number of trn's, not
+    // all of which are necessarily in use.
+    //
+    // sparetrns is the index of the first spare trn in the spares stack.
     CxtTrn *trns;
     uint32_t ntrns;
     CxtTrNode sparetrns;
 
-    /* tres is a pointer to an array of tre's.  ntres is the total number of
-     * tre's, not all of which are necessarily in use.
-     *
-     * sparetres is the index of the first spare tre in the spares stack.
-     *
-     * trrs is a pointer to an array of trr's.  There are always twice as many
-     * trr's in trrs as there are tre's in tres, and each pair of trr's in trrs
-     * is implicitly associated with the corresponding tre in tres.
-     *
-     *   tres[0] <==> trrs[0], trrs[1]
-     *   tres[1] <==> trrs[2], trrs[3]
-     *   etc.
-     */
+    // tres is a pointer to an array of tre's.  ntres is the total number of
+    // tre's, not all of which are necessarily in use.
+    //
+    // sparetres is the index of the first spare tre in the spares stack.
+    //
+    // trrs is a pointer to an array of trr's.  There are always twice as many
+    // trr's in trrs as there are tre's in tres, and each pair of trr's in trrs
+    // is implicitly associated with the corresponding tre in tres.
+    //
+    //   tres[0] <==> trrs[0], trrs[1]
+    //   tres[1] <==> trrs[2], trrs[3]
+    //   etc.
     CxtTre *tres;
     uint32_t ntres;
     CxtTrEdge sparetres;
     CxtTrr *trrs;
 
-    /* held is an array of held TBR neighbors.  The array is iteratively doubled
-     * as necessary.  heldlen is the actual length of the array, and nheld is
-     * the number of elements in use. */
+    // held is an array of held TBR neighbors.  The array is iteratively doubled
+    // as necessary.  heldlen is the actual length of the array, and nheld is
+    // the number of elements in use.
     CxtTrh *held;
     uint32_t heldlen;
     uint32_t nheld;
 };
 
-/******************************************************************************/
+//==============================================================================
 
-/* Validation function prototypes.  These are called by the debug versions of
- * some of the inline functions, so must be exposed here. */
+// Validation function prototypes.  These are called by the debug versions of
+// some of the inline functions, so must be exposed here.
 
 #ifdef CxmDebug
 bool
@@ -250,189 +249,189 @@ bool
 CxpTrValidate(CxtTr *aTr);
 #endif
 
-/******************************************************************************/
+//==============================================================================
 
-/* CxTr. */
+// CxTr.
 
-/* Constructor. */
+// Constructor.
 CxtTr *
 CxTrNew(void);
 
-/* Destructor. */
+// Destructor.
 void
 CxTrDelete(CxtTr *aTr);
 
-/* Get the number of taxa in the tree. */
+// Get the number of taxa in the tree.
 uint32_t
 CxTrNtaxaGet(CxtTr *aTr);
 
-/* Get the number of edges in the tree. */
+// Get the number of edges in the tree.
 uint32_t
 CxTrNedgesGet(CxtTr *aTr);
 
-/* Get the base of the tree. */
+// Get the base of the tree.
 CxtTrNode
 CxTrBaseGet(CxtTr *aTr);
 
-/* Set the base of the tree. */
+// Set the base of the tree.
 void
 CxTrBaseSet(CxtTr *aTr, CxtTrNode aBase);
 
-/* Canonize the tree.  The base of the tree is set to the lowest numbered taxon,
- * and internal nodes are adjusted such that their edge rings are ordered
- * (subtrees with lower minimum taxon numbers come first), and the edge returned
- * by CxTrNodeEdgeGet() is the edge that leads back to the base. */
+// Canonize the tree.  The base of the tree is set to the lowest numbered taxon,
+// and internal nodes are adjusted such that their edge rings are ordered
+// (subtrees with lower minimum taxon numbers come first), and the edge returned
+// by CxTrNodeEdgeGet() is the edge that leads back to the base.
 void
 CxTrCanonize(CxtTr *aTr);
 
-/* Perform TBR. */
+// Perform TBR.
 void
 CxTrTbr(CxtTr *aTr, CxtTrEdge aBisect, CxtTrEdge aReconnectA,
 	CxtTrEdge aReconnectB);
 
-/* Get the number of neighboring trees reachable via TBR. */
+// Get the number of neighboring trees reachable via TBR.
 uint32_t
 CxTrTbrNneighborsGet(CxtTr *aTr);
 
-/* Get the parameters necessary to transorm this tree to neighbor aNeighbor. */
+// Get the parameters necessary to transorm this tree to neighbor aNeighbor.
 void
 CxTrTbrNeighborGet(CxtTr *aTr, uint32_t aNeighbor,
 		   CxtTrEdge *rBisect, CxtTrEdge *rReconnectA,
 		   CxtTrEdge *rReconnectB);
 
-/* Get the value of the auxiliary pointer associated with the tr. */
+// Get the value of the auxiliary pointer associated with the tr.
 void *
 CxTrAuxGet(CxtTr *aTr);
 
-/* Set the value of the auxiliary pointer associated with the tr. */
+// Set the value of the auxiliary pointer associated with the tr.
 void
 CxTrAuxSet(CxtTr *aTr, void *aAux);
 
-/* Prepare for calculating Fitch parsimony scores.  aTaxa points to an array of
- * character array pointers, where the index into aTaxa corresponds to taxon
- * number.  The character arrays need not be nil-terminated. */
+// Prepare for calculating Fitch parsimony scores.  aTaxa points to an array of
+// character array pointers, where the index into aTaxa corresponds to taxon
+// number.  The character arrays need not be nil-terminated.
 void
 CxTrMpPrepare(CxtTr *aTr, bool aUninformativeEliminate,
 	      char *aTaxa[], uint32_t aNtaxa, uint32_t aNchars);
 
-/* Clear the data structures used for calculating Fitch parsimony scores. */
+// Clear the data structures used for calculating Fitch parsimony scores.
 void
 CxTrMpFinish(CxtTr *aTr);
 
-/* Calculate the Fitch parsimony score for this tree. */
+// Calculate the Fitch parsimony score for this tree.
 uint32_t
 CxTrMpScore(CxtTr *aTr);
 
-/* Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
- * aMaxHold of the best neighbors (or all best neighbors, if aMaxHold is
- * CxmTrHoldAll). */
+// Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
+// aMaxHold of the best neighbors (or all best neighbors, if aMaxHold is
+// CxmTrHoldAll).
 void
 CxTrTbrBestNeighborsMp(CxtTr *aTr, uint32_t aMaxHold);
 
-/* Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
- * aMaxHold of the better neighbors (or all better neighbors, if aMaxHold is
- * CxmTrHoldAll). */
+// Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
+// aMaxHold of the better neighbors (or all better neighbors, if aMaxHold is
+// CxmTrHoldAll).
 void
 CxTrTbrBetterNeighborsMp(CxtTr *aTr, uint32_t aMaxHold);
 
-/* Calculate the Fitch parsimony of all TBR neighbors, and keep track of all
- * neighbors. */
+// Calculate the Fitch parsimony of all TBR neighbors, and keep track of all
+// neighbors.
 void
 CxTrTbrAllNeighborsMp(CxtTr *aTr);
 
-/* Clear the data structures used to store held trees. */
+// Clear the data structures used to store held trees.
 void
 CxTrHeldFinish(CxtTr *aTr);
 
-/* Get the number of trees currently held. */
+// Get the number of trees currently held.
 uint32_t
 CxTrNheldGet(CxtTr *aTr);
 
-/* Get the aHeld'th held tree, and its score.  *rNeighbor can be passed to
- * CxTrTbrNeighborGet() in order to get the TBR transformation parameters,
- * which can then be passed to CxTrTbr(). */
+// Get the aHeld'th held tree, and its score.  *rNeighbor can be passed to
+// CxTrTbrNeighborGet() in order to get the TBR transformation parameters,
+// which can then be passed to CxTrTbr().
 void
 CxTrHeldGet(CxtTr *aTr, uint32_t aHeld, uint32_t *rNeighbor,
 	    uint32_t *rScore);
 
-/******************************************************************************/
+//==============================================================================
 
-/* CxTrNode. */
+// CxTrNode.
 
-/* Constructor. */
+// Constructor.
 CxtTrNode
 CxTrNodeNew(CxtTr *aTr);
 
-/* Destructor. */
+// Destructor.
 void
 CxTrNodeDelete(CxtTr *aTr, CxtTrNode aNode);
 
-/* Get the taxon number associated with aNode.  Return CxmTrNodeTaxonNone if
- * no taxon number is set. */
+// Get the taxon number associated with aNode.  Return CxmTrNodeTaxonNone if
+// no taxon number is set.
 uint32_t
 CxTrNodeTaxonNumGet(CxtTr *aTr, CxtTrNode aNode);
 
-/* Set the taxon number associated with aNode (use CxmTrNodeTaxonNone to
- * unset the taxon number. */
+// Set the taxon number associated with aNode (use CxmTrNodeTaxonNone to
+// unset the taxon number.
 void
 CxTrNodeTaxonNumSet(CxtTr *aTr, CxtTrNode aNode,
 		    uint32_t aTaxonNum);
 
-/* Get the first ring element in aNode's edge ring. */
+// Get the first ring element in aNode's edge ring.
 CxtTrRing
 CxTrNodeRingGet(CxtTr *aTr, CxtTrNode aNode);
 
-/* Get the value of the auxiliary pointer associated with the node. */
+// Get the value of the auxiliary pointer associated with the node.
 void *
 CxTrNodeAuxGet(CxtTr *aTr, CxtTrNode aNode);
 
-/* Set the value of the auxiliary pointer associated with the node. */
+// Set the value of the auxiliary pointer associated with the node.
 void
 CxTrNodeAuxSet(CxtTr *aTr, CxtTrNode aNode, void *aAux);
 
-/* Get the degree (number of edges) of the node. */
+// Get the degree (number of edges) of the node.
 uint32_t
 CxTrNodeDegree(CxtTr *aTr, CxtTrNode aNode);
 
-/* Get the number of edges between aNode and aOther.  0 means that there is
- * no path between the two nodes. */
+// Get the number of edges between aNode and aOther.  0 means that there is
+// no path between the two nodes.
 uint32_t
 CxTrNodeDistance(CxtTr *aTr, CxtTrNode aNode, CxtTrNode aOther);
 
-/******************************************************************************/
+//==============================================================================
 
-/* CxTrEdge. */
+// CxTrEdge.
 
-/* Constructor. */
+// Constructor.
 CxtTrEdge
 CxTrEdgeNew(CxtTr *aTr);
 
-/* Destructor. */
+// Destructor.
 void
 CxTrEdgeDelete(CxtTr *aTr, CxtTrEdge aEdge);
 
-/* Get the edge length. */
+// Get the edge length.
 double
 CxTrEdgeLengthGet(CxtTr *aTr, CxtTrEdge aEdge);
 
-/* Set the edge length. */
+// Set the edge length.
 void
 CxTrEdgeLengthSet(CxtTr *aTr, CxtTrEdge aEdge, double aLength);
 
-/* Get the value of the auxiliary pointer associated with the edge. */
+// Get the value of the auxiliary pointer associated with the edge.
 void *
 CxTrEdgeAuxGet(CxtTr *aTr, CxtTrEdge aEdge);
 
-/* Set the value of the auxiliary pointer associated with the edge. */
+// Set the value of the auxiliary pointer associated with the edge.
 void
 CxTrEdgeAuxSet(CxtTr *aTr, CxtTrEdge aEdge, void *aAux);
 
-/* Attach edge to two nodes. */
+// Attach edge to two nodes.
 void
 CxTrEdgeAttach(CxtTr *aTr, CxtTrEdge aEdge, CxtTrNode aNodeA,
 	       CxtTrNode aNodeB);
 
-/* Detach edge from nodes. */
+// Detach edge from nodes.
 void
 CxTrEdgeDetach(CxtTr *aTr, CxtTrEdge aEdge);
 
@@ -451,9 +450,9 @@ CxTrEdgeRingGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aEnd)
 }
 #endif
 
-/******************************************************************************/
+//==============================================================================
 
-/* CxTrRing. */
+// CxTrRing.
 
 #if (!defined(CxmUseInlines))
 CxtTrNode
@@ -469,7 +468,7 @@ CxTrRingPrevGet(CxtTr *aTr, CxtTrRing aRing);
 #endif
 
 #if (defined(CxmUseInlines) || defined(CxmTr_c))
-/* Get the node associated with aRing. */
+// Get the node associated with aRing.
 CxmInline CxtTrNode
 CxTrRingNodeGet(CxtTr *aTr, CxtTrRing aRing)
 {
@@ -478,7 +477,7 @@ CxTrRingNodeGet(CxtTr *aTr, CxtTrRing aRing)
     return aTr->trrs[aRing].node;
 }
 
-/* Get the edge that aRing is part of. */
+// Get the edge that aRing is part of.
 CxmInline CxtTrEdge
 CxTrRingEdgeGet(CxtTr *aTr, CxtTrRing aRing)
 {
@@ -487,7 +486,7 @@ CxTrRingEdgeGet(CxtTr *aTr, CxtTrRing aRing)
     return (aRing >> 1);
 }
 
-/* Get the ring element on the other end of the edge associated with aRing. */
+// Get the ring element on the other end of the edge associated with aRing.
 CxmInline CxtTrRing
 CxTrRingOtherGet(CxtTr *aTr, CxtTrRing aRing)
 {
@@ -496,7 +495,7 @@ CxTrRingOtherGet(CxtTr *aTr, CxtTrRing aRing)
     return (aRing ^ 1);
 }
 
-/* Get the next element in the edge ring. */
+// Get the next element in the edge ring.
 CxmInline CxtTrRing
 CxTrRingNextGet(CxtTr *aTr, CxtTrRing aRing)
 {
@@ -505,7 +504,7 @@ CxTrRingNextGet(CxtTr *aTr, CxtTrRing aRing)
     return CxmQriNext(aTr->trrs, aRing, link);
 }
 
-/* Get the next element in the edge ring. */
+// Get the next element in the edge ring.
 CxmInline CxtTrRing
 CxTrRingPrevGet(CxtTr *aTr, CxtTrRing aRing)
 {

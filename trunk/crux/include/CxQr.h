@@ -1,15 +1,15 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
-/* Ring definitions. */
+// Ring definitions.
 #define CxmQr(aType)							\
 struct									\
 {									\
@@ -17,7 +17,7 @@ struct									\
     aType *CxQrePrev;							\
 }
 
-/* Ring functions. */
+// Ring functions.
 #define CxmQrNew(aQr, aField)						\
     do									\
     {									\
@@ -58,8 +58,8 @@ struct									\
 	(aQrB)->aField.CxQrePrev = t;					\
     } while (0)
 
-/* CxmQrMeld() and CxmQrSplit() are functionally equivalent, so there's no need
- * to have two copies of the code. */
+// CxmQrMeld() and CxmQrSplit() are functionally equivalent, so there's no need
+// to have two copies of the code.
 #define CxmQrSplit(aQrA, aQrB, aType, aField)				\
     CxmQrMeld((aQrA), (aQrB), aType, aField)
 

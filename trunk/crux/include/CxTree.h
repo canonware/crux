@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 typedef struct CxsTreeObject CxtTreeObject;
 typedef struct CxsNodeObject CxtNodeObject;
@@ -88,7 +88,7 @@ CxEdgeInit(void);
 void
 CxRingInit(void);
 
-/* Tree. */
+// Tree.
 CxtTreeObject *
 CxTreeNew(void);
 
@@ -134,7 +134,7 @@ CxTreeAuxSet(CxtTreeObject *self, unsigned aInd, void *aAux)
 }
 #endif
 
-/* Node. */
+// Node.
 CxtNodeObject *
 CxNodeNew(CxtTreeObject *a_tree);
 
@@ -183,7 +183,7 @@ CxNodeAuxSet(CxtNodeObject *self, unsigned aInd, void *aAux)
 }
 #endif
 
-/* Edge. */
+// Edge.
 CxtEdgeObject *
 CxEdgeNew(CxtTreeObject *a_tree);
 PyObject *
@@ -228,7 +228,7 @@ CxEdgeAuxSet(CxtEdgeObject *self, unsigned aInd, void *aAux)
 }
 #endif
 
-/* Ring. */
+// Ring.
 CxtRingObject *
 CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd);
 

@@ -1,15 +1,15 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
-/* Pseudo-opaque type. */
+// Pseudo-opaque type.
 typedef struct CxsXep CxtXep;
 
 typedef uint32_t CxtXepv;
@@ -88,8 +88,8 @@ CxXepThrowE(CxtXepv aValue, volatile const char *aFilename,
 
 #define CxmXepHandled() CxpXepHandled(&_xep)
 
-/* Private, but visible here so that the cpp macros above don't cause
- * compilation warnings. */
+// Private, but visible here so that the cpp macros above don't cause
+// compilation warnings.
 void
 CxpXepRetry(CxtXep *aXep);
 

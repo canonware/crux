@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 #undef CxmDebug
 
@@ -19,8 +19,7 @@
 
 #undef WORDS_BIGENDIAN
 
-/* If using gcc and inlines weren't disabled by configure, use inline
- * functions. */
+// If using gcc and inlines weren't disabled by configure, use inline functions.
 #undef CxmUseInlines
 #if (defined(__GNUC__) && defined(CxmUseInlines))
 #define CxmInline static __inline__

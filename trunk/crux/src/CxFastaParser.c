@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 #include "../include/_cruxmodule.h"
 
@@ -66,7 +66,7 @@ CxpFastaParserDelete(CxtFastaParserObject *self)
 CxmpInline void
 CxpFastaParserAppendC(CxtFastaParserObject *self, char c)
 {
-    /* Expand the token buffer, if necessary. */
+    // Expand the token buffer, if necessary.
     if (self->tokenLen + 1 > self->bufLen)
     {
 	if (self->buf == NULL)
@@ -83,7 +83,7 @@ CxpFastaParserAppendC(CxtFastaParserObject *self, char c)
 	}
     }
 
-    /* Append the character. */
+    // Append the character.
     self->buf[self->tokenLen] = c;
     self->tokenLen++;
 }
@@ -116,7 +116,7 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, long *rLine,
 	}
     }
 
-    /* Update line and column info. */
+    // Update line and column info.
     if (c == '\n')
     {
 	self->line++;
@@ -127,7 +127,7 @@ CxpFastaParserGetC(CxtFastaParserObject *self, char *rC, long *rLine,
 	self->column++;
     }
 
-    /* Set returns. */
+    // Set returns.
     *rC = c;
     *rLine = line;
     *rColumn = column;
@@ -151,7 +151,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    /* Determine input type. */
+    // Determine input type.
     if (PyFile_Check(input))
     {
 	self->fileInput = true;
@@ -170,7 +170,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    /* Determine character data type. */
+    // Determine character data type.
     if (strcmp(charType, "DNA") == 0)
     {
 	dnaChars = true;
@@ -187,7 +187,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    /* Parse. */
+    // Parse.
     CxmXepBegin();
     CxmXepTry
     {
@@ -409,7 +409,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	    }
 	}
 
-	/* Make sure that the input ends with character data. */
+	// Make sure that the input ends with character data.
 	if (state != CxpStateChars)
 	{
 	    CxError(CxgFastaParserSyntaxError,
@@ -419,7 +419,7 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	    goto ERROR;
 	}
 
-	/* Accept the last token. */
+	// Accept the last token.
 	if (self->tokenLen == 0)
 	{
 	    CxError(CxgFastaParserSyntaxError,
@@ -503,46 +503,46 @@ static PyMethodDef CxpFastaParserMethods[] =
 static PyTypeObject CxtFastaParser =
 {
     PyObject_HEAD_INIT(NULL)
-    0,			/* int ob_size */
-    "C_FastaParser.C_FastaParser",	/* char *tp_name */
-    sizeof(CxtFastaParserObject),	/* int tp_basicsize */
-    0,			/* int tp_itemsize */
-    (destructor) CxpFastaParserDelete,	/* destructor tp_dealloc */
-    0,			/* printfunc tp_print */
-    0,			/* getattrfunc tp_getattr */
-    0,			/* setattrfunc tp_setattr */
-    0,			/* cmpfunc tp_compare */
-    0,			/* reprfunc tp_repr */
-    0,			/* PyNumberMethods *tp_as_number */
-    0,			/* PySequenceMethods *tp_as_sequence */
-    0,			/* PyMappingMethods *tp_as_mapping */
-    0,			/* hashfunc tp_hash */
-    0,			/* ternaryfunc tp_call */
-    0,			/* reprfunc tp_str */
-    PyObject_GenericGetAttr,	/* getattrofunc tp_getattro */
-    0,			/* setattrofunc tp_setattro */
-    0,			/* PyBufferProcs *tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* long tp_flags */
-    "FastaParser(): Create the C portion of a tree.",	/* char *tp_doc */
-    (traverseproc) CxpFastaParserTraverse,	/* traverseproc tp_traverse */
-    (inquiry) CxpFastaParserClear,	/* inquiry tp_clear */
-    0,			/* richcmpfunc tp_richcompare */
-    0,			/* long tp_weaklistoffset */
-    0,			/* getiterfunc tp_iter */
-    0,			/* iternextfunc tp_iternext */
-    CxpFastaParserMethods,	/* struct PyMethodDef *tp_methods */
-    0,			/* struct PyMemberDef *tp_members */
-    0,			/* struct PyGetSetDef *tp_getset */
-    0,			/* struct _typeobject *tp_base */
-    0,			/* PyObject *tp_dict */
-    0,			/* descrgetfunc tp_descr_get */
-    0,			/* descrsetfunc tp_descr_set */
-    0,			/* long tp_dictoffset */
-    0,			/* initproc tp_init */
-    0,			/* allocfunc tp_alloc */
-    CxpFastaParserNew,		/* newfunc tp_new */
-    _PyObject_Del,	/* freefunc tp_free */
-    0			/* inquiry tp_is_gc */
+    0,			// int ob_size
+    "C_FastaParser.C_FastaParser",	// char *tp_name
+    sizeof(CxtFastaParserObject),	// int tp_basicsize
+    0,			// int tp_itemsize
+    (destructor) CxpFastaParserDelete,	// destructor tp_dealloc
+    0,			// printfunc tp_print
+    0,			// getattrfunc tp_getattr
+    0,			// setattrfunc tp_setattr
+    0,			// cmpfunc tp_compare
+    0,			// reprfunc tp_repr
+    0,			// PyNumberMethods *tp_as_number
+    0,			// PySequenceMethods *tp_as_sequence
+    0,			// PyMappingMethods *tp_as_mapping
+    0,			// hashfunc tp_hash
+    0,			// ternaryfunc tp_call
+    0,			// reprfunc tp_str
+    PyObject_GenericGetAttr,	// getattrofunc tp_getattro
+    0,			// setattrofunc tp_setattro
+    0,			// PyBufferProcs *tp_as_buffer
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, // long tp_flags
+    "FastaParser(): Create the C portion of a tree.",	// char *tp_doc
+    (traverseproc) CxpFastaParserTraverse,	// traverseproc tp_traverse
+    (inquiry) CxpFastaParserClear,	// inquiry tp_clear
+    0,			// richcmpfunc tp_richcompare
+    0,			// long tp_weaklistoffset
+    0,			// getiterfunc tp_iter
+    0,			// iternextfunc tp_iternext
+    CxpFastaParserMethods,	// struct PyMethodDef *tp_methods
+    0,			// struct PyMemberDef *tp_members
+    0,			// struct PyGetSetDef *tp_getset
+    0,			// struct _typeobject *tp_base
+    0,			// PyObject *tp_dict
+    0,			// descrgetfunc tp_descr_get
+    0,			// descrsetfunc tp_descr_set
+    0,			// long tp_dictoffset
+    0,			// initproc tp_init
+    0,			// allocfunc tp_alloc
+    CxpFastaParserNew,		// newfunc tp_new
+    _PyObject_Del,	// freefunc tp_free
+    0			// inquiry tp_is_gc
 };
 
 static PyMethodDef CxpFastaParserFuncs[] =
@@ -560,7 +560,7 @@ CxFastaParserInit(void)
 {
     PyObject *m;
 
-    /* Create new type. */
+    // Create new type.
     if (PyType_Ready(&CxtFastaParser) < 0)
     {
 	return;
@@ -570,29 +570,29 @@ CxFastaParserInit(void)
     Py_INCREF(&CxtFastaParser);
     PyModule_AddObject(m, "C_FastaParser", (PyObject *) &CxtFastaParser);
 
-    /* Create exception objects. */
-    /* Exception. */
+    // Create exception objects.
+    // Exception.
     CxgFastaParserException = PyErr_NewException("C_FastaParser.Exception",
 						 CxgException,
 						 NULL);
     Py_INCREF(CxgFastaParserException);
     PyModule_AddObject(m, "Exception", CxgFastaParserException);
 
-    /* ValueError. */
+    // ValueError.
     CxgFastaParserValueError = PyErr_NewException("C_FastaParser.ValueError",
 						  CxgFastaParserException,
 						  NULL);
     Py_INCREF(CxgFastaParserValueError);
     PyModule_AddObject(m, "ValueError", CxgFastaParserValueError);
 
-    /* TypeError. */
+    // TypeError.
     CxgFastaParserTypeError = PyErr_NewException("C_FastaParser.TypeError",
 						 CxgFastaParserException,
 						 NULL);
     Py_INCREF(CxgFastaParserTypeError);
     PyModule_AddObject(m, "TypeError", CxgFastaParserTypeError);
 
-    /* SyntaxError. */
+    // SyntaxError.
     CxgFastaParserSyntaxError = PyErr_NewException("C_FastaParser.SyntaxError",
 						   CxgFastaParserException,
 						   NULL);

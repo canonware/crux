@@ -1,13 +1,13 @@
-/******************************************************************************
- *
- * <Copyright = jasone>
- * <License>
- *
- ******************************************************************************
- *
- * Version: Crux <Version = crux>
- *
- ******************************************************************************/
+//==============================================================================
+//
+// <Copyright = jasone>
+// <License>
+//
+//==============================================================================
+//
+// Version: Crux <Version = crux>
+//
+//==============================================================================
 
 #include "../include/_cruxmodule.h"
 
@@ -51,18 +51,18 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
     CxmXepBegin();
     CxmXepTry
     {
-	/* Make sure that all taxa have the same number of characters. */
+	// Make sure that all taxa have the same number of characters.
 	if (ntaxa > 0)
 	{
 	    tobj = PyList_GetItem(taxa, 0);
-	    /* Don't worry about raising ValueError error here, since the for
-	     * loop below will do so. */
+	    // Don't worry about raising ValueError error here, since the for
+	    // loop below will do so.
 	    if (PyString_Check(tobj))
 	    {
 		nchars = PyString_Size(tobj);
 	    }
 
-	    /* Create an array of string pointers. */
+	    // Create an array of string pointers.
 	    tarr = (char **) CxmMalloc(sizeof(char *) * ntaxa);
 	}
 
@@ -77,7 +77,7 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	    }
 	    tarr[i] = PyString_AsString(tobj);
 
-	    /* Make sure characters are valid codes. */
+	    // Make sure characters are valid codes.
 	    for (j = 0; j < nchars; j++)
 	    {
 		switch (tarr[i][j])
@@ -133,10 +133,10 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	    // XXX Recurse through the tree and make sure that the taxa are
 	    // numbered correctly.
 
-	    /* Do preparation. */
+	    // Do preparation.
 	    CxTrMpPrepare(self->tr, elim, tarr, ntaxa, nchars);
 
-	    /* Clean up. */
+	    // Clean up.
 	    CxmFree(tarr);
 	}
 
