@@ -145,7 +145,7 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
     for (i = 0; i < aNtaxa; i++)
     {
 	r[i].node = CxNodeNew(aTree);
-	CxNodeTaxonNumSetCargs(r[i].node, i);
+	CxNodeTaxonNumSet(r[i].node, i);
     }
 
     /* Iteratitively join two nodes in the matrix, until only two are left. */
@@ -236,9 +236,9 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
 		PyInt_AsLong(CxNodeTaxonNumGet(node)), node);
 #endif
 	edgeX = CxEdgeNew(aTree);
-	CxEdgeAttachCargs(edgeX, node, r[xMin].node);
+	CxEdgeAttach(edgeX, node, r[xMin].node);
 	distX = (d[iMin].dist + r[xMin].rScaled - r[yMin].rScaled) / 2;
-	CxEdgeLengthSetCargs(edgeX, distX);
+	CxEdgeLengthSet(edgeX, distX);
 #ifdef CxmTreeNjVerbose
 	fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
 		PyInt_AsLong(CxNodeTaxonNumGet(r[xMin].node)), r[xMin].node,
@@ -246,9 +246,9 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
 #endif
 
 	edgeY = CxEdgeNew(aTree);
-	CxEdgeAttachCargs(edgeY, node, r[yMin].node);
+	CxEdgeAttach(edgeY, node, r[yMin].node);
 	distY = d[iMin].dist - distX;
-	CxEdgeLengthSetCargs(edgeY, distY);
+	CxEdgeLengthSet(edgeY, distY);
 #ifdef CxmTreeNjVerbose
 	fprintf(stderr, "  Join node %ld %p (len %.4f)\n",
 		PyInt_AsLong(CxNodeTaxonNumGet(r[yMin].node)), r[yMin].node,
@@ -316,11 +316,11 @@ CxpTreeNj(CxtTreeObject *aTree, double *aDistances, uint32_t aNtaxa)
 	    PyInt_AsLong(CxNodeTaxonNumGet(r[1].node)), r[1].node);
 #endif
     edge = CxEdgeNew(aTree);
-    CxEdgeAttachCargs(edge, r[0].node, r[1].node);
-    CxEdgeLengthSetCargs(edge, d[0].dist);
+    CxEdgeAttach(edge, r[0].node, r[1].node);
+    CxEdgeLengthSet(edge, d[0].dist);
 
     /* Set the tree base. */
-    CxTreeBaseSetCargs(aTree, r[0].node);
+    CxTreeBaseSet(aTree, r[0].node);
 
     /* Clean up. */
     CxmFree(d);

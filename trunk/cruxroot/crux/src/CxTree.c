@@ -194,7 +194,7 @@ CxTreeBaseGet(CxtTreeObject *self)
 }
 
 void
-CxTreeBaseSetCargs(CxtTreeObject *self, CxtNodeObject *aNode)
+CxTreeBaseSet(CxtTreeObject *self, CxtNodeObject *aNode)
 {
     CxtNodeObject *oldNode;
     CxtTrNode oldTrNode;
@@ -217,7 +217,7 @@ CxTreeBaseSetCargs(CxtTreeObject *self, CxtNodeObject *aNode)
 }
 
 PyObject *
-CxTreeBaseSet(CxtTreeObject *self, PyObject *args)
+CxTreeBaseSetPargs(CxtTreeObject *self, PyObject *args)
 {
     PyObject *retval;
     CxtNodeObject *node;
@@ -235,7 +235,7 @@ CxTreeBaseSet(CxtTreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxTreeBaseSetCargs(self, node);
+    CxTreeBaseSet(self, node);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -265,7 +265,7 @@ static PyMethodDef CxpTreeMethods[] =
     },
     {
 	"baseSet",
-	(PyCFunction) CxTreeBaseSet,
+	(PyCFunction) CxTreeBaseSetPargs,
 	METH_VARARGS,
 	"baseSet"
     },
@@ -589,13 +589,13 @@ CxNodeTaxonNumGet(CxtNodeObject *self)
 }
 
 void
-CxNodeTaxonNumSetCargs(CxtNodeObject *self, uint32_t aTaxonNum)
+CxNodeTaxonNumSet(CxtNodeObject *self, uint32_t aTaxonNum)
 {
     CxTrNodeTaxonNumSet(self->tree->tr, self->node, aTaxonNum);
 }
 
 PyObject *
-CxNodeTaxonNumSet(CxtNodeObject *self, PyObject *args)
+CxNodeTaxonNumSetPargs(CxtNodeObject *self, PyObject *args)
 {
     PyObject *retval;
     uint32_t taxonNum;
@@ -607,7 +607,7 @@ CxNodeTaxonNumSet(CxtNodeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxNodeTaxonNumSetCargs(self, taxonNum);
+    CxNodeTaxonNumSet(self, taxonNum);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -659,7 +659,7 @@ static PyMethodDef CxpNodeMethods[] =
     },
     {
 	"taxonNumSet",
-	(PyCFunction) CxNodeTaxonNumSet,
+	(PyCFunction) CxNodeTaxonNumSetPargs,
 	METH_VARARGS,
 	"taxonNumSet"
     },
@@ -896,7 +896,7 @@ CxEdgeTree(CxtEdgeObject *self)
 }
 
 PyObject *
-CxEdgeNodeCargs(CxtEdgeObject *self, uint32_t aInd)
+CxEdgeNode(CxtEdgeObject *self, uint32_t aInd)
 {
     PyObject *retval;
     CxtTrNode node;
@@ -917,7 +917,7 @@ CxEdgeNodeCargs(CxtEdgeObject *self, uint32_t aInd)
 }
 
 PyObject *
-CxEdgeNode(CxtEdgeObject *self, PyObject *args)
+CxEdgeNodePargs(CxtEdgeObject *self, PyObject *args)
 {
     PyObject *retval;
     uint32_t ind;
@@ -934,15 +934,15 @@ CxEdgeNode(CxtEdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    retval = CxEdgeNodeCargs(self, ind);
+    retval = CxEdgeNode(self, ind);
 
     RETURN:
     return retval;
 }
 
 void
-CxEdgeNextCargs(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
-		uint32_t *rNextEnd)
+CxEdgeNext(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
+	   uint32_t *rNextEnd)
 {
     CxtTrEdge nextEdge;
 
@@ -951,7 +951,7 @@ CxEdgeNextCargs(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
 }
 
 PyObject *
-CxEdgeNext(CxtEdgeObject *self, PyObject *args)
+CxEdgeNextPargs(CxtEdgeObject *self, PyObject *args)
 {
     PyObject *retval;
     CxtEdgeObject *edgeObj;
@@ -969,7 +969,7 @@ CxEdgeNext(CxtEdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxEdgeNextCargs(self, ind, &edgeObj, &nextEnd);
+    CxEdgeNext(self, ind, &edgeObj, &nextEnd);
 
     retval = Py_BuildValue("(Oi)", edgeObj, nextEnd);
     RETURN:
@@ -977,8 +977,8 @@ CxEdgeNext(CxtEdgeObject *self, PyObject *args)
 }
 
 void
-CxEdgePrevCargs(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
-		uint32_t *rPrevEnd)
+CxEdgePrev(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
+	   uint32_t *rPrevEnd)
 {
     CxtTrEdge prevEdge;
 
@@ -987,7 +987,7 @@ CxEdgePrevCargs(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
 }
 
 PyObject *
-CxEdgePrev(CxtEdgeObject *self, PyObject *args)
+CxEdgePrevPargs(CxtEdgeObject *self, PyObject *args)
 {
     PyObject *retval;
     CxtEdgeObject *edgeObj;
@@ -1005,7 +1005,7 @@ CxEdgePrev(CxtEdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxEdgePrevCargs(self, ind, &edgeObj, &prevEnd);
+    CxEdgePrev(self, ind, &edgeObj, &prevEnd);
 
     retval = Py_BuildValue("(Oi)", edgeObj, prevEnd);
     RETURN:
@@ -1019,13 +1019,13 @@ CxEdgeLengthGet(CxtEdgeObject *self)
 }
 
 void
-CxEdgeLengthSetCargs(CxtEdgeObject *self, double aLength)
+CxEdgeLengthSet(CxtEdgeObject *self, double aLength)
 {
     CxTrEdgeLengthSet(self->tree->tr, self->edge, aLength);
 }
 
 PyObject *
-CxEdgeLengthSet(CxtEdgeObject *self, PyObject *args)
+CxEdgeLengthSetPargs(CxtEdgeObject *self, PyObject *args)
 {
     PyObject *retval;
     double length;
@@ -1043,7 +1043,7 @@ CxEdgeLengthSet(CxtEdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxEdgeLengthSetCargs(self, length);
+    CxEdgeLengthSet(self, length);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -1052,8 +1052,8 @@ CxEdgeLengthSet(CxtEdgeObject *self, PyObject *args)
 }
 
 void
-CxEdgeAttachCargs(CxtEdgeObject *self, CxtNodeObject *aNodeA,
-		  CxtNodeObject *aNodeB)
+CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
+	     CxtNodeObject *aNodeB)
 {
     Py_INCREF(aNodeA);
     Py_INCREF(aNodeB);
@@ -1064,7 +1064,7 @@ CxEdgeAttachCargs(CxtEdgeObject *self, CxtNodeObject *aNodeA,
 }
 
 PyObject *
-CxEdgeAttach(CxtEdgeObject *self, PyObject *args)
+CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args)
 {
     PyObject *retval;
     CxtNodeObject *nodeA, *nodeB;
@@ -1082,7 +1082,7 @@ CxEdgeAttach(CxtEdgeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxEdgeAttachCargs(self, nodeA, nodeB);
+    CxEdgeAttach(self, nodeA, nodeB);
 
     Py_INCREF(Py_None);
     retval = Py_None;
@@ -1125,19 +1125,19 @@ static PyMethodDef CxpEdgeMethods[] =
     },
     {
 	"node",
-	(PyCFunction) CxEdgeNode,
+	(PyCFunction) CxEdgeNodePargs,
 	METH_VARARGS,
 	"node"
     },
     {
 	"next",
-	(PyCFunction) CxEdgeNext,
+	(PyCFunction) CxEdgeNextPargs,
 	METH_VARARGS,
 	"next"
     },
     {
 	"prev",
-	(PyCFunction) CxEdgePrev,
+	(PyCFunction) CxEdgePrevPargs,
 	METH_VARARGS,
 	"prev"
     },
@@ -1149,13 +1149,13 @@ static PyMethodDef CxpEdgeMethods[] =
     },
     {
 	"lengthSet",
-	(PyCFunction) CxEdgeLengthSet,
+	(PyCFunction) CxEdgeLengthSetPargs,
 	METH_VARARGS,
 	"lengthSet"
     },
     {
 	"attach",
-	(PyCFunction) CxEdgeAttach,
+	(PyCFunction) CxEdgeAttachPargs,
 	METH_VARARGS,
 	"attach"
     },

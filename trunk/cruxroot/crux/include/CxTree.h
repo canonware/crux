@@ -45,9 +45,9 @@ CxTreeNedgesCget(CxtTreeObject *self);
 PyObject *
 CxTreeBaseGet(CxtTreeObject *self);
 void
-CxTreeBaseSetCargs(CxtTreeObject *self, CxtNodeObject *aNode);
+CxTreeBaseSet(CxtTreeObject *self, CxtNodeObject *aNode);
 PyObject *
-CxTreeBaseSet(CxtTreeObject *self, PyObject *args);
+CxTreeBaseSetPargs(CxtTreeObject *self, PyObject *args);
 
 CxtNodeObject *
 CxNodeNew(CxtTreeObject *a_tree);
@@ -56,9 +56,9 @@ CxNodeTree(CxtNodeObject *self);
 PyObject *
 CxNodeTaxonNumGet(CxtNodeObject *self);
 void
-CxNodeTaxonNumSetCargs(CxtNodeObject *self, uint32_t a_taxon_num);
+CxNodeTaxonNumSet(CxtNodeObject *self, uint32_t a_taxon_num);
 PyObject *
-CxNodeTaxonNumSet(CxtNodeObject *self, PyObject *args);
+CxNodeTaxonNumSetPargs(CxtNodeObject *self, PyObject *args);
 PyObject *
 CxNodeEdge(CxtNodeObject *self);
 PyObject *
@@ -69,29 +69,29 @@ CxEdgeNew(CxtTreeObject *a_tree);
 PyObject *
 CxEdgeTree(CxtEdgeObject *self);
 PyObject *
-CxEdgeNodeCargs(CxtEdgeObject *self, uint32_t aInd);
+CxEdgeNode(CxtEdgeObject *self, uint32_t aInd);
 PyObject *
-CxEdgeNode(CxtEdgeObject *self, PyObject *args);
+CxEdgeNodePargs(CxtEdgeObject *self, PyObject *args);
 void
-CxEdgeNextCargs(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
-		uint32_t *rNextEnd);
+CxEdgeNext(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
+	   uint32_t *rNextEnd);
 PyObject *
-CxEdgeNext(CxtEdgeObject *self, PyObject *args);
+CxEdgeNextPargs(CxtEdgeObject *self, PyObject *args);
 void
-CxEdgePrevCargs(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
-		uint32_t *rPrevEnd);
+CxEdgePrev(CxtEdgeObject *self, uint32_t aInd, CxtEdgeObject **rEdge,
+	   uint32_t *rPrevEnd);
 PyObject *
-CxEdgePrev(CxtEdgeObject *self, PyObject *args);
+CxEdgePrevPargs(CxtEdgeObject *self, PyObject *args);
 PyObject *
 CxEdgeLengthGet(CxtEdgeObject *self);
 void
-CxEdgeLengthSetCargs(CxtEdgeObject *self, double aLength);
+CxEdgeLengthSet(CxtEdgeObject *self, double aLength);
 PyObject *
-CxEdgeLengthSet(CxtEdgeObject *self, PyObject *args);
+CxEdgeLengthSetPargs(CxtEdgeObject *self, PyObject *args);
 void
-CxEdgeAttachCargs(CxtEdgeObject *self, CxtNodeObject *aNodeA,
-		  CxtNodeObject *aNodeB);
+CxEdgeAttach(CxtEdgeObject *self, CxtNodeObject *aNodeA,
+	     CxtNodeObject *aNodeB);
 PyObject *
-CxEdgeAttach(CxtEdgeObject *self, PyObject *args);
+CxEdgeAttachPargs(CxtEdgeObject *self, PyObject *args);
 PyObject *
 CxEdgeDetach(CxtEdgeObject *self);
