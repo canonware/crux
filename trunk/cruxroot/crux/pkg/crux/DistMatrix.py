@@ -58,6 +58,7 @@
 
 from C_DistMatrix import *
 import TaxonMap
+import crux
 
 class DistMatrix(C_DistMatrix):
     # Construct a DistMatrix from one of the following inputs:
