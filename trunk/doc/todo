@@ -1,6 +1,15 @@
+* Rename "retval"-->"rVal" throughout code.
+
 * Clean up the Tree constructor.  Consider making distance-based tree
   constructors into methods of DistMatrix.  This may make more sense, and it
   reduces constructor clutter.
+
+* Figure out what to do about branch lengths for random tree construction.
+  Right now, branch lengths are exponentially distributed, which is not general
+  enough to make the constructor useful.  Perhaps a callback function with
+  context argument should be passed in, which allows the caller to specify
+  something other than the default branch distribution, which should probably be
+  something like 1.0 for all branches.
 
 * Start using kargs for complex methods that have lots of optional arguments?
   Using optional positional args is kinda gnarly.
