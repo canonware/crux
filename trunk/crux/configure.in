@@ -227,7 +227,7 @@ AC_SUBST([crux_scripts])
 
 dnl Crux tests.
 crux_tests=""
-for t in `find ${srcroot}/test -type f |grep "\.py$"`; do
+for t in `find ${srcroot}/test -type f |grep "\.crux$"`; do
   crux_tests="${crux_tests} ${t}"
 done
 AC_SUBST([crux_tests])
