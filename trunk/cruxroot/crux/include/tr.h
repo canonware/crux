@@ -246,3 +246,11 @@ tr_string_hash(const void *a_key);
 /* Compare two strings that represent canonical trees. */
 cw_bool_t
 tr_string_key_comp(const void *a_k1, const void *a_k2);
+
+/* Get the value of the auxiliary pointer associated with the tr. */
+void *
+tr_aux_get(cw_tr_t *a_tr);
+
+/* Set the value of the auxiliary pointer associated with the tr. */
+void
+tr_aux_set(cw_tr_t *a_tr, void *a_aux);

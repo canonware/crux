@@ -1875,3 +1875,19 @@ tr_string_key_comp(const void *a_k1, const void *a_k2)
 
     return retval;
 }
+
+void *
+tr_aux_get(cw_tr_t *a_tr)
+{
+    cw_dassert(tr_p_validate(a_tr, TRUE));
+
+    return a_tr->aux;
+}
+
+void
+tr_aux_set(cw_tr_t *a_tr, void *a_aux)
+{
+    cw_dassert(tr_p_validate(a_tr, TRUE));
+
+    a_tr->aux = a_aux;
+}
