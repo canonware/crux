@@ -2004,8 +2004,8 @@ tr_p_hold(cw_tr_t *a_tr, cw_uint32_t a_max_hold, cw_uint32_t a_neighbor,
 	trh = &a_tr->held[a_tr->nheld];
 	trh->neighbor = a_neighbor;
 	trh->score = a_score;
-	fprintf(stderr, "%s:%d:%s(): neighbor %u, score %u\n",
-		__FILE__, __LINE__, __FUNCTION__, a_neighbor, a_score);
+
+	a_tr->nheld++;
     }
 }
 
@@ -2474,17 +2474,13 @@ tr_tbr_nneighbors_get(cw_tr_t *a_tr)
     return a_tr->trt[a_tr->trtused].offset;
 }
 
-// XXX This enumeration must be the same as that used in
-// tr_p_tbr_neighbors_mp().
 void
 tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
 		    cw_uint32_t *r_bisect, cw_uint32_t *r_reconnect_a,
 		    cw_uint32_t *r_reconnect_b)
 {
-    cw_error("XXX Not implemented");
-#if (0) // XXX
     cw_trt_t key, *trt;
-    cw_uint32_t rem, nedges_a, nedges_b, a, b;
+    cw_uint32_t rem;
 
     tr_p_update(a_tr);
     cw_dassert(tr_p_validate(a_tr));
@@ -2507,80 +2503,27 @@ tr_tbr_neighbor_get(cw_tr_t *a_tr, cw_uint32_t a_neighbor,
      *
      * 2) (Pretend to) bisect the tree at the appropriate edge.
      *
-     * 3) For the subtree that contains the globally lowest-numbered taxon,
-     *    traverse the tree starting at the lowest-numbered taxon, counting
-     *    edges along the way, until edge a is reached.  Return the index of
-     *    this edge as *r_reconnect_a, where the index is the number that was
-     *    set by tr_p_tre_update().
+     * 3) For each subtree, do a recursive in-order traversal and build a list
+     *    of edges, not including one of the edges adjacent to the bisection (in
+     *    the case of an internal node adjacent to the bisection).
      *
-     * 4) For the subtree not considered in step 3, start traversing the tree at
-     *    the lowest-numbered taxon in the subtree, counting edges along the
-     *    way, until edge b is reached.  Return the index of this edge as
-     *    *r_reconnect_b, where the index is the number that was set for that
-     *    edge by tr_p_tre_update().
+     * 4) Use a nested loop to iterate over neighbors, where each iteration is a
+     *    combination of edges in the two subtrees.  The first combination is
+     *    skipped, since it would reverse the bisection.
      */
 
+    /* Generate the edge lists. */
+    tr_p_bedges_gen(a_tr, trt->bisect_edge);
+
+    /* Calculate the offset of the neighbor from the beginning of this edge's
+     * reconnection combination enumeration. */
     rem = a_neighbor - trt->offset;
 
-    nedges_a = trt->nedges_a;
-    nedges_b = trt->nedges_b;
+    /* Avoid the first combination, since it would reverse the bisection. */
+    rem++;
 
-    /* If the reconnection edges happen to be those that would reverse the
-     * bisection, instead return the last possible reconnection combination for
-     * this bisection.  This results in a rather strange ordering for the
-     * enumeration, but is always correct. */
-
-    /* No edges in one or both of the subtrees must be handled specially. */
-    if (nedges_a == 0)
-    {
-	/* {0,b}. */
-
-	/* A 2-taxon tree has no TBR neighbors. */
-	cw_assert(nedges_b != 0);
-
-	a = CW_TR_NODE_EDGE_NONE;
-	b = rem;
-
-	if (a == trt->self_a && b == trt->self_b)
-	{
-	    b = nedges_b - 1;
-	}
-    }
-    else if (nedges_b == 0)
-    {
-	/* {a,0}. */
-	a = rem;
-	b = CW_TR_NODE_EDGE_NONE;
-
-	if (a == trt->self_a && b == trt->self_b)
-	{
-	    a = nedges_a - 1;
-	}
-    }
-    else
-    {
-	/* {a,b}. */
-	a = rem / nedges_b;
-	b = rem % nedges_b;
-
-	/* (a * b) must be less than (nedges_a * nedges_b), since the last
-	 * combination is reserved to replace the combination that corresponds
-	 * to undoing the bisection. */
-	cw_assert(a * b < nedges_a * nedges_b);
-
-	if (a == trt->self_a && b == trt->self_b)
-	{
-	    a = nedges_a - 1;
-	    b = nedges_b - 1;
-	}
-    }
-
-    /* Convert a and b to actual edge indices. */
-    *r_reconnect_a = tr_p_bisection_reconnect_edge_get(a_tr, trt->root_a,
-						       trt->adj_b, a);
-    *r_reconnect_b = tr_p_bisection_reconnect_edge_get(a_tr, trt->root_b,
-						       trt->adj_a, b);
-#endif
+    *r_reconnect_a = a_tr->bedges[rem / a_tr->nbedges_b];
+    *r_reconnect_b = a_tr->bedges[a_tr->nbedges_a + (rem % a_tr->nbedges_b)];
 }
 
 void *
