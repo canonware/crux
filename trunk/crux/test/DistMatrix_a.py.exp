@@ -29,6 +29,34 @@ Delta      3.00000 3.00000 0.00000
 Epsilon    3.00000 3.00000 3.00000 1.00000
 
 ===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
+5
+Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
+Beta       1.00000 0.00000 2.00000 3.00000 3.00000
+Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
+Delta      3.00000 3.00000 0.00000 0.00000 1.00000
+Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
+
+5
+Alpha              1.00000 2.00000 3.00000 3.00000
+Beta                       2.00000 3.00000 3.00000
+Gamma                              3.00000 3.00000
+Delta                                      1.00000
+Epsilon                                           
+
+5
+Alpha     
+Beta       1.00000
+Gamma      2.00000 2.00000
+Delta      3.00000 3.00000 0.00000
+Epsilon    3.00000 3.00000 3.00000 1.00000
+
+===
 5
 Taxon_A 0.0 1.0 2.0 3.0 4.0
 Taxon_B 1.0 0.0 1.5 2.5 3.5
@@ -88,12 +116,68 @@ Taxon_E    4.00000 3.50000 3.20000 3.10000
 
 ===
 5
+Taxon_A     1.0 2.0 3.0 4.0
+Taxon_B         1.5 2.5 3.5
+Taxon_C             2.2 3.2
+Taxon_D                 3.1
+Taxon_E
+5
+Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
+Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
+Taxon_C    2.00000 1.50000 0.00000 2.20000 3.20000
+Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
+Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
+
+5
+Taxon_A            1.00000 2.00000 3.00000 4.00000
+Taxon_B                    1.50000 2.50000 3.50000
+Taxon_C                            2.20000 3.20000
+Taxon_D                                    3.10000
+Taxon_E                                           
+
+5
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 1.50000
+Taxon_D    3.00000 2.50000 2.20000
+Taxon_E    4.00000 3.50000 3.20000 3.10000
+
+===
+5
 Taxon_A
 Taxon_B 1.0
 Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2 3.1
 
+5
+Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
+Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
+Taxon_C    2.00000 1.50000 0.00000 2.20000 3.20000
+Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
+Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
+
+5
+Taxon_A            1.00000 2.00000 3.00000 4.00000
+Taxon_B                    1.50000 2.50000 3.50000
+Taxon_C                            2.20000 3.20000
+Taxon_D                                    3.10000
+Taxon_E                                           
+
+5
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 1.50000
+Taxon_D    3.00000 2.50000 2.20000
+Taxon_E    4.00000 3.50000 3.20000 3.10000
+
+===
+5
+Taxon_A
+Taxon_B 1.0
+Taxon_C 2.0 1.5
+Taxon_D 3.0 2.5 2.2
+Taxon_E 4.0 3.5 3.2 3.1
 5
 Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
 Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
@@ -338,18 +422,97 @@ Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
-Epsilon    3.000 3.000 3.000 1.000 
+Gamma      3.000 3.000 3.000 1.000 0.000
 
-Exception C_DistMatrix.SyntaxError: At 7:0 (full matrix format): End of input reached (4, 4)
+Exception crux.TaxonMap.ValueError: Label 'Gamma' already mapped
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
-Gamma      3.000 3.000 3.000 1.000 0.000
+Epsilon    3.000 3.000 3.000 1.000 
 
-Exception crux.TaxonMap.ValueError: Label 'Gamma' already mapped
+Exception C_DistMatrix.SyntaxError: At 7:0 (full matrix format): End of input reached while reading distance (4, 4)
+===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000
+
+Exception C_DistMatrix.SyntaxError: At 7:0 (full matrix format): End of input reached while reading distance (4, 3)
+===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000
+Exception C_DistMatrix.SyntaxError: At 6:28 (full matrix format): End of input reached while reading distance (4, 3)
+===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+
+Exception C_DistMatrix.SyntaxError: At 6:0 (full matrix format): End of input reached while reading label 4
+===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Exception C_DistMatrix.SyntaxError: At 5:40 (full matrix format): End of input reached while reading label 4
+===
+5
+Taxon_A     1.0 2.0 3.0 4.0
+Taxon_B         1.5 2.5 3.5
+Taxon_C             2.2 3.2
+Taxon_D                 3.1
+
+Exception C_DistMatrix.SyntaxError: At 6:0 (upper matrix format): End of input reached while reading label 4
+===
+5
+Taxon_A     1.0 2.0 3.0 4.0
+Taxon_B         1.5 2.5 3.5
+Taxon_C             2.2 3.2
+Taxon_D                 3.1
+Exception C_DistMatrix.SyntaxError: At 5:27 (upper matrix format): End of input reached while reading label 4
+===
+5
+Taxon_A     1.0 2.0 3.0 4.0
+Taxon_B         1.5 2.5 3.5
+Taxon_C             2.2 3.2
+
+Exception C_DistMatrix.SyntaxError: At 5:0 (upper matrix format): End of input reached while reading label 3
+===
+5
+Taxon_A
+Taxon_B 1.0
+Taxon_C 2.0 1.5
+Taxon_D 3.0 2.5 2.2
+Taxon_E 4.0 3.5 3.2
+
+Exception C_DistMatrix.SyntaxError: At 7:0 (lower matrix format): End of input reached while reading distance (4, 3)
+===
+5
+Taxon_A
+Taxon_B 1.0
+Taxon_C 2.0 1.5
+Taxon_D 3.0 2.5 2.2
+Taxon_E 4.0 3.5 3.2
+Exception C_DistMatrix.SyntaxError: At 6:19 (lower matrix format): End of input reached while reading distance (4, 3)
+===
+5
+Taxon_A
+Taxon_B 1.0
+Taxon_C 2.0 1.5
+Taxon_D 3.0 2.5 2.2
+
+Exception C_DistMatrix.SyntaxError: At 6:0 (lower matrix format): End of input reached while reading label 4
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -358,6 +521,27 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
+5
+Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
+Beta       1.00000 0.00000 2.00000 3.00000 3.00000
+Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
+Delta      3.00000 3.00000 0.00000 0.00000 1.00000
+Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
+
+5
+Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
+Beta       1.00000 0.00000 2.00000 3.00000 3.00000
+Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
+Delta      3.00000 3.00000 0.00000 0.00000 1.00000
+Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
+
+===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000 1.000 0.000
 5
 Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
 Beta       1.00000 0.00000 2.00000 3.00000 3.00000
@@ -418,12 +602,54 @@ Taxon_E    4.00000 3.50000 3.20000 3.10000
 
 ===
 5
+Taxon_A     1.0 2.0 3.0 4.0
+Taxon_B         1.5 2.5 3.5
+Taxon_C             2.2 3.2
+Taxon_D                 3.1
+Taxon_E
+5
+Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
+Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
+Taxon_C    2.00000 1.50000 0.00000 2.20000 3.20000
+Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
+Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
+
+5
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 1.50000
+Taxon_D    3.00000 2.50000 2.20000
+Taxon_E    4.00000 3.50000 3.20000 3.10000
+
+===
+5
 Taxon_A
 Taxon_B 1.0
 Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2 3.1
 
+5
+Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
+Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
+Taxon_C    2.00000 1.50000 0.00000 2.20000 3.20000
+Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
+Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
+
+5
+Taxon_A   
+Taxon_B    1.00000
+Taxon_C    2.00000 1.50000
+Taxon_D    3.00000 2.50000 2.20000
+Taxon_E    4.00000 3.50000 3.20000 3.10000
+
+===
+5
+Taxon_A
+Taxon_B 1.0
+Taxon_C 2.0 1.5
+Taxon_D 3.0 2.5 2.2
+Taxon_E 4.0 3.5 3.2 3.1
 5
 Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
 Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
@@ -629,18 +855,97 @@ Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
-Epsilon    3.000 3.000 3.000 1.000 
+Gamma      3.000 3.000 3.000 1.000 0.000
 
-Exception C_DistMatrix.SyntaxError: At 7:0 (full matrix format): End of input reached (4, 4)
+Exception crux.TaxonMap.ValueError: Label 'Gamma' already mapped
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
-Gamma      3.000 3.000 3.000 1.000 0.000
+Epsilon    3.000 3.000 3.000 1.000 
 
-Exception crux.TaxonMap.ValueError: Label 'Gamma' already mapped
+Exception C_DistMatrix.SyntaxError: At 7:0 (full matrix format): End of input reached while reading distance (4, 4)
+===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000
+
+Exception C_DistMatrix.SyntaxError: At 7:0 (full matrix format): End of input reached while reading distance (4, 3)
+===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Epsilon    3.000 3.000 3.000
+Exception C_DistMatrix.SyntaxError: At 6:28 (full matrix format): End of input reached while reading distance (4, 3)
+===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+
+Exception C_DistMatrix.SyntaxError: At 6:0 (full matrix format): End of input reached while reading label 4
+===
+     5
+Alpha      0.000 1.000 2.000 3.000 3.000
+Beta       1.000 0.000 2.000 3.000 3.000
+Gamma      2.000 2.000 0.000 3.000 3.000
+Delta      3.000 3.000 0.000 0.000 1.000
+Exception C_DistMatrix.SyntaxError: At 5:40 (full matrix format): End of input reached while reading label 4
+===
+5
+Taxon_A     1.0 2.0 3.0 4.0
+Taxon_B         1.5 2.5 3.5
+Taxon_C             2.2 3.2
+Taxon_D                 3.1
+
+Exception C_DistMatrix.SyntaxError: At 6:0 (upper matrix format): End of input reached while reading label 4
+===
+5
+Taxon_A     1.0 2.0 3.0 4.0
+Taxon_B         1.5 2.5 3.5
+Taxon_C             2.2 3.2
+Taxon_D                 3.1
+Exception C_DistMatrix.SyntaxError: At 5:27 (upper matrix format): End of input reached while reading label 4
+===
+5
+Taxon_A     1.0 2.0 3.0 4.0
+Taxon_B         1.5 2.5 3.5
+Taxon_C             2.2 3.2
+
+Exception C_DistMatrix.SyntaxError: At 5:0 (upper matrix format): End of input reached while reading label 3
+===
+5
+Taxon_A
+Taxon_B 1.0
+Taxon_C 2.0 1.5
+Taxon_D 3.0 2.5 2.2
+Taxon_E 4.0 3.5 3.2
+
+Exception C_DistMatrix.SyntaxError: At 7:0 (lower matrix format): End of input reached while reading distance (4, 3)
+===
+5
+Taxon_A
+Taxon_B 1.0
+Taxon_C 2.0 1.5
+Taxon_D 3.0 2.5 2.2
+Taxon_E 4.0 3.5 3.2
+Exception C_DistMatrix.SyntaxError: At 6:19 (lower matrix format): End of input reached while reading distance (4, 3)
+===
+5
+Taxon_A
+Taxon_B 1.0
+Taxon_C 2.0 1.5
+Taxon_D 3.0 2.5 2.2
+
+Exception C_DistMatrix.SyntaxError: At 6:0 (lower matrix format): End of input reached while reading label 4
 ===
 3
 A          0.00000 0.00000 0.00000
