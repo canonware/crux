@@ -30,193 +30,193 @@ CxTrNew(void);
 
 /* Destructor. */
 void
-CxTrDelete(CxtTr *a_tr);
+CxTrDelete(CxtTr *aTr);
 
 /* Get the number of taxa in the tree. */
 uint32_t
-CxTrNtaxaGet(CxtTr *a_tr);
+CxTrNtaxaGet(CxtTr *aTr);
 
 /* Get the number of edges in the tree. */
 uint32_t
-CxTrNedgesGet(CxtTr *a_tr);
+CxTrNedgesGet(CxtTr *aTr);
 
 /* Get the base of the tree. */
 CxtTrNode
-CxTrBaseGet(CxtTr *a_tr);
+CxTrBaseGet(CxtTr *aTr);
 
 /* Set the base of the tree. */
 void
-CxTrBaseSet(CxtTr *a_tr, CxtTrNode a_base);
+CxTrBaseSet(CxtTr *aTr, CxtTrNode aBase);
 
 /* Canonize the tree.  The base of the tree is set to the lowest numbered taxon,
  * and internal nodes are adjusted such that their edge rings are ordered
  * (subtrees with lower minimum taxon numbers come first), and the edge returned
  * by CxTrNodeEdgeGet() is the edge that leads back to the base. */
 void
-CxTrCanonize(CxtTr *a_tr);
+CxTrCanonize(CxtTr *aTr);
 
 /* Perform TBR. */
 void
-CxTrTbr(CxtTr *a_tr, CxtTrEdge a_bisect, CxtTrEdge a_reconnect_a,
-       CxtTrEdge a_reconnect_b);
+CxTrTbr(CxtTr *aTr, CxtTrEdge aBisect, CxtTrEdge aReconnectA,
+	CxtTrEdge aReconnectB);
 
 /* Get the number of neighboring trees reachable via TBR. */
 uint32_t
-CxTrTbrNneighborsGet(CxtTr *a_tr);
+CxTrTbrNneighborsGet(CxtTr *aTr);
 
-/* Get the parameters necessary to transorm this tree to neighbor a_neighbor. */
+/* Get the parameters necessary to transorm this tree to neighbor aNeighbor. */
 void
-CxTrTbrNeighborGet(CxtTr *a_tr, uint32_t a_neighbor,
-		    CxtTrEdge *r_bisect, CxtTrEdge *r_reconnect_a,
-		    CxtTrEdge *r_reconnect_b);
+CxTrTbrNeighborGet(CxtTr *aTr, uint32_t aNeighbor,
+		   CxtTrEdge *rBisect, CxtTrEdge *rReconnectA,
+		   CxtTrEdge *rReconnectB);
 
 /* Get the value of the auxiliary pointer associated with the tr. */
 void *
-CxTrAuxGet(CxtTr *a_tr);
+CxTrAuxGet(CxtTr *aTr);
 
 /* Set the value of the auxiliary pointer associated with the tr. */
 void
-CxTrAuxSet(CxtTr *a_tr, void *a_aux);
+CxTrAuxSet(CxtTr *aTr, void *aAux);
 
-/* Prepare for calculating Fitch parsimony scores.  a_taxa points to an array of
- * character array pointers, where the index into a_taxa corresponds to taxon
+/* Prepare for calculating Fitch parsimony scores.  aTaxa points to an array of
+ * character array pointers, where the index into aTaxa corresponds to taxon
  * number.  The character arrays need not be nil-terminated. */
 void
-CxTrMpPrepare(CxtTr *a_tr, bool a_uninformative_eliminate,
-	      char *a_taxa[], uint32_t a_ntaxa, uint32_t a_nchars);
+CxTrMpPrepare(CxtTr *aTr, bool aUninformativeEliminate,
+	      char *aTaxa[], uint32_t aNtaxa, uint32_t aNchars);
 
 /* Clear the data structures used for calculating Fitch parsimony scores. */
 void
-CxTrMpFinish(CxtTr *a_tr);
+CxTrMpFinish(CxtTr *aTr);
 
 /* Calculate the Fitch parsimony score for this tree. */
 uint32_t
-CxTrMpScore(CxtTr *a_tr);
+CxTrMpScore(CxtTr *aTr);
 
 /* Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
- * a_max_hold of the best neighbors (or all best neighbors, if a_max_hold is
+ * aMaxHold of the best neighbors (or all best neighbors, if aMaxHold is
  * CxmTrHoldAll). */
 void
-CxTrTbrBestNeighborsMp(CxtTr *a_tr, uint32_t a_max_hold);
+CxTrTbrBestNeighborsMp(CxtTr *aTr, uint32_t aMaxHold);
 
 /* Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
- * a_max_hold of the better neighbors (or all better neighbors, if a_max_hold is
+ * aMaxHold of the better neighbors (or all better neighbors, if aMaxHold is
  * CxmTrHoldAll). */
 void
-CxTrTbrBetterNeighborsMp(CxtTr *a_tr, uint32_t a_max_hold);
+CxTrTbrBetterNeighborsMp(CxtTr *aTr, uint32_t aMaxHold);
 
 /* Calculate the Fitch parsimony of all TBR neighbors, and keep track of all
  * neighbors. */
 void
-CxTrTbrAllNeighborsMp(CxtTr *a_tr);
+CxTrTbrAllNeighborsMp(CxtTr *aTr);
 
 /* Clear the data structures used to store held trees. */
 void
-CxTrHeldFinish(CxtTr *a_tr);
+CxTrHeldFinish(CxtTr *aTr);
 
 /* Get the number of trees currently held. */
 uint32_t
-CxTrNheldGet(CxtTr *a_tr);
+CxTrNheldGet(CxtTr *aTr);
 
-/* Get the a_held'th held tree, and its score.  *r_neighbor can be passed to
+/* Get the aHeld'th held tree, and its score.  *rNeighbor can be passed to
  * CxTrTbrNeighborGet() in order to get the TBR transformation parameters,
  * which can then be passed to CxTrTbr(). */
 void
-CxTrHeldGet(CxtTr *a_tr, uint32_t a_held, uint32_t *r_neighbor,
-	    uint32_t *r_score);
+CxTrHeldGet(CxtTr *aTr, uint32_t aHeld, uint32_t *rNeighbor,
+	    uint32_t *rScore);
 
 /******************************************************************************/
 
-/* tr_node. */
+/* CxTrNode. */
 
 /* Constructor. */
 CxtTrNode
-CxTrNodeNew(CxtTr *a_tr);
+CxTrNodeNew(CxtTr *aTr);
 
 /* Destructor. */
 void
-CxTrNodeDelete(CxtTr *a_tr, CxtTrNode a_node);
+CxTrNodeDelete(CxtTr *aTr, CxtTrNode aNode);
 
-/* Get the taxon number associated with a_node.  Return CXTTRNODEAXON_NONE if
+/* Get the taxon number associated with aNode.  Return CxmTrNodeTaxonNone if
  * no taxon number is set. */
 uint32_t
-CxTrNodeTaxonNumGet(CxtTr *a_tr, CxtTrNode a_node);
+CxTrNodeTaxonNumGet(CxtTr *aTr, CxtTrNode aNode);
 
-/* Set the taxon number associated with a_node (use CXTTRNODEAXON_NONE to
+/* Set the taxon number associated with aNode (use CxmTrNodeTaxonNone to
  * unset the taxon number. */
 void
-CxTrNodeTaxonNumSet(CxtTr *a_tr, CxtTrNode a_node,
-		      uint32_t a_taxon_num);
+CxTrNodeTaxonNumSet(CxtTr *aTr, CxtTrNode aNode,
+		    uint32_t aTaxonNum);
 
-/* Get the first edge in a_node's edge ring. */
+/* Get the first edge in aNode's edge ring. */
 void
-CxTrNodeEdgeGet(CxtTr *a_tr, CxtTrNode a_node,
-		 CxtTrEdge *r_edge, uint32_t *r_end);
+CxTrNodeEdgeGet(CxtTr *aTr, CxtTrNode aNode,
+		CxtTrEdge *rEdge, uint32_t *rEnd);
 
 /* Get the value of the auxiliary pointer associated with the node. */
 void *
-CxTrNodeAuxGet(CxtTr *a_tr, CxtTrNode a_node);
+CxTrNodeAuxGet(CxtTr *aTr, CxtTrNode aNode);
 
 /* Set the value of the auxiliary pointer associated with the node. */
 void
-CxTrNodeAuxSet(CxtTr *a_tr, CxtTrNode a_node, void *a_aux);
+CxTrNodeAuxSet(CxtTr *aTr, CxtTrNode aNode, void *aAux);
 
 /* Get the degree (number of edges) of the node. */
 uint32_t
-CxTrNodeDegree(CxtTr *a_tr, CxtTrNode a_node);
+CxTrNodeDegree(CxtTr *aTr, CxtTrNode aNode);
 
-/* Get the number of edges between a_node and a_other.  0 means that there is
+/* Get the number of edges between aNode and aOther.  0 means that there is
  * no path between the two nodes. */
 uint32_t
-CxTrNodeDistance(CxtTr *a_tr, CxtTrNode a_node, CxtTrNode a_other);
+CxTrNodeDistance(CxtTr *aTr, CxtTrNode aNode, CxtTrNode aOther);
 
 /******************************************************************************/
 
-/* tr_edge. */
+/* trEdge. */
 
 /* Constructor. */
 CxtTrEdge
-CxTrEdgeNew(CxtTr *a_tr);
+CxTrEdgeNew(CxtTr *aTr);
 
 /* Destructor. */
 void
-CxTrEdgeDelete(CxtTr *a_tr, CxtTrEdge a_edge);
+CxTrEdgeDelete(CxtTr *aTr, CxtTrEdge aEdge);
 
-/* Get node a_i of the edge (a_i must be 0 or 1). */
+/* Get node aI of the edge (aI must be 0 or 1). */
 CxtTrNode
-CxTrEdgeNodeGet(CxtTr *a_tr, CxtTrEdge a_edge, uint32_t a_i);
+CxTrEdgeNodeGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aI);
 
-/* Get the next edge in the edge ring at the a_i end of a_edge. */
+/* Get the next edge in the edge ring at the aI end of aEdge. */
 void
-CxTrEdgeNextGet(CxtTr *a_tr, CxtTrEdge a_edge, uint32_t a_i,
-		 CxtTrEdge *r_next, uint32_t *r_end);
+CxTrEdgeNextGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aI,
+		CxtTrEdge *rNext, uint32_t *rEnd);
 
-/* Get the previous edge in the edge ring at the a_i end of a_edge. */
+/* Get the previous edge in the edge ring at the aI end of aEdge. */
 void
-CxTrEdgePrevGet(CxtTr *a_tr, CxtTrEdge a_edge, uint32_t a_i,
-		 CxtTrEdge *r_prev, uint32_t *r_end);
+CxTrEdgePrevGet(CxtTr *aTr, CxtTrEdge aEdge, uint32_t aI,
+		CxtTrEdge *rPrev, uint32_t *rEnd);
 
 /* Get the edge length. */
 double
-CxTrEdgeLengthGet(CxtTr *a_tr, CxtTrEdge a_edge);
+CxTrEdgeLengthGet(CxtTr *aTr, CxtTrEdge aEdge);
 
 /* Set the edge length. */
 void
-CxTrEdgeLengthSet(CxtTr *a_tr, CxtTrEdge a_edge, double a_length);
+CxTrEdgeLengthSet(CxtTr *aTr, CxtTrEdge aEdge, double aLength);
 
 /* Get the value of the auxiliary pointer associated with the edge. */
 void *
-CxTrEdgeAuxGet(CxtTr *a_tr, CxtTrEdge a_edge);
+CxTrEdgeAuxGet(CxtTr *aTr, CxtTrEdge aEdge);
 
 /* Set the value of the auxiliary pointer associated with the edge. */
 void
-CxTrEdgeAuxSet(CxtTr *a_tr, CxtTrEdge a_edge, void *a_aux);
+CxTrEdgeAuxSet(CxtTr *aTr, CxtTrEdge aEdge, void *aAux);
 
 /* Attach edge to two nodes. */
 void
-CxTrEdgeAttach(CxtTr *a_tr, CxtTrEdge a_edge, CxtTrNode a_node_a,
-	       CxtTrNode a_node_b);
+CxTrEdgeAttach(CxtTr *aTr, CxtTrEdge aEdge, CxtTrNode aNodeA,
+	       CxtTrNode aNodeB);
 
 /* Detach edge from nodes. */
 void
-CxTrEdgeDetach(CxtTr *a_tr, CxtTrEdge a_edge);
+CxTrEdgeDetach(CxtTr *aTr, CxtTrEdge aEdge);

@@ -46,7 +46,7 @@ typedef unsigned char bool;
 #include "CxQli.h"
 #include "CxTr.h"
 
-#ifdef CW_CPU_IA32
+#ifdef CxmCpuIa32
 #include "CxIa32.h"
 #endif
 
@@ -68,7 +68,7 @@ typedef unsigned char bool;
 		abort();						\
     } while (0)
 
-#ifdef CW_ASSERT
+#ifdef CxmAssert
 #define cxmNotReached()						\
     do									\
     {									\
@@ -109,7 +109,7 @@ typedef unsigned char bool;
 /* cw_dasssert() is used internally in places that the assertion should only
  * be made if CxmDebug is defined, such as checking magic variables that only
  * exist in that case. */
-#if (defined(CxmDebug) && defined(CW_ASSERT))
+#if (defined(CxmDebug) && defined(CxmAssert))
 #define cxmDassert(a)							\
     do									\
     {									\
