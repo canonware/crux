@@ -59,7 +59,7 @@ struct cw_trn_s
     cw_tr_node_t neighbors[CW_TR_NODE_MAX_NEIGHBORS];
 
     /* Used for Fitch parsimony scoring. */
-    cw_tr_ps_t ps;
+    cw_tr_ps_t *ps;
 };
 
 /* TBR neighbor. */
@@ -96,7 +96,7 @@ struct cw_tre_s
     cw_tr_node_t neighbor;
 
     /* Used for Fitch parsimony scoring. */
-    cw_tr_ps_t ps;
+    cw_tr_ps_t *ps;
 };
 
 struct cw_tr_s
@@ -139,7 +139,8 @@ struct cw_tr_s
     cw_uint32_t trtused;
 
     /* Pointer to an array of trn's.  ntrns is the total number of trn's, not
-     * all of which are necessarily in use. */
+     * all of which are necessarily in use.  The first element is reserved as a
+     * temporary, which gets used where a  */
     cw_trn_t *trns;
     cw_uint32_t ntrns;
 
@@ -148,7 +149,7 @@ struct cw_tr_s
     cw_tr_node_t spares;
 
     /* Array of information about edges.  There are always nedges elements in
-     * tre -- nedges and tre are always updated at the same time. */
+     * tre -- nedges and tre are always kept in sync. */
     cw_tre_t *tre;
 };
 
@@ -176,12 +177,20 @@ tr_p_node_validate(cw_tr_t *a_tr, cw_tr_node_t a_node)
 
 /* tr_ps. */
 
-CW_P_INLINE void
-tr_p_ps_new(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
+CW_P_INLINE cw_tr_ps_t *
+tr_p_ps_new(cw_tr_t *a_tr)
 {
-    a_ps->parent = CW_TR_NODE_NONE;
-    a_ps->chars = NULL;
-    a_ps->nchars = 0;
+    cw_tr_ps_t *retval;
+
+    retval = (cw_tr_ps_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+					    mema_arg_get(a_tr->mema),
+					    sizeof(cw_tr_ps_t));
+
+    retval->parent = CW_TR_NODE_NONE;
+    retval->chars = NULL;
+    retval->nchars = 0;
+
+    return retval;
 }
 
 CW_P_INLINE void
@@ -193,11 +202,62 @@ tr_p_ps_delete(cw_tr_t *a_tr, cw_tr_ps_t *a_ps)
 			  mema_arg_get(a_tr->mema),
 			  a_ps->chars, sizeof(cw_uint32_t) * a_ps->nchars);
     }
+
+    cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
+		      mema_arg_get(a_tr->mema),
+		      a_ps, sizeof(cw_tr_ps_t));
+}
+
+CW_P_INLINE void
+tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_uint32_t a_nchars)
+{
+    /* Clean up old character vector if it isn't the right size for a_nchars
+     * characters. */
+    if (a_ps->chars != NULL && a_ps->nchars != a_nchars)
+    {
+	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
+			  mema_arg_get(a_tr->mema),
+			  a_ps->chars, sizeof(cw_uint32_t) * a_ps->nchars);
+	a_ps->chars = NULL;
+    }
+
+    /* Allocate character vector if necessary. */
+    if (a_ps->chars == NULL)
+    {
+	a_ps->chars
+	    = (cw_uint32_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
+					      mema_arg_get(a_tr->mema),
+					      sizeof(cw_uint32_t) * a_nchars);
+	a_ps->nchars = a_nchars;
+    }
 }
 
 /******************************************************************************/
 
 /* tr_node. */
+
+CW_P_INLINE void
+tr_p_node_init(cw_tr_t *a_tr, cw_tr_node_t a_node)
+{
+    cw_trn_t *trn;
+    cw_uint32_t i;
+
+    trn = &a_tr->trns[a_node];
+
+    trn->aux = NULL;
+    trn->taxon_num = CW_TR_NODE_TAXON_NONE;
+
+    for (i = 0; i < CW_TR_NODE_MAX_NEIGHBORS; i++)
+    {
+	trn->neighbors[i] = CW_TR_NODE_NONE;
+    }
+
+    trn->ps = NULL;
+
+#ifdef CW_DBG
+    trn->magic = CW_TRN_MAGIC;
+#endif
+}
 
 CW_P_INLINE cw_tr_node_t
 tr_p_node_alloc(cw_tr_t *a_tr)
@@ -248,12 +308,24 @@ tr_p_node_alloc(cw_tr_t *a_tr)
     retval = a_tr->spares;
     a_tr->spares = a_tr->trns[retval].neighbors[0];
 
+    /* Initialize retval. */
+    tr_p_node_init(a_tr, retval);
+
     return retval;
 }
 
 CW_P_INLINE void
 tr_p_node_dealloc(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
+    cw_trn_t *trn;
+
+    trn = &a_tr->trns[a_node];
+    
+    if (trn->ps != NULL)
+    {
+	tr_p_ps_delete(a_tr, trn->ps);
+    }
+
 #ifdef CW_DBG
     memset(&a_tr->trns[a_node], 0x5a, sizeof(cw_trn_t));
 #endif
@@ -282,7 +354,7 @@ tr_node_new(cw_tr_t *a_tr)
 	trn->neighbors[i] = CW_TR_NODE_NONE;
     }
 
-    tr_p_ps_new(a_tr, &trn->ps);
+    trn->ps = tr_p_ps_new(a_tr);
 
 #ifdef CW_DBG
     trn->magic = CW_TRN_MAGIC;
@@ -297,7 +369,7 @@ tr_node_delete(cw_tr_t *a_tr, cw_tr_node_t a_node)
     cw_dassert(tr_p_validate(a_tr, FALSE));
     cw_dassert(tr_p_node_validate(a_tr, a_node));
 
-    tr_p_ps_delete(a_tr, &a_tr->trns[a_node].ps);
+    tr_p_ps_delete(a_tr, a_tr->trns[a_node].ps);
 
     tr_p_node_dealloc(a_tr, a_node);
 }
@@ -984,25 +1056,7 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 
     trn = &a_tr->trns[a_node];
 
-    /* Clean up old MP-related data structures if they aren't the right size for
-     * a_nchars characters. */
-    if (trn->ps.chars != NULL && trn->ps.nchars != a_nchars)
-    {
-	cw_opaque_dealloc(mema_dealloc_get(a_tr->mema),
-			  mema_arg_get(a_tr->mema),
-			  trn->ps.chars, sizeof(cw_uint32_t) * trn->ps.nchars);
-	trn->ps.chars = NULL;
-    }
-
-    /* Allocate MP-related data structures if necessary. */
-    if (trn->ps.chars == NULL)
-    {
-	trn->ps.chars
-	    = (cw_uint32_t *) cw_opaque_alloc(mema_alloc_get(a_tr->mema),
-					      mema_arg_get(a_tr->mema),
-					      sizeof(cw_uint32_t) * a_nchars);
-	trn->ps.nchars = a_nchars;
-    }
+    tr_p_ps_prepare(a_tr, trn->ps, a_nchars);
 
     /* If this is a leaf node, initialize the character state sets. */
     if ((taxon_num = tr_node_taxon_num_get(a_tr, a_node))
@@ -1022,98 +1076,98 @@ tr_p_mp_prepare_recurse(cw_tr_t *a_tr, cw_tr_node_t a_node, cw_tr_node_t a_prev,
 		case 'X':
 		case 'x':
 		{
-		    trn->ps.chars[i] = 0xf;
+		    trn->ps->chars[i] = 0xf;
 		    break;
 		}
 		case 'V':
 		case 'v':
 		{
-		    trn->ps.chars[i] = 0xe;
+		    trn->ps->chars[i] = 0xe;
 		    break;
 		}
 		case 'H':
 		case 'h':
 		{
-		    trn->ps.chars[i] = 0xd;
+		    trn->ps->chars[i] = 0xd;
 		    break;
 		}
 		case 'M':
 		case 'm':
 		{
-		    trn->ps.chars[i] = 0xc;
+		    trn->ps->chars[i] = 0xc;
 		    break;
 		}
 		case 'D':
 		case 'd':
 		{
-		    trn->ps.chars[i] = 0xb;
+		    trn->ps->chars[i] = 0xb;
 		    break;
 		}
 		case 'R':
 		case 'r':
 		{
-		    trn->ps.chars[i] = 0xa;
+		    trn->ps->chars[i] = 0xa;
 		    break;
 		}
 		case 'W':
 		case 'w':
 		{
-		    trn->ps.chars[i] = 0x9;
+		    trn->ps->chars[i] = 0x9;
 		    break;
 		}
 		case 'A':
 		case 'a':
 		{
-		    trn->ps.chars[i] = 0x8;
+		    trn->ps->chars[i] = 0x8;
 		    break;
 		}
 		case 'B':
 		case 'b':
 		{
-		    trn->ps.chars[i] = 0x7;
+		    trn->ps->chars[i] = 0x7;
 		    break;
 		}
 		case 'S':
 		case 's':
 		{
-		    trn->ps.chars[i] = 0x6;
+		    trn->ps->chars[i] = 0x6;
 		    break;
 		}
 		case 'Y':
 		case 'y':
 		{
-		    trn->ps.chars[i] = 0x5;
+		    trn->ps->chars[i] = 0x5;
 		    break;
 		}
 		case 'C':
 		case 'c':
 		{
-		    trn->ps.chars[i] = 0x4;
+		    trn->ps->chars[i] = 0x4;
 		    break;
 		}
 		case 'K':
 		case 'k':
 		{
-		    trn->ps.chars[i] = 0x3;
+		    trn->ps->chars[i] = 0x3;
 		    break;
 		}
 		case 'G':
 		case 'g':
 		{
-		    trn->ps.chars[i] = 0x2;
+		    trn->ps->chars[i] = 0x2;
 		    break;
 		}
 		case 'T':
 		case 't':
 		{
-		    trn->ps.chars[i] = 0x1;
+		    trn->ps->chars[i] = 0x1;
 		    break;
 		}
 		case '-':
 		{
 		    /* Treat gaps as uncertainty.  This isn't the only way to
 		     * do things, and may need to be made configurable. */
-		    trn->ps.chars[i] = 0xf;
+		    trn->ps->chars[i] = 0xf;
 		    break;
 		}
 		default:
@@ -1140,10 +1194,13 @@ cw_tr_t *
 tr_new(cw_mema_t *a_mema)
 {
     cw_tr_t *retval;
+    cw_opaque_alloc_t *alloc;
+    void *arg;
 
-    retval = (cw_tr_t *) cw_opaque_alloc(mema_alloc_get(a_mema),
-					 mema_arg_get(a_mema),
-					 sizeof(cw_tr_t));
+    alloc = mema_alloc_get(a_mema);
+    arg = mema_arg_get(a_mema);
+
+    retval = (cw_tr_t *) cw_opaque_alloc(alloc, arg, sizeof(cw_tr_t));
 
     retval->mema = a_mema;
     retval->aux = NULL;
@@ -1153,8 +1210,15 @@ tr_new(cw_mema_t *a_mema)
     retval->nedges = 0;
     retval->trt = NULL;
     retval->trtused = 0;
-    retval->trns = NULL;
-    retval->ntrns = 0;
+
+    /* Allocate trns with one node.  This is the spare node, which gets used in
+     * tr_p_mp_score(). */
+    retval->trns = (cw_trn_t *) cw_opaque_alloc(alloc, arg, sizeof(cw_trn_t));
+    retval->ntrns = 1;
+
+    /* Initialize spare node. */
+    tr_p_node_init(retval, 0);
+
     retval->spares = CW_TR_NODE_NONE;
     retval->tre = NULL;
 
@@ -1182,11 +1246,9 @@ tr_delete(cw_tr_t *a_tr)
 			  sizeof(cw_tre_t) * a_tr->nedges);
     }
 
-    if (a_tr->trns != NULL)
-    {
-	cw_opaque_dealloc(dealloc, arg, a_tr->trns,
-			  sizeof(cw_trn_t) * a_tr->ntrns);
-    }
+    /* This assumes that all nodes are deallocated before tr_delete() is
+     * called. */
+    cw_opaque_dealloc(dealloc, arg, a_tr->trns, sizeof(cw_trn_t) * a_tr->ntrns);
 
     if (a_tr->trt != NULL)
     {
@@ -1400,6 +1462,8 @@ void
 tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
 	      cw_uint32_t a_nchars)
 {
+    cw_uint32_t i;
+
     cw_dassert(tr_p_validate(a_tr, TRUE));
 
     tr_p_update(a_tr);
@@ -1407,7 +1471,11 @@ tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
     tr_p_mp_prepare_recurse(a_tr, a_tr->croot, CW_TR_NODE_NONE, a_taxa, a_ntaxa,
 			    a_nchars);
 
-    // XXX Initialize ps's for tre's.
+    /* Initialize ps's for tre's. */
+    for (i = 0; i < a_tr->nedges; i++)
+    {
+	tr_p_ps_prepare(a_tr, a_tr->tre[i].ps, a_nchars);
+    }
 }
 
 CW_P_INLINE cw_uint32_t
@@ -1416,9 +1484,9 @@ tr_p_mp_pscore(cw_tr_t *a_tr, cw_tr_node_t a_p, cw_tr_node_t a_a,
 {
     cw_tr_ps_t *ps_p, *ps_a, *ps_b;
 
-    ps_p = &a_tr->trns[a_p].ps;
-    ps_a = &a_tr->trns[a_a].ps;
-    ps_b = &a_tr->trns[a_b].ps;
+    ps_p = a_tr->trns[a_p].ps;
+    ps_a = a_tr->trns[a_a].ps;
+    ps_b = a_tr->trns[a_b].ps;
 
     /* Calculate sum of subtree scores. */
     ps_p->subtrees_score
@@ -1469,9 +1537,9 @@ tr_p_mp_nopscore(cw_tr_t *a_tr, cw_tr_node_t a_p, cw_tr_node_t a_a,
 {
     cw_tr_ps_t *ps_p, *ps_a, *ps_b;
 
-    ps_p = &a_tr->trns[a_p].ps;
-    ps_a = &a_tr->trns[a_a].ps;
-    ps_b = &a_tr->trns[a_b].ps;
+    ps_p = a_tr->trns[a_p].ps;
+    ps_a = a_tr->trns[a_a].ps;
+    ps_b = a_tr->trns[a_b].ps;
 
     /* Clear parent pointers if necessary, in order to avoid a situation where
      * more than two nodes end up claiming the same parent, due to a combination
@@ -1543,18 +1611,8 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
 	      cw_tr_node_t a_node_b, cw_uint32_t a_maxscore)
 {
     cw_uint32_t retval;
-    cw_tr_node_t node;
     cw_trn_t *trn;
     cw_bool_t maxed;
-
-    /* Allocate a node. */
-    node = tr_p_node_alloc(a_tr);
-    trn = &a_tr->trns[node];
-
-    /* Initialize the node enough so that it can be used by tr_p_mp_pscore(). */
-    // XXX This would be easier if ps were a pointer, rather than embedded.
-    trn->ps.chars = a_tr->tre[0].ps.chars;
-    trn->ps.nchars = a_tr->tre[0].ps.nchars;
 
     maxed = FALSE;
     tr_p_mp_score_recurse(a_tr, a_node_a, a_node_b, a_maxscore, &maxed);
@@ -1571,14 +1629,24 @@ tr_p_mp_score(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, cw_tr_node_t a_node_a,
 	goto RETURN;
     }
 
-    tr_p_mp_pscore(a_tr, node, a_node_a, a_node_b);
+    /* Initialize the temporary node enough so that it can be used by
+     * tr_p_mp_pscore(). */
+    a_tr->trns[0].ps = a_ps;
 
-    retval = trn->ps.subtrees_score + trn->ps.node_score;
+    /* Clear the parent pointers of a_node_[ab], to make sure that the score is
+     * actually calculated.  This is necessary since the "root" node is always
+     * the temporary node.  One artifact of this is that repeating precisely the
+     * same score calculation will always result in the final score being
+     * recalculated. */
+    a_tr->trns[a_node_a].ps->parent = CW_TR_NODE_NONE;
+    a_tr->trns[a_node_b].ps->parent = CW_TR_NODE_NONE;
 
+    /* Calculate the final score, using the temporary node. */
+    tr_p_mp_pscore(a_tr, 0, a_node_a, a_node_b);
+
+    /* Add up the final score. */
+    retval = trn->ps->subtrees_score + trn->ps->node_score;
     RETURN:
-    trn->ps.chars = NULL;
-    trn->ps.nchars = 0;
-    tr_p_node_dealloc(a_tr, node);
     return retval;
 }
 
@@ -1588,7 +1656,7 @@ tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore)
     cw_dassert(tr_p_validate(a_tr, TRUE));
     cw_assert(a_tr->modified == FALSE);
 
-    return tr_p_mp_score(a_tr, &a_tr->tre[0].ps,
+    return tr_p_mp_score(a_tr, a_tr->tre[0].ps,
 			 a_tr->trns[a_tr->croot].neighbors[0], a_tr->croot,
 			 a_maxscore);
 }
