@@ -120,6 +120,36 @@
 
 #include "../include/modcrux.h"
 
+/* Prototypes. */
+static cw_uint32_t
+tr_p_log2ceil(cw_uint32_t a_val);
+static cw_uint32_t
+tr_p_ntaxa2nbits(cw_uint32_t a_ntaxa);
+static cw_uint32_t
+tr_p_ntaxa(const cw_tr_t *a_tr);
+static cw_uint32_t
+tr_p_sizeof(const cw_tr_t *a_tr);
+#ifdef CW_DBG
+static cw_bool_t
+tr_p_validate(const cw_tr_t *a_tr);
+#endif
+
+#ifdef CW_DBG
+static cw_bool_t
+trn_p_validate(cw_trn_t *a_trn);
+static cw_uint32_t
+trn_p_tree_validate_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
+			    cw_uint32_t a_taxon_num);
+static cw_bool_t
+trn_p_tree_validate(cw_trn_t *a_trn);
+#endif
+static void
+trn_p_tree_delete(cw_trn_t *a_trn);
+static cw_uint32_t
+trn_p_tree_ntaxa_get(cw_trn_t *a_trn, cw_trn_t *a_prev);
+static cw_trn_t *
+trn_p_tree_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev);
+
 /* Get bit a_i in a_vec (cw_uint8_t *). */
 #define TR_BIT_GET(a_vec, a_i)						\
     (( ((a_vec)[(a_i) >> 3]) >> (7 - ((a_i) & 0x7)) ) & 0x1)
@@ -131,48 +161,6 @@
 	| (a_val) << ((7 - ((a_i) & 0x7)))
 
 /* tr. */
-
-/* Calculate bit vector byte count, using the bit representation of the encoded
- * tree. */
-static cw_uint32_t
-tr_p_sizeof(const cw_tr_t *a_tr)
-{
-    cw_uint32_t retval;
-    cw_uint32_t i, npairs, curdepth;
-
-    /* Determine how many pairs of parentheses there are in the bit vector. */
-    for (i = 0, npairs = curdepth = 1; curdepth > 0; i++)
-    {
-	if (TR_BIT_GET(a_tr, i))
-	{
-	    curdepth--;
-	}
-	else
-	{
-	    npairs++;
-	    curdepth++;
-	}
-    }
-
-    /* Calculate the total amount of space needed to hold the tree.  Using the
-     * first term of the formula at the top of the file (+1 for the implied
-     * leading `('), we know that:
-     *
-     *   npairs == 2(n-2)
-     *
-     *   npairs
-     *   ------ == n - 2
-     *      2
-     *
-     *        npairs
-     *   n == ------ + 2
-     *           2
-     *
-     * Solve for n, then use that to get the final result. */
-    retval = tr_ntaxa2sizeof(npairs / 2 + 2);
-
-    return retval;
-}
 
 /*           __         __
  *           |           |
@@ -211,6 +199,118 @@ tr_p_log2ceil(cw_uint32_t a_val)
     return retval;
 }
 
+/* Calculatet bit vector bit count, given the number of taxa in the tree. */
+static cw_uint32_t
+tr_p_ntaxa2nbits(cw_uint32_t a_ntaxa)
+{
+    cw_uint32_t retval;
+    cw_uint32_t i;
+
+    /* Use the numerator of the formula at the beginning of this file to
+     * calculate the number of bits required to store a tree with a_ntaxa. */
+
+    /* First term of numerator (parenthetical tree). */
+    retval = 2 * (a_ntaxa - 3) + 1;
+
+    /* Second term of numerator (summation, taxa permutation). */
+    for (i = 0; i < a_ntaxa - 2; i++)
+    {
+	retval += tr_p_log2ceil(a_ntaxa - i);
+    }
+
+    return retval;
+}
+
+/* Determine the number of taxa in a_tr. */
+static cw_uint32_t
+tr_p_ntaxa(const cw_tr_t *a_tr)
+{
+    cw_uint32_t retval;
+    cw_uint32_t i, npairs, curdepth;
+
+    /* Determine how many pairs of parentheses there are in the bit vector. */
+    for (i = 0, npairs = curdepth = 1; curdepth > 0; i++)
+    {
+	if (TR_BIT_GET(a_tr, i))
+	{
+	    curdepth--;
+	}
+	else
+	{
+	    npairs++;
+	    curdepth++;
+	}
+    }
+
+    /* Using the first term of the formula at the top of the file (+1 for the
+     * implied leading `('), we know that:
+     *
+     *   npairs == 2(n-2)
+     *
+     *   npairs
+     *   ------ == n - 2
+     *      2
+     *
+     *        npairs
+     *   n == ------ + 2
+     *           2
+     *
+     * Solve for n (retval). */
+    retval = npairs / 2 + 2;
+
+    return retval;
+}
+
+/* Calculate bit vector byte count, using the bit representation of the encoded
+ * tree. */
+static cw_uint32_t
+tr_p_sizeof(const cw_tr_t *a_tr)
+{
+    return tr_ntaxa2sizeof(tr_p_ntaxa(a_tr));
+}
+
+#ifdef CW_DBG
+static cw_bool_t
+tr_p_validate(const cw_tr_t *a_tr)
+{
+    cw_uint32_t ntaxa, nbytes, nbits;
+    cw_uint32_t i, j, bitind, npbits, pbits;
+
+    cw_check_ptr(a_tr);
+
+    ntaxa = tr_p_ntaxa(a_tr);
+    nbytes = tr_ntaxa2sizeof(ntaxa);
+    nbits = tr_p_ntaxa2nbits(ntaxa);
+
+    /* Assert that trailing bits are all 0. */
+    cw_assert((a_tr[nbytes - 1] & (0xff >> (nbits & 0x7))) == 0);
+
+    /* Assert that no invalid choices exist in the taxon permutation.  The taxa
+     * permutation is stored in a format that makes it impossible to encode the
+     * same taxon number twice.  However, there can still be invalid numbers in
+     * the encoding (for example 7 cannot be used for a 5 choose 1 choice). */
+    for (i = ntaxa, bitind = 2 * (ntaxa - 3) + 1;
+	 i > 0;
+	 i--)
+    {
+	for (j = 0, npbits = tr_p_log2ceil(i), pbits = 0;
+	     j < npbits;
+	     j++, bitind++)
+	{
+	    pbits <<= 1;
+	    pbits |= TR_BIT_GET(a_tr, bitind);
+
+	    cw_assert(pbits < i);
+	}
+    }
+
+    /* Assert that the parenthetical tree is strictly bifurcating. */
+    /* XXX */
+
+    return TRUE;
+}
+#endif
+
 cw_tr_t *
 tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 {
@@ -219,7 +319,8 @@ tr_new(cw_mema_t *a_mema, cw_trn_t *a_trn, cw_uint32_t a_ntaxa)
 
     cw_check_ptr(a_mema);
     cw_check_ptr(mema_alloc_get(a_mema));
-    /* XXX Assert that a_ntaxa matches number of taxa in a_trn. */
+    cw_dassert(trn_p_tree_validate(a_trn));
+    cw_assert(trn_tree_ntaxa_get(a_trn) == a_ntaxa);
 
     tr_sizeof = tr_ntaxa2sizeof(a_ntaxa);
     retval = cw_opaque_alloc(mema_alloc_get(a_mema),
@@ -236,6 +337,7 @@ tr_delete(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
 {
     cw_check_ptr(a_mema);
     cw_check_ptr(mema_dealloc_get(a_mema));
+    cw_dassert(tr_p_validate(a_tr));
     cw_assert(tr_p_sizeof(a_tr) == tr_ntaxa2sizeof(a_ntaxa));
 
     cw_opaque_dealloc(mema_dealloc_get(a_mema),
@@ -248,22 +350,17 @@ cw_uint32_t
 tr_ntaxa2sizeof(cw_uint32_t a_ntaxa)
 {
     cw_uint32_t retval;
-    cw_uint32_t i, ceil;
+    cw_uint32_t ceil;
 
     /* Use the formula at the beginning of this file to calculate the number of
      * bytes required to store a tree with a_ntaxa. */
 
-    /* First term of numerator (parenthetical tree). */
-    retval = 2 * (a_ntaxa - 3) + 1;
-
-    /* Second term of numerator (summation, taxa permutation). */
-    for (i = 0; i < a_ntaxa - 2; i++)
-    {
-	retval += tr_p_log2ceil(a_ntaxa - i);
-    }
+    retval = tr_p_ntaxa2nbits(a_ntaxa);
 
     /* Ceiling of denominator division. */
     ceil = !!(retval & 0x7);
+
+    /* Divide. */
     retval >>= 3;
     retval += ceil;
 
@@ -273,6 +370,10 @@ tr_ntaxa2sizeof(cw_uint32_t a_ntaxa)
 cw_trn_t *
 tr_trn(cw_tr_t *a_tr, cw_mema_t *a_mema, cw_uint32_t a_ntaxa)
 {
+    cw_dassert(tr_p_validate(a_tr));
+    cw_assert(tr_p_sizeof(a_tr) == tr_ntaxa2sizeof(a_ntaxa));
+
+    cw_error("XXX Not implemented");
     return NULL; /* XXX */
 }
 
@@ -286,6 +387,7 @@ tr_hash(const void *a_key)
     cw_check_ptr(a_key);
 
     tr = (const cw_tr_t *) a_key;;
+    cw_dassert(tr_p_validate(tr));
 
     len = tr_p_sizeof(tr);
     for (i = retval = 0; i < len; i++)
@@ -308,6 +410,8 @@ tr_key_comp(const void *a_k1, const void *a_k2)
 
     tr1 = (const cw_tr_t *) a_k1;
     tr2 = (const cw_tr_t *) a_k2;
+    cw_dassert(tr_p_validate(tr1));
+    cw_dassert(tr_p_validate(tr2));
 
     len1 = tr_p_sizeof(tr1);
     len2 = tr_p_sizeof(tr2);
@@ -324,6 +428,25 @@ tr_key_comp(const void *a_k1, const void *a_k2)
 }
 
 /* trn. */
+#ifdef CW_DBG
+/* Validate an individual trn. */
+static cw_bool_t
+trn_p_validate(cw_trn_t *a_trn)
+{
+    cw_check_ptr(a_trn);
+    cw_assert(a_trn->magic == CW_TRN_MAGIC);
+
+    /* A trn must either be a leaf node or an internal node.  This check allows
+     * an internal node to have less than 3 neighbors, since multiple calls are
+     * necessary to set up all the neighbor pointers.  Likewise, a leaf node is
+     * not required to have a neighbor. */
+    cw_assert(a_trn->taxon_num == CW_TRN_TAXON_NONE
+	      || (a_trn->neighbors[1] == NULL && a_trn->neighbors[2] == NULL));
+
+    return TRUE;
+}
+#endif
+
 cw_trn_t *
 trn_new(cw_trn_t *a_trn, cw_mema_t *a_mema)
 {
@@ -358,8 +481,7 @@ trn_new(cw_trn_t *a_trn, cw_mema_t *a_mema)
 void
 trn_delete(cw_trn_t *a_trn)
 {
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_trn));
 
     if (a_trn->mema != NULL)
     {
@@ -374,16 +496,10 @@ trn_delete(cw_trn_t *a_trn)
 #endif
 }
 
-void
-trn_delete_recurse(cw_trn_t *a_trn)
-{
-}
-
 cw_uint32_t
 trn_taxon_num_get(cw_trn_t *a_trn)
 {
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_trn));
 
     return a_trn->taxon_num;
 }
@@ -391,8 +507,7 @@ trn_taxon_num_get(cw_trn_t *a_trn)
 void
 trn_taxon_num_set(cw_trn_t *a_trn, cw_uint32_t a_taxon_num)
 {
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_trn));
 
     a_trn->taxon_num = a_taxon_num;
 }
@@ -400,8 +515,7 @@ trn_taxon_num_set(cw_trn_t *a_trn, cw_uint32_t a_taxon_num)
 cw_trn_t *
 trn_neighbor_get(cw_trn_t *a_trn, cw_uint32_t a_i)
 {
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_trn));
     cw_assert(a_i < CW_TRN_MAX_NEIGHBORS);
 
     return a_trn->neighbors[a_i];
@@ -412,8 +526,7 @@ trn_neighbors_swap(cw_trn_t *a_trn, cw_uint32_t a_i, cw_uint32_t a_j)
 {
     cw_trn_t *t_trn;
 
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_trn));
     cw_assert(a_i < CW_TRN_MAX_NEIGHBORS);
     cw_assert(a_j < CW_TRN_MAX_NEIGHBORS);
     cw_assert(a_i != a_j);
@@ -428,10 +541,8 @@ trn_join(cw_trn_t *a_a, cw_trn_t *a_b)
 {
     cw_uint32_t i, j;
 
-    cw_check_ptr(a_a);
-    cw_dassert(a_a->magic == CW_TRN_MAGIC);
-    cw_check_ptr(a_b);
-    cw_dassert(a_b->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_a));
+    cw_dassert(trn_p_validate(a_b));
     cw_assert(a_a != a_b);
 #ifdef CW_DBG
     for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
@@ -471,10 +582,8 @@ trn_detach(cw_trn_t *a_a, cw_trn_t *a_b)
 {
     cw_uint32_t i, j;
 
-    cw_check_ptr(a_a);
-    cw_dassert(a_a->magic == CW_TRN_MAGIC);
-    cw_check_ptr(a_b);
-    cw_dassert(a_b->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_a));
+    cw_dassert(trn_p_validate(a_b));
 
     /* Find the slot in a_a that points to a_b. */
     for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
@@ -504,8 +613,7 @@ trn_detach(cw_trn_t *a_a, cw_trn_t *a_b)
 void *
 trn_aux_get(cw_trn_t *a_trn)
 {
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_trn));
 
     return a_trn->aux;
 }
@@ -513,10 +621,118 @@ trn_aux_get(cw_trn_t *a_trn)
 void
 trn_aux_set(cw_trn_t *a_trn, void *a_aux)
 {
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_trn));
 
     a_trn->aux = a_aux;
+}
+
+/* trn_tree. */
+#ifdef CW_DBG
+/* Return the number of taxa with number a_taxon_num in the subtree rooted at
+ * a_trn. */
+static cw_uint32_t
+trn_p_tree_validate_recurse(cw_trn_t *a_trn, cw_trn_t *a_prev,
+			    cw_uint32_t a_taxon_num)
+{
+    cw_uint32_t retval;
+    cw_uint32_t i;
+
+    if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
+    {
+	/* Leaf node. */
+	cw_assert(a_trn->neighbors[0] != NULL);
+	for (i = 1; i < CW_TRN_MAX_NEIGHBORS; i++)
+	{
+	    cw_assert(a_trn->neighbors[i] == NULL);
+	}
+
+	if (a_trn->taxon_num == a_taxon_num)
+	{
+	    retval = 1;
+	}
+	else
+	{
+	    retval = 0;
+	}
+    }
+    else
+    {
+	/* Internal node. */
+	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+	{
+	    cw_assert(a_trn->neighbors[i] != NULL);
+	}
+
+	retval = 0;
+    }
+
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
+	{
+	    retval += trn_p_tree_validate_recurse(a_trn->neighbors[i],
+						      a_trn, a_taxon_num);
+	}
+    }
+
+    return retval;
+}
+
+/* Validate a tree constructed with trn's. */
+static cw_bool_t
+trn_p_tree_validate(cw_trn_t *a_trn)
+{
+    cw_trn_t *root;
+    cw_uint32_t i, ntaxa;
+
+    trn_p_validate(a_trn);
+
+    /* Find the root (taxon 0), which must exist for this to be a valid tree. */
+    root = trn_p_tree_root_get(a_trn, NULL);
+    cw_check_ptr(root);
+
+    /* Traverse the tree, and make sure that the following invariants hold:
+     *
+     * + Leaf nodes have a taxon number and precisely 1 neighbor.
+     *
+     * + Internal nodes have no taxon number and precisely 3 neighbors.
+     *
+     * + Each taxon number appears precisely once in the tree.
+     */
+    for (i = 0, ntaxa = trn_p_tree_ntaxa_get(root, NULL); i < ntaxa; i++)
+    {
+	cw_assert(trn_p_tree_validate_recurse(root, NULL, i) == 1);
+    }
+
+    return TRUE;
+}
+#endif
+
+static void
+trn_p_tree_delete(cw_trn_t *a_trn)
+{
+    cw_uint32_t i;
+    cw_trn_t *trn;
+
+    for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_trn->neighbors[i] != NULL)
+	{
+	    trn = a_trn->neighbors[i];
+	    trn_detach(a_trn, trn);
+	    trn_p_tree_delete(trn);
+	}
+    }
+
+    trn_delete(a_trn);
+}
+
+void
+trn_tree_delete(cw_trn_t *a_trn)
+{
+    cw_dassert(trn_p_validate(a_trn));
+
+    trn_p_tree_delete(a_trn);
 }
 
 /* Recursively traverse the tree and count the number of taxa. */
@@ -526,8 +742,7 @@ trn_p_tree_ntaxa_get(cw_trn_t *a_trn, cw_trn_t *a_prev)
     cw_uint32_t retval;
     cw_uint32_t i;
 
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_validate(a_trn));
 
     if (a_trn->taxon_num != CW_TRN_TAXON_NONE)
     {
@@ -552,8 +767,7 @@ trn_p_tree_ntaxa_get(cw_trn_t *a_trn, cw_trn_t *a_prev)
 cw_uint32_t
 trn_tree_ntaxa_get(cw_trn_t *a_trn)
 {
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_tree_validate(a_trn));
 
     return trn_p_tree_ntaxa_get(a_trn, NULL);
 }
@@ -563,9 +777,6 @@ static cw_trn_t *
 trn_p_tree_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev)
 {
     cw_trn_t *retval = NULL;
-
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
 
     if (a_trn->taxon_num == 0)
     {
@@ -594,8 +805,7 @@ trn_p_tree_root_get(cw_trn_t *a_trn, cw_trn_t *a_prev)
 cw_trn_t *
 trn_tree_root_get(cw_trn_t *a_trn)
 {
-    cw_check_ptr(a_trn);
-    cw_dassert(a_trn->magic == CW_TRN_MAGIC);
+    cw_dassert(trn_p_tree_validate(a_trn));
 
     return trn_p_tree_root_get(a_trn, NULL);
 }
