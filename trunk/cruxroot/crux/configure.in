@@ -108,7 +108,7 @@ dnl
 dnl Dependency configuration.
 dnl 
 dnl Get path to python.
-AC_ARG_WITH([python], [  --with-python      python program],
+AC_ARG_WITH([python], [  --with-python           python program],
 if test "x$with_python" = "xno" ; then
   PYTHON=
 else
