@@ -99,11 +99,9 @@ tr_mp_prepare(cw_tr_t *a_tr, cw_uint8_t *a_taxa[], cw_uint32_t a_ntaxa,
 void
 tr_mp_finish(cw_tr_t *a_tr);
 
-/* Calculate the Fitch parsimony score for this tree.  If a_maxscore is not
- * CW_MAXSCORE_NONE, terminate scoring if a_maxscore is reached/exceeded and
- * return CW_TR_MAXSCORE_NONE. */
+/* Calculate the Fitch parsimony score for this tree. */
 cw_uint32_t
-tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore);
+tr_mp_score(cw_tr_t *a_tr);
 
 /* Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
  * a_max_hold of the best neighbors (or all best neighbors, if a_max_hold is
