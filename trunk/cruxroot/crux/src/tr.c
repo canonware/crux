@@ -117,11 +117,6 @@ struct cw_tre_s
 	cw_tr_edge_t link;
     } u;
 
-    /* Index into tr->trrs of the first edge ring element associated with this
-     * edge.  The second edge ring element is directly after the first in
-     * tr->trrs. */
-    cw_tr_ring_t rings;
-
     /* Edge length. */
     double length;
 
@@ -213,9 +208,6 @@ struct cw_tr_s
 
     /* Pointer to an array of trn's.  ntrns is the total number of trn's, not
      * all of which are necessarily in use.
-     *
-     * The first element in trns is reserved as a temporary, which is used
-     * whenever a single temporary trn is briefly needed.
      *
      * sparetrns is the index of the first spare trn in the spares stack. */
     cw_trn_t *trns;
@@ -600,7 +592,7 @@ tr_edge_next_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_end,
     cw_assert(a_end == 0 || a_end == 1);
 
     ringind = qri_next(a_tr->trrs, (a_edge << 1) + a_end, link);
-    *r_next = a_tr->trrs[ringind].node;
+    *r_next = (ringind >> 1);
     *r_end = (ringind & 1);
 }
 
@@ -614,7 +606,7 @@ tr_edge_prev_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_end,
     cw_assert(a_end == 0 || a_end == 1);
 
     ringind = qri_prev(a_tr->trrs, (a_edge << 1) + a_end, link);
-    *r_prev = a_tr->trrs[ringind].node;
+    *r_prev = (ringind >> 1);
     *r_end = (ringind & 1);
 }
 
@@ -684,8 +676,6 @@ tr_edge_attach(cw_tr_t *a_tr, cw_tr_edge_t a_edge, cw_tr_node_t a_node_a,
     cw_dassert(tr_p_edge_validate(a_tr, a_edge));
     cw_dassert(tr_p_node_validate(a_tr, a_node_a));
     cw_dassert(tr_p_node_validate(a_tr, a_node_b));
-    fprintf(stderr, "%s:%d:%s(): %u\n", __FILE__, __LINE__, __func__,
-	    tr_node_distance(a_tr, a_node_a, a_node_b));
     cw_assert(tr_node_distance(a_tr, a_node_a, a_node_b) == 1);
 }
 
@@ -836,12 +826,10 @@ tr_p_node_distance(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_node_t a_other,
 {
     uint32_t retval;
     cw_tr_ring_t ring;
-	fprintf(stderr, "%s:%d:%s(): %u\n", __FILE__, __LINE__, __func__, a_ring);
 
     if (tr_p_ring_node_get(a_tr, a_ring) == a_other)
     {
 	retval = a_distance;
-	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	goto RETURN;
     }
 
@@ -850,15 +838,12 @@ tr_p_node_distance(cw_tr_t *a_tr, cw_tr_ring_t a_ring, cw_tr_node_t a_other,
 	if ((retval = tr_p_node_distance(a_tr, tr_p_ring_other_get(a_tr, ring),
 					 a_other, a_distance + 1)) != 0)
 	{
-	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	    goto RETURN;
 	}
     }
 
     retval = 0;
-	fprintf(stderr, "%s:%d:%s()\n", __FILE__, __LINE__, __func__);
     RETURN:
-	fprintf(stderr, "%s:%d:%s(): %u\n", __FILE__, __LINE__, __func__, a_ring);
     return retval;
 }
 
@@ -2786,9 +2771,6 @@ tr_delete(cw_tr_t *a_tr)
 			  sizeof(cw_trh_t) * a_tr->heldlen);
     }
 
-    /* Clean up the temporary node. */
-    tr_p_node_dealloc(a_tr, 0);
-
     /* This assumes that all nodes are deallocated before tr_delete() is
      * called. */
     if (a_tr->trns != NULL)
@@ -3106,9 +3088,6 @@ tr_mp_finish(cw_tr_t *a_tr)
 	    tr_p_mp_finish_recurse(a_tr, tr_p_ring_other_get(a_tr, ring));
 	}
     }
-
-    /* Clean up the temporary node. */
-    tr_p_mp_trn_finish(a_tr, trn);
 }
 
 uint32_t
