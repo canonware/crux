@@ -504,6 +504,7 @@ trn_p_canonize(cw_trn_t *a_trn, cw_trn_t *a_prev)
     {
 	if (a_trn->neighbors[i] != NULL && a_trn->neighbors[i] != a_prev)
 	{
+	    /* A neighboring subtree that hasn't been visited yet. */
 	    cw_assert(j < (CW_TRN_MAX_NEIGHBORS - 1));
 	    subtree_mins[j] = trn_p_canonize(a_trn->neighbors[i], a_trn);
 	    if (subtree_mins[j] < retval)
@@ -1428,10 +1429,10 @@ tr_p_string_validate(const cw_uint8_t *a_string)
 #endif
 
 static void
-tr_p_string_new_recurse(cw_uint8_t *a_string, cw_uint32_t *a_bitind_paren,
-			cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn,
-			cw_trn_t *a_prev, cw_uint32_t *a_unchosen,
-			cw_uint32_t *a_nunchosen)
+tr_p_string_recurse(cw_uint8_t *a_string, cw_uint32_t *a_bitind_paren,
+		    cw_uint32_t *a_bitind_perm, cw_trn_t *a_trn,
+		    cw_trn_t *a_prev, cw_uint32_t *a_unchosen,
+		    cw_uint32_t *a_nunchosen)
 {
     cw_uint32_t i;
 
@@ -1467,6 +1468,7 @@ tr_p_string_new_recurse(cw_uint8_t *a_string, cw_uint32_t *a_bitind_paren,
 		(*a_nunchosen)--;
 
 		/* Store this choice. */
+//		fprintf(stderr, "%u ", a_trn->taxon_num);
 		for (i = 0; i < nbits; i++)
 		{
 		    TR_STRING_BIT_SET(a_string, *a_bitind_perm,
@@ -1500,9 +1502,9 @@ tr_p_string_new_recurse(cw_uint8_t *a_string, cw_uint32_t *a_bitind_paren,
 		}
 
 		/* Recurse. */
-		tr_p_string_new_recurse(a_string, a_bitind_paren, a_bitind_perm,
-					a_trn->neighbors[i], a_trn,
-					a_unchosen, a_nunchosen);
+		tr_p_string_recurse(a_string, a_bitind_paren, a_bitind_perm,
+				    a_trn->neighbors[i], a_trn,
+				    a_unchosen, a_nunchosen);
 	    }
 	}
 
@@ -1746,15 +1748,6 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
     cw_dassert(tr_p_validate(a_tr, TRUE));
     cw_assert(a_tr->rooted == FALSE);
 
-    /* Perform TBR. */
-    tr_p_tbr(a_tr, a_bisect, a_reconnect_a, a_reconnect_b, r_bisect,
-	     r_reconnect_a, r_reconnect_b);
-
-    /* Record undo information. */
-    a_tr->tbr_undoable = TRUE;
-    a_tr->tbr_undo_bisect = *r_bisect;
-    a_tr->tbr_undo_reconnect_a = *r_reconnect_a;
-    a_tr->tbr_undo_reconnect_b = *r_reconnect_b;
 #ifdef CW_DBG
     if (a_tr->tbr_undo_canonical == NULL)
     {
@@ -1766,6 +1759,15 @@ tr_tbr(cw_tr_t *a_tr, cw_uint32_t a_bisect, cw_uint32_t a_reconnect_a,
     tr_string(a_tr, a_tr->tbr_undo_canonical,
 	      tr_string_ntaxa2sizeof(a_tr->ntaxa));
 #endif
+    /* Perform TBR. */
+    tr_p_tbr(a_tr, a_bisect, a_reconnect_a, a_reconnect_b, r_bisect,
+	     r_reconnect_a, r_reconnect_b);
+
+    /* Record undo information. */
+    a_tr->tbr_undoable = TRUE;
+    a_tr->tbr_undo_bisect = *r_bisect;
+    a_tr->tbr_undo_reconnect_a = *r_reconnect_a;
+    a_tr->tbr_undo_reconnect_b = *r_reconnect_b;
 }
 
 void
@@ -2011,10 +2013,7 @@ tr_string(cw_tr_t *a_tr, cw_uint8_t *ar_string, cw_uint32_t a_len)
     /* Set the last byte to 0 to assure that there is no trailing garbage. */
     ar_string[a_len - 1] = 0;
 
-    /* Canonize the tree. */
-    trn_p_canonize(a_tr->croot, NULL);
-
-    /* The tree can now be converted to parenthetical form and taxa permutation
+    /* The tree can be converted to parenthetical form and taxa permutation
      * using an in-order traversal. */
     bitind_paren = 0;
     bitind_perm = 2 * (a_tr->ntaxa - 3) + 1;
@@ -2028,19 +2027,25 @@ tr_string(cw_tr_t *a_tr, cw_uint8_t *ar_string, cw_uint32_t a_len)
      *
      * Use generic allocation here rather than nxa, since this is transient
      * allocation that lasts only for the duration of this function. */
-    unchosen = (cw_uint32_t *) cw_malloc((a_tr->ntaxa - 2)
-					 * sizeof(cw_uint32_t));
-    for (i = 0; i < (a_tr->ntaxa - 2); i++)
+    nunchosen = a_tr->ntaxa - 2;
+    unchosen = (cw_uint32_t *) cw_malloc(nunchosen * sizeof(cw_uint32_t));
+    for (i = 0; i < nunchosen; i++)
     {
 	unchosen[i] = i + 2;
     }
-    nunchosen = a_tr->ntaxa - 2;
 
-    /* Recurse if the tree has an internal node.  Taxon 0 must be avoided
-     * during the traversal, since it is implicit in the canonical tree
-     * encoding.  Additionally, the first internal node must be handled here
-     * rather than simply recursing to it, since the first '(' is implied. */
-    node = a_tr->croot->neighbors[0];
+    /* Recurse if the tree has an internal node.  Taxon 0 must be avoided during
+     * the traversal, since it is implicit in the canonical tree encoding.
+     * Additionally, the first internal node must be handled here rather than
+     * simply recursing to it, since the first '(' is implied. */
+    for (i = 0, node = NULL; i < CW_TRN_MAX_NEIGHBORS; i++)
+    {
+	if (a_tr->croot->neighbors[i] != NULL)
+	{
+	    node = a_tr->croot->neighbors[i];
+	    break;
+	}
+    }
     if (node != NULL && node->taxon_num == CW_TRN_TAXON_NONE)
     {
 	for (i = 0; i < CW_TRN_MAX_NEIGHBORS; i++)
@@ -2049,9 +2054,9 @@ tr_string(cw_tr_t *a_tr, cw_uint8_t *ar_string, cw_uint32_t a_len)
 		&& node->neighbors[i] != a_tr->croot)
 	    {
 		/* Recurse. */
-		tr_p_string_new_recurse(ar_string, &bitind_paren, &bitind_perm,
-					node->neighbors[i], node,
-					unchosen, &nunchosen);
+		tr_p_string_recurse(ar_string, &bitind_paren, &bitind_perm,
+				    node->neighbors[i], node,
+				    unchosen, &nunchosen);
 	    }
 	}
     }
