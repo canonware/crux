@@ -177,7 +177,7 @@ CxpTreeDelete(CxtTreeObject *self)
 	{
 	    if (self->treeAux[i].cleanupTree != NULL)
 	    {
-		self->treeAux[i].cleanupTree(self, self->aux[i]);
+		self->treeAux[i].cleanupTree(self, self->aux[i], i);
 	    }
 	}
 
@@ -189,7 +189,7 @@ CxpTreeDelete(CxtTreeObject *self)
     {
 	if (self->ringAux[i].cleanupFinal != NULL)
 	{
-	    self->ringAux[i].cleanupFinal(self, self->ringAux[i].data);
+	    self->ringAux[i].cleanupFinal(self, self->ringAux[i].data, i);
 	}
     }
     if (self->ringAux != NULL)
@@ -201,7 +201,7 @@ CxpTreeDelete(CxtTreeObject *self)
     {
 	if (self->edgeAux[i].cleanupFinal != NULL)
 	{
-	    self->edgeAux[i].cleanupFinal(self, self->edgeAux[i].data);
+	    self->edgeAux[i].cleanupFinal(self, self->edgeAux[i].data, i);
 	}
     }
     if (self->edgeAux != NULL)
@@ -213,7 +213,7 @@ CxpTreeDelete(CxtTreeObject *self)
     {
 	if (self->nodeAux[i].cleanupFinal != NULL)
 	{
-	    self->nodeAux[i].cleanupFinal(self, self->nodeAux[i].data);
+	    self->nodeAux[i].cleanupFinal(self, self->nodeAux[i].data, i);
 	}
     }
     if (self->nodeAux != NULL)
@@ -225,7 +225,7 @@ CxpTreeDelete(CxtTreeObject *self)
     {
 	if (self->treeAux[i].cleanupFinal != NULL)
 	{
-	    self->treeAux[i].cleanupFinal(self, self->treeAux[i].data);
+	    self->treeAux[i].cleanupFinal(self, self->treeAux[i].data, i);
 	}
     }
     if (self->treeAux != NULL)
@@ -668,6 +668,7 @@ CxTreeAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd)
 
 bool
 CxTreeNodeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtNodeAuxInit *aInitNode,
 		      CxtTreeAuxCleanup *aCleanupFinal,
 		      CxtNodeAuxCleanup *aCleanupNode, unsigned *rInd)
 {
@@ -713,6 +714,7 @@ CxTreeNodeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 
     self->nodeAux[self->nNodeAux].key = aKey;
     self->nodeAux[self->nNodeAux].data = aData;
+    self->nodeAux[self->nNodeAux].initNode = aInitNode;
     self->nodeAux[self->nNodeAux].cleanupFinal = aCleanupFinal;
     self->nodeAux[self->nNodeAux].cleanupNode = aCleanupNode;
 
@@ -747,6 +749,7 @@ CxTreeNodeAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd)
 
 bool
 CxTreeEdgeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtEdgeAuxInit *aInitEdge,
 		      CxtTreeAuxCleanup *aCleanupFinal,
 		      CxtEdgeAuxCleanup *aCleanupEdge, unsigned *rInd)
 {
@@ -792,6 +795,7 @@ CxTreeEdgeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 
     self->edgeAux[self->nEdgeAux].key = aKey;
     self->edgeAux[self->nEdgeAux].data = aData;
+    self->edgeAux[self->nEdgeAux].initEdge = aInitEdge;
     self->edgeAux[self->nEdgeAux].cleanupFinal = aCleanupFinal;
     self->edgeAux[self->nEdgeAux].cleanupEdge = aCleanupEdge;
 
@@ -826,6 +830,7 @@ CxTreeEdgeAuxSearch(CxtTreeObject *self, const char *aKey, unsigned *rInd)
 
 bool
 CxTreeRingAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtRingAuxInit *aInitRing,
 		      CxtTreeAuxCleanup *aCleanupFinal,
 		      CxtRingAuxCleanup *aCleanupRing, unsigned *rInd)
 {
@@ -871,6 +876,7 @@ CxTreeRingAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
 
     self->ringAux[self->nRingAux].key = aKey;
     self->ringAux[self->nRingAux].data = aData;
+    self->ringAux[self->nRingAux].initRing = aInitRing;
     self->ringAux[self->nRingAux].cleanupFinal = aCleanupFinal;
     self->ringAux[self->nRingAux].cleanupRing = aCleanupRing;
 
@@ -1182,6 +1188,7 @@ CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	;
     CxtNodeObject *self;
     CxtTreeObject *tree;
+    unsigned i;
 
     if (PyArg_ParseTuple(args, "O!", &CxtTree, &tree) == 0)
     {
@@ -1205,6 +1212,18 @@ CxpNodeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	CxTrNodeAuxSet(tree->tr, self->node, self);
 	self->aux = NULL;
 	self->nAux = 0;
+
+	for (i = 0; i < tree->nNodeAux; i++)
+	{
+	    if (tree->nodeAux[i].initNode != NULL)
+	    {
+		if (tree->nodeAux[i].initNode(self, i))
+		{
+		    rVal = PyErr_NoMemory();
+		    goto RETURN; // XXX Jumps out of XepTry block.
+		}
+	    }
+	}
 
 	self->GcCleared = false;
 	rVal = (PyObject *) self;
@@ -1353,7 +1372,7 @@ CxpNodeDelete(CxtNodeObject *self)
 	{
 	    if (self->tree->nodeAux[i].cleanupNode != NULL)
 	    {
-		self->tree->nodeAux[i].cleanupNode(self, self->aux[i]);
+		self->tree->nodeAux[i].cleanupNode(self, self->aux[i], i);
 	    }
 	}
 
@@ -1704,6 +1723,7 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	;
     CxtEdgeObject *self;
     CxtTreeObject *tree;
+    unsigned i;
     volatile uint32_t tryStage = 0;
 
     if (PyArg_ParseTuple(args, "O!", &CxtTree, &tree) == 0)
@@ -1732,6 +1752,19 @@ CxpEdgeNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	CxTrEdgeAuxSet(tree->tr, self->edge, self);
 	self->aux = NULL;
 	self->nAux = 0;
+
+	for (i = 0; i < tree->nEdgeAux; i++)
+	{
+	    if (tree->edgeAux[i].initEdge != NULL)
+	    {
+		if (tree->edgeAux[i].initEdge(self, i))
+		{
+		    rVal = PyErr_NoMemory();
+		    goto RETURN; // XXX Jumps out of XepTry block.
+		}
+	    }
+	}
+
 	tryStage = 1;
 
 	// Create associated ring objects.
@@ -1883,7 +1916,7 @@ CxpEdgeDelete(CxtEdgeObject *self)
 	{
 	    if (self->tree->edgeAux[i].cleanupEdge != NULL)
 	    {
-		self->tree->edgeAux[i].cleanupEdge(self, self->aux[i]);
+		self->tree->edgeAux[i].cleanupEdge(self, self->aux[i], i);
 	    }
 	}
 
@@ -2322,6 +2355,7 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     CxtRingObject *self;
     CxtEdgeObject *edge;
     uint32_t end;
+    unsigned i;
 
     if (PyArg_ParseTuple(args, "O!i", &CxtEdge, &edge, &end) == 0)
     {
@@ -2370,6 +2404,18 @@ CxpRingNew(PyTypeObject *type, PyObject *args, PyObject *kwds)
     CxTrRingAuxSet(self->tree->tr, self->ring, self);
     self->aux = NULL;
     self->nAux = 0;
+
+    for (i = 0; i < self->tree->nRingAux; i++)
+    {
+	if (self->tree->ringAux[i].initRing != NULL)
+	{
+	    if (self->tree->ringAux[i].initRing(self, i))
+	    {
+		rVal = PyErr_NoMemory();
+		goto RETURN; // XXX Jumps out of XepTry block.
+	    }
+	}
+    }
 
     self->GcDetached = false;
     self->GcCleared = false;
@@ -2511,7 +2557,7 @@ CxpRingDelete(CxtRingObject *self)
 	{
 	    if (self->tree->ringAux[i].cleanupRing != NULL)
 	    {
-		self->tree->ringAux[i].cleanupRing(self, self->aux[i]);
+		self->tree->ringAux[i].cleanupRing(self, self->aux[i], i);
 	    }
 	}
 

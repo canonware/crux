@@ -24,14 +24,25 @@ extern PyTypeObject CxtNode;
 extern PyTypeObject CxtEdge;
 extern PyTypeObject CxtRing;
 
+// The (void *) argument to these types of functions is the "data" pointer
+// associated with each aux registration.
+//
+// The (unsigned) argument is the aux index 
+typedef bool
+CxtNodeAuxInit(CxtNodeObject *, unsigned);
+typedef bool
+CxtEdgeAuxInit(CxtEdgeObject *, unsigned);
+typedef bool
+CxtRingAuxInit(CxtRingObject *, unsigned);
+
 typedef void
-CxtTreeAuxCleanup(CxtTreeObject *, void *);
+CxtTreeAuxCleanup(CxtTreeObject *, void *, unsigned);
 typedef void
-CxtNodeAuxCleanup(CxtNodeObject *, void *);
+CxtNodeAuxCleanup(CxtNodeObject *, void *, unsigned);
 typedef void
-CxtEdgeAuxCleanup(CxtEdgeObject *, void *);
+CxtEdgeAuxCleanup(CxtEdgeObject *, void *, unsigned);
 typedef void
-CxtRingAuxCleanup(CxtRingObject *, void *);
+CxtRingAuxCleanup(CxtRingObject *, void *, unsigned);
 
 struct CxsTreeAux
 {
@@ -56,6 +67,9 @@ struct CxsNodeAux
     // Opaque data associated with this registration.
     void *data;
 
+    // Called during node construction.
+    CxtNodeAuxInit *initNode;
+
     // Called during tree destruction.
     CxtTreeAuxCleanup *cleanupFinal;
 
@@ -71,6 +85,9 @@ struct CxsEdgeAux
     // Opaque data associated with this registration.
     void *data;
 
+    // Called during node construction.
+    CxtEdgeAuxInit *initEdge;
+
     // Called during tree destruction.
     CxtTreeAuxCleanup *cleanupFinal;
 
@@ -85,6 +102,9 @@ struct CxsRingAux
 
     // Opaque data associated with this registration.
     void *data;
+
+    // Called during node construction.
+    CxtRingAuxInit *initRing;
 
     // Called during tree destruction.
     CxtTreeAuxCleanup *cleanupFinal;
@@ -258,6 +278,7 @@ CxTreeAuxData(CxtTreeObject *self, unsigned aInd)
 
 bool
 CxTreeNodeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtNodeAuxInit *aInitNode,
 		      CxtTreeAuxCleanup *aCleanupFinal,
 		      CxtNodeAuxCleanup *aCleanupNode, unsigned *rInd);
 bool
@@ -279,6 +300,7 @@ CxNodeAuxData(CxtTreeObject *self, unsigned aInd)
 
 bool
 CxTreeEdgeAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtEdgeAuxInit *aInitEdge,
 		      CxtTreeAuxCleanup *aCleanupFinal,
 		      CxtEdgeAuxCleanup *aCleanupEdge, unsigned *rInd);
 bool
@@ -300,6 +322,7 @@ CxEdgeAuxData(CxtTreeObject *self, unsigned aInd)
 
 bool
 CxTreeRingAuxRegister(CxtTreeObject *self, const char *aKey, void *aData,
+		      CxtRingAuxInit *aInitRing,
 		      CxtTreeAuxCleanup *aCleanupFinal,
 		      CxtRingAuxCleanup *aCleanupRing, unsigned *rInd);
 bool
