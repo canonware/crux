@@ -14,3 +14,5 @@ from _crux import *
 from tree import *
 from node import *
 from edge import *
+
+import dist_matrix
