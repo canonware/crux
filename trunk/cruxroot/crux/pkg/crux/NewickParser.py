@@ -121,8 +121,8 @@ class SyntaxError(Exception, SyntaxError):
 
     def __str__(self):
         if self._offset != None:
-            retval = "At offset %d (char '%s') (token \"%s\"): %s" \
-                     % (self._offset, self._char, self._token, self._message)
+            retval = "At offset %d (token %r, char %r): %s" \
+                     % (self._offset, self._token, self._char, self._message)
         else:
             retval = self._message
 
@@ -235,7 +235,7 @@ class NewickParser(object):
                 self._c = self._src[self._srcOffset]
             else:
                 # File input.
-                self._c = read(self._src, 1)
+                self._c = self._src.read(1)
                 if self._c == "":
                     raise crux.NewickParser.SyntaxError("End of input reached",
                                                         self._srcOffset,

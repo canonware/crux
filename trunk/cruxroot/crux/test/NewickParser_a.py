@@ -12,6 +12,9 @@
 import sys
 
 class testclass(crux.NewickParser.NewickParser):
+    def __init__(self):
+        pass
+
     def vprint(self, str):
         print "--%s--: %r" % (str, self.token())
         sys.stdout.flush()
@@ -152,8 +155,6 @@ for str in teststrs:
     try:
         test.parse(str)
     except crux.NewickParser.Exception, x:
-        import sys
-
         print "Exception %s: %s" % (sys.exc_type, x.__str__())
 
 print "Test end"
