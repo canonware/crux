@@ -13,6 +13,31 @@
 
 #include <math.h>
 
+#if (0) // XXX Remove this code.
+#undef Py_INCREF
+#define Py_INCREF(op)							\
+	fprintf(stderr, "%s:%d:%s(): INCREF(%p) --> %d\n",		\
+		__FILE__, __LINE__, __func__, op,			\
+		((op)->ob_refcnt) + 1);					\
+	(_Py_INC_REFTOTAL  _Py_REF_DEBUG_COMMA				\
+	(op)->ob_refcnt++)
+
+#undef Py_DECREF
+#define Py_DECREF(op)							\
+	fprintf(stderr, "%s:%d:%s(): DECREF(%p) --> %d\n",		\
+		__FILE__, __LINE__, __func__, op,			\
+		((op)->ob_refcnt) - 1);					\
+	if (_Py_DEC_REFTOTAL  _Py_REF_DEBUG_COMMA			\
+	   --(op)->ob_refcnt != 0)					\
+		_Py_CHECK_REFCNT(op)					\
+	else								\
+		_Py_Dealloc((PyObject *)(op))
+//     fprintf(stderr, "%s:%d:%s() Enter: %p (%d)\n",
+// 	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
+//     fprintf(stderr, "%s:%d:%s() Leave: %p (%d)\n",
+// 	    __FILE__, __LINE__, __func__, self, self->ob_refcnt);
+#endif
+
 static PyTypeObject CxtTree;
 static PyTypeObject CxtNode;
 static PyTypeObject CxtEdge;
@@ -528,7 +553,7 @@ static int
 CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
 {
     int retval;
-    CxtTrRing trRing;
+    CxtTrRing trRing, trCurRing;
     CxtRingObject *ring;
 
     if (self->valid)
@@ -539,15 +564,24 @@ CxpNodeTraverse(CxtNodeObject *self, visitproc visit, void *arg)
 	    goto RETURN;
 	}
 
+	/* Report all rings.  It is not good enough to simply report one, since
+	 * Python's mark/sweep GC apparently keeps track of how many times each
+	 * object is visited. */
 	trRing = CxTrNodeRingGet(self->tree->tr, self->node);
 	if (trRing != CxmTrRingNone)
 	{
-	    ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trRing);
-	    if (visit((PyObject *) ring, arg) < 0)
+	    trCurRing = trRing;
+	    do
 	    {
-		retval = -1;
-		goto RETURN;
-	    }
+		ring = (CxtRingObject *) CxTrRingAuxGet(self->tree->tr, trCurRing);
+		if (visit((PyObject *) ring, arg) < 0)
+		{
+		    retval = -1;
+		    goto RETURN;
+		}
+
+		trCurRing = CxTrRingNextGet(self->tree->tr, trCurRing);
+	    } while (trCurRing != trRing);
 	}
     }
 
