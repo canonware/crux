@@ -2503,7 +2503,8 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 		{
 		    bestscore = score;
 		    fprintf(stderr,
-			    "Score (bisect %u, reconnect %u %u): %u (prev count %u)\n",
+			    "Score (bisect %u, reconnect %u %u): %u"
+			    " (prev count %u)\n",
 			    i, edge_a, edge_b, score, count);
 		    count = 1;
 		}
@@ -2511,6 +2512,7 @@ tr_p_tbr_neighbors_mp(cw_tr_t *a_tr, cw_uint32_t a_max_hold,
 		{
 		    count++;
 		}
+		// XXX
 	    }
 	}
     }
