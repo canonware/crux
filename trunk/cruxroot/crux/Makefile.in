@@ -32,6 +32,24 @@ all:
 install:
 	@PYTHON@ setup.py install
 
+check:
+	@sh -c 'total=0; \
+		failures=0; \
+		for t in @crux_tests@; do \
+			total=`expr $$total + 1`; \
+			echo -n "$$t ... "; \
+			2>&1 @objroot@/crux --batch --quiet --infile=$$t \\\
+			  | diff -u $${t}.exp -; \
+			fail=$$?; \
+			if test "$$fail" -eq "1" ; then \
+				failures=`expr $$failures + 1`; \
+				echo "FAIL"; \
+			else \
+				echo "pass"; \
+			fi; \
+		done; \
+		echo "===> Failures: $$failures/$$total <==="'
+
 clean:
 	rm -rf @objroot@/build
 
