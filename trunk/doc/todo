@@ -1,19 +1,13 @@
-* Modify DistMatrix so that the token and distance accept methods are
-  over-ridable, then subclass it inside of the NJ code, and add the ability to
-  do NJ given a file or string, rather than just a pre-constructed distance
-  matrix.  This will avoid the problem of having multiple copies of the matrix
-  in memory.
-
-  The main trick to making this work will be the delayed logic involved in
-  determining the shape of the input matrix.  By internally allocating a
-  temporary array, and delaying calls to the acceptance methods until the shape
-  is known, thus making it possible to always insert that distances into the
-  correct locations.
+* Subclass DistMatrix inside of the NJ code, and add the ability to do NJ given
+  a file or string, rather than just a pre-constructed distance matrix.  This
+  will avoid the problem of having multiple copies of the matrix in memory.
 
 * Implement optional randomization of the input matrix for NJ.
 
 * Consider making exact mode for NJ optional.  This would potentially be useful
   if wanting to avoid any bias for bootstrap replicates.
+
+* Convert C comments to // style.
 
 * Write regression tests for DistMatrix.distance[GS]et().
 
