@@ -15,9 +15,9 @@ typedef struct cw_tr_s cw_tr_t;
 #define CW_TR_HOLD_ALL 0xffffffffU
 
 typedef uint32_t cw_tr_node_t;
+typedef uint32_t cw_tr_edge_t;
 #define CW_TR_NODE_NONE 0xffffffffU
 #define CW_TR_NODE_TAXON_NONE 0xffffffffU
-#define CW_TR_NODE_MAX_NEIGHBORS 3
 #define CW_TR_NODE_EDGE_NONE 0xffffffffU
 
 /******************************************************************************/
@@ -175,6 +175,10 @@ tr_node_join(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b);
 void
 tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b);
 
+/* Get edge a_i of the node. */
+cw_tr_edge_t
+tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i);
+
 /* Get the value of the auxiliary pointer associated with the node. */
 void *
 tr_node_aux_get(cw_tr_t *a_tr, cw_tr_node_t a_node);
@@ -182,3 +186,19 @@ tr_node_aux_get(cw_tr_t *a_tr, cw_tr_node_t a_node);
 /* Set the value of the auxiliary pointer associated with the node. */
 void
 tr_node_aux_set(cw_tr_t *a_tr, cw_tr_node_t a_node, void *a_aux);
+
+/******************************************************************************/
+//XXX
+/* tr_edge. */
+
+/* Get node a_i of the edge (a_i must be 0 or 1). */
+cw_tr_node_t
+tr_edge_node_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i);
+
+/* Get the edge length. */
+double
+tr_edge_length_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge);
+
+/* Set the edge length. */
+void
+tr_edge_length_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, double a_length);

@@ -14,6 +14,7 @@
 
 typedef struct cw_tr_ps_s cw_tr_ps_t;
 typedef struct cw_trn_s cw_trn_t;
+typedef struct cw_trnr_s cw_trnr_t;
 typedef struct cw_tre_s cw_tre_t;
 typedef struct cw_trt_s cw_trt_t;
 typedef struct cw_trh_s cw_trh_t;
@@ -70,12 +71,18 @@ struct cw_trn_s
     /* If CW_TR_NODE_TAXON_NONE, then the node is not a leaf node. */
     uint32_t taxon_num;
 
-    /* Pointers to neighbors.  Only the first element is used if the node is a
-     * leaf node. */
-    cw_tr_node_t neighbors[CW_TR_NODE_MAX_NEIGHBORS];
+    /* Ring of edges.  The edges are allocated from tr's tres array. */
+    qli_head tres;
+};
 
-    /* Edge indices for the edges that correspond to neighbors. */
-    uint32_t edges[CW_TR_NODE_MAX_NEIGHBORS];
+/* Tree node edge ring element. */
+struct cw_trnr_s
+{
+    /* Edge this trnr is embedded in. */
+    cw_tr_edge_t edge;
+
+    /* Node whose ring this trnr is a part of. */
+    cw_tr_node_t node;
 
     /* Used for Fitch parsimony scoring. */
     cw_tr_ps_t *ps;
@@ -84,20 +91,33 @@ struct cw_trn_s
 /* Tree edge information. */
 struct cw_tre_s
 {
+#ifdef CW_DBG
+    uint32_t magic;
+#define CW_TRE_MAGIC 0xa683fa07
+#endif
+
+    union
+    {
+	/* Auxiliary opaque data pointer.  This is used by the treeedge wrapper
+	 * code for reference iteration. */
+	void *aux;
+
+	/* Spares linkage. */
+	uint32_t link;
+    } u;
+
     /* Nodes adjacent to this edge. */
-    cw_tr_node_t node_a;
-    cw_tr_node_t node_b;
+    cw_trnr_t nodes[2];
 
     /* Used for Fitch parsimony scoring. */
     cw_tr_ps_t *ps;
-    uint32_t pscore;
 };
 
 /* TBR neighbor. */
 struct cw_trt_s
 {
     /* Number of neighbors that can be reached by doing TBR at edges before this
-     * one.  This is also the neighbor number of the first neighbor that can be
+     * one.  This is also the neighbor index of the first neighbor that can be
      * reached by doing TBR on this edge. */
     uint32_t offset;
 
@@ -105,7 +125,7 @@ struct cw_trt_s
     uint32_t bisect_edge;
 };
 
-/* Held tree. */
+/* Held neighbor tree. */
 struct cw_trh_s
 {
     /* Neighbor index for the tree.  This can be passed to tr_tbr_neighbor_get()
@@ -138,8 +158,8 @@ struct cw_tr_s
      * for reference iteration. */
     void *aux;
 
-    /* true if this tree has been modified since the internal state (ntaxa,
-     * nedges, trt, tre) was updated, false otherwise. */
+    /* True if this tree has been modified since the internal state (ntaxa,
+     * nedges, bedges, trt, trei) was updated, false otherwise. */
     bool modified;
 
     /* Base of the tree (may or may not be set). */
@@ -152,14 +172,10 @@ struct cw_tr_s
      * often enough to make storing it worthwhile. */
     uint32_t nedges;
 
-    /* Array of information about edges.  There are always nedges elements in
-     * tre -- nedges and tre are always kept in sync. */
-    cw_tre_t *tres;
-
     /* bedges is an array of edge indices that is used for enumerating the edges
-     * on each side of a logical tree bisection.  The first list starts at
-     * offset 0 and has nbedges_a elements.  The second list starts at offset
-     * nbedges_a and has nbedges_b elements. */
+     * on each side of a logical tree bisection (used by TBR-related functions).
+     * The first list starts at offset 0 and has nbedges_a elements.  The second
+     * list starts at offset nbedges_a and has nbedges_b elements. */
     uint32_t *bedges;
     uint32_t nbedges_a;
     uint32_t nbedges_b;
@@ -171,20 +187,32 @@ struct cw_tr_s
      * TBR neighbors this tree has (trt[nedges].offset).
      *
      * Only the first trtused elements are valid, since not all bisection edges
-     * necessarily result in neighbors. */
+     * necessarily result in neighbors.
+     *
+     * trei is an array of edges (indices into the tres array) that correspond
+     * to the entries in trt. */
     cw_trt_t *trt;
     uint32_t trtused;
+    uint32_t *trei;
 
     /* Pointer to an array of trn's.  ntrns is the total number of trn's, not
-     * all of which are necessarily in use.  The first element is reserved as a
-     * temporary, which gets used whereever a single temporary node is briefly
-     * needed. */
+     * all of which are necessarily in use.
+     *
+     * The first element in trns is reserved as a temporary, which is used
+     * whenever a single temporary trn is briefly needed.
+     *
+     * sparetrns is the index of the first spare trn in the spares stack. */
     cw_trn_t *trns;
     uint32_t ntrns;
+    cw_tr_node_t sparetrns;
 
-    /* Index of first spare trn in the spares stack.  trns[spares].neighbors[0]
-     * is used for list linkage. */
-    cw_tr_node_t spares;
+    /* Pointer to an array of tre's.  ntres is the total number of tre's, not
+     * all of which are necessarily in use.
+     *
+     * sparetres is the index of the first spare tre in the spares stack. */
+    cw_tre_t *tres;
+    uint32_t ntres;
+    cw_tr_edge_t sparetres;
 
     /* held is an array of held neighbors.  The array is iteratively doubled as
      * necessary.  heldlen is the actual length of the array, and nheld is the
@@ -322,6 +350,28 @@ tr_p_ps_prepare(cw_tr_t *a_tr, cw_tr_ps_t *a_ps, uint32_t a_nchars)
 
 /******************************************************************************/
 
+/* tr_edge. */
+
+cw_tr_node_t
+tr_edge_node_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge, uint32_t a_i)
+{
+    cw_error("XXX Not implemented");
+}
+
+double
+tr_edge_length_get(cw_tr_t *a_tr, cw_tr_edge_t a_edge);
+{
+    cw_error("XXX Not implemented");
+}
+
+void
+tr_edge_length_set(cw_tr_t *a_tr, cw_tr_edge_t a_edge, double a_length);
+{
+    cw_error("XXX Not implemented");
+}
+
+/******************************************************************************/
+
 /* tr_node. */
 
 CW_P_INLINE void
@@ -352,7 +402,7 @@ tr_p_node_alloc(cw_tr_t *a_tr)
 {
     cw_tr_node_t retval;
 
-    if (a_tr->spares == CW_TR_NODE_NONE)
+    if (a_tr->sparetrns == CW_TR_NODE_NONE)
     {
 	uint32_t i, nspares;
 
@@ -370,20 +420,20 @@ tr_p_node_alloc(cw_tr_t *a_tr)
 	a_tr->ntrns *= 2;
 
 	/* Initialize last spare. */
-	a_tr->spares = a_tr->ntrns - 1;
-	a_tr->trns[a_tr->spares].neighbors[0] = CW_TR_NODE_NONE;
+	a_tr->sparetrns = a_tr->ntrns - 1;
+	a_tr->trns[a_tr->sparetrns].neighbors[0] = CW_TR_NODE_NONE;
 
 	/* Insert other spares into spares stack. */
 	for (i = 1; i < nspares; i++)
 	{
-	    a_tr->spares--;
-	    a_tr->trns[a_tr->spares].neighbors[0] = a_tr->spares + 1;
+	    a_tr->sparetrns--;
+	    a_tr->trns[a_tr->sparetrns].neighbors[0] = a_tr->sparetrns + 1;
 	}
     }
 
     /* Remove a spare from the spares stack. */
-    retval = a_tr->spares;
-    a_tr->spares = a_tr->trns[retval].neighbors[0];
+    retval = a_tr->sparetrns;
+    a_tr->sparetrns = a_tr->trns[retval].neighbors[0];
 
     /* Initialize retval. */
     tr_p_node_init(a_tr, retval);
@@ -407,8 +457,8 @@ tr_p_node_dealloc(cw_tr_t *a_tr, cw_tr_node_t a_node)
     memset(&a_tr->trns[a_node], 0x5a, sizeof(cw_trn_t));
 #endif
 
-    a_tr->trns[a_node].neighbors[0] = a_tr->spares;
-    a_tr->spares = a_node;
+    a_tr->trns[a_node].neighbors[0] = a_tr->sparetrns;
+    a_tr->sparetrns = a_node;
 }
 
 cw_tr_node_t
@@ -547,6 +597,12 @@ tr_node_detach(cw_tr_t *a_tr, cw_tr_node_t a_a, cw_tr_node_t a_b)
     cw_dassert(tr_p_node_validate(a_tr, a_b));
 }
 
+cw_tr_edge_t
+tr_node_edge_get(cw_tr_t *a_tr, cw_tr_node_t a_node, uint32_t a_i)
+{
+    cw_error("XXX Not implemented");
+}
+
 void *
 tr_node_aux_get(cw_tr_t *a_tr, cw_tr_node_t a_node)
 {
@@ -567,7 +623,7 @@ tr_node_aux_set(cw_tr_t *a_tr, cw_tr_node_t a_node, void *a_aux)
 
 /* tr. */
 
-/* Initialize everything except trns and spares. */
+/* Initialize everything except trns and sparetrns. */
 CW_P_INLINE void
 tr_p_new(cw_tr_t *a_tr, cw_mema_t *a_mema)
 {
@@ -812,8 +868,8 @@ tr_p_validate(cw_tr_t *a_tr)
 	}
     }
 
-    cw_assert(a_tr->spares == CW_TR_NODE_NONE
-	      || a_tr->trns[a_tr->spares].magic != CW_TRN_MAGIC);
+    cw_assert(a_tr->sparetrns == CW_TR_NODE_NONE
+	      || a_tr->trns[a_tr->sparetrns].magic != CW_TRN_MAGIC);
 
     return true;
 }
@@ -2171,8 +2227,7 @@ tr_p_bisection_edge_list_mp(cw_tr_t *a_tr, uint32_t *a_edges,
 	{
 	    tre = &a_tr->tres[a_edges[i]];
 
-	    tre->pscore = tr_p_mp_score(a_tr, tre->ps, tre->node_a, tre->node_b,
-					a_other);
+	    tr_p_mp_score(a_tr, tre->ps, tre->node_a, tre->node_b, a_other);
 	}
     }
 }
@@ -2381,7 +2436,7 @@ tr_new(cw_mema_t *a_mema)
     /* Initialize spare node. */
     tr_p_node_init(retval, 0);
 
-    retval->spares = CW_TR_NODE_NONE;
+    retval->sparetrns = CW_TR_NODE_NONE;
 
     return retval;
 }
@@ -2418,7 +2473,7 @@ tr_dup(cw_tr_t *a_tr)
     }
 
     /* The spares list is the same as for a_tr. */
-    retval->spares = a_tr->spares;
+    retval->sparetrns = a_tr->sparetrns;
 
     return retval;
 }
