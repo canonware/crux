@@ -13,9 +13,9 @@ from _crux import *
 
 from Exception import *
 
-from tree import *
-from node import *
-from edge import *
+import tree
+import node
+import edge
 
 import dist_matrix
 import newick
