@@ -12,7 +12,7 @@
 #include "../include/_cruxmodule.h"
 
 //#define CxmTreeNjRandomize
-//#define CxmTreeNjVerbose
+#define CxmTreeNjVerbose
 //#define CxmTreeNjDump
 
 /* The following function can be used to convert from row/column matrix
@@ -196,47 +196,59 @@ CxpTreeNjRSubtract(float *aD, float *aR, long aNleft, long aXMin, long aYMin)
     for (x = 0,
 	     iX = aXMin - 1,
 	     iY = aYMin - 1;
+	 x < aXMin;
+	 x++)
+    {
+	dist = aD[iX];
+	iX += aNleft - 2 - x;
+	aR[x] -= dist;
+	aR[aXMin] -= dist;
+
+	dist = aD[iY];
+	iY += aNleft - 2 - x;
+	aR[x] -= dist;
+	aR[aYMin] -= dist;
+    }
+
+    /* (x == aXMin) */
+    iY += aNleft - 2 - x;
+    x++;
+
+    for (;
+	 x < aYMin;
+	 x++)
+    {
+	iX++;
+	dist = aD[iX];
+	aR[x] -= dist;
+	aR[aXMin] -= dist;
+
+	dist = aD[iY];
+	iY += aNleft - 2 - x;
+	aR[x] -= dist;
+	aR[aYMin] -= dist;
+    }
+
+    /* (x == aYMin) */
+    iX++;
+    dist = aD[iX];
+    aR[x] -= dist;
+    aR[aXMin] -= dist;
+    x++;
+
+    for (;
 	 x < aNleft;
 	 x++)
     {
-	if (x < aXMin)
-	{
-	    dist = aD[iX];
-	    iX += aNleft - 2 - x;
-	    aR[x] -= dist;
-	    aR[aXMin] -= dist;
+	iX++;
+	dist = aD[iX];
+	aR[x] -= dist;
+	aR[aXMin] -= dist;
 
-	    dist = aD[iY];
-	    iY += aNleft - 2 - x;
-	    aR[x] -= dist;
-	    aR[aYMin] -= dist;
-	}
-	else if (x > aXMin)
-	{
-	    iX++;
-	    dist = aD[iX];
-	    aR[x] -= dist;
-	    aR[aXMin] -= dist;
-
-	    if (x < aYMin)
-	    {
-		dist = aD[iY];
-		iY += aNleft - 2 - x;
-		aR[x] -= dist;
-		aR[aYMin] -= dist;
-	    }
-	    else if (x > aYMin)
-	    {
-		iY++;
-		dist = aD[iY];
-		aR[x] -= dist;
-		aR[aYMin] -= dist;
-	    }
-	}
-	else // (x == aXMin)
-	{
-	    iY += aNleft - 2 - x;
-	}
+	iY++;
+	dist = aD[iY];
+	aR[x] -= dist;
+	aR[aYMin] -= dist;
     }
 }
 
@@ -256,47 +268,47 @@ CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
     for (x = 0,
 	     iX = aXMin - 1,
 	     iY = aYMin - 1;
+	 x < aXMin;
+	 x++)
+    {
+	dist = ((aD[iX] - aDistX) + (aD[iY] - aDistY)) / 2;
+	aD[iX] = dist;
+	iX += aNleft - 2 - x;
+	iY += aNleft - 2 - x;
+	aR[x] += dist;
+	aR[aXMin] += dist;
+    }
+
+    /* (x == aXMin) */
+    iY += aNleft - 2 - x;
+    x++;
+
+    for (;
+	 x < aYMin;
+	 x++)
+    {
+	iX++;
+	dist = ((aD[iX] - aDistX) + (aD[iY] - aDistY)) / 2;
+	aD[iX] = dist;
+	iY += aNleft - 2 - x;
+	aR[x] += dist;
+	aR[aXMin] += dist;
+    }
+
+    /* (x == aYMin) */
+    iX++;
+    x++;
+
+    for (;
 	 x < aNleft;
 	 x++)
     {
-	if (x < aXMin)
-	{
-	    dist = ((aD[iX] - aDistX) + (aD[iY] - aDistY)) / 2;
-	    aD[iX] = dist;
-	    iX += aNleft - 2 - x;
-	    iY += aNleft - 2 - x;
-	    aR[x] += dist;
-	    aR[aXMin] += dist;
-	}
-	else if (x > aXMin)
-	{
-	    if (x < aYMin)
-	    {
-		iX++;
-		dist = ((aD[iX] - aDistX) + (aD[iY] - aDistY)) / 2;
-		aD[iX] = dist;
-		iY += aNleft - 2 - x;
-		aR[x] += dist;
-		aR[aXMin] += dist;
-	    }
-	    else if (x > aYMin)
-	    {
-		iX++;
-		iY++;
-		dist = ((aD[iX] - aDistX) + (aD[iY] - aDistY)) / 2;
-		aD[iX] = dist;
-		aR[x] += dist;
-		aR[aXMin] += dist;
-	    }
-	    else // if (x == aYMin)
-	    {
-		iX++;
-	    }
-	}
-	else // if (x == aXMin)
-	{
-	    iY += aNleft - 2 - x;
-	}
+	iX++;
+	iY++;
+	dist = ((aD[iX] - aDistX) + (aD[iY] - aDistY)) / 2;
+	aD[iX] = dist;
+	aR[x] += dist;
+	aR[aXMin] += dist;
     }
 
     /* Fill in the remaining gap (aYMin row/column), by moving the first row
@@ -307,21 +319,27 @@ CxpTreeNjCompact(float *aD, float *aR, float *aRScaled, CxtNodeObject **aNodes,
     for (x = 1,
 	     iX = x - 1,
 	     iY = aNleft + aYMin - 3;
+	 x < aYMin;
+	 x++)
+    {
+	aD[iY] = aD[iX];
+	iY += aNleft - 2 - x;
+	iX++;
+    }
+
+    /* (x == aYMin) */
+    iX++;
+    x++;
+
+    for (;
 	 x < aNleft;
 	 x++)
     {
-	if (x < aYMin)
-	{
-	    aD[iY] = aD[iX];
-	    iY += aNleft - 2 - x;
-	}
-	else if (x > aYMin)
-	{
-	    iY++;
-	    aD[iY] = aD[iX];
-	}
+	iY++;
+	aD[iY] = aD[iX];
 	iX++;
     }
+
     /* Fill in the gap in r, aRScaled, and nodes. */
     aR[aYMin] = aR[0];
     aRScaled[aYMin] = aRScaled[0];
@@ -391,58 +409,53 @@ CxpTreeNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
     for (x = 0,
 	     iA = aA - 1,
 	     iB = aB - 1;
-	 x < aNleft;
+	 x < aA;
 	 x++)
     {
 	/* Make sure aA and aB are closer together than any nodes are to either
 	 * aA or aB. */
-	if (x < aA)
+	dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
+	if (dist < distAB)
 	{
-	    dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
-	    if (dist < distAB)
-	    {
-		retval = false;
-		goto RETURN;
-	    }
-	    iA += aNleft - 2 - x;
+	    retval = false;
+	    goto RETURN;
+	}
+	iA += aNleft - 2 - x;
 
-	    dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
-	    if (dist < distAB)
-	    {
-		retval = false;
-		goto RETURN;
-	    }
-	    iB += aNleft - 2 - x;
-	}
-	else if (x > aA)
+	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	if (dist < distAB)
 	{
-	    iA++;
-	    dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
-	    if (dist < distAB)
-	    {
-		retval = false;
-		goto RETURN;
-	    }
+	    retval = false;
+	    goto RETURN;
+	}
+	iB += aNleft - 2 - x;
+    }
 
-	    if (x < aB)
-	    {
-		dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
-		if (dist < distAB)
-		{
-		    retval = false;
-		    goto RETURN;
-		}
-		iB += aNleft - 2 - x;
-	    }
-	    else
-	    {
-		break;
-	    }
-	}
-	else // (x == aA)
+    /* (x == aA) */
+    iB += aNleft - 2 - x;
+    x++;
+
+    for (;
+	 x < aB;
+	 x++)
+    {
+	/* Make sure aA and aB are closer together than any nodes are to either
+	 * aA or aB. */
+	iA++;
+	dist = aD[iA] - (aRScaled[x] + aRScaled[aA]);
+	if (dist < distAB)
 	{
-	    iB += aNleft - 2 - x;
+	    retval = false;
+	    goto RETURN;
 	}
+
+	dist = aD[iB] - (aRScaled[x] + aRScaled[aB]);
+	if (dist < distAB)
+	{
+	    retval = false;
+	    goto RETURN;
+	}
+	iB += aNleft - 2 - x;
     }
 
     retval = true;
