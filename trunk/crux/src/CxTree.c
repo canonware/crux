@@ -117,19 +117,25 @@ CxTreeNew(void)
     globals = PyEval_GetGlobals();
     locals = Py_BuildValue("{}");
 
-
     obj = PyEval_EvalCode((PyCodeObject *) CxpTreeNewCode,
 			  globals,
 			  locals);
-    CxmCheckPtr(obj);
+    if (obj == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
     Py_DECREF(obj);
 
     retval = (CxtTreeObject *) PyDict_GetItemString(locals, "tree");
-    CxmCheckPtr(retval);
+    if (retval == NULL)
+    {
+	goto RETURN;
+    }
     Py_INCREF(retval);
 
+    RETURN:
     Py_DECREF(locals);
-
     return retval;
 }
 
@@ -608,15 +614,22 @@ CxNodeNew(CxtTreeObject *aTree)
     obj = PyEval_EvalCode((PyCodeObject *) CxpNodeNewCode,
 			  globals,
 			  locals);
-    CxmCheckPtr(obj);
+    if (obj == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
     Py_DECREF(obj);
 
     retval = (CxtNodeObject *) PyDict_GetItemString(locals, "node");
-    CxmCheckPtr(retval);
+    if (retval == NULL)
+    {
+	goto RETURN;
+    }
     Py_INCREF(retval);
 
+    RETURN:
     Py_DECREF(locals);
-
     return retval;
 }
 
@@ -1019,15 +1032,22 @@ CxEdgeNew(CxtTreeObject *aTree)
     obj = PyEval_EvalCode((PyCodeObject *) CxpEdgeNewCode,
 			  globals,
 			  locals);
-    CxmCheckPtr(obj);
+    if (obj == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
     Py_DECREF(obj);
 
     retval = (CxtEdgeObject *) PyDict_GetItemString(locals, "edge");
-    CxmCheckPtr(retval);
+    if (retval == NULL)
+    {
+	goto RETURN;
+    }
     Py_INCREF(retval);
 
+    RETURN:
     Py_DECREF(locals);
-
     return retval;
 }
 
@@ -1491,15 +1511,22 @@ CxRingNew(CxtEdgeObject *aEdge, uint32_t aEnd)
     obj = PyEval_EvalCode((PyCodeObject *) CxpRingNewCode,
 			  globals,
 			  locals);
-    CxmCheckPtr(obj);
+    if (obj == NULL)
+    {
+	retval = NULL;
+	goto RETURN;
+    }
     Py_DECREF(obj);
 
     retval = (CxtRingObject *) PyDict_GetItemString(locals, "ring");
-    CxmCheckPtr(retval);
+    if (retval == NULL)
+    {
+	goto RETURN;
+    }
     Py_INCREF(retval);
 
+    RETURN:
     Py_DECREF(locals);
-
     return retval;
 }
 

@@ -237,6 +237,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 
 			    result = PyEval_CallMethod((PyObject *) self,
 						       "labelAccept", "()");
+			    if (result == NULL)
+			    {
+				goto ERROR;
+			    }
 			    Py_DECREF(result);
 			    self->tokenLen = 0;
 			    state = CxpStateChars;
@@ -256,6 +260,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 
 			    result = PyEval_CallMethod((PyObject *) self,
 						       "labelAccept", "()");
+			    if (result == NULL)
+			    {
+				goto ERROR;
+			    }
 			    Py_DECREF(result);
 			    self->tokenLen = 0;
 			    state = CxpStateComment;
@@ -276,6 +284,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 			{
 			    result = PyEval_CallMethod((PyObject *) self,
 						       "commentAccept", "()");
+			    if (result == NULL)
+			    {
+				goto ERROR;
+			    }
 			    Py_DECREF(result);
 			    self->tokenLen = 0;
 			    state = CxpStateChars;
@@ -307,6 +319,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 
 			result = PyEval_CallMethod((PyObject *) self,
 						   "charsAccept", "()");
+			if (result == NULL)
+			{
+			    goto ERROR;
+			}
 			Py_DECREF(result);
 			self->tokenLen = 0;
 			state = CxpStateLabel;
@@ -413,6 +429,10 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	    goto ERROR;
 	}
 	result = PyEval_CallMethod((PyObject *) self, "charsAccept", "()");
+	if (result == NULL)
+	{
+	    goto ERROR;
+	}
 	Py_DECREF(result);
 
 	Py_INCREF(Py_None);

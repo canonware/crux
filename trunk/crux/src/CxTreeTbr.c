@@ -92,6 +92,10 @@ CxTreeTbrNeighborGet(CxtTreeObject *self, PyObject *args)
     {
 	if (neighbor >= CxTrTbrNneighborsGet(self->tr))
 	{
+	    CxError(CxgTreeValueError,
+		    "neighbor: %u is out of range [0..%u]",
+		    neighbor, CxTrTbrNneighborsGet(self->tr));
+	    retval = NULL;
 	    Py_INCREF(PyExc_ValueError);
 	    retval = PyExc_ValueError;
 	}

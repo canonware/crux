@@ -42,8 +42,9 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
     ntaxa = PyList_Size(taxa);
     if (elim != 0 && elim != 1)
     {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
+	CxError(CxgTreeValueError,
+		"elim: False or True expected");
+	retval = NULL;
 	goto RETURN;
     }
 
@@ -54,7 +55,7 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	if (ntaxa > 0)
 	{
 	    tobj = PyList_GetItem(taxa, 0);
-	    /* Don't worry about throwing a ValueError error here, since the for
+	    /* Don't worry about raising ValueError error here, since the for
 	     * loop below will do so. */
 	    if (PyString_Check(tobj))
 	    {
@@ -70,8 +71,9 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	    tobj = PyList_GetItem(taxa, i);
 	    if (PyString_Check(tobj) == 0 || PyString_Size(tobj) != nchars)
 	    {
-		CxmFree(tarr);
-		CxmXepThrow(CxmXepValueError);
+		CxError(CxgTreeValueError,
+			"Character string expected");
+		goto ERROR;
 	    }
 	    tarr[i] = PyString_AsString(tobj);
 
@@ -118,8 +120,9 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 		    }
 		    default:
 		    {
-			CxmFree(tarr);
-			CxmXepThrow(CxmXepValueError);
+			CxError(CxgTreeValueError,
+				"Invalid character '%c'", tarr[i][j]);
+			goto ERROR;
 		    }
 		}
 	    }
@@ -136,17 +139,16 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
+	break;
+
+	ERROR:
+	CxmFree(tarr);
+	retval = NULL;
     }
     CxmXepCatch(CxmXepOOM)
     {
 	CxmXepHandled();
 	retval = PyErr_NoMemory();
-    }
-    CxmXepCatch(CxmXepValueError)
-    {
-	CxmXepHandled();
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
     }
     CxmXepEnd();
 
@@ -177,25 +179,26 @@ CxTreeTbrBestNeighborsMp(CxtTreeObject *self, PyObject *args)
 	= NULL
 #endif
 	;
-    int maxhold;
+    int maxHold;
 
-    maxhold = CxmTrHoldAll;
-    if (PyArg_ParseTuple(args, "|i", &maxhold) == 0)
+    maxHold = CxmTrHoldAll;
+    if (PyArg_ParseTuple(args, "|i", &maxHold) == 0)
     {
 	retval = NULL;
 	goto RETURN;
     }
-    if (maxhold < 0 && maxhold != CxmTrHoldAll)
+    if (maxHold < 0 && maxHold != CxmTrHoldAll)
     {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
+	CxError(CxgTreeValueError,
+		"maxHold: non-negative integer expected");
+	retval = NULL;
 	goto RETURN;
     }
 
     CxmXepBegin();
     CxmXepTry
     {
-	CxTrTbrBestNeighborsMp(self->tr, maxhold);
+	CxTrTbrBestNeighborsMp(self->tr, maxHold);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
@@ -219,25 +222,26 @@ CxTreeTbrBetterNeighborsMp(CxtTreeObject *self, PyObject *args)
 	= NULL
 #endif
 	;
-    int maxhold;
+    int maxHold;
 
-    maxhold = CxmTrHoldAll;
-    if (PyArg_ParseTuple(args, "|i", &maxhold) == 0)
+    maxHold = CxmTrHoldAll;
+    if (PyArg_ParseTuple(args, "|i", &maxHold) == 0)
     {
 	retval = NULL;
 	goto RETURN;
     }
-    if (maxhold < 0 && maxhold != CxmTrHoldAll)
+    if (maxHold < 0 && maxHold != CxmTrHoldAll)
     {
-	Py_INCREF(PyExc_ValueError);
-	retval = PyExc_ValueError;
+	CxError(CxgTreeValueError,
+		"maxHold: non-negative integer expected");
+	retval = NULL;
 	goto RETURN;
     }
 
     CxmXepBegin();
     CxmXepTry
     {
-	CxTrTbrBetterNeighborsMp(self->tr, maxhold);
+	CxTrTbrBetterNeighborsMp(self->tr, maxHold);
 
 	Py_INCREF(Py_None);
 	retval = Py_None;
