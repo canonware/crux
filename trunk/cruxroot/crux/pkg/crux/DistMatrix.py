@@ -56,7 +56,7 @@
 #
 ################################################################################
 
-import re
+import string
 
 import TaxonMap
 import crux.Exception
@@ -203,15 +203,29 @@ class DistMatrix(object):
     #   4.0, 3.5, 3.2, 3.1, 0.0])
     #
     def _strNew(self, input):
-        import __builtin__
+        self._tokenGet = self._strTokenGet
 
         self._input = input
         self._i = 0
+
+        self._parse()
+
+    def _fileNew(self, input):
+        self._tokenGet = self._fileTokenGet
+
+        self._input = input
+        self._tokenBuf = [None] * 32 # This is iteratively doubled as necessary.
+
+        self._parse()
+
+    def _parse(self):
+        import __builtin__
+
         self._line = 1
         self._matrixFormat = 'unknown' # 'unknown', 'full', 'upper', 'lower'
 
         # Get the number of taxa.
-        (token, line) = self._strTokenGet()
+        (token, line) = self._tokenGet()
         try:
             self._ntaxa = int(token)
         except __builtin__.ValueError:
@@ -228,7 +242,7 @@ class DistMatrix(object):
         self._matrix = [None] * (self._ntaxa * self._ntaxa)
 
         # Get the first taxon label.
-        (token, line) = self._strTokenGet()
+        (token, line) = self._tokenGet()
         distance = self._tokenToDistance(token)
         if distance != None:
             raise crux.DistMatrix.SyntaxError(line, "Missing taxon label")
@@ -236,7 +250,7 @@ class DistMatrix(object):
 
         # Get the next token; if it is a taxon label, then this matrix is in
         # lower triangle format.
-        (token, line) = self._strTokenGet()
+        (token, line) = self._tokenGet()
         distance = self._tokenToDistance(token)
         if distance == None:
             # This is a lower-triangle matrix.
@@ -244,7 +258,7 @@ class DistMatrix(object):
 
             # Get second row of distances.
             for y in forints(1):
-                (token, line) = self._strTokenGet()
+                (token, line) = self._tokenGet()
                 distance = self._tokenToDistance(token)
                 if distance == None:
                     raise crux.DistMatrix\
@@ -256,7 +270,7 @@ class DistMatrix(object):
             # Get remaining rows.
             for x in forints(self._ntaxa, start=2):
                 # Get taxon label.
-                (token, line) = self._strTokenGet()
+                (token, line) = self._tokenGet()
                 distance = self._tokenToDistance(token)
                 if distance != None:
                     raise crux.DistMatrix.SyntaxError(line,
@@ -266,7 +280,7 @@ class DistMatrix(object):
 
                 # Get distances.
                 for y in forints(x):
-                    (token, line) = self._strTokenGet()
+                    (token, line) = self._tokenGet()
                     distance = self._tokenToDistance(token)
                     if distance == None:
                         raise crux.DistMatrix\
@@ -288,7 +302,7 @@ class DistMatrix(object):
             self._distanceSet(0, 1, distance)
 
             for y in forints(self._ntaxa, start=2):
-                (token, line) = self._strTokenGet()
+                (token, line) = self._tokenGet()
                 distance = self._tokenToDistance(token)
                 if distance == None:
                     raise crux.DistMatrix\
@@ -297,7 +311,7 @@ class DistMatrix(object):
                 self._distanceSet(0, y, distance)
 
             # Determine whether this is a full or upper-triangle matrix.
-            (token, line) = self._strTokenGet()
+            (token, line) = self._tokenGet()
             distance = self._tokenToDistance(token)
             if distance == None:
                 # This is an upper-triangle matrix.
@@ -305,7 +319,7 @@ class DistMatrix(object):
 
                 # Get second row of distances.
                 for y in forints(self._ntaxa, start=2):
-                    (token, line) = self._strTokenGet()
+                    (token, line) = self._tokenGet()
                     distance = self._tokenToDistance(token)
                     if distance == None:
                         raise crux.DistMatrix\
@@ -317,7 +331,7 @@ class DistMatrix(object):
                 # Get remaining rows.
                 for x in forints(self._ntaxa, start=2):
                     # Get taxon label.
-                    (token, line) = self._strTokenGet()
+                    (token, line) = self._tokenGet()
                     distance = self._tokenToDistance(token)
                     if distance != None:
                         raise crux.DistMatrix.SyntaxError(line,
@@ -327,7 +341,7 @@ class DistMatrix(object):
 
                     # Get distances.
                     for y in forints(self._ntaxa, start=x+1):
-                        (token, line) = self._strTokenGet()
+                        (token, line) = self._tokenGet()
                         distance = self._tokenToDistance(token)
                         if distance == None:
                             raise crux.DistMatrix\
@@ -357,7 +371,7 @@ class DistMatrix(object):
                 # Get remaining rows.
                 for x in forints(self._ntaxa, start=1):
                     # Get taxon label.
-                    (token, line) = self._strTokenGet()
+                    (token, line) = self._tokenGet()
                     distance = self._tokenToDistance(token)
                     if distance != None:
                         raise crux.DistMatrix.SyntaxError(line,
@@ -367,7 +381,7 @@ class DistMatrix(object):
 
                     # Get distances.
                     for y in forints(self._ntaxa):
-                        (token, line) = self._strTokenGet()
+                        (token, line) = self._tokenGet()
                         distance = self._tokenToDistance(token)
                         if distance == None:
                             raise crux.DistMatrix\
@@ -377,29 +391,59 @@ class DistMatrix(object):
                                                'full')
                         self._distanceSet(x, y, distance)
 
-    def _fileNew(self, input):
-        pass # XXX Implement.
-
     # Return the next token.
     def _strTokenGet(self):
         token = ""
         start = self._i
         line = self._line
         while self._i < len(self._input):
-            if self._input[self._i] == " " \
-                   or self._input[self._i] == "\n" \
-                   or self._input[self._i] == "\t":
+            c = self._input[self._i]
+
+            if c == " " or c == "\n" or c == "\t":
+                if c == "\n":
+                    self._line += 1
+
                 if self._i == start:
-                    line = self._line
+                    # Nothing but whitespace so far.
                     start = self._i + 1
+                    line = self._line
                 else:
                     token = self._input[start:self._i]
+                    self._i += 1
                     break
 
-            if self._input[self._i] == "\n":
-                self._line += 1
-
             self._i += 1
+
+        return (token, line)
+
+    # Return the next token.
+    def _fileTokenGet(self):
+        token = ""
+        tokenLen = 0
+        line = self._line
+
+        c = self._input.read(1)
+        while len(c) == 1:
+            if c == " " or c == "\n" or c == "\t":
+                if c == "\n":
+                    self._line += 1
+
+                if tokenLen == 0:
+                    # Nothing but whitespace so far.
+                    line = self._line
+                else:
+                    token = string.join(self._tokenBuf[:tokenLen], "")
+                    tokenLen = 0
+                    break
+            else:
+                # Enlarge the buffer, if necessary.
+                if len(self._tokenBuf) == tokenLen:
+                    self._tokenBuf.extend([None] * tokenLen)
+
+                self._tokenBuf[tokenLen] = c
+                tokenLen += 1
+
+            c = self._input.read(1)
 
         return (token, line)
 

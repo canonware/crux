@@ -10,6 +10,8 @@
 ################################################################################
 
 import sys
+import os
+import tempfile
 
 matrices = ["""     5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -170,10 +172,23 @@ for matrix in matrices:
         print "==="
         print matrix
         distMatrix = crux.DistMatrix.DistMatrix(matrix)
-
         print distMatrix.prints('full')
         print distMatrix.prints('upper')
         print distMatrix.prints('lower')
+    except crux.DistMatrix.Exception, x:
+        import sys
+      
+        print "Exception %s: %s" % (sys.exc_type, x.__str__())
+
+for matrix in matrices:
+    try:
+        print "==="
+        print matrix
+        f = tempfile.TemporaryFile()
+        f.write(matrix)
+        f.seek(0, 0)
+        distMatrix = crux.DistMatrix.DistMatrix(f)
+        print distMatrix.prints('full')
     except crux.DistMatrix.Exception, x:
         import sys
         
