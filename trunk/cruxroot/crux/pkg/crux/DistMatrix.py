@@ -101,7 +101,7 @@ class DistMatrix(object):
         self._map = None
         self._matrix = None
 
-        if type(input) == crux.TaxonMap.TaxonMap:
+        if type(input) == TaxonMap.TaxonMap:
             self._taxonMapNew(input)
         elif type(input) == str:
             self._strNew(input)
@@ -117,6 +117,9 @@ class DistMatrix(object):
 
     def taxonMapGet(self):
         return self._map
+
+    def matrixGet(self):
+        return self._matrix
 
     def distanceGet(self, fr, to):
         if fr >= self._ntaxa or to >= self._ntaxa:
