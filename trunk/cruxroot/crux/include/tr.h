@@ -14,9 +14,6 @@ typedef struct cw_trn_s cw_trn_t;
 typedef struct cw_trt_s cw_trt_t;
 typedef struct cw_tr_s cw_tr_t;
 
-/* Canonical unrooted bifurcating phylogenetic tree in compact form. */
-typedef cw_uint8_t cw_trs_t;
-
 /* Tree node for an unrooted bifurcating phylogenetic tree. */
 struct cw_trn_s
 {
