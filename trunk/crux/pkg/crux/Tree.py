@@ -219,6 +219,12 @@ class Tree(C_Tree):
     def taxonMapGet(self):
         return self._map
 
+    def rf(self, other):
+        if type(other) == tuple:
+            return self._rfTuple(other)
+        else:
+            return self._rfPair(other)
+
     def render(self, labels=False, lengths=False, lengthFormat="%.5e",
                outFile=None):
         if outFile == None:

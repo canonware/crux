@@ -26,7 +26,6 @@ struct CxsTreeObject
     bool GcCleared;
 
 #define CxmTreeObjectAuxCount 1
-#define CxmTreeObjectAuxRf 0
     void *aux[CxmTreeObjectAuxCount];
 };
 
@@ -51,9 +50,8 @@ struct CxsEdgeObject
     bool GcDetached:1;
     bool GcCleared:1;
 
-#define CxmEdgeObjectAuxCount 2
+#define CxmEdgeObjectAuxCount 1
 #define CxmEdgeObjectAuxMp 0
-#define CxmEdgeObjectAuxRf 1
     void *aux[CxmEdgeObjectAuxCount];
 };
 
@@ -93,8 +91,12 @@ CxRingInit(void);
 /* Tree. */
 CxtTreeObject *
 CxTreeNew(void);
-PyObject *
+
+unsigned
 CxTreeNtaxaGet(CxtTreeObject *self);
+PyObject *
+CxTreeNtaxaGetPargs(CxtTreeObject *self);
+
 PyObject *
 CxTreeNedgesCget(CxtTreeObject *self);
 

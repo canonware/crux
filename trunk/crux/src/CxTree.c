@@ -209,8 +209,14 @@ CxTreeNew(void)
     return retval;
 }
 
-PyObject *
+unsigned
 CxTreeNtaxaGet(CxtTreeObject *self)
+{
+    return CxTrNtaxaGet(self->tr);
+}
+
+PyObject *
+CxTreeNtaxaGetPargs(CxtTreeObject *self)
 {
     PyObject *retval
 #ifdef CxmCcSilence
@@ -359,7 +365,7 @@ static PyMethodDef CxpTreeMethods[] =
 {
     {
 	"ntaxaGet",
-	(PyCFunction) CxTreeNtaxaGet,
+	(PyCFunction) CxTreeNtaxaGetPargs,
 	METH_NOARGS,
 	"ntaxaGet"
     },
