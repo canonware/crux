@@ -41,6 +41,7 @@ typedef unsigned char bool;
 
 #include "qri.h"
 #include "qli.h"
+#include "bhp.h"
 #include "tr.h"
 
 #ifdef CW_CPU_IA32

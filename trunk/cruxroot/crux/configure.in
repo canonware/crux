@@ -184,7 +184,7 @@ AC_SUBST([crux_packages])
 
 dnl C sources.
 crux_sources=""
-for s in _cruxmodule.c ia32.c mem.c tr.c tree.c xep.c ; do
+for s in _cruxmodule.c bhp.c ia32.c mem.c tr.c tree.c xep.c ; do
   crux_sources="${crux_sources} '${srcroot}/src/${s}',"
 done
 crux_sources="[[${crux_sources}]]"
