@@ -57,6 +57,7 @@ extern PyObject *CxgDistMatrixException;
 extern PyObject *CxgDistMatrixValueError;
 extern PyObject *CxgDistMatrixTypeError;
 extern PyObject *CxgDistMatrixSyntaxError;
+extern PyObject *CxgDistMatrixIOError;
 
 void
 CxDistMatrixInit(void);

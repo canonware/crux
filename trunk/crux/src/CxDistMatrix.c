@@ -1198,16 +1198,28 @@ CxpDistMatrixDup(CxtDistMatrixObject *self, PyObject *args)
 
     self->ntaxa = orig->ntaxa;
     self->symmetric = orig->symmetric;
-    if (self->ntaxa != 0)
-    {
-	size_t nbytes;
-
-	nbytes = CxpDistMatrixNtaxaAccept(self);
-	memcpy(self->matrix, orig->matrix, nbytes);
-    }
 
     Py_INCREF(Py_None);
     retval = Py_None;
+    CxmXepBegin();
+    CxmXepTry
+    {
+	if (self->ntaxa != 0)
+	{
+	    size_t nbytes;
+
+	    nbytes = CxpDistMatrixNtaxaAccept(self);
+	    memcpy(self->matrix, orig->matrix, nbytes);
+	}
+    }
+    CxmXepCatch(CxmXepOOM)
+    {
+	CxmXepHandled();
+	Py_DECREF(retval);
+	retval = PyErr_NoMemory();
+    }
+    CxmXepEnd();
+
     RETURN:
     return retval;
 }
@@ -1251,58 +1263,70 @@ CxpDistMatrixSample(CxtDistMatrixObject *self, PyObject *args)
 
     self->ntaxa = PyList_Size(rows);
     self->symmetric = orig->symmetric;
-    // XXX OOM can result.  Catch here, and in _dup.  Look for other possible
-    // OOM situations.
-    CxpDistMatrixNtaxaAccept(self);
-
-    /* Create a row table, then sort it so that orig matrix access will be
-     * linear. */
-    rowTab = (long *) CxmMalloc((sizeof(long) << 1) * self->ntaxa);
-    for (i = 0; i < self->ntaxa; i++)
-    {
-	rowTab[i << 1] = PyInt_AsLong(PyList_GetItem(rows, i));
-	rowTab[(i << 1) + 1] = i;
-    }
-    qsort(rowTab, self->ntaxa, sizeof(long) << 1, CxpDistMatrixSampleCompare);
-
-    if (self->symmetric)
-    {
-	for (i = 0; i < self->ntaxa - 1; i++)
-	{
-	    for (j = i + 1; j < self->ntaxa; j++)
-	    {
-		dist = CxDistMatrixDistanceGet(orig,
-					       rowTab[i << 1],
-					       rowTab[j << 1]);
-
-		CxDistMatrixDistanceSet(self,
-					rowTab[(i << 1) + 1],
-					rowTab[(j << 1) + 1],
-					dist);
-	    }
-	}
-    }
-    else
-    {
-	for (i = 0; i < self->ntaxa; i++)
-	{
-	    for (j = 0; j < self->ntaxa; j++)
-	    {
-		dist = CxDistMatrixDistanceGet(orig,
-					       rowTab[i << 1],
-					       rowTab[j << 1]);
-
-		CxDistMatrixDistanceSet(self,
-					rowTab[(i << 1) + 1],
-					rowTab[(j << 1) + 1],
-					dist);
-	    }
-	}
-    }
-    CxmFree(rowTab);
-
+    
     Py_INCREF(Py_None);
     retval = Py_None;
+    CxmXepBegin();
+    CxmXepTry
+    {
+	CxpDistMatrixNtaxaAccept(self);
+
+	/* Create a row table, then sort it so that orig matrix access will be
+	 * linear. */
+	rowTab = (long *) CxmMalloc((sizeof(long) << 1) * self->ntaxa);
+
+	for (i = 0; i < self->ntaxa; i++)
+	{
+	    rowTab[i << 1] = PyInt_AsLong(PyList_GetItem(rows, i));
+	    rowTab[(i << 1) + 1] = i;
+	}
+	qsort(rowTab, self->ntaxa, sizeof(long) << 1,
+	      CxpDistMatrixSampleCompare);
+
+	if (self->symmetric)
+	{
+	    for (i = 0; i < self->ntaxa - 1; i++)
+	    {
+		for (j = i + 1; j < self->ntaxa; j++)
+		{
+		    dist = CxDistMatrixDistanceGet(orig,
+						   rowTab[i << 1],
+						   rowTab[j << 1]);
+
+		    CxDistMatrixDistanceSet(self,
+					    rowTab[(i << 1) + 1],
+					    rowTab[(j << 1) + 1],
+					    dist);
+		}
+	    }
+	}
+	else
+	{
+	    for (i = 0; i < self->ntaxa; i++)
+	    {
+		for (j = 0; j < self->ntaxa; j++)
+		{
+		    dist = CxDistMatrixDistanceGet(orig,
+						   rowTab[i << 1],
+						   rowTab[j << 1]);
+
+		    CxDistMatrixDistanceSet(self,
+					    rowTab[(i << 1) + 1],
+					    rowTab[(j << 1) + 1],
+					    dist);
+		}
+	    }
+	}
+	CxmFree(rowTab);
+    }
+    CxmXepCatch(CxmXepOOM)
+    {
+	CxmXepHandled();
+	Py_DECREF(retval);
+	retval = PyErr_NoMemory();
+    }
+    CxmXepEnd();
+
     RETURN:
     return retval;
 }
@@ -1531,7 +1555,12 @@ CxpDistMatrixFileLabelRender(CxtDistMatrixObject *self, FILE *aF, long aX)
 	retval = true;
 	goto RETURN;
     }
-    fprintf(aF, "%-10s", PyString_AsString(result));
+    if (fprintf(aF, "%-10s", PyString_AsString(result)) < 0)
+    {
+	CxError(CxgDistMatrixIOError, "Error in fprintf()");
+	retval = true;
+	goto RETURN;
+    }
     Py_DECREF(result);
 
     retval = false;
@@ -1570,9 +1599,20 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
 
 	    for (y = 0; y < self->ntaxa; y++)
 	    {
-		fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y));
+		if (fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y))
+		    < 0)
+		{
+		    CxError(CxgDistMatrixIOError, "Error in fprintf()");
+		    retval = NULL;
+		    goto RETURN;
+		}
 	    }
-	    fprintf(f, "\n");
+	    if (fprintf(f, "\n") < 0)
+	    {
+		CxError(CxgDistMatrixIOError, "Error in fprintf()");
+		retval = NULL;
+		goto RETURN;
+	    }
 	}
     }
     else if (strcmp(format, "upper") == 0)
@@ -1587,13 +1627,29 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
 
 	    for (y = 0; y < x + 1; y++)
 	    {
-		fprintf(f, "%8s", "");
+		if (fprintf(f, "%8s", "") < 0)
+		{
+		    CxError(CxgDistMatrixIOError, "Error in fprintf()");
+		    retval = NULL;
+		    goto RETURN;
+		}
 	    }
 	    for (; y < x; y++)
 	    {
-		fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y));
+		if (fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y))
+		    < 0)
+		{
+		    CxError(CxgDistMatrixIOError, "Error in fprintf()");
+		    retval = NULL;
+		    goto RETURN;
+		}
 	    }
-	    fprintf(f, "\n");
+	    if (fprintf(f, "\n") < 0)
+	    {
+		CxError(CxgDistMatrixIOError, "Error in fprintf()");
+		retval = NULL;
+		goto RETURN;
+	    }
 	}
     }
     else if (strcmp(format, "lower") == 0)
@@ -1608,9 +1664,20 @@ CxpDistMatrixFileRender(CxtDistMatrixObject *self, PyObject *args)
 
 	    for (y = 0; y < x; y++)
 	    {
-		fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y));
+		if (fprintf(f, distFormat, CxDistMatrixDistanceGet(self, x, y))
+		    < 0)
+		{
+		    CxError(CxgDistMatrixIOError, "Error in fprintf()");
+		    retval = NULL;
+		    goto RETURN;
+		}
 	    }
-	    fprintf(f, "\n");
+	    if (fprintf(f, "\n") < 0)
+	    {
+		CxError(CxgDistMatrixIOError, "Error in fprintf()");
+		retval = NULL;
+		goto RETURN;
+	    }
 	}
     }
 
@@ -1773,6 +1840,7 @@ PyObject *CxgDistMatrixException;
 PyObject *CxgDistMatrixValueError;
 PyObject *CxgDistMatrixTypeError;
 PyObject *CxgDistMatrixSyntaxError;
+PyObject *CxgDistMatrixIOError;
 
 void
 CxDistMatrixInit(void)
@@ -1817,4 +1885,11 @@ CxDistMatrixInit(void)
 						   NULL);
     Py_INCREF(CxgDistMatrixSyntaxError);
     PyModule_AddObject(m, "SyntaxError", CxgDistMatrixSyntaxError);
+
+    /* IOError. */
+    CxgDistMatrixIOError = PyErr_NewException("C_DistMatrix.IOError",
+					      CxgDistMatrixException,
+					      NULL);
+    Py_INCREF(CxgDistMatrixIOError);
+    PyModule_AddObject(m, "IOError", CxgDistMatrixIOError);
 }
