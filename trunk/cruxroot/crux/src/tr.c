@@ -2285,3 +2285,37 @@ tr_mp_score(cw_tr_t *a_tr, cw_uint32_t a_maxscore)
     return tr_p_mp_score(a_tr, a_tr->trns[a_tr->base].neighbors[0], a_tr->base,
 			 a_maxscore);
 }
+
+cw_uint32_t
+tr_tbr_best_neighbors_mp_get(cw_tr_t *a_tr, cw_uint32_t a_max_hold)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+cw_uint32_t
+tr_tbr_better_neighbors_mp_get(cw_tr_t *a_tr, cw_uint32_t a_max_hold)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+void
+tr_tbr_all_neighbors_mp_get(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+}
+
+cw_uint32_t
+tr_nheld_get(cw_tr_t *a_tr)
+{
+    cw_error("XXX Not implemented");
+    return 0; // XXX
+}
+
+void
+tr_held_get(cw_tr_t *a_tr, cw_uint32_t a_held, cw_uint32_t *r_neighbor,
+	    cw_uint32_t *r_score)
+{
+    cw_error("XXX Not implemented");
+}
