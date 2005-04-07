@@ -19,8 +19,11 @@ newickTree = '[Score: 16220] (0,(((((((((((((((((((((1,(376,(377,(378,379)))),38
 taxonMap = ctm.taxonMapGet()
 t = crux.Tree.Tree(newickTree, taxonMap=taxonMap)
 
-t.mpPrepare(ctm)
+for i in forints(2):
+    t.mpPrepare(ctm)
+    print "Score without uninformative characters: %d" % t.mp()
 
-print "Score: %d" % t.mp()
+    t.mpPrepare(ctm, elimUninformative=False)
+    print "Score with uninformative characters: %d" % t.mp()
 
 print "Test end"

@@ -23,11 +23,17 @@ struct CxsTreeMpData
     unsigned edgeAuxInd;
     unsigned ringAuxInd;
 
-    bool eliminateUninformative;
     char **taxa;
     unsigned nTaxa;
-    unsigned nChars;
+    unsigned nCharsTotal;
+
+    bool elimUninform;
     bool *charsMask;
+    unsigned nInformative;
+
+    // Number of characters actually used (equal to nCharsTotal or nInformative,
+    // depending on the value of elimUninform).
+    unsigned nChars;
 };
 
 // Character (in the systematics sense of the word).
@@ -142,10 +148,11 @@ CxpTreePsPrepare(CxtTreeMpData *aData, CxtTreeMpPs *aPs)
     bool rVal;
 
     // Clean up old character vector if it isn't the right size for
-    // aData->nchars characters.
+    // aData->nChars characters.
     if (aPs->chars != NULL && aPs->nChars != aData->nChars)
     {
 	free(aPs->aChars);
+	aPs->chars = NULL;
     }
 
     // Allocate character vector if necessary.
@@ -189,6 +196,9 @@ CxpTreePsPrepare(CxtTreeMpData *aData, CxtTreeMpPs *aPs)
 	    }
 	}
     }
+
+    // Make sure that cached values are not used.
+    aPs->parent = NULL;
 
     rVal = false;
     RETURN:
@@ -317,10 +327,10 @@ CxpTreeMpInitRing(CxtRingObject *aRing, unsigned aInd)
 
 	CxmAssert(taxonNum < data->nTaxa);
 	chars = data->taxa[taxonNum];
-	for (i = j = 0; i < data->nChars; i++)
+	for (i = j = 0; i < data->nCharsTotal; i++)
 	{
 	    // Ignore uninformative characters.
-	    if (data->charsMask[i] == false)
+	    if (data->elimUninform && data->charsMask[i] == false)
 	    {
 		continue;
 	    }
@@ -482,7 +492,7 @@ CxpTreeMpDataGet(CxtTreeObject *self, CxtTreeMpData **rData)
 	}
 
 	// Initialize data.
-	data->eliminateUninformative = false;
+	data->elimUninform = false;
 	data->taxa = NULL;
 	data->nTaxa = 0;
 	data->nChars = 0;
@@ -533,7 +543,11 @@ CxpTreeMpPrepareRecurse(CxtTreeObject *self, CxtTreeMpData *aData,
 	}
 
 	// Recurse.
-	CxpTreeMpPrepareRecurse(self, aData, ring);
+	if (CxpTreeMpPrepareRecurse(self, aData, CxRingOther(ring)))
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
     }
 
     rVal = false;
@@ -542,7 +556,7 @@ CxpTreeMpPrepareRecurse(CxtTreeObject *self, CxtTreeMpData *aData,
 }
 
 static bool
-CxpTreeMpPrepare(CxtTreeObject *self, bool aUninformativeEliminate,
+CxpTreeMpPrepare(CxtTreeObject *self, bool aElimUninform,
 		 char **aTaxa, uint32_t aNTaxa, uint32_t aNChars)
 {
     bool rVal;
@@ -559,14 +573,24 @@ CxpTreeMpPrepare(CxtTreeObject *self, bool aUninformativeEliminate,
     {
 	CxtRingObject *ringFirst, *ring;
 	CxtEdgeObject *edge;
-	uint32_t i, ninformative;
+	uint32_t i, j, k, x, y;
+	uint32_t codes[15];
 
 	// Set fields in data.
-	data->eliminateUninformative = aUninformativeEliminate;
+	if (data->taxa != NULL)
+	{
+	    free(data->taxa);
+	}
 	data->taxa = aTaxa;
-	data->nTaxa = aNTaxa;
-	data->nChars = aNChars;
 
+	data->nCharsTotal = aNChars;
+	data->nTaxa = aNTaxa;
+
+	data->elimUninform = aElimUninform;
+	if (data->charsMask != NULL)
+	{
+	    free(data->charsMask);
+	}
 	data->charsMask = (bool *) malloc(sizeof(bool) * aNChars);
 	if (data->charsMask == NULL)
 	{
@@ -575,155 +599,148 @@ CxpTreeMpPrepare(CxtTreeObject *self, bool aUninformativeEliminate,
 	    goto RETURN;
 	}
 
-	if (aUninformativeEliminate)
+	// XXX Update comment.
+	// Preprocess the character data.  Eliminate uninformative characters,
+	// but keep track of their contribution to the parsimony score, were
+	// they to be left in.
+	data->nInformative = 0;
+	for (i = 0; i < aNChars; i++)
 	{
-	    uint32_t codes[15];
-	    uint32_t j, k, x, y;
-
-	    // Preprocess the character data.  Eliminate uninformative
-	    // characters, but keep track of their contribution to the parsimony
-	    // score, were they to be left in.
-	    ninformative = 0;
-	    for (i = 0; i < aNChars; i++)
+	    for (k = 0; k < 15; k++)
 	    {
-		for (k = 0; k < 15; k++)
-		{
-		    codes[k] = 0;
-		}
+		codes[k] = 0;
+	    }
 
-		for (j = 0; j < aNTaxa; j++)
+	    for (j = 0; j < aNTaxa; j++)
+	    {
+		switch (aTaxa[j][i])
 		{
-		    switch (aTaxa[j][i])
+		    case 'N':
+		    case 'n':
+		    case 'X':
+		    case 'x':
+		    case '-':
 		    {
-			case 'N':
-			case 'n':
-			case 'X':
-			case 'x':
-			case '-':
-			{
-			    // Treat gaps as uncertainty.  This isn't the only
-			    // way to do things, and may need to be made
-			    // configurable.
-			    break;
-			}
-			case 'V':
-			case 'v':
-			{
-			    codes[14]++;
-			    break;
-			}
-			case 'H':
-			case 'h':
-			{
-			    codes[13]++;
-			    break;
-			}
-			case 'M':
-			case 'm':
-			{
-			    codes[12]++;
-			    break;
-			}
-			case 'D':
-			case 'd':
-			{
-			    codes[11]++;
-			    break;
-			}
-			case 'R':
-			case 'r':
-			{
-			    codes[10]++;
-			    break;
-			}
-			case 'W':
-			case 'w':
-			{
-			    codes[9]++;
-			    break;
-			}
-			case 'A':
-			case 'a':
-			{
-			    codes[8]++;
-			    break;
-			}
-			case 'B':
-			case 'b':
-			{
-			    codes[7]++;
-			    break;
-			}
-			case 'S':
-			case 's':
-			{
-			    codes[6]++;
-			    break;
-			}
-			case 'Y':
-			case 'y':
-			{
-			    codes[5]++;
-			    break;
-			}
-			case 'C':
-			case 'c':
-			{
-			    codes[4]++;
-			    break;
-			}
-			case 'K':
-			case 'k':
-			{
-			    codes[3]++;
-			    break;
-			}
-			case 'G':
-			case 'g':
-			{
-			    codes[2]++;
-			    break;
-			}
-			case 'T':
-			case 't':
-			{
-			    codes[1]++;
-			    break;
-			}
-			default:
-			{
-			    CxmNotReached();
-			}
+			// Treat gaps as uncertainty.  This isn't the only way
+			// to do things, and may need to be made configurable.
+			break;
+		    }
+		    case 'V':
+		    case 'v':
+		    {
+			codes[14]++;
+			break;
+		    }
+		    case 'H':
+		    case 'h':
+		    {
+			codes[13]++;
+			break;
+		    }
+		    case 'M':
+		    case 'm':
+		    {
+			codes[12]++;
+			break;
+		    }
+		    case 'D':
+		    case 'd':
+		    {
+			codes[11]++;
+			break;
+		    }
+		    case 'R':
+		    case 'r':
+		    {
+			codes[10]++;
+			break;
+		    }
+		    case 'W':
+		    case 'w':
+		    {
+			codes[9]++;
+			break;
+		    }
+		    case 'A':
+		    case 'a':
+		    {
+			codes[8]++;
+			break;
+		    }
+		    case 'B':
+		    case 'b':
+		    {
+			codes[7]++;
+			break;
+		    }
+		    case 'S':
+		    case 's':
+		    {
+			codes[6]++;
+			break;
+		    }
+		    case 'Y':
+		    case 'y':
+		    {
+			codes[5]++;
+			break;
+		    }
+		    case 'C':
+		    case 'c':
+		    {
+			codes[4]++;
+			break;
+		    }
+		    case 'K':
+		    case 'k':
+		    {
+			codes[3]++;
+			break;
+		    }
+		    case 'G':
+		    case 'g':
+		    {
+			codes[2]++;
+			break;
+		    }
+		    case 'T':
+		    case 't':
+		    {
+			codes[1]++;
+			break;
+		    }
+		    default:
+		    {
+			CxmNotReached();
 		    }
 		}
+	    }
 
-		// Count the number of states in which two or more taxa exist.
-		data->charsMask[i] = false;
-		for (x = 1; x < 15; x++)
+	    // Count the number of states in which two or more taxa exist.
+	    data->charsMask[i] = false;
+	    for (x = 1; x < 15; x++)
+	    {
+		for (y = 1; y < 15; y++)
 		{
-		    for (y = 1; y < 15; y++)
+		    if ((x & y) == 0 && codes[x] >= 2 && codes[y] >= 2)
 		    {
-			if ((x & y) == 0 && codes[x] >= 2 && codes[y] >= 2)
+			if (data->charsMask[i] == false)
 			{
-			    if (data->charsMask[i] == false)
-			    {
-				data->charsMask[i] = true;
-				ninformative++;
-			    }
+			    data->charsMask[i] = true;
+			    data->nInformative++;
 			}
 		    }
 		}
 	    }
 	}
+
+	if (aElimUninform)
+	{
+	    data->nChars = data->nInformative;
+	}
 	else
 	{
-	    // Use all characters, regardless of whether they are informative.
-	    ninformative = aNChars;
-
-	    for (i = 0; i < aNChars; i++)
-	    {
-		data->charsMask[i] = true;
-	    }
+	    data->nChars = data->nCharsTotal;
 	}
 
 	// Prepare the tree.
@@ -972,6 +989,347 @@ CxTreeMpFinish(CxtTreeObject *self)
 }
 
 // XXX Move up.
+#ifdef CxmCpuIa32
+CxmpInline void
+CxpTreeMpIa32Pscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+{
+    unsigned curlimit, i, nbytes, ns;
+    CxtTreeMpC *charsP, *charsA, *charsB;
+
+    // Calculate node score.
+    ns = 0;
+
+    // Calculate partial Fitch parsimony scores for each character.
+    charsP = aP->chars;
+    charsA = aA->chars;
+    charsB = aB->chars;
+
+    nbytes = (aP->nChars >> 1);
+
+    // Initialize SSE2 registers.
+    {
+	static const unsigned char low[] __attribute__ ((aligned (16))) =
+	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f"
+	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f";
+
+	asm volatile (
+	    // Clear pns.
+	    "pxor %%xmm4, %%xmm4;"
+
+	    // Fill xmm5 with masks for the least significant four bits of each
+	    // byte.
+	    "movdqa %[low], %%xmm5;"
+
+	    // Fill xmm6 with masks for the most significant four bits of each
+	    // byte.
+	    "pcmpeqb %%xmm6, %%xmm6;"
+	    "pxor %%xmm5, %%xmm6;"
+
+	    // Fill xmm7 with 16 1's.
+	    "pxor %%xmm7, %%xmm7;"
+	    "pcmpeqb %%xmm0, %%xmm0;"
+	    "psubb %%xmm0, %%xmm7;"
+	    :
+	    : [low] "m" (*low)
+	    : "%xmm4", "%xmm5", "%xmm6", "%xmm7"
+	    );
+    }
+
+    // The inner loop can be run a maximum of 127 times before the partial node
+    // score results (stored in %xmm4) are added to ns (otherwise, overflow
+    // could occur).  Therefore, the outer loop calculates the upper bound for
+    // the inner loop, thereby avoiding extra computation in the inner loop.
+    curlimit = 127 * 16;
+    if (curlimit > nbytes)
+    {
+	curlimit = nbytes;
+    }
+    for (i = 0;;)
+    {
+	// Use SSE2 to evaluate the characters.  This loop handles 32 characters
+	// per iteration.
+	for (; i < curlimit; i += 16)
+	{
+	    asm volatile (
+		// Read character data, and'ing and or'ing them together.
+		//
+		// a = *charsA;
+		// b = *charsB;
+		// p = a & b;
+		// d = a | b;
+		"movdqa %[a], %%xmm0;"
+		"movdqa %%xmm0, %%xmm1;"
+		"por %[b], %%xmm0;" // xmm0 contains d.
+		"pand %[b], %%xmm1;" // xmm1 contains p.
+
+		//==============================================================
+		// Most significant bits.
+
+		// Create bitmasks according to whether the character state sets
+		// are empty.
+		//
+		// c = p ? 0x00 : 0xff;
+		// e = (c & d);
+		// s = c ? 0 : 1;
+		// p = (p | e);
+		// ns += s;
+		"pxor %%xmm2, %%xmm2;"
+		"movdqa %%xmm1, %%xmm3;"
+		"pand %%xmm6, %%xmm3;" // Mask out unwanted bits of p.
+		"pcmpeqb %%xmm3, %%xmm2;" // xmm2 contains c.
+		"movdqa %%xmm0, %%xmm3;"
+		"pand %%xmm6, %%xmm3;" // Mask out unwanted bits of d.
+		"pand %%xmm2, %%xmm3;" // xmm3 contains e.
+		"por %%xmm3, %%xmm1;" // Update p.
+		"pand %%xmm7, %%xmm2;" // xmm2 contains s.
+		"paddusb %%xmm2, %%xmm4;" // Update ns (add s).
+
+		//==============================================================
+		// Least significant bits.
+
+		// Create bitmasks according to whether the character state sets
+		// are empty.
+		//
+		// c = p ? 0x00 : 0xff;
+		// e = (c & d);
+		// s = c ? 0 : 1;
+		// p = (p | e);
+		// ns += s;
+		"pxor %%xmm2, %%xmm2;"
+		"movdqa %%xmm1, %%xmm3;"
+		"pand %%xmm5, %%xmm3;" // Mask out unwanted bits of p.
+		"pcmpeqb %%xmm3, %%xmm2;" // xmm2 contains c.
+		"pand %%xmm5, %%xmm0;" // Mask out unwanted bits of d.
+		"pand %%xmm2, %%xmm0;" // xmm0 contains e.
+		"por %%xmm0, %%xmm1;" // Update p.
+		"pand %%xmm7, %%xmm2;" // xmm2 contains s.
+		"paddusb %%xmm2, %%xmm4;" // Update ns (add s).
+
+		// Store results.
+		//
+		// *charsP = p;
+		"movdqa %%xmm1, %[p];"
+		: [p] "=m" (charsP[i])
+		: [a] "m" (charsA[i]), [b] "m" (charsB[i])
+		: "memory"
+		);
+	}
+
+	// Update ns and reset pns.
+	{
+	    uint32_t pns;
+
+	    asm volatile (
+		// Sum the upper 8 bytes and lower 8 bytes separately (that's
+		// what psadbw does).
+		"pxor %%xmm0, %%xmm0;"
+		"psadbw %%xmm0, %%xmm4;"
+
+		// Combine the results of psadbw.
+		"movdqa %%xmm4, %%xmm3;"
+		"punpckhqdq %%xmm0, %%xmm4;"
+		"paddq %%xmm3, %%xmm4;"
+
+		// Store the result.
+		"movd %%xmm4, %[pns];"
+		"pxor %%xmm4, %%xmm4;"
+		: [pns] "=r" (pns)
+		:
+		: "memory"
+		);
+
+	    ns += pns;
+	}
+
+	// Break out of the loop if the bound for the inner loop was the maximum
+	// possible.
+	if (curlimit == nbytes)
+	{
+	    break;
+	}
+	// Update the bound for the inner loop, taking care not to exceed the
+	// maximum possible bound.
+	curlimit += 127 * 16;
+	if (curlimit > nbytes)
+	{
+	    curlimit = nbytes;
+	}
+    }
+
+    aP->nodeScore = ns;
+}
+#endif
+
+static void
+CxpTreeMpCPscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+{
+    uint32_t i, nwords, ns, a, b, m, r, un;
+    uint32_t *charsP, *charsA, *charsB;
+    static const uint32_t bitsTable[] =
+    {
+	2, 1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	1, 0
+    };
+
+    // Calculate node score.
+    ns = 0;
+
+#define CxmTreeMpCPscoreInner()						\
+    a = charsA[i];							\
+    b = charsB[i];							\
+									\
+    /* Get 1's in the least significant bits of state sets that are	\
+     * non-empty after the intersection operation. */			\
+    r = m = a & b;							\
+    m |= (m >> 1);							\
+    m |= (m >> 1);							\
+    m |= (m >> 1);							\
+									\
+    /* Mask out garbage. */						\
+    m &= 0x11111111;							\
+									\
+    /* Count up changes. */						\
+    ns += bitsTable[m & 0xff]						\
+	+ bitsTable[(m >> 8) & 0xff]					\
+	+ bitsTable[(m >> 16) & 0xff]					\
+	+ bitsTable[(m >> 24) & 0xff];					\
+									\
+    /* Propagate 1's to make a bit mask. */				\
+    m |= (m << 1);							\
+    m |= (m << 1);							\
+    m |= (m << 1);							\
+									\
+    /* Combine results of intersection and union operations. */		\
+    r &= m;								\
+    un = a | b;								\
+    m = (~m);								\
+    un &= m;								\
+    r |= un;								\
+									\
+    /* Store result. */							\
+    charsP[i] = r;							\
+									\
+    i++;
+
+    // Calculate preliminary Fitch parsimony scores for each character.
+    charsP = (uint32_t *) aP->chars;
+    charsA = (uint32_t *) aA->chars;
+    charsB = (uint32_t *) aB->chars;
+    for (i = 0, nwords = (aP->nChars >> 3); i < nwords;)
+    {
+	CxmTreeMpCPscoreInner();
+	CxmTreeMpCPscoreInner();
+	CxmTreeMpCPscoreInner();
+	CxmTreeMpCPscoreInner();
+    }
+#undef CxmTreeMpCPscoreInner
+
+    aP->nodeScore = ns;
+}
+
+// Unconditionally calculate the partial score for aP, using aA and aB as
+// children.
+CxmpInline void
+CxpTreeMpPscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+{
+    // Reset this node's parent pointer, to keep the parent from using an
+    // invalid cached value.
+    aP->parent = NULL;
+
+    // Calculate sum of subtree scores.
+    aP->subtreesScore
+	= aA->subtreesScore + aA->nodeScore
+	+ aB->subtreesScore + aB->nodeScore;
+
+#ifdef CxmCpuIa32
+    if (CxgIa32UseSse2)
+    {
+	CxpTreeMpIa32Pscore(aP, aA, aB);
+    }
+    else
+#endif
+    {
+	CxpTreeMpCPscore(aP, aA, aB);
+    }
+}
+
+// The sole purpose of this function is to assure that the contents of
+// CxpTreeMpPscore() are not inlined in CxpTreeMpCachePscore().  Most of the
+// time, the cache should be usable, so the actual scoring code doesn't usually
+// get called.
+static void
+CxpTreeMpNoInlinePscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+{
+    CxpTreeMpPscore(aP, aA, aB);
+}
+
+// Calculate the partial score for aP, using aA and aB as children.  However, do
+// some extra bookkeeping in order to be able to cache the results, and later
+// recognize that precisely the same calculation was cached.
+CxmpInline void
+CxpTreeMpCachePscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+{
+// XXX Undefine.
+#define CxmTreeMpCachePscoreValidate
+#ifdef CxmTreeMpCachePscoreValidate
+    bool cached;
+    unsigned cachedNodeScore;
+#endif
+
+    CxmCheckPtr(aP);
+    CxmCheckPtr(aA);
+    CxmCheckPtr(aB);
+
+    // Only calculate the parent's node score if the cached value is invalid.
+    if (aA->parent != aP || aB->parent != aP)
+#ifdef CxmTreeMpCachePscoreValidate
+    {
+	cached = false;
+    }
+    else
+    {
+	cached = true;
+	cachedNodeScore = aP->nodeScore;
+
+	if (aP->subtreesScore
+	    != (aA->subtreesScore + aA->nodeScore
+		+ aB->subtreesScore + aB->nodeScore))
+	{
+	    fprintf(stderr,
+		    "%s:%d:%s(): subtreesScore %u (should be %u)\n",
+		    __FILE__, __LINE__, __func__,
+		    aP->subtreesScore,
+		    aA->subtreesScore + aA->nodeScore
+		    + aB->subtreesScore + aB->nodeScore);
+	    abort();
+	}
+    }
+#endif
+    {
+	// Set parent pointers, so that cached values may be used in future
+	// runs.
+	aA->parent = aP;
+	aB->parent = aP;
+
+	// Calculate the partial score.
+	CxpTreeMpNoInlinePscore(aP, aA, aB);
+    }
+
+#ifdef CxmTreeMpCachePscoreValidate
+    if (cached)
+    {
+	if (cachedNodeScore != aP->nodeScore)
+	{
+	    fprintf(stderr, "%s:%d:%s(): nodeScore %u (should be %u)\n",
+		    __FILE__, __LINE__, __func__,
+		    cachedNodeScore, aP->nodeScore);
+	    abort();
+	}
+    }
+#endif
+}
+
 CxmpInline void
 CxpTreeMpCacheInvalidate(CxtTreeMpPs *aPs)
 {
@@ -982,13 +1340,185 @@ CxpTreeMpCacheInvalidate(CxtTreeMpPs *aPs)
     aPs->parent = NULL;
 }
 
-// Calculate the partial score for aP, using aA and aB as children.  However, do
-// some extra bookkeeping in order to be able to cache the results, and later
-// recognize that precisely the same calculation was cached.
-CxmpInline void
-CxpTreeMpCachePscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+#ifdef CxmCpuIa32
+CxmpInline unsigned
+CxpTreeMpIa32Fscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 {
-    CxmError("XXX Not implemented");
+    unsigned rVal, i, nbytes, pns;
+    CxtTreeMpC *charsA, *charsB;
+
+    // Calculate sum of subtree scores.
+    rVal
+	= aA->subtreesScore + aA->nodeScore
+	+ aB->subtreesScore + aB->nodeScore;
+
+    // Calculate partial Fitch parsimony scores for each character.
+    charsA = aA->chars;
+    charsB = aB->chars;
+
+    // Initialize SSE2 registers.
+    {
+	static const unsigned char low[] __attribute__ ((aligned (16))) =
+	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f"
+	    "\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f";
+
+	asm volatile (
+	    // Clear pns.
+	    "pxor %%xmm4, %%xmm4;"
+
+	    // Fill xmm5 with masks for the least significant four bits of each
+	    // byte.
+	    "movdqa %[low], %%xmm5;"
+
+	    // Fill xmm6 with masks for the most significant four bits of each
+	    // byte.
+	    "pcmpeqb %%xmm6, %%xmm6;"
+	    "pxor %%xmm5, %%xmm6;"
+
+	    // Fill xmm7 with 16 1's.
+	    "pxor %%xmm7, %%xmm7;"
+	    "pcmpeqb %%xmm0, %%xmm0;"
+	    "psubb %%xmm0, %%xmm7;"
+	    :
+	    : [low] "m" (*low)
+	    : "%xmm4", "%xmm5", "%xmm6", "%xmm7"
+	    );
+    }
+
+    // Use SSE2 to evaluate the characters.  This loop handles 32 characters per
+    // iteration.
+    for (i = 0, nbytes = (aA->nChars >> 1); i < nbytes; i += 16)
+    {
+	asm volatile (
+	    // Read character data, and'ing and or'ing them together.
+	    //
+	    // a = *charsA;
+	    // b = *charsB;
+	    // p = a & b;
+	    "movdqa %[a], %%xmm1;"
+	    "pand %[b], %%xmm1;" // xmm1 contains p.
+
+	    //==================================================================
+	    // Most significant bits.
+
+	    // Create bitmasks according to whether the character state sets are
+	    // empty.
+	    //
+	    // c = p ? 0x00 : 0xff;
+	    // s = c ? 0 : 1;
+	    // rVal += s;
+	    "pxor %%xmm2, %%xmm2;"
+	    "movdqa %%xmm1, %%xmm3;"
+	    "pand %%xmm6, %%xmm3;" // Mask out unwanted bits of p.
+	    "pcmpeqb %%xmm3, %%xmm2;" // xmm2 contains c.
+	    "pand %%xmm7, %%xmm2;" // xmm2 contains s.
+	    "paddusb %%xmm2, %%xmm4;" // Update rVal (add s).
+
+	    //==================================================================
+	    // Least significant bits.
+
+	    // Create bitmasks according to whether the character state sets are
+	    // empty.
+	    //
+	    // c = p ? 0x00 : 0xff;
+	    // s = c ? 0 : 1;
+	    // rVal += s;
+	    "pxor %%xmm2, %%xmm2;"
+	    "pand %%xmm5, %%xmm1;" // Mask out unwanted bits of p.
+	    "pcmpeqb %%xmm1, %%xmm2;" // xmm2 contains c.
+	    "pand %%xmm7, %%xmm2;" // xmm2 contains s.
+	    "paddusb %%xmm2, %%xmm4;" // Update rVal (add s).
+
+	    // Sum the upper 8 bytes and lower 8 bytes separately (there's no
+	    // choice in the matter -- that's what psadbw does).
+	    "pxor %%xmm0, %%xmm0;"
+	    "psadbw %%xmm0, %%xmm4;"
+
+	    // Combine the results of psadbw.
+	    "movdqa %%xmm4, %%xmm3;"
+	    "punpckhqdq %%xmm0, %%xmm4;"
+	    "paddq %%xmm3, %%xmm4;"
+
+	    // Store the result.
+	    "movd %%xmm4, %[pns];"
+	    "pxor %%xmm4, %%xmm4;"
+
+	    : [pns] "=r" (pns)
+	    : [a] "m" (charsA[i]), [b] "m" (charsB[i])
+	    : "memory"
+	    );
+
+	// Update rVal and terminate if the max score was exceeded.
+	rVal += pns;
+	if (rVal > aMaxScore)
+	{
+	    rVal = UINT_MAX;
+	    break;
+	}
+    }
+
+    return rVal;
+}
+#endif
+
+static unsigned
+CxpTreeMpCFscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
+{
+    uint32_t rVal, i, nwords, a, b, m;
+    uint32_t *charsA, *charsB;
+    static const uint32_t bitsTable[] =
+    {
+	2, 1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1,
+	1, 0
+    };
+
+    // Calculate sum of subtree scores.
+    rVal
+	= aA->subtreesScore + aA->nodeScore
+	+ aB->subtreesScore + aB->nodeScore;
+
+#define CxmTreeMpCFscoreInner()						\
+    a = charsA[i];							\
+    b = charsB[i];							\
+									\
+    /* Get 1's in the least significant bits of state sets that are	\
+     * non-empty after the intersection operation. */			\
+    m = a & b;								\
+    m |= (m >> 1);							\
+    m |= (m >> 1);							\
+    m |= (m >> 1);							\
+									\
+    /* Mask out garbage. */						\
+    m &= 0x11111111;							\
+									\
+    /* Count up changes. */						\
+    rVal += bitsTable[m & 0xff]						\
+	+ bitsTable[(m >> 8) & 0xff]					\
+	+ bitsTable[(m >> 16) & 0xff]					\
+	+ bitsTable[(m >> 24) & 0xff];					\
+									\
+    if (rVal > aMaxScore)						\
+    {									\
+	rVal = UINT_MAX;						\
+	break;								\
+    }									\
+									\
+    i++;
+
+    // Calculate partial Fitch parsimony scores for each character.
+    charsA = (uint32_t *) aA->chars;
+    charsB = (uint32_t *) aB->chars;
+    for (i = 0, nwords = (aA->nChars >> 3); i < nwords;)
+    {
+	CxmTreeMpCFscoreInner();
+	CxmTreeMpCFscoreInner();
+	CxmTreeMpCFscoreInner();
+	CxmTreeMpCFscoreInner();
+    }
+#undef CxmTreeMpCFscoreInner
+
+    return rVal;
 }
 
 // Unconditionally calculate the final score of a tree, using aA and aB as
@@ -996,7 +1526,20 @@ CxpTreeMpCachePscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 CxmpInline unsigned
 CxpTreeMpFscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 {
-    CxmError("XXX Not implemented");
+    unsigned rVal;
+
+#ifdef CxmCpuIa32
+    if (CxgIa32UseSse2)
+    {
+	rVal = CxpTreeMpIa32Fscore(aA, aB, aMaxScore);
+    }
+    else
+#endif
+    {
+	rVal = CxpTreeMpCFscore(aA, aB, aMaxScore);
+    }
+
+    return rVal;
 }
 
 static CxtTreeMpPs *
@@ -1076,15 +1619,17 @@ CxpTreeMpScoreRecurse(CxtTreeMpData *aData, CxtRingObject *aRing,
 		// reasons.
 
 		// Recursively calculate partial scores for the subtrees.
-		ring = CxRingNext(ring);
-		psA = CxpTreeMpScoreRecurse(aData, ring, aBisect);
+		ring = CxRingNext(aRing);
+		psA = CxpTreeMpScoreRecurse(aData, CxRingOther(ring), aBisect);
 
 		ring = CxRingNext(ring);
-		psB = CxpTreeMpScoreRecurse(aData, ring, aBisect);
+		psB = CxpTreeMpScoreRecurse(aData, CxRingOther(ring), aBisect);
 
 		// Calculate the partial score for this node.
 		rVal = (CxtTreeMpPs *) CxRingAuxGet(aRing, aData->ringAuxInd);
 		CxpTreeMpCachePscore(rVal, psA, psB);
+
+		break;
 	    }
 	    // Fall through if this node is adjacent to the bisection.
 	}
@@ -1124,8 +1669,8 @@ CxTreeMp(CxtTreeObject *self)
 	CxEdgeRingsGet(edge, &ringA, &ringB);
 
 	// Calculate partial scores for the subtrees on each end of edge.
-	psA = CxpTreeMpScoreRecurse(data, ringA, NULL);
-	psB = CxpTreeMpScoreRecurse(data, ringB, NULL);
+	psA = CxpTreeMpScoreRecurse(data, CxRingOther(ringA), NULL);
+	psB = CxpTreeMpScoreRecurse(data, CxRingOther(ringB), NULL);
 
 	// Calculate the final score.
 	score = CxpTreeMpFscore(psA, psB, UINT_MAX);
