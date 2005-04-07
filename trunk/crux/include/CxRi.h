@@ -18,7 +18,7 @@ struct CxsRi
     // iteration:
     //
     //   1) Initialize ind <-- 0.
-    // 
+    //
     //   2) Choose a random slot r in [ind,nints).
     //
     //   3) If arr[r] == 0, set arr[r] <-- r + 1.
