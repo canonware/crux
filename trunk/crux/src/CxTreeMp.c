@@ -67,6 +67,17 @@ struct CxsTreeMpPs
     CxtTreeMpC *aChars;
 };
 
+// Specifies different tree holding strategies.
+typedef enum
+{
+    CxeTreeHoldBest,
+    CxeTreeHoldBetter,
+    CxeTreeHoldAll
+} CxtTreeHoldHow;
+
+#define CxmTreeMpMaxScoreNone 0xffffffffU
+#define CxmTreeMpHoldAll 0xffffffffU
+
 static bool
 CxpTreeMpDataGet(CxtTreeObject *self, CxtTreeMpData **rData);
 
@@ -1643,10 +1654,10 @@ CxpTreeMpScoreRecurse(CxtTreeMpData *aData, CxtRingObject *aRing,
     return rVal;
 }
 
-PyObject *
-CxTreeMp(CxtTreeObject *self)
+CxmpInline bool
+CxpTreeMpScore(CxtTreeObject *self, unsigned *rScore)
 {
-    PyObject *rVal;
+    bool rVal;
     unsigned score;
     CxtNodeObject *base;
     CxtRingObject *ring;
@@ -1661,7 +1672,7 @@ CxTreeMp(CxtTreeObject *self)
 
 	if (CxpTreeMpDataGet(self, &data))
 	{
-	    rVal = NULL;
+	    rVal = true;
 	    goto RETURN;
 	}
 
@@ -1680,9 +1691,34 @@ CxTreeMp(CxtTreeObject *self)
 	score = 0;
     }
 
+    *rScore = score;
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+PyObject *
+CxTreeMp(CxtTreeObject *self)
+{
+    PyObject *rVal;
+    unsigned score;
+
+    if (CxpTreeMpScore(self, &score))
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
+
     rVal = Py_BuildValue("i", score);
     RETURN:
     return rVal;
+}
+
+static bool
+CxpTreeMpTbrNeighbors(CxtTreeObject *self, unsigned aMaxHold,
+		      unsigned aMaxScore, CxtTreeHoldHow aHow)
+{
+    CxmError("XXX Not implemented");
 }
 
 PyObject *
@@ -1701,7 +1737,7 @@ CxTreeTbrBestNeighborsMp(CxtTreeObject *self, PyObject *args)
 	rVal = NULL;
 	goto RETURN;
     }
-    if (maxHold < 0 && maxHold != CxmTrHoldAll)
+    if (maxHold < 0 && maxHold != CxmTreeMpHoldAll)
     {
 	CxError(CxgTreeValueError,
 		"maxHold: non-negative integer expected");
@@ -1709,21 +1745,15 @@ CxTreeTbrBestNeighborsMp(CxtTreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxmXepBegin();
-    CxmXepTry
+    if (CxpTreeMpTbrNeighbors(self, maxHold, CxmTreeMpMaxScoreNone,
+			      CxeTreeHoldBest))
     {
-	CxTrTbrBestNeighborsMp(self->tr, maxHold);
-
-	Py_INCREF(Py_None);
-	rVal = Py_None;
+	rVal = NULL;
+	goto RETURN;
     }
-    CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	rVal = PyErr_NoMemory();
-    }
-    CxmXepEnd();
 
+    Py_INCREF(Py_None);
+    rVal = Py_None;
     RETURN:
     return rVal;
 }
@@ -1737,6 +1767,7 @@ CxTreeTbrBetterNeighborsMp(CxtTreeObject *self, PyObject *args)
 #endif
 	;
     int maxHold;
+    unsigned score;
 
     maxHold = CxmTrHoldAll;
     if (PyArg_ParseTuple(args, "|i", &maxHold) == 0)
@@ -1752,21 +1783,22 @@ CxTreeTbrBetterNeighborsMp(CxtTreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    CxmXepBegin();
-    CxmXepTry
+    if (CxpTreeMpScore(self, &score))
     {
-	CxTrTbrBetterNeighborsMp(self->tr, maxHold);
-
-	Py_INCREF(Py_None);
-	rVal = Py_None;
+	rVal = NULL;
+	goto RETURN;
     }
-    CxmXepCatch(CxmXepOOM)
+
+    if (CxpTreeMpTbrNeighbors(self, maxHold,
+			      score > 0 ? score - 1 : 0,
+			      CxeTreeHoldBetter))
     {
-	CxmXepHandled();
-	rVal = PyErr_NoMemory();
+	rVal = NULL;
+	goto RETURN;
     }
-    CxmXepEnd();
 
+    Py_INCREF(Py_None);
+    rVal = Py_None;
     RETURN:
     return rVal;
 }
@@ -1780,21 +1812,16 @@ CxTreeTbrAllNeighborsMp(CxtTreeObject *self)
 #endif
 	;
 
-    CxmXepBegin();
-    CxmXepTry
+    if (CxpTreeMpTbrNeighbors(self, CxmTreeMpHoldAll, CxmTreeMpMaxScoreNone,
+			      CxeTreeHoldAll))
     {
-	CxTrTbrAllNeighborsMp(self->tr);
-
-	Py_INCREF(Py_None);
-	rVal = Py_None;
+	rVal = NULL;
+	goto RETURN;
     }
-    CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	rVal = PyErr_NoMemory();
-    }
-    CxmXepEnd();
 
+    Py_INCREF(Py_None);
+    rVal = Py_None;
+    RETURN:
     return rVal;
 }
 
