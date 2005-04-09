@@ -12,7 +12,9 @@
 bool
 CxTreeTbrBEdgeSetsGet(CxtTreeObject *self, CxtEdgeObject *aEdge,
 		      CxtEdgeObject ***rSetA, unsigned *rNSetA,
-		      CxtEdgeObject ***rSetB, unsigned *rNSetB);
+		      CxtRingObject **rRingA,
+		      CxtEdgeObject ***rSetB, unsigned *rNSetB,
+		      CxtRingObject **rRingB);
 
 bool
 CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
@@ -21,9 +23,18 @@ PyObject *
 CxTreeTbrPargs(CxtTreeObject *self, PyObject *args);
 
 bool
-CxTreeTbrNneighborsGet(CxtTreeObject *self, unsigned *rNneighbors);
+CxTreeTbrNEdgesGet(CxtTreeObject *self, unsigned *rNEdges);
+
+bool
+CxTreeTbrEdgeGet(CxtTreeObject *self, unsigned aEdge, CxtEdgeObject **rEdge);
+
+bool
+CxTreeTbrEdgeOffset(CxtTreeObject *self, unsigned aEdge, unsigned *rOffset);
+
+bool
+CxTreeTbrNNeighborsGet(CxtTreeObject *self, unsigned *rNNeighbors);
 PyObject *
-CxTreeTbrNneighborsGetPargs(CxtTreeObject *self);
+CxTreeTbrNNeighborsGetPargs(CxtTreeObject *self);
 
 bool
 CxTreeTbrNeighborGet(CxtTreeObject *self, unsigned aNeighbor,

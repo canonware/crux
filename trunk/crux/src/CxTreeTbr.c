@@ -60,7 +60,9 @@ struct CxsTreeTbrData
     CxtEdgeObject **edgeSets;
     unsigned maxEdgeSets;
     unsigned nSetA;
+    CxtRingObject *ringA; // Only valid if nSetA is 0.
     unsigned nSetB;
+    CxtRingObject *ringB; // Only valid if nSetB is 0.
 };
 
 static void
@@ -156,7 +158,8 @@ CxpTreeTbrBEdgeSetGenRecurse(CxtTreeObject *self, CxtRingObject *aRing,
 
 CxmpInline void
 CxpTreeTbrBEdgeSetGen(CxtTreeObject *self, CxtRingObject *aRing,
-		      CxtEdgeObject **rEdgeSet, unsigned *rNEdges)
+		      CxtEdgeObject **rEdgeSet, unsigned *rNEdges,
+		      CxtRingObject **rRing)
 {
     // Initialize the length of the list before recursing.
     *rNEdges = 0;
@@ -169,6 +172,7 @@ CxpTreeTbrBEdgeSetGen(CxtTreeObject *self, CxtRingObject *aRing,
 	    // single entry to the list, and return the node.
 	    rEdgeSet[0] = NULL;
 	    (*rNEdges)++;
+	    *rRing = aRing;
 	    break;
 	}
 	case 2:
@@ -265,9 +269,10 @@ CxpTreeTbrBEdgeSetsGen(CxtTreeObject *self, CxtTreeTbrData *aData,
 	aData->maxEdgeSets = aData->nBisections;
     }
 
-    CxpTreeTbrBEdgeSetGen(self, aRingA, aData->edgeSets, &aData->nSetA);
+    CxpTreeTbrBEdgeSetGen(self, aRingA, aData->edgeSets, &aData->nSetA,
+			  &aData->ringA);
     CxpTreeTbrBEdgeSetGen(self, aRingB, &aData->edgeSets[aData->nSetA],
-			  &aData->nSetB);
+			  &aData->nSetB, &aData->ringB);
 
     rVal = false;
     RETURN:
@@ -583,7 +588,9 @@ CxpTreeTbrBisectionCompare(const void *aKey, const void *aVal)
 bool
 CxTreeTbrBEdgeSetsGet(CxtTreeObject *self, CxtEdgeObject *aEdge,
 		      CxtEdgeObject ***rSetA, unsigned *rNSetA,
-		      CxtEdgeObject ***rSetB, unsigned *rNSetB)
+		      CxtRingObject **rRingA,
+		      CxtEdgeObject ***rSetB, unsigned *rNSetB,
+		      CxtRingObject **rRingB)
 {
     bool rVal;
     CxtTreeTbrData *data;
@@ -600,20 +607,24 @@ CxTreeTbrBEdgeSetsGet(CxtTreeObject *self, CxtEdgeObject *aEdge,
     if (data->nSetA != 0)
     {
 	*rSetA = data->edgeSets;
+	*rRingA = NULL;
     }
     else
     {
 	*rSetA = NULL;
+	*rRingA = data->ringA;
     }
     *rNSetA = data->nSetA;
 
     if (data->nSetB != 0)
     {
 	*rSetB = &data->edgeSets[data->nSetA];
+	*rRingB = NULL;
     }
     else
     {
 	*rSetB = NULL;
+	*rRingB = data->ringB;
     }
     *rNSetB = data->nSetB;
 
@@ -868,7 +879,66 @@ CxTreeTbrPargs(CxtTreeObject *self, PyObject *args)
 }
 
 bool
-CxTreeTbrNneighborsGet(CxtTreeObject *self, unsigned *rNneighbors)
+CxTreeTbrNEdgesGet(CxtTreeObject *self, unsigned *rNEdges)
+{
+    bool rVal;
+    CxtTreeTbrData *data;
+
+    if (CxpTreeTbrUpdate(self, &data))
+    {
+	rVal = true;
+	goto RETURN;
+    }
+
+    *rNEdges = data->nBisections;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeTbrEdgeGet(CxtTreeObject *self, unsigned aEdge, CxtEdgeObject **rEdge)
+{
+    bool rVal;
+    CxtTreeTbrData *data;
+
+    if (CxpTreeTbrUpdate(self, &data))
+    {
+	rVal = true;
+	goto RETURN;
+    }
+
+    CxmAssert(aEdge < data->nBisections);
+    *rEdge = data->bisections[aEdge].edge;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeTbrEdgeOffset(CxtTreeObject *self, unsigned aEdge, unsigned *rOffset)
+{
+    bool rVal;
+    CxtTreeTbrData *data;
+
+    if (CxpTreeTbrUpdate(self, &data))
+    {
+	rVal = true;
+	goto RETURN;
+    }
+
+    CxmAssert(aEdge <= data->nBisections);
+    *rOffset = data->bisections[aEdge].offset;
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+bool
+CxTreeTbrNNeighborsGet(CxtTreeObject *self, unsigned *rNNeighbors)
 {
     bool rVal;
     CxtTreeTbrData *data;
@@ -881,11 +951,11 @@ CxTreeTbrNneighborsGet(CxtTreeObject *self, unsigned *rNneighbors)
 
     if (data->nBisections == 0)
     {
-	*rNneighbors = 0;
+	*rNNeighbors = 0;
     }
     else
     {
-	*rNneighbors = data->bisections[data->nBisections].offset;
+	*rNNeighbors = data->bisections[data->nBisections].offset;
     }
 
     rVal = false;
@@ -894,7 +964,7 @@ CxTreeTbrNneighborsGet(CxtTreeObject *self, unsigned *rNneighbors)
 }
 
 PyObject *
-CxTreeTbrNneighborsGetPargs(CxtTreeObject *self)
+CxTreeTbrNNeighborsGetPargs(CxtTreeObject *self)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
@@ -903,7 +973,7 @@ CxTreeTbrNneighborsGetPargs(CxtTreeObject *self)
 	;
     unsigned nneighbors;
 
-    if (CxTreeTbrNneighborsGet(self, &nneighbors))
+    if (CxTreeTbrNNeighborsGet(self, &nneighbors))
     {
 	rVal = PyErr_NoMemory();
 	goto RETURN;
@@ -1005,7 +1075,7 @@ CxTreeTbrNeighborGetPargs(CxtTreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    if (CxTreeTbrNneighborsGet(self, &nneighbors))
+    if (CxTreeTbrNNeighborsGet(self, &nneighbors))
     {
 	rVal = PyErr_NoMemory();
 	goto RETURN;

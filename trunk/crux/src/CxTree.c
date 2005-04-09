@@ -1065,7 +1065,7 @@ static PyMethodDef CxpTreeMethods[] =
     },
     {
 	"tbrNneighborsGet",
-	(PyCFunction) CxTreeTbrNneighborsGetPargs,
+	(PyCFunction) CxTreeTbrNNeighborsGetPargs,
 	METH_NOARGS,
 	"tbrNneighborsGet"
     },

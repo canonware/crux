@@ -11,8 +11,20 @@
 
 #include "../include/_cruxmodule.h"
 
+typedef struct CxsTreeMpHeld CxtTreeMpHeld;
 typedef struct CxsTreeMpData CxtTreeMpData;
 typedef struct CxsTreeMpPs CxtTreeMpPs;
+
+// Neighbor tree.
+struct CxsTreeMpHeld
+{
+    // Neighbor index for the tree.  This can be passed to CxTrTbrNeighborGet()
+    // to get the associated TBR parameters.
+    unsigned neighbor;
+
+    // Fitch parsimony score for the neighboring tree.
+    unsigned score;
+};
 
 struct CxsTreeMpData
 {
@@ -27,6 +39,7 @@ struct CxsTreeMpData
     unsigned nTaxa;
     unsigned nCharsTotal;
 
+    // Settings/data for masking of uninformative characters.
     bool elimUninform;
     bool *charsMask;
     unsigned nInformative;
@@ -34,6 +47,11 @@ struct CxsTreeMpData
     // Number of characters actually used (equal to nCharsTotal or nInformative,
     // depending on the value of elimUninform).
     unsigned nChars;
+
+    // Tree holding data.
+    CxtTreeMpHeld *held;
+    unsigned heldLen;
+    unsigned nHeld;
 };
 
 // Character (in the systematics sense of the word).
@@ -225,6 +243,11 @@ static void
 CxpTreeMpCleanupFinal(CxtTreeObject *aTree, void *aData, unsigned aInd)
 {
     CxtTreeMpData *data = (CxtTreeMpData *) aData;
+
+    if (data->held != NULL)
+    {
+	free(data->held);
+    }
 
     if (data->charsMask != NULL)
     {
@@ -503,11 +526,16 @@ CxpTreeMpDataGet(CxtTreeObject *self, CxtTreeMpData **rData)
 	}
 
 	// Initialize data.
-	data->elimUninform = false;
 	data->taxa = NULL;
 	data->nTaxa = 0;
-	data->nChars = 0;
+	data->nCharsTotal = 0;
+	data->elimUninform = false;
 	data->charsMask = NULL;
+	data->nInformative = 0;
+	data->nChars = 0;
+	data->held = NULL;
+	data->heldLen = 0;
+	data->nHeld = 0;
     }
     else
     {
@@ -1002,7 +1030,7 @@ CxTreeMpFinish(CxtTreeObject *self)
 // XXX Move up.
 #ifdef CxmCpuIa32
 CxmpInline void
-CxpTreeMpIa32Pscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+CxpTreeMpIa32PScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
     unsigned curlimit, i, nbytes, ns;
     CxtTreeMpC *charsP, *charsA, *charsB;
@@ -1172,7 +1200,7 @@ CxpTreeMpIa32Pscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 #endif
 
 static void
-CxpTreeMpCPscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+CxpTreeMpCPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
     uint32_t i, nwords, ns, a, b, m, r, un;
     uint32_t *charsP, *charsA, *charsB;
@@ -1186,7 +1214,7 @@ CxpTreeMpCPscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
     // Calculate node score.
     ns = 0;
 
-#define CxmTreeMpCPscoreInner()						\
+#define CxmTreeMpCPScoreInner()						\
     a = charsA[i];							\
     b = charsB[i];							\
 									\
@@ -1229,12 +1257,12 @@ CxpTreeMpCPscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
     charsB = (uint32_t *) aB->chars;
     for (i = 0, nwords = (aP->nChars >> 3); i < nwords;)
     {
-	CxmTreeMpCPscoreInner();
-	CxmTreeMpCPscoreInner();
-	CxmTreeMpCPscoreInner();
-	CxmTreeMpCPscoreInner();
+	CxmTreeMpCPScoreInner();
+	CxmTreeMpCPScoreInner();
+	CxmTreeMpCPScoreInner();
+	CxmTreeMpCPScoreInner();
     }
-#undef CxmTreeMpCPscoreInner
+#undef CxmTreeMpCPScoreInner
 
     aP->nodeScore = ns;
 }
@@ -1242,7 +1270,7 @@ CxpTreeMpCPscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 // Unconditionally calculate the partial score for aP, using aA and aB as
 // children.
 CxmpInline void
-CxpTreeMpPscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+CxpTreeMpPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
     // Reset this node's parent pointer, to keep the parent from using an
     // invalid cached value.
@@ -1256,34 +1284,34 @@ CxpTreeMpPscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 #ifdef CxmCpuIa32
     if (CxgIa32UseSse2)
     {
-	CxpTreeMpIa32Pscore(aP, aA, aB);
+	CxpTreeMpIa32PScore(aP, aA, aB);
     }
     else
 #endif
     {
-	CxpTreeMpCPscore(aP, aA, aB);
+	CxpTreeMpCPScore(aP, aA, aB);
     }
 }
 
 // The sole purpose of this function is to assure that the contents of
-// CxpTreeMpPscore() are not inlined in CxpTreeMpCachePscore().  Most of the
+// CxpTreeMpPScore() are not inlined in CxpTreeMpCachePScore().  Most of the
 // time, the cache should be usable, so the actual scoring code doesn't usually
 // get called.
 static void
-CxpTreeMpNoInlinePscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+CxpTreeMpNoInlinePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
-    CxpTreeMpPscore(aP, aA, aB);
+    CxpTreeMpPScore(aP, aA, aB);
 }
 
 // Calculate the partial score for aP, using aA and aB as children.  However, do
 // some extra bookkeeping in order to be able to cache the results, and later
 // recognize that precisely the same calculation was cached.
 CxmpInline void
-CxpTreeMpCachePscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+CxpTreeMpCachePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
 // XXX Undefine.
-#define CxmTreeMpCachePscoreValidate
-#ifdef CxmTreeMpCachePscoreValidate
+#define CxmTreeMpCachePScoreValidate
+#ifdef CxmTreeMpCachePScoreValidate
     bool cached;
     unsigned cachedNodeScore;
 #endif
@@ -1294,7 +1322,7 @@ CxpTreeMpCachePscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 
     // Only calculate the parent's node score if the cached value is invalid.
     if (aA->parent != aP || aB->parent != aP)
-#ifdef CxmTreeMpCachePscoreValidate
+#ifdef CxmTreeMpCachePScoreValidate
     {
 	cached = false;
     }
@@ -1324,10 +1352,10 @@ CxpTreeMpCachePscore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 	aB->parent = aP;
 
 	// Calculate the partial score.
-	CxpTreeMpNoInlinePscore(aP, aA, aB);
+	CxpTreeMpNoInlinePScore(aP, aA, aB);
     }
 
-#ifdef CxmTreeMpCachePscoreValidate
+#ifdef CxmTreeMpCachePScoreValidate
     if (cached)
     {
 	if (cachedNodeScore != aP->nodeScore)
@@ -1353,7 +1381,7 @@ CxpTreeMpCacheInvalidate(CxtTreeMpPs *aPs)
 
 #ifdef CxmCpuIa32
 CxmpInline unsigned
-CxpTreeMpIa32Fscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
+CxpTreeMpIa32FScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 {
     unsigned rVal, i, nbytes, pns;
     CxtTreeMpC *charsA, *charsB;
@@ -1473,7 +1501,7 @@ CxpTreeMpIa32Fscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 #endif
 
 static unsigned
-CxpTreeMpCFscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
+CxpTreeMpCFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 {
     uint32_t rVal, i, nwords, a, b, m;
     uint32_t *charsA, *charsB;
@@ -1489,7 +1517,7 @@ CxpTreeMpCFscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 	= aA->subtreesScore + aA->nodeScore
 	+ aB->subtreesScore + aB->nodeScore;
 
-#define CxmTreeMpCFscoreInner()						\
+#define CxmTreeMpCFScoreInner()						\
     a = charsA[i];							\
     b = charsB[i];							\
 									\
@@ -1522,12 +1550,12 @@ CxpTreeMpCFscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
     charsB = (uint32_t *) aB->chars;
     for (i = 0, nwords = (aA->nChars >> 3); i < nwords;)
     {
-	CxmTreeMpCFscoreInner();
-	CxmTreeMpCFscoreInner();
-	CxmTreeMpCFscoreInner();
-	CxmTreeMpCFscoreInner();
+	CxmTreeMpCFScoreInner();
+	CxmTreeMpCFScoreInner();
+	CxmTreeMpCFScoreInner();
+	CxmTreeMpCFScoreInner();
     }
-#undef CxmTreeMpCFscoreInner
+#undef CxmTreeMpCFScoreInner
 
     return rVal;
 }
@@ -1535,19 +1563,19 @@ CxpTreeMpCFscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 // Unconditionally calculate the final score of a tree, using aA and aB as
 // children.
 CxmpInline unsigned
-CxpTreeMpFscore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
+CxpTreeMpFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 {
     unsigned rVal;
 
 #ifdef CxmCpuIa32
     if (CxgIa32UseSse2)
     {
-	rVal = CxpTreeMpIa32Fscore(aA, aB, aMaxScore);
+	rVal = CxpTreeMpIa32FScore(aA, aB, aMaxScore);
     }
     else
 #endif
     {
-	rVal = CxpTreeMpCFscore(aA, aB, aMaxScore);
+	rVal = CxpTreeMpCFScore(aA, aB, aMaxScore);
     }
 
     return rVal;
@@ -1638,7 +1666,7 @@ CxpTreeMpScoreRecurse(CxtTreeMpData *aData, CxtRingObject *aRing,
 
 		// Calculate the partial score for this node.
 		rVal = (CxtTreeMpPs *) CxRingAuxGet(aRing, aData->ringAuxInd);
-		CxpTreeMpCachePscore(rVal, psA, psB);
+		CxpTreeMpCachePScore(rVal, psA, psB);
 
 		break;
 	    }
@@ -1684,7 +1712,7 @@ CxpTreeMpScore(CxtTreeObject *self, unsigned *rScore)
 	psB = CxpTreeMpScoreRecurse(data, CxRingOther(ringB), NULL);
 
 	// Calculate the final score.
-	score = CxpTreeMpFscore(psA, psB, UINT_MAX);
+	score = CxpTreeMpFScore(psA, psB, UINT_MAX);
     }
     else
     {
@@ -1714,11 +1742,391 @@ CxTreeMp(CxtTreeObject *self)
     return rVal;
 }
 
+// XXX Reorganize functions.
+CxmpInline void
+CxpTreeMpViewsRecurse(CxtTreeMpData *aData, CxtRingObject *aRing,
+		      CxtTreeMpPs *aPs, CxtEdgeObject *aBisect)
+{
+    unsigned degree;
+    bool adjacent;
+    CxtRingObject *ring;
+
+    // Get the degree of the node.  Don't count the bisection edge (only an
+    // issue if this node is adjacent to the bisection).
+    degree = 1;
+    adjacent = false;
+    for (ring = CxRingNext(aRing); ring != aRing; ring = CxRingNext(ring))
+    {
+	if (CxRingEdge(ring) != aBisect)
+	{
+	    degree++;
+	}
+	else
+	{
+	    adjacent = true;
+	}
+    }
+
+    switch (degree)
+    {
+	case 1:
+	{
+	    // Leaf node.  Do nothing.
+	    break;
+	}
+	case 2:
+	{
+	    // This is a trifurcating node that is adjacent to the bisection.
+	    // Pass the parent's ps when recursing, since this node's ps is
+	    // irrelevant.
+	    CxmAssert(adjacent);
+
+	    // Get the ring element that connects to the other portion of the
+	    // subtree on this side of the bisection.
+	    for (ring = CxRingNext(aRing);
+		 ring != aRing;
+		 ring = CxRingNext(ring))
+	    {
+		if (CxRingEdge(ring) != aBisect)
+		{
+		    // Clear the cache for the view that is being bypassed.
+		    // This is critical to correctness of the caching machinery,
+		    // since each view should never be claimed as the parent of
+		    // more than two other views.
+		    CxpTreeMpCacheInvalidate((CxtTreeMpPs *)
+					     CxRingAuxGet(ring,
+							  aData->ringAuxInd));
+
+		    // Recurse.
+		    CxpTreeMpViewsRecurse(aData, CxRingOther(ring), aPs,
+					  aBisect);
+		    break;
+		}
+	    }
+	    break;
+	}
+	case 3:
+	{
+	    if (adjacent == false)
+	    {
+		CxtRingObject *ringA, *ringB;
+		CxtRingObject *ringAOther, *ringBOther;
+		CxtTreeMpPs *psA, *psB;
+		CxtTreeMpPs *psAOther, *psBOther;
+		CxtEdgeObject *edgeA, *edgeB;
+		CxtTreeMpPs *psEdgeA, *psEdgeB;
+
+		// This is a normal trifurcating node.  This is the common case,
+		// and is handled separately from the code below for performance
+		// reasons.
+
+		// Get all variables that are necessary for view calculation and
+		// recursion.
+		ringA = CxRingNext(aRing);
+		psA = (CxtTreeMpPs *) CxRingAuxGet(ringA, aData->ringAuxInd);
+		ringAOther = CxRingOther(ringA);
+		psAOther = (CxtTreeMpPs *) CxRingAuxGet(ringAOther,
+							aData->ringAuxInd);
+		edgeA = CxRingEdge(ringA);
+		psEdgeA = (CxtTreeMpPs *) CxEdgeAuxGet(edgeA,
+						       aData->edgeAuxInd);
+
+		ringB = CxRingNext(ringA);
+		psB = (CxtTreeMpPs *) CxRingAuxGet(ringB, aData->ringAuxInd);
+		ringBOther = CxRingOther(ringB);
+		psBOther = (CxtTreeMpPs *) CxRingAuxGet(ringBOther,
+							aData->ringAuxInd);
+		edgeB = CxRingEdge(ringB);
+		psEdgeB = (CxtTreeMpPs *) CxEdgeAuxGet(edgeB,
+						       aData->edgeAuxInd);
+
+		// Calculate views and edges, and recurse.
+		CxpTreeMpPScore(psA, aPs, psBOther);
+		CxpTreeMpPScore(psEdgeA, psA, psAOther);
+		CxpTreeMpViewsRecurse(aData, ringAOther, psA, aBisect);
+
+		CxpTreeMpPScore(psB, aPs, psAOther);
+		CxpTreeMpPScore(psEdgeB, psB, psBOther);
+		CxpTreeMpViewsRecurse(aData, ringBOther, psB, aBisect);
+
+		break;
+	    }
+	    // Fall through if this node is adjacent to the bisection.
+	}
+	default:
+	{
+	    // This is a multifurcating node.
+	    CxmError("XXX Not implemented");
+	}
+    }
+}
+
+// Calculate the partial score for each edge in aEdges.  aEdges[0] must either
+// be NULL, or the edge connected to the node that is in turn connected
+// to the bisection edge.
+CxmpInline bool
+CxpTreeMpBisectionEdgeList(CxtTreeMpData *aData,
+			   CxtEdgeObject **aEdges, unsigned aNEdges,
+			   CxtEdgeObject *aBisect, unsigned aMaxScore)
+{
+    bool rVal;
+
+    if (aEdges[0] != NULL)
+    {
+	CxtRingObject *ringA, *ringB;
+	CxtTreeMpPs *ps, *psA, *psB;
+
+	CxEdgeRingsGet(aEdges[0], &ringA, &ringB);
+
+	// Recursively (post-order traversal) calculate the partial score at
+	// each node, as viewed from the first edge in aEdges.  This leaves one
+	// valid view at each node, which then makes it possible to calculate
+	// the rest of the views during a pre-order traversal of the tree.
+	psA = CxpTreeMpScoreRecurse(aData, ringA, aBisect);
+	psB = CxpTreeMpScoreRecurse(aData, ringB, aBisect);
+
+	// The first edge must be calculated using psA and psB as children,
+	// rather than using the ps's at the ends of the edge.  This is because
+	// one of the connected nodes is in turn connected to the bisection
+	// edge, which means that the node does not have a useful ps.  The first
+	// edge is the only one for which this is an issue, so it is handled
+	// here.
+	ps = (CxtTreeMpPs *) CxEdgeAuxGet(aEdges[0], aData->edgeAuxInd);
+	CxpTreeMpPScore(ps, psA, psB);
+	if (ps->subtreesScore + ps->nodeScore > aMaxScore)
+	{
+	    // Don't bother calculating other views or edge states, since this
+	    // subtree exceeds the maximum score that's of interest.
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	// Perform the pre-order traversal, calculating the remaining views that
+	// were not calculated by the above post-order traversal, as well as
+	// calculating the state sets for the edges along the way.  Take care to
+	// pass the appropriate ps's.
+	CxpTreeMpViewsRecurse(aData, ringA, psB, aBisect);
+	CxpTreeMpViewsRecurse(aData, ringB, psA, aBisect);
+
+#ifdef CxmDebug
+	// Validate per-edge partial scores.
+	{
+	    unsigned i;
+
+	    for (i = 1; i < aNEdges; i++)
+	    {
+		// All edge partial scores should have the same value, since the
+		// location of the root is irrelevant to the score.
+		psA = (CxtTreeMpPs *) CxEdgeAuxGet(aEdges[i],
+						   aData->edgeAuxInd);
+		if (psA->subtreesScore + psA->nodeScore
+		    != ps->subtreesScore + ps->nodeScore)
+		{
+		    fprintf(stderr,
+			    "%s:%d:%s(): Expected %u (%u + %u),"
+			    " got %u (%u + %u)\n",
+			    __FILE__, __LINE__, __func__,
+			    ps->subtreesScore + ps->nodeScore,
+			    ps->subtreesScore, ps->nodeScore,
+			    psA->subtreesScore + psA->nodeScore,
+			    psA->subtreesScore, psA->nodeScore);
+		    abort();
+		}
+	    }
+	}
+#endif
+    }
+
+    rVal = false;
+    RETURN:
+    return rVal;
+}
+
+CxmpInline bool
+CxpTreeMpHold(CxtTreeMpData *aData, unsigned aMaxHold, unsigned aNeighbor,
+	      unsigned aScore)
+{
+    bool rVal;
+
+    CxmError("XXX Not implemented");
+
+    rVal = false;
+//XXX    RETURN:
+    return rVal;
+}
+
+// Calculate the Fitch parsimony scores for all TBR neighbors of the tree, and
+// hold results according to the function parameters.
 static bool
 CxpTreeMpTbrNeighbors(CxtTreeObject *self, unsigned aMaxHold,
 		      unsigned aMaxScore, CxtTreeHoldHow aHow)
 {
-    CxmError("XXX Not implemented");
+    bool rVal;
+    CxtTreeMpData *data;
+    unsigned neighbor, nEdges, nEdgesA, nEdgesB, i, j, k, curMax, score;
+    CxtEdgeObject **edgesA, **edgesB, *bisect, *edgeA, *edgeB;
+    CxtRingObject *ringA, *ringB;
+    CxtTreeMpPs *psA, *psB;
+
+    if (CxpTreeMpDataGet(self, &data))
+    {
+	rVal = true;
+	goto RETURN;
+    }
+
+    curMax = aMaxScore;
+
+    // Set up tree holding data structures.
+    data->nHeld = 0;
+
+    if (CxTreeTbrNEdgesGet(self, &nEdges))
+    {
+	rVal = true;
+	goto RETURN;
+    }
+    for (i = neighbor = 0; i < nEdges; i++)
+    {
+	if (CxTreeTbrEdgeGet(self, i, &bisect))
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	// Determine which edges are in each subtree.
+	if (CxTreeTbrBEdgeSetsGet(self, bisect,
+				  &edgesA, &nEdgesA, &ringA,
+				  &edgesB, &nEdgesB, &ringB))
+	{
+	    rVal = true;
+	    goto RETURN;
+	}
+
+	// Calculate the partial score for each edge in the edge lists.  Don't
+	// bother scoring the trees if either subtree exceeds the max score.
+	if (CxpTreeMpBisectionEdgeList(data, edgesA, nEdgesA, bisect, curMax)
+	    || CxpTreeMpBisectionEdgeList(data, edgesB, nEdgesB, bisect,
+					  curMax))
+	{
+	    unsigned offsetA, offsetB;
+
+	    if (CxTreeTbrEdgeOffset(self, i, &offsetA)
+		|| CxTreeTbrEdgeOffset(self, i + 1, &offsetB))
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+
+	    neighbor += offsetB - offsetA;
+	    continue;
+	}
+
+	// Iteratively (logically) reconnect every legitimate pairing of edges
+	// between the two subtrees and calculate final parsimony scores.
+	for (j = 0; j < nEdgesA; j++)
+	{
+	    edgeA = edgesA[j];
+	    if (edgeA != NULL)
+	    {
+		psA = (CxtTreeMpPs *) CxEdgeAuxGet(edgeA, data->edgeAuxInd);
+	    }
+	    else
+	    {
+		psA = (CxtTreeMpPs *) CxRingAuxGet(ringA, data->ringAuxInd);
+	    }
+
+	    for (k = 0; k < nEdgesB; k++)
+	    {
+		// Skip this iteration if the reconnection would result in
+		// reversing the bisection.
+		if (j == 0 && k == 0)
+		{
+		    continue;
+		}
+
+		edgeB = edgesB[k];
+		if (edgeB != NULL)
+		{
+		    psB = (CxtTreeMpPs *) CxEdgeAuxGet(edgeB, data->edgeAuxInd);
+		}
+		else
+		{
+		    psB = (CxtTreeMpPs *) CxRingAuxGet(ringB, data->ringAuxInd);
+		}
+
+		// Calculate the final parsimony score for this reconnection.
+		score = CxpTreeMpFScore(psA, psB, curMax);
+
+		// Hold the tree, if appropriate.
+		switch (aHow)
+		{
+		    case CxeTreeHoldBest:
+		    {
+			if (score == curMax)
+			{
+			    // This tree is as good as those currently held.
+			    if (CxpTreeMpHold(data, aMaxHold, neighbor, score))
+			    {
+				rVal = true;
+				goto RETURN;
+			    }
+			}
+			else if (score < curMax)
+			{
+			    // No trees held, or this tree is better than those
+			    // currently held.  Throw away previously held trees
+			    // and hold this one.
+			    data->nHeld = 0;
+			    if (CxpTreeMpHold(data, aMaxHold, neighbor, score))
+			    {
+				rVal = true;
+				goto RETURN;
+			    }
+			    curMax = score;
+			}
+			break;
+		    }
+		    case CxeTreeHoldBetter:
+		    {
+			if (score <= curMax)
+			{
+			    // No trees held, or this (neighboring) tree is
+			    // better than the tree whose neighbors are being
+			    // evaluated.
+			    if (CxpTreeMpHold(data, aMaxHold, neighbor, score))
+			    {
+				rVal = true;
+				goto RETURN;
+			    }
+			}
+			break;
+		    }
+		    case CxeTreeHoldAll:
+		    {
+			// Hold all trees.
+			if (CxpTreeMpHold(data, aMaxHold, neighbor, score))
+			{
+			    rVal = true;
+			    goto RETURN;
+			}
+			break;
+		    }
+		    default:
+		    {
+			CxmNotReached();
+		    }
+		}
+
+		// Increment the neighbor index here.  Due to the possibility of
+		// loop short-circuting above, this must happen at the end of
+		// the loop body, rather than in the 'for' statement.
+		neighbor++;
+	    }
+	}
+    }
+
+    rVal = false;
+    RETURN:
+    return rVal;
 }
 
 PyObject *
