@@ -40,13 +40,13 @@ for tree in trees:
     print "====================================="
     sys.stdout.write("=== ")
     s.render(labels=True, outFile=sys.stdout)
-    nneighbors = s.tbrNneighborsGet()
-    for i in forints(nneighbors):
+    nNeighbors = s.tbrNNeighborsGet()
+    for i in forints(nNeighbors):
         t = crux.Tree.Tree(tree, taxonMap)
         t.canonize()
         tbrArgs = t.tbrNeighborGet(i)
         sys.stdout.write("%d/%d (%r, %r, %r) --> " \
-                         % (i, nneighbors, type(tbrArgs[0]), type(tbrArgs[1]),
+                         % (i, nNeighbors, type(tbrArgs[0]), type(tbrArgs[1]),
                             type(tbrArgs[2])))
         #sys.stdout.flush()
         revTbrArgs = t.tbr(tbrArgs)

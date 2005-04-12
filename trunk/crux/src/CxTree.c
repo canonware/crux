@@ -1064,10 +1064,10 @@ static PyMethodDef CxpTreeMethods[] =
 	"tbr"
     },
     {
-	"tbrNneighborsGet",
+	"tbrNNeighborsGet",
 	(PyCFunction) CxTreeTbrNNeighborsGetPargs,
 	METH_NOARGS,
-	"tbrNneighborsGet"
+	"tbrNNeighborsGet"
     },
     {
 	"tbrNeighborGet",
@@ -1112,10 +1112,10 @@ static PyMethodDef CxpTreeMethods[] =
 	"tbrAllNeighborsMp"
     },
     {
-	"nheldGet",
-	(PyCFunction) CxTreeNheldGet,
+	"nHeldGet",
+	(PyCFunction) CxTreeNHeldGet,
 	METH_NOARGS,
-	"nheldGet"
+	"nHeldGet"
     },
     {
 	"heldGet",

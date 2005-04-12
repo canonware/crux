@@ -28,7 +28,7 @@ PyObject *
 CxTreeTbrAllNeighborsMp(CxtTreeObject *self);
 
 PyObject *
-CxTreeNheldGet(CxtTreeObject *self);
+CxTreeNHeldGet(CxtTreeObject *self);
 
 PyObject *
 CxTreeHeldGet(CxtTreeObject *self, PyObject *args);

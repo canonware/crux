@@ -311,38 +311,6 @@ CxTrAuxSet(CxtTr *aTr, void *aAux);
 uint32_t
 CxTrMpScore(CxtTr *aTr);
 
-// Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
-// aMaxHold of the best neighbors (or all best neighbors, if aMaxHold is
-// CxmTrHoldAll).
-void
-CxTrTbrBestNeighborsMp(CxtTr *aTr, uint32_t aMaxHold);
-
-// Calculate the Fitch parsimony of all TBR neighbors, and keep track of up to
-// aMaxHold of the better neighbors (or all better neighbors, if aMaxHold is
-// CxmTrHoldAll).
-void
-CxTrTbrBetterNeighborsMp(CxtTr *aTr, uint32_t aMaxHold);
-
-// Calculate the Fitch parsimony of all TBR neighbors, and keep track of all
-// neighbors.
-void
-CxTrTbrAllNeighborsMp(CxtTr *aTr);
-
-// Clear the data structures used to store held trees.
-void
-CxTrHeldFinish(CxtTr *aTr);
-
-// Get the number of trees currently held.
-uint32_t
-CxTrNheldGet(CxtTr *aTr);
-
-// Get the aHeld'th held tree, and its score.  *rNeighbor can be passed to
-// CxTrTbrNeighborGet() in order to get the TBR transformation parameters,
-// which can then be passed to CxTrTbr().
-void
-CxTrHeldGet(CxtTr *aTr, uint32_t aHeld, uint32_t *rNeighbor,
-	    uint32_t *rScore);
-
 //==============================================================================
 
 // CxTrNode.

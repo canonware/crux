@@ -328,6 +328,7 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
 	CxtRingObject *ringA, *ringB;
 
 	// Traverse the tree, and initialize data->bisections along the way.
+	data->nBisections = 0;
 	if (CxTreeIterate(self, NULL, CxpTreeTbrBisectEdgeCallback, NULL, data))
 	{
 	    rVal = true;
@@ -607,25 +608,23 @@ CxTreeTbrBEdgeSetsGet(CxtTreeObject *self, CxtEdgeObject *aEdge,
     if (data->nSetA != 0)
     {
 	*rSetA = data->edgeSets;
-	*rRingA = NULL;
     }
     else
     {
 	*rSetA = NULL;
-	*rRingA = data->ringA;
     }
+    *rRingA = data->ringA;
     *rNSetA = data->nSetA;
 
     if (data->nSetB != 0)
     {
 	*rSetB = &data->edgeSets[data->nSetA];
-	*rRingB = NULL;
     }
     else
     {
 	*rSetB = NULL;
-	*rRingB = data->ringB;
     }
+    *rRingB = data->ringB;
     *rNSetB = data->nSetB;
 
     rVal = false;
@@ -1096,13 +1095,24 @@ CxTreeTbrNeighborGetPargs(CxtTreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
+    Py_INCREF(bisect);
+
     // reconnect[AB] may be NULL, which must be translated to None.
-    if (reconnectA == NULL)
+    if (reconnectA != NULL)
+    {
+	Py_INCREF(reconnectA);
+    }
+    else
     {
 	Py_INCREF(Py_None);
 	reconnectA = (CxtEdgeObject *) Py_None;
     }
-    else if (reconnectB == NULL)
+
+    if (reconnectB != NULL)
+    {
+	Py_INCREF(reconnectB);
+    }
+    else
     {
 	Py_INCREF(Py_None);
 	reconnectB = (CxtEdgeObject *) Py_None;

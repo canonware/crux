@@ -47,8 +47,9 @@ class _FastaParser(FastaParser.FastaParser):
                 self._matrix.charsAppend([CharacterType.ProteinCharacterType()]
                                          * len(self.token()))
 
-        # Define a taxon mapping for this label.
-        self._taxonMap.map(self._lastLabel, self._taxonMap.ntaxaGet())
+        if self._taxonMap.indGet(self._lastLabel) == None:
+            # Define a taxon mapping for this label.
+            self._taxonMap.map(self._lastLabel, self._taxonMap.ntaxaGet())
 
         # Set the character data for this taxon.
         self._matrix.dataSet(self._lastLabel, self.token())

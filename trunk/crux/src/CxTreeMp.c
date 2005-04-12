@@ -238,6 +238,9 @@ CxpTreePsPrepare(CxtTreeMpData *aData, CxtTreeMpPs *aPs)
 // End CxTreeMpPs.
 //
 //==============================================================================
+//
+// CxTreeMp.
+//
 
 static void
 CxpTreeMpCleanupFinal(CxtTreeObject *aTree, void *aData, unsigned aInd)
@@ -638,10 +641,7 @@ CxpTreeMpPrepare(CxtTreeObject *self, bool aElimUninform,
 	    goto RETURN;
 	}
 
-	// XXX Update comment.
-	// Preprocess the character data.  Eliminate uninformative characters,
-	// but keep track of their contribution to the parsimony score, were
-	// they to be left in.
+	// Create a mask of informative characters.
 	data->nInformative = 0;
 	for (i = 0; i < aNChars; i++)
 	{
@@ -983,19 +983,19 @@ CxTreeMpFinish(CxtTreeObject *self)
 {
     PyObject *rVal;
     CxtNodeObject *base;
+    CxtTreeMpData *data;
+
+    if (CxpTreeMpDataGet(self, &data))
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
 
     base = CxTreeBaseGet(self);
     if (base != NULL)
     {
-	CxtTreeMpData *data;
 	CxtRingObject *ringFirst, *ring;
 	CxtEdgeObject *edge;
-
-	if (CxpTreeMpDataGet(self, &data))
-	{
-	    rVal = NULL;
-	    goto RETURN;
-	}
 
 	// Clean up the tree.
 	ringFirst = CxNodeRing(base);
@@ -1021,13 +1021,36 @@ CxTreeMpFinish(CxtTreeObject *self)
 	}
     }
 
+    if (data->held != NULL)
+    {
+	free(data->held);
+	data->held = NULL;
+	data->heldLen = 0;
+	data->nHeld = 0;
+    }
+
+    if (data->charsMask != NULL)
+    {
+	free(data->charsMask);
+	data->charsMask = NULL;
+	data->nInformative = 0;
+    }
+
+    if (data->taxa != NULL)
+    {
+	free(data->taxa);
+	data->taxa = NULL;
+	data->nTaxa = 0;
+	data->nCharsTotal = 0;
+	data->nChars = 0;
+    }
+
     Py_INCREF(Py_None);
     rVal = Py_None;
     RETURN:
     return rVal;
 }
 
-// XXX Move up.
 #ifdef CxmCpuIa32
 CxmpInline void
 CxpTreeMpIa32PScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
@@ -1309,8 +1332,7 @@ CxpTreeMpNoInlinePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 CxmpInline void
 CxpTreeMpCachePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
-// XXX Undefine.
-#define CxmTreeMpCachePScoreValidate
+//#define CxmTreeMpCachePScoreValidate
 #ifdef CxmTreeMpCachePScoreValidate
     bool cached;
     unsigned cachedNodeScore;
@@ -1725,24 +1747,6 @@ CxpTreeMpScore(CxtTreeObject *self, unsigned *rScore)
     return rVal;
 }
 
-PyObject *
-CxTreeMp(CxtTreeObject *self)
-{
-    PyObject *rVal;
-    unsigned score;
-
-    if (CxpTreeMpScore(self, &score))
-    {
-	rVal = NULL;
-	goto RETURN;
-    }
-
-    rVal = Py_BuildValue("i", score);
-    RETURN:
-    return rVal;
-}
-
-// XXX Reorganize functions.
 CxmpInline void
 CxpTreeMpViewsRecurse(CxtTreeMpData *aData, CxtRingObject *aRing,
 		      CxtTreeMpPs *aPs, CxtEdgeObject *aBisect)
@@ -1942,16 +1946,56 @@ CxpTreeMpBisectionEdgeList(CxtTreeMpData *aData,
     return rVal;
 }
 
+// Hold a tree.  If aMaxHeld is exceeded, the tree is not held.
 CxmpInline bool
 CxpTreeMpHold(CxtTreeMpData *aData, unsigned aMaxHold, unsigned aNeighbor,
 	      unsigned aScore)
 {
     bool rVal;
 
-    CxmError("XXX Not implemented");
+    if (aData->nHeld < aMaxHold)
+    {
+	CxtTreeMpHeld *held;
+
+	// Make sure there is space to store another held tree.
+	if (aData->held == NULL)
+	{
+	    // Allocate.
+	    aData->held = (CxtTreeMpHeld *) malloc(sizeof(CxtTreeMpHeld));
+	    if (aData->held == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+	    aData->heldLen = 1;
+	}
+	else if (aData->nHeld == aData->heldLen)
+	{
+	    CxtTreeMpHeld *tHeld;
+
+	    // Reallocate.
+	    tHeld = (CxtTreeMpHeld *) realloc(aData->held,
+					      sizeof(CxtTreeMpHeld)
+					      * aData->heldLen * 2);
+	    if (tHeld == NULL)
+	    {
+		rVal = true;
+		goto RETURN;
+	    }
+	    aData->held = tHeld;
+	    aData->heldLen *= 2;
+	}
+
+	// Hold this tree.
+	held = &aData->held[aData->nHeld];
+	held->neighbor = aNeighbor;
+	held->score = aScore;
+
+	aData->nHeld++;
+    }
 
     rVal = false;
-//XXX    RETURN:
+    RETURN:
     return rVal;
 }
 
@@ -2130,6 +2174,23 @@ CxpTreeMpTbrNeighbors(CxtTreeObject *self, unsigned aMaxHold,
 }
 
 PyObject *
+CxTreeMp(CxtTreeObject *self)
+{
+    PyObject *rVal;
+    unsigned score;
+
+    if (CxpTreeMpScore(self, &score))
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
+
+    rVal = Py_BuildValue("i", score);
+    RETURN:
+    return rVal;
+}
+
+PyObject *
 CxTreeTbrBestNeighborsMp(CxtTreeObject *self, PyObject *args)
 {
     PyObject *rVal
@@ -2234,26 +2295,24 @@ CxTreeTbrAllNeighborsMp(CxtTreeObject *self)
 }
 
 PyObject *
-CxTreeNheldGet(CxtTreeObject *self)
+CxTreeNHeldGet(CxtTreeObject *self)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
 	= NULL
 #endif
 	;
+    CxtTreeMpData *data;
 
-    CxmXepBegin();
-    CxmXepTry
+    if (CxpTreeMpDataGet(self, &data))
     {
-	rVal = Py_BuildValue("i", CxTrNheldGet(self->tr));
+	rVal = NULL;
+	goto RETURN;
     }
-    CxmXepCatch(CxmXepOOM)
-    {
-	CxmXepHandled();
-	rVal = PyErr_NoMemory();
-    }
-    CxmXepEnd();
 
+    rVal = Py_BuildValue("i", data->nHeld);
+
+    RETURN:
     return rVal;
 }
 
@@ -2266,36 +2325,62 @@ CxTreeHeldGet(CxtTreeObject *self, PyObject *args)
 #endif
 	;
     int held;
-    uint32_t neighbor, score, bisect, reconnectA, reconnectB;
+    CxtEdgeObject *bisect, *reconnectA, *reconnectB;
+    CxtTreeMpData *data;
+
+    if (CxpTreeMpDataGet(self, &data))
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
 
     if (PyArg_ParseTuple(args, "i", &held) == 0)
     {
 	rVal = NULL;
 	goto RETURN;
     }
-    if (held >= CxTrNheldGet(self->tr))
+    if (held >= data->nHeld)
     {
 	Py_INCREF(PyExc_ValueError);
 	rVal = PyExc_ValueError;
 	goto RETURN;
     }
 
-    CxmXepBegin();
-    CxmXepTry
+    if (CxTreeTbrNeighborGet(self, data->held[held].neighbor,
+			     &bisect, &reconnectA, &reconnectB))
     {
-	CxTrHeldGet(self->tr, held, &neighbor, &score);
-//	CxTrTbrNeighborGet(self->tr, neighbor,
-//			    &bisect, &reconnectA, &reconnectB);
+	rVal = NULL;
+	goto RETURN;
+    }
 
-	rVal = Py_BuildValue("(i(iii))", score,
-			       bisect, reconnectA, reconnectB);
-    }
-    CxmXepCatch(CxmXepOOM)
+    Py_INCREF(bisect);
+
+    // reconnect[AB] may be NULL, which must be translated to None.
+    if (reconnectA != NULL)
     {
-	CxmXepHandled();
-	rVal = PyErr_NoMemory();
+	Py_INCREF(reconnectA);
     }
-    CxmXepEnd();
+    else
+    {
+	Py_INCREF(Py_None);
+	reconnectA = (CxtEdgeObject *) Py_None;
+    }
+
+    if (reconnectB != NULL)
+    {
+	Py_INCREF(reconnectB);
+    }
+    else
+    {
+	Py_INCREF(Py_None);
+	reconnectB = (CxtEdgeObject *) Py_None;
+    }
+
+    rVal = Py_BuildValue("(i(OOO))",
+			 data->held[held].score,
+			 (PyObject *) bisect,
+			 (PyObject *) reconnectA,
+			 (PyObject *) reconnectB);
 
     RETURN:
     return rVal;
