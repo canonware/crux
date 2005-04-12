@@ -1,0 +1,338 @@
+Test begin
+===========================================================
+Neighbors held: all
+===========================================================
+Initial tree has score 16220
+0
+  Neighbors: 9266156
+  Trees held: 9266156
+  Score of chosen neighbor: 16319
+1
+  Neighbors: 9233320
+  Trees held: 9233320
+  Score of chosen neighbor: 16408
+2
+  Neighbors: 11093548
+  Trees held: 11093548
+  Score of chosen neighbor: 16485
+3
+  Neighbors: 11687864
+  Trees held: 11687864
+  Score of chosen neighbor: 16550
+4
+  Neighbors: 11671172
+  Trees held: 11671172
+  Score of chosen neighbor: 16632
+===========================================================
+Initial tree has score 37535
+0
+  Neighbors: 8117308
+  Trees held: 8117308
+  Score of chosen neighbor: 37541
+1
+  Neighbors: 8799576
+  Trees held: 8799576
+  Score of chosen neighbor: 37569
+2
+  Neighbors: 11125152
+  Trees held: 11125152
+  Score of chosen neighbor: 37568
+3
+  Neighbors: 10983240
+  Trees held: 10983240
+  Score of chosen neighbor: 37576
+4
+  Neighbors: 10966032
+  Trees held: 10966032
+  Score of chosen neighbor: 37575
+===========================================================
+Initial tree has score 16602
+0
+  Neighbors: 8398572
+  Trees held: 8398572
+  Score of chosen neighbor: 16676
+1
+  Neighbors: 8426704
+  Trees held: 8426704
+  Score of chosen neighbor: 16846
+2
+  Neighbors: 9233092
+  Trees held: 9233092
+  Score of chosen neighbor: 17019
+3
+  Neighbors: 9735284
+  Trees held: 9735284
+  Score of chosen neighbor: 17106
+4
+  Neighbors: 9652904
+  Trees held: 9652904
+  Score of chosen neighbor: 17175
+===========================================================
+Initial tree has score 16620
+0
+  Neighbors: 7833444
+  Trees held: 7833444
+  Score of chosen neighbor: 16732
+1
+  Neighbors: 8021084
+  Trees held: 8021084
+  Score of chosen neighbor: 16775
+2
+  Neighbors: 8243164
+  Trees held: 8243164
+  Score of chosen neighbor: 16856
+3
+  Neighbors: 8312680
+  Trees held: 8312680
+  Score of chosen neighbor: 16934
+4
+  Neighbors: 8384952
+  Trees held: 8384952
+  Score of chosen neighbor: 17051
+===========================================================
+Initial tree has score 16569
+0
+  Neighbors: 8442732
+  Trees held: 8442732
+  Score of chosen neighbor: 16634
+1
+  Neighbors: 8893732
+  Trees held: 8893732
+  Score of chosen neighbor: 16678
+2
+  Neighbors: 8833592
+  Trees held: 8833592
+  Score of chosen neighbor: 16717
+3
+  Neighbors: 8803736
+  Trees held: 8803736
+  Score of chosen neighbor: 16750
+4
+  Neighbors: 8810332
+  Trees held: 8810332
+  Score of chosen neighbor: 16867
+===========================================================
+Neighbors held: better
+===========================================================
+Initial tree has score 16632
+0
+  Neighbors: 11794500
+  Trees held: 180717
+  Score of chosen neighbor: 16618
+1
+  Neighbors: 10835488
+  Trees held: 150748
+  Score of chosen neighbor: 16610
+2
+  Neighbors: 11598172
+  Trees held: 135031
+  Score of chosen neighbor: 16608
+3
+  Neighbors: 10780460
+  Trees held: 52535
+  Score of chosen neighbor: 16597
+4
+  Neighbors: 10040144
+  Trees held: 36893
+  Score of chosen neighbor: 16587
+===========================================================
+Initial tree has score 37575
+0
+  Neighbors: 11186096
+  Trees held: 3366147
+  Score of chosen neighbor: 37574
+1
+  Neighbors: 11136060
+  Trees held: 3385730
+  Score of chosen neighbor: 37572
+2
+  Neighbors: 10511264
+  Trees held: 3072249
+  Score of chosen neighbor: 37539
+3
+  Neighbors: 10412680
+  Trees held: 2385479
+  Score of chosen neighbor: 37532
+4
+  Neighbors: 10635252
+  Trees held: 2406994
+  Score of chosen neighbor: 37528
+===========================================================
+Initial tree has score 17175
+0
+  Neighbors: 10352268
+  Trees held: 320734
+  Score of chosen neighbor: 17171
+1
+  Neighbors: 11309212
+  Trees held: 232954
+  Score of chosen neighbor: 17142
+2
+  Neighbors: 11086768
+  Trees held: 200122
+  Score of chosen neighbor: 17126
+3
+  Neighbors: 11116712
+  Trees held: 200805
+  Score of chosen neighbor: 17082
+4
+  Neighbors: 11385652
+  Trees held: 121044
+  Score of chosen neighbor: 17047
+===========================================================
+Initial tree has score 17051
+0
+  Neighbors: 9306036
+  Trees held: 299732
+  Score of chosen neighbor: 17036
+1
+  Neighbors: 10339968
+  Trees held: 319443
+  Score of chosen neighbor: 17034
+2
+  Neighbors: 10122864
+  Trees held: 272808
+  Score of chosen neighbor: 16964
+3
+  Neighbors: 8950928
+  Trees held: 92622
+  Score of chosen neighbor: 16903
+4
+  Neighbors: 8837024
+  Trees held: 62414
+  Score of chosen neighbor: 16901
+===========================================================
+Initial tree has score 16867
+0
+  Neighbors: 10872064
+  Trees held: 294465
+  Score of chosen neighbor: 16853
+1
+  Neighbors: 9531100
+  Trees held: 66522
+  Score of chosen neighbor: 16828
+2
+  Neighbors: 10984492
+  Trees held: 44813
+  Score of chosen neighbor: 16827
+3
+  Neighbors: 11067440
+  Trees held: 44094
+  Score of chosen neighbor: 16825
+4
+  Neighbors: 11053948
+  Trees held: 43977
+  Score of chosen neighbor: 16813
+===========================================================
+Neighbors held: best
+===========================================================
+Initial tree has score 16587
+0
+  Neighbors: 9963852
+  Trees held: 2
+  Score of chosen neighbor: 16489
+1
+  Neighbors: 10013588
+  Trees held: 2
+  Score of chosen neighbor: 16423
+2
+  Neighbors: 10032436
+  Trees held: 2
+  Score of chosen neighbor: 16364
+3
+  Neighbors: 9565288
+  Trees held: 1
+  Score of chosen neighbor: 16305
+4
+  Neighbors: 9598188
+  Trees held: 1
+  Score of chosen neighbor: 16264
+===========================================================
+Initial tree has score 37528
+0
+  Neighbors: 10533860
+  Trees held: 1
+  Score of chosen neighbor: 37383
+1
+  Neighbors: 10515448
+  Trees held: 1
+  Score of chosen neighbor: 37242
+2
+  Neighbors: 10503376
+  Trees held: 1
+  Score of chosen neighbor: 37106
+3
+  Neighbors: 10475204
+  Trees held: 1
+  Score of chosen neighbor: 36973
+4
+  Neighbors: 10478552
+  Trees held: 1
+  Score of chosen neighbor: 36842
+===========================================================
+Initial tree has score 17047
+0
+  Neighbors: 10694768
+  Trees held: 9
+  Score of chosen neighbor: 16956
+1
+  Neighbors: 10645152
+  Trees held: 2
+  Score of chosen neighbor: 16866
+2
+  Neighbors: 10607244
+  Trees held: 1
+  Score of chosen neighbor: 16788
+3
+  Neighbors: 10643912
+  Trees held: 1
+  Score of chosen neighbor: 16720
+4
+  Neighbors: 10384856
+  Trees held: 1
+  Score of chosen neighbor: 16673
+===========================================================
+Initial tree has score 16901
+0
+  Neighbors: 8849920
+  Trees held: 1
+  Score of chosen neighbor: 16822
+1
+  Neighbors: 8831744
+  Trees held: 2
+  Score of chosen neighbor: 16760
+2
+  Neighbors: 8758320
+  Trees held: 2
+  Score of chosen neighbor: 16705
+3
+  Neighbors: 7975504
+  Trees held: 2
+  Score of chosen neighbor: 16667
+4
+  Neighbors: 8044300
+  Trees held: 1
+  Score of chosen neighbor: 16635
+===========================================================
+Initial tree has score 16813
+0
+  Neighbors: 10931932
+  Trees held: 1
+  Score of chosen neighbor: 16762
+1
+  Neighbors: 10728620
+  Trees held: 1
+  Score of chosen neighbor: 16713
+2
+  Neighbors: 10748392
+  Trees held: 1
+  Score of chosen neighbor: 16669
+3
+  Neighbors: 10703244
+  Trees held: 1
+  Score of chosen neighbor: 16629
+4
+  Neighbors: 10736684
+  Trees held: 1
+  Score of chosen neighbor: 16592
+Test end
