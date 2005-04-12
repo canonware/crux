@@ -128,7 +128,7 @@ CxpTreeMpPsDelete(CxtTreeMpPs *aPs)
 {
     if (aPs->chars != NULL)
     {
-	free(aPs->chars);
+	free(aPs->aChars);
     }
 
     free(aPs);
@@ -311,8 +311,11 @@ CxpTreeMpCleanupEdge(CxtEdgeObject *aEdge, void *aData, unsigned aInd)
 {
     CxtTreeMpPs *ps = (CxtTreeMpPs *) aData;
 
-    CxpTreeMpPsDelete(ps);
-    CxEdgeAuxSet(aEdge, aInd, NULL);
+    if (ps != NULL)
+    {
+	CxpTreeMpPsDelete(ps);
+	CxEdgeAuxSet(aEdge, aInd, NULL);
+    }
 }
 
 static bool
@@ -488,8 +491,11 @@ CxpTreeMpCleanupRing(CxtRingObject *aRing, void *aData, unsigned aInd)
 {
     CxtTreeMpPs *ps = (CxtTreeMpPs *) aData;
 
-    CxpTreeMpPsDelete(ps);
-    CxRingAuxSet(aRing, aInd, NULL);
+    if (ps != NULL)
+    {
+	CxpTreeMpPsDelete(ps);
+	CxRingAuxSet(aRing, aInd, NULL);
+    }
 }
 
 static bool
