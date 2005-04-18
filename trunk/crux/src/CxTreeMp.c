@@ -854,8 +854,12 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
     // Make sure that all taxa have the same number of characters.
     if (ntaxa > 0)
     {
-	uint32_t nchars;
-
+	uint32_t nchars
+#ifdef CxmCcSilence
+	    = 0
+#endif
+	    ;
+	
 	tobj = PyList_GetItem(taxa, 0);
 	// Don't worry about raising ValueError error here, since the for
 	// loop below will do so.
