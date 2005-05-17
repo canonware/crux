@@ -124,6 +124,8 @@ extern PyObject *CxgException;
 
 #ifdef CxmCpuIa32
 #include "CxIa32.h"
+#elif (defined(CxmCpuPpc))
+#include "CxPpc.h"
 #endif
 
 #include "CxTree.h"

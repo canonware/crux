@@ -1342,6 +1342,17 @@ CxpTreeMpIa32PScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 }
 #endif
 
+#ifdef CxmCpuPpc
+// Don't inline, since if any Altivec code is inlined, then a function also
+// includes vector stack save and restore instructions, which will cause crashes
+// on G3s.
+void
+CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+{
+    CxmError("XXX Not implemented");
+}
+#endif
+
 static void
 CxpTreeMpCPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
@@ -1428,6 +1439,12 @@ CxpTreeMpPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
     if (CxgIa32UseSse2)
     {
 	CxpTreeMpIa32PScore(aP, aA, aB);
+    }
+    else
+#elif (defined(CxmCpuPpc))
+    if (CxgPpcUseAltivec)
+    {
+	CxpTreeMpPpcPScore(aP, aA, aB);
     }
     else
 #endif
@@ -1642,6 +1659,17 @@ CxpTreeMpIa32FScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 }
 #endif
 
+#ifdef CxmCpuPpc
+// Don't inline, since if any Altivec code is inlined, then a function also
+// includes vector stack save and restore instructions, which will cause crashes
+// on G3s.
+unsigned
+CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
+{
+    CxmError("XXX Not implemented");
+}
+#endif
+
 static unsigned
 CxpTreeMpCFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 {
@@ -1713,6 +1741,12 @@ CxpTreeMpFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
     if (CxgIa32UseSse2)
     {
 	rVal = CxpTreeMpIa32FScore(aA, aB, aMaxScore);
+    }
+    else
+#elif (defined(CxmCpuPpc))
+    if (CxgPpcUseAltivec)
+    {
+	rVal = CxpTreeMpPpcFScore(aA, aB, aMaxScore);
     }
     else
 #endif
