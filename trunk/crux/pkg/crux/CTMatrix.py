@@ -74,6 +74,8 @@ class CTMatrix(object):
         # as a special value by users of CTMatrix.
         self._seq = 1
 
+    # Return the current sequence number.  This number is incremented every
+    # time that the matrix is modified.
     def seqGet(self):
         return self._seq
 
@@ -113,6 +115,8 @@ class CTMatrix(object):
 
     # Append CharacterType objects to _chars.
     def charsAppend(self, chars):
+	# XXX Only allow this to succeed if no character data have been set
+	# yet.
         self._chars += chars
         self._seq += 1
 
