@@ -33,7 +33,7 @@ class TaxonMap(object):
                 self._ind2label[i] = taxa[i]
 
     def ntaxaGet(self):
-        return len(self._label2ind)
+        return len(self._ind2label)
 
     def labelGet(self, ind):
         if self._ind2label.has_key(ind):
