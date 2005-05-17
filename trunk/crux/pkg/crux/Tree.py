@@ -231,11 +231,7 @@ class Tree(C_Tree):
             raise crux.Tree.ValueError(
                 "TaxonMaps for Tree and CTMatrix must be equal")
 
-        chars = []
-        for taxon in self._taxonMap.taxaGet():
-            chars.append(cTMatrix.dataGet(taxon))
-
-        self._mpPrepare(chars, elimUninformative)
+        self._mpPrepare(cTMatrix, elimUninformative)
 
     # Render the tree in Newick format to a string or a file.
     def render(self, labels=False, lengths=False, lengthFormat="%.5e",

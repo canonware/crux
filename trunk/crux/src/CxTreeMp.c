@@ -835,39 +835,84 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	= NULL
 #endif
 	;
-    PyObject *taxa, *tobj;
-    uint32_t elim, ntaxa, i, j;
+    PyObject *ctm, *result, *label, *tobj;
+    PyObject *taxonMap = NULL;
+    unsigned long elim, ntaxa, i, j;
     char **tarr
 #ifdef CxmCcSilence
 	= NULL
 #endif
 	;
 
-    if (PyArg_ParseTuple(args, "O!i", &PyList_Type, &taxa, &elim) == 0)
+    if (PyArg_ParseTuple(args, "Oi", &ctm, &elim) == 0)
     {
 	rVal = NULL;
 	goto RETURN;
     }
 
-    ntaxa = PyList_Size(taxa);
+    // Get number of taxa.
+    taxonMap = PyEval_CallMethod(ctm, "taxonMapGet", "()");
+    if (taxonMap == NULL)
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
+    result = PyEval_CallMethod(taxonMap, "ntaxaGet", "()");
+    if (result == NULL)
+    {
+	rVal = NULL;
+	goto RETURN;
+    }
+    if (PyInt_Check(result) == false)
+    {
+	CxError(CxgTreeTypeError,
+		"Integer expected from CTMatrix.ntaxaGet()");
+	Py_DECREF(result);
+	rVal = NULL;
+	goto RETURN;
+    }
+    ntaxa = PyInt_AsLong(result);
+    Py_DECREF(result);
 
-    // Make sure that all taxa have the same number of characters.
     if (ntaxa > 0)
     {
-	uint32_t nchars
+	unsigned long nchars
 #ifdef CxmCcSilence
 	    = 0
 #endif
 	    ;
-	
-	tobj = PyList_GetItem(taxa, 0);
+
+	label = PyEval_CallMethod(taxonMap, "labelGet", "(l)", 0);
+	if (label == NULL)
+	{
+	    rVal = NULL;
+	    goto RETURN;
+	}
+	if (PyString_Check(label) == false)
+	{
+	    CxError(CxgTreeValueError,
+		    "String label expected from TaxonMap.labelGet()");
+	    Py_DECREF(label);
+	    rVal = NULL;
+	    goto RETURN;
+	}
+
+	tobj = PyEval_CallMethod(ctm, "dataGet", "(O)", label);
+	if (tobj == NULL)
+	{
+	    CxError(CxgTreeValueError,
+		    "String of characters expected from CTMatrix.dataGet()");
+	    Py_DECREF(label);
+	}
 	// Don't worry about raising ValueError error here, since the for
 	// loop below will do so.
 	if (PyString_Check(tobj))
 	{
 	    nchars = PyString_Size(tobj);
 	}
-
+	Py_DECREF(tobj);
+	Py_DECREF(label);
+	
 	// Create an array of string pointers.
 	tarr = (char **) malloc(sizeof(char *) * ntaxa);
 	if (tarr == NULL)
@@ -878,8 +923,34 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 
 	for (i = 0; i < ntaxa; i++)
 	{
-	    tobj = PyList_GetItem(taxa, i);
-	    if (PyString_Check(tobj) == 0 || PyString_Size(tobj) != nchars)
+	    // Make sure that all taxa have the same number of characters.
+	    label = PyEval_CallMethod(taxonMap, "labelGet", "(l)", i);
+	    if (label == NULL)
+	    {
+		free(tarr);
+		rVal = NULL;
+		goto RETURN;
+	    }
+	    if (PyString_Check(label) == false)
+	    {
+		free(tarr);
+		CxError(CxgTreeValueError,
+			"String label expected from TaxonMap.labelGet()");
+		Py_DECREF(label);
+		rVal = NULL;
+		goto RETURN;
+	    }
+
+	    tobj = PyEval_CallMethod(ctm, "dataGet", "(O)", label);
+	    if (tobj == NULL)
+	    {
+		free(tarr);
+		CxError(CxgTreeValueError,
+			"String of characters expected from"
+			" CTMatrix.dataGet()");
+		Py_DECREF(label);
+	    }
+	    if (PyString_Check(tobj) == false || PyString_Size(tobj) != nchars)
 	    {
 		free(tarr);
 		CxError(CxgTreeValueError,
@@ -887,7 +958,23 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 		rVal = NULL;
 		goto RETURN;
 	    }
-	    tarr[i] = PyString_AsString(tobj);
+	    Py_DECREF(label);
+
+	    tarr[i] = strdup(PyString_AsString(tobj));
+	    Py_DECREF(tobj);
+	    if (tarr[i] == NULL)
+	    {
+		unsigned long k;
+
+		for (k = 0; k < i; k++)
+		{
+		    free(tarr[k]);
+		}
+		free(tarr);
+
+		rVal = PyErr_NoMemory();
+		goto RETURN;
+	    }
 
 	    // Make sure characters are valid codes.
 	    for (j = 0; j < nchars; j++)
@@ -932,9 +1019,16 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 		    }
 		    default:
 		    {
-			free(tarr);
+			unsigned long k;
+
 			CxError(CxgTreeValueError,
 				"Invalid character '%c'", tarr[i][j]);
+
+			for (k = 0; k <= i; k++)
+			{
+			    free(tarr[k]);
+			}
+			free(tarr);
 			rVal = NULL;
 			goto RETURN;
 		    }
@@ -949,6 +1043,12 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	// shouldn't be freed here unless there is an error.
 	if (CxpTreeMpPrepare(self, elim, tarr, ntaxa, nchars))
 	{
+	    unsigned long k;
+
+	    for (k = 0; k <= ntaxa; k++)
+	    {
+		free(tarr[k]);
+	    }
 	    free(tarr);
 	    rVal = NULL;
 	    goto RETURN;
@@ -958,6 +1058,10 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
     Py_INCREF(Py_None);
     rVal = Py_None;
     RETURN:
+    if (taxonMap != NULL)
+    {
+	Py_DECREF(taxonMap);
+    }
     return rVal;
 }
 
@@ -1048,6 +1152,12 @@ CxTreeMpFinish(CxtTreeObject *self)
 
     if (data->taxa != NULL)
     {
+	unsigned long i;
+
+	for (i = 0; i < data->nTaxa; i++)
+	{
+	    free(data->taxa[i]);
+	}
 	free(data->taxa);
 	data->taxa = NULL;
 	data->nTaxa = 0;
