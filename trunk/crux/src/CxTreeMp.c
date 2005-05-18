@@ -1349,7 +1349,100 @@ CxpTreeMpIa32PScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 void
 CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
-    CxmError("XXX Not implemented");
+    unsigned curlimit, i, nbytes, ns;
+    CxtTreeMpC *charsP, *charsA, *charsB;
+    vector unsigned char lsbMask, msbMask, zeros, ones, pns;
+    vector unsigned char a, b, c, d, e, p, s;
+    vector unsigned int sum;
+
+    // Calculate partial Fitch parsimony scores for each character.
+    charsP = aP->chars;
+    charsA = aA->chars;
+    charsB = aB->chars;
+
+    nbytes = (aP->nChars >> 1);
+
+    // Fill lsbMask with masks for the least significant four bits of each byte.
+    lsbMask = vec_splat_u8(0x0f);
+
+    // Fill msbMask with masks for the most significant four bits of each byte.
+    msbMask = vec_nor(lsbMask, lsbMask);
+
+    // Fill zeros with 16 0's.
+    zeros = vec_splat_u8(0);
+
+    // Fill ones with 16 1's.
+    ones = vec_splat_u8(1);
+
+    // Clear pns.
+    pns = vec_splat_u8(0);
+
+    // Clear sum.
+    sum = vec_splat_u32(0);
+
+    // The inner loop can be run a maximum of 127 times before the partial node
+    // score results (stored in pns) are added to ns (otherwise, overflow
+    // could occur).  Therefore, the outer loop calculates the upper bound for
+    // the inner loop, thereby avoiding extra computation in the inner loop.
+    curlimit = 127 * 16;
+    if (curlimit > nbytes)
+    {
+	curlimit = nbytes;
+    }
+    for (i = 0;;)
+    {
+	// Use Altivec to evaluate the characters.  This loop handles 32
+	// characters per iteration.
+	for (; i < curlimit; i += 16)
+	{
+	    a = (vector unsigned char) vec_lde(i, (unsigned char *) charsA);
+	    b = (vector unsigned char) vec_lde(i, (unsigned char *) charsB);
+	    p = vec_and(a, b);
+	    d = vec_or(a, b);
+
+	    //==================================================================
+	    // Most significant bits.
+	    c = (vector unsigned char) vec_cmpeq(vec_and(p, msbMask), zeros);
+	    e = vec_and(c, d);
+	    s = vec_and(vec_cmpeq(c, zeros), ones);
+	    p = vec_or(p, e);
+	    pns = vec_add(pns, s);
+
+	    //==================================================================
+	    // Least significant bits.
+	    c = (vector unsigned char) vec_cmpeq(vec_and(p, lsbMask), zeros);
+	    e = vec_and(c, d);
+	    s = vec_and(vec_cmpeq(c, zeros), ones);
+	    p = vec_or(p, e);
+	    pns = vec_add(pns, s);
+
+	    // Store results.
+	    vec_st(p, i, (unsigned char *) charsP);
+	}
+
+	// Create a single sum the 16 bytes in pns, and add them to the least
+	// significant 32 bits of sum.
+	sum = vec_sum4s(pns, sum);
+
+	// Break out of the loop if the bound for the inner loop was the maximum
+	// possible.
+	if (curlimit == nbytes)
+	{
+	    break;
+	}
+	// Update the bound for the inner loop, taking care not to exceed the
+	// maximum possible bound.
+	curlimit += 127 * 16;
+	if (curlimit > nbytes)
+	{
+	    curlimit = nbytes;
+	}
+    }
+
+    // Copy the least significant word of sum to ns.
+    vec_ste(sum, 0, &ns);
+
+    aP->nodeScore = ns;
 }
 #endif
 
@@ -1666,7 +1759,110 @@ CxpTreeMpIa32FScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 unsigned
 CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 {
-    CxmError("XXX Not implemented");
+    unsigned rVal, curlimit, i, nbytes, ns;
+    CxtTreeMpC *charsA, *charsB;
+    vector unsigned char lsbMask, msbMask, zeros, ones, pns;
+    vector unsigned char a, b, c, d, e, p, s;
+    vector unsigned int sum;
+
+    // Calculate sum of subtree scores.
+    rVal
+	= aA->subtreesScore + aA->nodeScore
+	+ aB->subtreesScore + aB->nodeScore;
+
+    // Calculate partial Fitch parsimony scores for each character.
+    charsA = aA->chars;
+    charsB = aB->chars;
+
+    nbytes = (aA->nChars >> 1);
+
+    // Fill lsbMask with masks for the least significant four bits of each byte.
+    lsbMask = vec_splat_u8(0x0f);
+
+    // Fill msbMask with masks for the most significant four bits of each byte.
+    msbMask = vec_nor(lsbMask, lsbMask);
+
+    // Fill zeros with 16 0's.
+    zeros = vec_splat_u8(0);
+
+    // Fill ones with 16 1's.
+    ones = vec_splat_u8(1);
+
+    // Clear pns.
+    pns = vec_splat_u8(0);
+
+    // Clear sum.
+    sum = vec_splat_u32(0);
+
+    // The inner loop can be run a maximum of 127 times before the partial node
+    // score results (stored in pns) are added to ns (otherwise, overflow
+    // could occur).  Therefore, the outer loop calculates the upper bound for
+    // the inner loop, thereby avoiding extra computation in the inner loop.
+    curlimit = 127 * 16;
+    if (curlimit > nbytes)
+    {
+	curlimit = nbytes;
+    }
+    for (i = 0;;)
+    {
+	// Use Altivec to evaluate the characters.  This loop handles 32
+	// characters per iteration.
+	for (; i < curlimit; i += 16)
+	{
+	    a = (vector unsigned char) vec_lde(i, (unsigned char *) charsA);
+	    b = (vector unsigned char) vec_lde(i, (unsigned char *) charsB);
+	    p = vec_and(a, b);
+	    d = vec_or(a, b);
+
+	    //==================================================================
+	    // Most significant bits.
+	    c = (vector unsigned char) vec_cmpeq(vec_and(p, msbMask), zeros);
+	    e = vec_and(c, d);
+	    s = vec_and(vec_cmpeq(c, zeros), ones);
+	    p = vec_or(p, e);
+	    pns = vec_add(pns, s);
+
+	    //==================================================================
+	    // Least significant bits.
+	    c = (vector unsigned char) vec_cmpeq(vec_and(p, lsbMask), zeros);
+	    e = vec_and(c, d);
+	    s = vec_and(vec_cmpeq(c, zeros), ones);
+	    p = vec_or(p, e);
+	    pns = vec_add(pns, s);
+	}
+
+	// Create a single sum the 16 bytes in pns, and add them to the least
+	// significant 32 bits of sum.
+	sum = vec_sum4s(pns, sum);
+	
+	// Copy the least significant word of sum to ns.
+	vec_ste(sum, 0, &ns);
+	if (rVal + ns > aMaxScore)
+	{
+	    rVal = UINT_MAX;
+	    break;
+	}
+
+	// Break out of the loop if the bound for the inner loop was the maximum
+	// possible.
+	if (curlimit == nbytes)
+	{
+	    break;
+	}
+	// Update the bound for the inner loop, taking care not to exceed the
+	// maximum possible bound.
+	curlimit += 127 * 16;
+	if (curlimit > nbytes)
+	{
+	    curlimit = nbytes;
+	}
+    }
+
+    // Copy the least significant word of sum to ns.
+    vec_ste(sum, 0, &ns);
+    rVal += ns;
+
+    return rVal;
 }
 #endif
 
