@@ -1349,11 +1349,13 @@ CxpTreeMpIa32PScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 void
 CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
-    unsigned curlimit, i, nbytes, ns;
+    unsigned curlimit, i, nbytes;
     CxtTreeMpC *charsP, *charsA, *charsB;
     vector unsigned char lsbMask, msbMask, zeros, ones, pns;
-    vector unsigned char a, b, c, d, e, p, s;
+    vector unsigned char a, b, p, e;
+    vector unsigned char union_, intersect, emptyMask, unionEmpty;
     vector unsigned int sum;
+    unsigned ns __attribute__ ((aligned (16)));
 
     // Calculate partial Fitch parsimony scores for each character.
     charsP = aP->chars;
@@ -1397,24 +1399,31 @@ CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 	{
 	    a = (vector unsigned char) vec_lde(i, (unsigned char *) charsA);
 	    b = (vector unsigned char) vec_lde(i, (unsigned char *) charsB);
-	    p = vec_and(a, b);
-	    d = vec_or(a, b);
+//	    fprintf(stderr, "a: %02vx\n", a);
+//	    fprintf(stderr, "b: %02vx\n", b);
+	    union_ = vec_or(a, b);
+	    intersect = vec_and(a, b);
 
 	    //==================================================================
 	    // Most significant bits.
-	    c = (vector unsigned char) vec_cmpeq(vec_and(p, msbMask), zeros);
-	    e = vec_and(c, d);
-	    s = vec_and(vec_cmpeq(c, zeros), ones);
-	    p = vec_or(p, e);
-	    pns = vec_add(pns, s);
+	    emptyMask = (vector unsigned char) vec_cmpeq(vec_and(intersect,
+								 msbMask),
+							 zeros);
+	    e = vec_and(vec_and(emptyMask, union_), msbMask);
+	    unionEmpty = vec_and(vec_cmpgt(emptyMask, zeros), ones);
+	    p = vec_or(intersect, e);
+	    pns = vec_add(pns, unionEmpty);
 
 	    //==================================================================
 	    // Least significant bits.
-	    c = (vector unsigned char) vec_cmpeq(vec_and(p, lsbMask), zeros);
-	    e = vec_and(c, d);
-	    s = vec_and(vec_cmpeq(c, zeros), ones);
-	    p = vec_or(p, e);
-	    pns = vec_add(pns, s);
+	    emptyMask = (vector unsigned char) vec_cmpeq(vec_and(intersect,
+								 lsbMask),
+							 zeros);
+	    e = vec_and(vec_and(emptyMask, union_), lsbMask);
+	    unionEmpty = vec_and(vec_cmpgt(emptyMask, zeros), ones);
+	    p = vec_or(vec_or(intersect, e), p);
+//	    fprintf(stderr, "p: %02vx\n", p);
+	    pns = vec_add(pns, unionEmpty);
 
 	    // Store results.
 	    vec_st(p, i, (unsigned char *) charsP);
@@ -1422,7 +1431,9 @@ CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 
 	// Create a single sum the 16 bytes in pns, and add them to the least
 	// significant 32 bits of sum.
+//	fprintf(stderr, "pns: %vd\n", pns);
 	sum = vec_sum4s(pns, sum);
+//	fprintf(stderr, "sum: %vld\n", sum);
 
 	// Break out of the loop if the bound for the inner loop was the maximum
 	// possible.
@@ -1441,6 +1452,7 @@ CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 
     // Copy the least significant word of sum to ns.
     vec_ste(sum, 0, &ns);
+//    fprintf(stderr, "ns: %u\n", ns);
 
     aP->nodeScore = ns;
 }
@@ -1759,11 +1771,13 @@ CxpTreeMpIa32FScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 unsigned
 CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 {
-    unsigned rVal, curlimit, i, nbytes, ns;
+    unsigned rVal, curlimit, i, nbytes;
     CxtTreeMpC *charsA, *charsB;
     vector unsigned char lsbMask, msbMask, zeros, ones, pns;
-    vector unsigned char a, b, c, d, e, p, s;
+    vector unsigned char a, b, p, e;
+    vector unsigned char union_, intersect, emptyMask, unionEmpty;
     vector unsigned int sum;
+    unsigned ns __attribute__ ((aligned (16)));
 
     // Calculate sum of subtree scores.
     rVal
@@ -1811,24 +1825,28 @@ CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 	{
 	    a = (vector unsigned char) vec_lde(i, (unsigned char *) charsA);
 	    b = (vector unsigned char) vec_lde(i, (unsigned char *) charsB);
-	    p = vec_and(a, b);
-	    d = vec_or(a, b);
+	    union_ = vec_or(a, b);
+	    intersect = vec_and(a, b);
 
 	    //==================================================================
 	    // Most significant bits.
-	    c = (vector unsigned char) vec_cmpeq(vec_and(p, msbMask), zeros);
-	    e = vec_and(c, d);
-	    s = vec_and(vec_cmpeq(c, zeros), ones);
-	    p = vec_or(p, e);
-	    pns = vec_add(pns, s);
+	    emptyMask = (vector unsigned char) vec_cmpeq(vec_and(intersect,
+								 msbMask),
+							 zeros);
+	    e = vec_and(vec_and(emptyMask, union_), msbMask);
+	    unionEmpty = vec_and(vec_cmpgt(emptyMask, zeros), ones);
+	    p = vec_or(intersect, e);
+	    pns = vec_add(pns, unionEmpty);
 
 	    //==================================================================
 	    // Least significant bits.
-	    c = (vector unsigned char) vec_cmpeq(vec_and(p, lsbMask), zeros);
-	    e = vec_and(c, d);
-	    s = vec_and(vec_cmpeq(c, zeros), ones);
-	    p = vec_or(p, e);
-	    pns = vec_add(pns, s);
+	    emptyMask = (vector unsigned char) vec_cmpeq(vec_and(intersect,
+								 lsbMask),
+							 zeros);
+	    e = vec_and(vec_and(emptyMask, union_), lsbMask);
+	    unionEmpty = vec_and(vec_cmpgt(emptyMask, zeros), ones);
+	    p = vec_or(vec_or(intersect, e), p);
+	    pns = vec_add(pns, unionEmpty);
 	}
 
 	// Create a single sum the 16 bytes in pns, and add them to the least
@@ -1860,6 +1878,7 @@ CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 
     // Copy the least significant word of sum to ns.
     vec_ste(sum, 0, &ns);
+    fprintf(stderr, "%u + %u\n", rVal, ns);
     rVal += ns;
 
     return rVal;
