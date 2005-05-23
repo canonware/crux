@@ -1,0 +1,41 @@
+################################################################################
+#
+# <Copyright = jasone>
+# <License>
+#
+################################################################################
+#
+# Version: Crux <Version = crux>
+#
+################################################################################
+
+print "Test begin"
+
+ctm = crux.CTMatrix.CTMatrix()
+ctm.fastaParse("""
+>a
+A
+>b
+A
+>c
+A
+>d
+C
+>e
+A
+>f
+G
+>g
+A
+>h
+T
+""")
+
+taxonMap = ctm.taxonMapGet()
+t = crux.Tree.Tree('((a,b),(c,d),((e,f),(g,h)));', taxonMap=taxonMap)
+
+t.mpPrepare(ctm)
+
+print "Score: %d" % t.mp()
+
+print "Test end"
