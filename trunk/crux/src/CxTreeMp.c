@@ -782,6 +782,13 @@ CxpTreeMpPrepare(CxtTreeObject *self, bool aElimUninform,
 	if (aElimUninform)
 	{
 	    data->nChars = data->nInformative;
+
+	    if (data->nChars == 0)
+	    {
+		CxError(CxgTreeValueError, "No informative characters");
+		rVal = true;
+		goto RETURN;
+	    }
 	}
 	else
 	{
@@ -2094,6 +2101,7 @@ CxpTreeMpScore(CxtTreeObject *self, unsigned *rScore)
 	    rVal = true;
 	    goto RETURN;
 	}
+	CxmAssert(data->nChars > 0);
 
 	edge = CxRingEdge(ring);
 	CxEdgeRingsGet(edge, &ringA, &ringB);
@@ -2386,6 +2394,7 @@ CxpTreeMpTbrNeighbors(CxtTreeObject *self, unsigned aMaxHold,
 	rVal = true;
 	goto RETURN;
     }
+    CxmAssert(data->nChars > 0);
 
     curMax = aMaxScore;
 

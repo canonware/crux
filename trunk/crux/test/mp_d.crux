@@ -34,7 +34,7 @@ T
 taxonMap = ctm.taxonMapGet()
 t = crux.Tree.Tree('((a,b),(c,d),((e,f),(g,h)));', taxonMap=taxonMap)
 
-t.mpPrepare(ctm)
+t.mpPrepare(ctm, elimUninformative=False)
 
 print "Score: %d" % t.mp()
 
