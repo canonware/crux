@@ -76,7 +76,7 @@ struct CxsTreeMpPs
     // least significant bits.  T is the least significant bit.  1 means that a
     // nucleotide is in the set.
     //
-    // There are nchars character state sets.
+    // There are nChars character state sets.
     //
     // achars is the actual allocation, which is padded in order to
     // be able to guarantee that chars is 16 byte-aligned.
@@ -1361,8 +1361,8 @@ CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
     vector unsigned char lsbMask, msbMask, zeros, ones, pns;
     vector unsigned char a, b, p, e;
     vector unsigned char union_, intersect, emptyMask, unionEmpty;
-    vector unsigned int sum;
-    unsigned ns __attribute__ ((aligned (16)));
+    vector unsigned int sum4, sum;
+    unsigned ns[4] __attribute__ ((aligned (16)));
 
     // Calculate partial Fitch parsimony scores for each character.
     charsP = aP->chars;
@@ -1386,8 +1386,8 @@ CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
     // Clear pns.
     pns = vec_splat_u8(0);
 
-    // Clear sum.
-    sum = vec_splat_u32(0);
+    // Clear sum4.
+    sum4 = vec_splat_u32(0);
 
     // The inner loop can be run a maximum of 127 times before the partial node
     // score results (stored in pns) are added to ns (otherwise, overflow
@@ -1406,8 +1406,6 @@ CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 	{
 	    a = (vector unsigned char) vec_lde(i, (unsigned char *) charsA);
 	    b = (vector unsigned char) vec_lde(i, (unsigned char *) charsB);
-//	    fprintf(stderr, "a: %02vx\n", a);
-//	    fprintf(stderr, "b: %02vx\n", b);
 	    union_ = vec_or(a, b);
 	    intersect = vec_and(a, b);
 
@@ -1429,18 +1427,15 @@ CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 	    e = vec_and(vec_and(emptyMask, union_), lsbMask);
 	    unionEmpty = vec_and(vec_cmpgt(emptyMask, zeros), ones);
 	    p = vec_or(vec_or(intersect, e), p);
-//	    fprintf(stderr, "p: %02vx\n", p);
 	    pns = vec_add(pns, unionEmpty);
 
 	    // Store results.
 	    vec_st(p, i, (unsigned char *) charsP);
 	}
 
-	// Create a single sum the 16 bytes in pns, and add them to the least
-	// significant 32 bits of sum.
-//	fprintf(stderr, "pns: %vd\n", pns);
-	sum = vec_sum4s(pns, sum);
-//	fprintf(stderr, "sum: %vld\n", sum);
+	// Create four sub-sums of the 16 bytes in pns, and add them to the
+	// least significant 32 bits of sum.
+	sum4 = vec_sum4s(pns, sum4);
 
 	// Break out of the loop if the bound for the inner loop was the maximum
 	// possible.
@@ -1457,11 +1452,13 @@ CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 	}
     }
 
-    // Copy the least significant word of sum to ns.
-    vec_ste(sum, 0, &ns);
-//    fprintf(stderr, "ns: %u\n", ns);
+    // Convert sum4 to sum, then copy sum to ns.
+    sum = vec_splat_u32(0);
+    sum = (vector unsigned int) vec_sums((vector signed int) sum4,
+					 (vector signed int) sum);
+    vec_st(sum, 0, &ns[0]);
 
-    aP->nodeScore = ns;
+    aP->nodeScore = ns[3];
 }
 #endif
 
@@ -1783,8 +1780,8 @@ CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
     vector unsigned char lsbMask, msbMask, zeros, ones, pns;
     vector unsigned char a, b, p, e;
     vector unsigned char union_, intersect, emptyMask, unionEmpty;
-    vector unsigned int sum;
-    unsigned ns __attribute__ ((aligned (16)));
+    vector unsigned int sum4, sum;
+    unsigned ns[4] __attribute__ ((aligned (16)));
 
     // Calculate sum of subtree scores.
     rVal
@@ -1812,8 +1809,8 @@ CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
     // Clear pns.
     pns = vec_splat_u8(0);
 
-    // Clear sum.
-    sum = vec_splat_u32(0);
+    // Clear sum4.
+    sum4 = vec_splat_u32(0);
 
     // The inner loop can be run a maximum of 127 times before the partial node
     // score results (stored in pns) are added to ns (otherwise, overflow
@@ -1856,13 +1853,16 @@ CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 	    pns = vec_add(pns, unionEmpty);
 	}
 
-	// Create a single sum the 16 bytes in pns, and add them to the least
-	// significant 32 bits of sum.
-	sum = vec_sum4s(pns, sum);
+	// Create four sub-sums of the 16 bytes in pns, and add them to the
+	// least significant 32 bits of sum.
+	sum4 = vec_sum4s(pns, sum4);
 	
-	// Copy the least significant word of sum to ns.
-	vec_ste(sum, 0, &ns);
-	if (rVal + ns > aMaxScore)
+	// Convert sum4 to sum, then copy sum to ns.
+	sum = vec_splat_u32(0);
+	sum = (vector unsigned int) vec_sums((vector signed int) sum4,
+					     (vector signed int) sum);
+	vec_st(sum, 0, &ns[0]);
+	if (rVal + ns[3] > aMaxScore)
 	{
 	    rVal = UINT_MAX;
 	    break;
@@ -1883,10 +1883,11 @@ CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 	}
     }
 
-    // Copy the least significant word of sum to ns.
-    vec_ste(sum, 0, &ns);
-    fprintf(stderr, "%u + %u\n", rVal, ns);
-    rVal += ns;
+    // Copy sum to ns.
+    sum = vec_splat_u32(0);
+    sum = (vector unsigned int) vec_sums((vector signed int) sum4,
+					 (vector signed int) sum);
+    rVal += ns[3];
 
     return rVal;
 }
