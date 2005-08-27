@@ -21,6 +21,7 @@ setup(name = 'crux',
       ext_modules = [Extension('crux._crux',
                                sources=@crux_sources@,
                                include_dirs=["@srcroot@/include",
-                                             "@objroot@/include"])],
-      scripts = @crux_scripts@
+                                             "@objroot@/include"],
+			       extra_compile_args=[@extra_compile_args@])],
+      scripts = @crux_scripts@,
       )
