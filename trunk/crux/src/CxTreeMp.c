@@ -78,7 +78,7 @@ struct CxsTreeMpPs
     //
     // There are nChars character state sets.
     //
-    // achars is the actual allocation, which is padded in order to
+    // aChars is the actual allocation, which is padded in order to
     // be able to guarantee that chars is 16 byte-aligned.
     CxtTreeMpC *chars;
     unsigned nChars;
@@ -1865,7 +1865,7 @@ CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 	if (rVal + ns[3] > aMaxScore)
 	{
 	    rVal = UINT_MAX;
-	    break;
+	    goto RETURN;
 	}
 
 	// Break out of the loop if the bound for the inner loop was the maximum
@@ -1889,6 +1889,7 @@ CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 					 (vector signed int) sum);
     rVal += ns[3];
 
+RETURN:
     return rVal;
 }
 #endif
@@ -1933,7 +1934,7 @@ CxpTreeMpCFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
     if (rVal > aMaxScore)						\
     {									\
 	rVal = UINT_MAX;						\
-	break;								\
+	goto RETURN;							\
     }									\
 									\
     i++;
@@ -1950,6 +1951,7 @@ CxpTreeMpCFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
     }
 #undef CxmTreeMpCFScoreInner
 
+RETURN:
     return rVal;
 }
 
