@@ -55,7 +55,7 @@ struct CxsTreeMpData
 };
 
 // Character (in the systematics sense of the word).
-typedef char CxtTreeMpC;
+typedef unsigned char CxtTreeMpC;
 
 // Partial parsimony score information.
 struct CxsTreeMpPs
@@ -1404,8 +1404,8 @@ CxpTreeMpPpcPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 	// characters per iteration.
 	for (; i < curlimit; i += 16)
 	{
-	    a = (vector unsigned char) vec_lde(i, (unsigned char *) charsA);
-	    b = (vector unsigned char) vec_lde(i, (unsigned char *) charsB);
+	    a = (vector unsigned char) vec_lvx(i, (unsigned char *) charsA);
+	    b = (vector unsigned char) vec_lvx(i, (unsigned char *) charsB);
 	    union_ = vec_or(a, b);
 	    intersect = vec_and(a, b);
 
@@ -1578,10 +1578,10 @@ CxpTreeMpNoInlinePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 CxmpInline void
 CxpTreeMpCachePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
-//#define CxmTreeMpCachePScoreValidate
+#define CxmTreeMpCachePScoreValidate
 #ifdef CxmTreeMpCachePScoreValidate
     bool cached;
-    unsigned cachedNodeScore;
+    unsigned cachedNodeScore = 0; // Avoid compiler warning.
 #endif
 
     CxmCheckPtr(aP);
@@ -1827,8 +1827,8 @@ CxpTreeMpPpcFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 	// characters per iteration.
 	for (; i < curlimit; i += 16)
 	{
-	    a = (vector unsigned char) vec_lde(i, (unsigned char *) charsA);
-	    b = (vector unsigned char) vec_lde(i, (unsigned char *) charsB);
+	    a = (vector unsigned char) vec_lvx(i, (unsigned char *) charsA);
+	    b = (vector unsigned char) vec_lvx(i, (unsigned char *) charsB);
 	    union_ = vec_or(a, b);
 	    intersect = vec_and(a, b);
 
