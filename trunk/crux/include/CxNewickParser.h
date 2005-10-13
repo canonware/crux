@@ -40,6 +40,7 @@ extern PyObject *CxgNewickParserException;
 extern PyObject *CxgNewickParserValueError;
 extern PyObject *CxgNewickParserTypeError;
 extern PyObject *CxgNewickParserSyntaxError;
+extern PyObject *CxgNewickParserEOF;
 
 void
 CxNewickParserInit(void);

@@ -202,7 +202,7 @@ CxpNewickParserGetC(CxtNewickParserObject *self)
 	{
 	    if (fread(&self->c, 1, 1, self->i.f.file) == 0)
 	    {
-		CxError(CxgNewickParserSyntaxError,
+		CxError(CxgNewickParserEOF,
 			"At offset %d (token '%.*s'):"
 			" End of input reached",
 			self->offset - 1, self->tokenLen, self->buf);
@@ -216,7 +216,7 @@ CxpNewickParserGetC(CxtNewickParserObject *self)
 	    self->i.s.offset++;
 	    if (self->c == '\0')
 	    {
-		CxError(CxgNewickParserSyntaxError,
+		CxError(CxgNewickParserEOF,
 			"At offset %d (token '%.*s'):"
 			" End of input reached",
 			self->offset - 1, self->tokenLen, self->buf);
@@ -1339,6 +1339,7 @@ PyObject *CxgNewickParserException;
 PyObject *CxgNewickParserValueError;
 PyObject *CxgNewickParserTypeError;
 PyObject *CxgNewickParserSyntaxError;
+PyObject *CxgNewickParserEOF;
 
 void
 CxNewickParserInit(void)
@@ -1384,4 +1385,12 @@ CxNewickParserInit(void)
 			     NULL);
     Py_INCREF(CxgNewickParserSyntaxError);
     PyModule_AddObject(m, "SyntaxError", CxgNewickParserSyntaxError);
+
+    // EOF.
+    CxgNewickParserEOF
+	= PyErr_NewException("C_NewickParser.EOF",
+			     CxgNewickParserException,
+			     NULL);
+    Py_INCREF(CxgNewickParserEOF);
+    PyModule_AddObject(m, "EOF", CxgNewickParserEOF);
 }
