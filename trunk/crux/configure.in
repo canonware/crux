@@ -59,14 +59,14 @@ AC_CANONICAL_HOST
 case "${host_cpu}" in
   i[[3456]]86)
 	AC_DEFINE([CxmCpuIa32])
-	extra_compile_args="''"
+	extra_compile_args=""
 	;;
   powerpc)
 	AC_DEFINE([CxmCpuPpc])
 	extra_compile_args="'-faltivec'"
 	;;
   *)
-	extra_compile_args="''"
+	extra_compile_args=""
 	;;
 esac
 AC_SUBST([extra_compile_args])
