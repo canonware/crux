@@ -1,6 +1,6 @@
 #!/bin/sh
 
-for i in aclocal autoconf; do
+for i in autoconf; do
     echo "$i"
     $i
     if [ $? -ne 0 ]; then
