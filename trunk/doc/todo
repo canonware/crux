@@ -1,4 +1,25 @@
-* Write a nexus parser.
+=== Lewis crossover experiment =================================================
+
+* Add ability to calculate MP scores of multifurcating trees.  This includes
+  making the caching machinery work correctly.
+
+* Use CTMatrix to prepare trees for MP.  This will potentially be important,
+  since we'll have multiple prepared trees in use at the same time.
+
+* Implement Lewis crossover neighbor calculation for two trees.
+
+  + Validate that trees are compatible (debug mode only?).
+
+  + Make sure both trees are prepared for MP scoring, using the same CTMatrix.
+
+  + For trees in A, B:
+
+    - Iteratively choose all crossover points in tree.
+
+      * Do equivalent of TBR attachment, and score trees.
+
+* Implement tree pool.  Use fitness sharing (as a function of RF-distance) to
+  weight fitnesses.
 
 === Conversion to Python =======================================================
 
@@ -29,6 +50,8 @@
   merge the C/Python portions of all of crux's classes.
 
 === General maintenance ========================================================
+
+* Write a nexus parser.
 
 * Uniformly use standard malloc(3) APIs, catch and return errors.  Then, remove
   CxXep and CxMem.
