@@ -743,7 +743,7 @@ Exception C_NewickParser.SyntaxError: At offset 6 (token ';', char ';'): ',' exp
 --,--: ','
 --leafLabel--: 'B'
 --)--: ')'
-Exception C_NewickParser.SyntaxError: At offset 5 (token ''): End of input reached
+Exception C_NewickParser.EOF: At offset 5 (token ''): End of input reached
 
 === '(A,B:42.43.44);' ===
 --(--: '('
