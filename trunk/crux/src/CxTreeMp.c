@@ -11,6 +11,9 @@
 
 #include "../include/_cruxmodule.h"
 
+// XXX
+#define CxmTreeMpCachePScoreValidate
+
 typedef struct CxsTreeMpHeld CxtTreeMpHeld;
 typedef struct CxsTreeMpData CxtTreeMpData;
 typedef struct CxsTreeMpPs CxtTreeMpPs;
@@ -61,9 +64,10 @@ typedef unsigned char CxtTreeMpC;
 struct CxsTreeMpPs
 {
     // Parent which most recently used this node's partial score when caching
-    // its results.  Both children must still point to the parent in order for
+    // its results.  All siblings must still point to the parent in order for
     // the cached results to be valid.
     CxtTreeMpPs *parent;
+    unsigned nSiblings;
 
     // Sum of the subtree scores, and this node's score, given particular
     // children.  In order for this to be useful, both childrens' parent
@@ -117,6 +121,7 @@ CxpTreeMpPsNew(void)
     }
 
     rVal->parent = NULL;
+    rVal->nSiblings = 0;
     rVal->chars = NULL;
 
     RETURN:
@@ -228,6 +233,7 @@ CxpTreePsPrepare(CxtTreeMpData *aData, CxtTreeMpPs *aPs)
 
     // Make sure that cached values are not used.
     aPs->parent = NULL;
+    aPs->nSiblings = 0;
 
     rVal = false;
     RETURN:
@@ -1538,6 +1544,7 @@ CxpTreeMpPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
     // Reset this node's parent pointer, to keep the parent from using an
     // invalid cached value.
     aP->parent = NULL;
+    aP->nSiblings = 0;
 
     // Calculate sum of subtree scores.
     aP->subtreesScore
@@ -1578,7 +1585,6 @@ CxpTreeMpNoInlinePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 CxmpInline void
 CxpTreeMpCachePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 {
-#define CxmTreeMpCachePScoreValidate
 #ifdef CxmTreeMpCachePScoreValidate
     bool cached;
     unsigned cachedNodeScore = 0; // Avoid compiler warning.
@@ -1589,7 +1595,8 @@ CxpTreeMpCachePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
     CxmCheckPtr(aB);
 
     // Only calculate the parent's node score if the cached value is invalid.
-    if (aA->parent != aP || aB->parent != aP)
+    if (aA->parent != aP || aA->nSiblings != 1
+	|| aB->parent != aP || aB->nSiblings != 1)
 #ifdef CxmTreeMpCachePScoreValidate
     {
 	cached = false;
@@ -1617,12 +1624,91 @@ CxpTreeMpCachePScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 	// Set parent pointers, so that cached values may be used in future
 	// runs.
 	aA->parent = aP;
+	aA->nSiblings = 1;
 	aB->parent = aP;
+	aB->nSiblings = 1;
 
 	// Calculate the partial score.
 	CxpTreeMpNoInlinePScore(aP, aA, aB);
     }
 
+#ifdef CxmTreeMpCachePScoreValidate
+    if (cached)
+    {
+	if (cachedNodeScore != aP->nodeScore)
+	{
+	    fprintf(stderr, "%s:%d:%s(): nodeScore %u (should be %u)\n",
+		    __FILE__, __LINE__, __func__,
+		    cachedNodeScore, aP->nodeScore);
+	    abort();
+	}
+    }
+#endif
+}
+
+// Calculate the partial score for aP, using aSibs as children.  However, do
+// some extra bookkeeping in order to be able to cache the results, and later
+// recognize that precisely the same calculation was cached.
+CxmpInline void
+CxpTreeMpCachePScoreVec(CxtTreeMpPs *aP, CxtTreeMpPs **aSibs, unsigned aNSibs)
+{
+    unsigned i;
+    bool cached;
+    CxtTreeMpPs *sib;
+#ifdef CxmTreeMpCachePScoreValidate
+    unsigned cachedNodeScore = 0; // Avoid compiler warning.
+#endif
+
+    CxmCheckPtr(aP);
+#ifdef CxmDebug
+    for (i = 0; i < aNSibs; i++)
+    {
+	CxmCheckPtr(aSibs[i]);
+    }
+#endif
+    
+    // Only calculate the parent's node score if the cached value is invalid.
+    cached = true;
+    for (i = 0; i < aNSibs; i++)
+    {
+	sib = aSibs[i];
+	// A sibling is one of N siblings, but has N-1 siblings.
+	if (sib->parent != aP || sib->nSiblings != aNSibs - 1)
+	{
+	    cached = false;
+	    break;
+	}
+    }
+
+#ifndef CxmTreeMpCachePscoreValidate
+    if (cached == false)
+#else
+    cachedNodeScore = aP->nodeScore;
+#endif
+    {
+	CxtTreeMpPs *a, *b;
+
+	// Handle first two siblings.
+	a = aSibs[0];
+	a->parent = aP;
+	a->nSiblings = aNSibs;
+	b = aSibs[1];
+	b->parent = aP;
+	b->nSiblings = aNSibs;
+
+	CxpTreeMpNoInlinePScore(aP, a, b);
+
+	// Handle other siblings.
+	for (i = 2; i < aNSibs; i++)
+	{
+	    sib = aSibs[i];
+	    sib->parent = aP;
+	    sib->nSiblings = aNSibs;
+
+	    CxpTreeMpNoInlinePScore(aP, aP, sib);
+	}
+    }
+    
 #ifdef CxmTreeMpCachePScoreValidate
     if (cached)
     {
@@ -1645,6 +1731,7 @@ CxpTreeMpCacheInvalidate(CxtTreeMpPs *aPs)
     // Reset this node's parent pointer, to keep the old parent from using an
     // invalid cached value.
     aPs->parent = NULL;
+    aPs->nSiblings = 0;
 }
 
 #ifdef CxmCpuIa32
@@ -2075,8 +2162,29 @@ CxpTreeMpScoreRecurse(CxtTreeMpData *aData, CxtRingObject *aRing,
 	}
 	default:
 	{
-	    // This is a multifurcating node.
-	    CxmError("XXX Not implemented");
+	    CxtTreeMpPs *psVec[degree - 1];
+	    unsigned i;
+
+	    // This is a multifurcating node, which may or may not be adjacent
+	    // to the bisection.
+
+	    // Recursively calculate partial scores for the subtrees.
+	    for (ring = CxRingNext(aRing), i = 0;
+		 ring != aRing;
+		 ring = CxRingNext(aRing))
+	    {
+		if (CxRingEdge(ring) != aBisect)
+		{
+		    psVec[i] = CxpTreeMpScoreRecurse(aData, CxRingOther(ring),
+						     aBisect);
+		    i++;
+		}
+	    }
+	    CxmAssert(i == degree - 1);
+
+	    // Calculate the partial score for this node.
+	    rVal = (CxtTreeMpPs *) CxRingAuxGet(aRing, aData->ringAuxInd);
+	    CxpTreeMpCachePScoreVec(rVal, psVec, degree);
 	}
     }
 
@@ -2239,8 +2347,74 @@ CxpTreeMpViewsRecurse(CxtTreeMpData *aData, CxtRingObject *aRing,
 	}
 	default:
 	{
-	    // This is a multifurcating node.
-	    CxmError("XXX Not implemented");
+	    CxtTreeMpPs *psVec[degree];
+	    CxtTreeMpPs *psOtherVec[degree]; // Fields match those in psVec.
+	    CxtTreeMpPs *psEdgeVec[degree]; // Fields match those in psVec.
+	    CxtRingObject *ringOtherVec[degree]; // Fields match those in psVec.
+	    CxtRingObject *ring;
+	    CxtEdgeObject *edge;
+	    CxtTreeMpPs *tPs;
+	    unsigned i;
+
+	    // This is a multifurcating node, which may or may not be adjacent
+	    // to the bisection.
+
+	    // Initialize psVec, psOtherVec, psEdgeVec, and ringOtherVec, which
+	    // contain the ps objects for each edge that is attached to the
+	    // current node.  aRing's ps is always in slot 0.
+	    psVec[0] = CxRingAuxGet(aRing, aData->ringAuxInd);
+	    psOtherVec[0] = aPs;
+
+	    for (ring = CxRingNext(aRing), i = 1;
+		 ring != aRing;
+		 ring = CxRingNext(ring))
+	    {
+		if ((edge = CxRingEdge(ring)) != aBisect)
+		{
+		    psVec[i] = (CxtTreeMpPs *) CxRingAuxGet(ring, 
+							    aData->ringAuxInd);
+		    ringOtherVec[i] = CxRingOther(ring);
+		    psOtherVec[i] = (CxtTreeMpPs *)
+				    CxRingAuxGet(ringOtherVec[i],
+						 aData->ringAuxInd);
+		    psEdgeVec[i] = (CxtTreeMpPs *)
+				   CxEdgeAuxGet(edge, aData->edgeAuxInd);
+
+		    i++;
+		}
+	    }
+	    CxmAssert(i == degree);
+
+	    // Calculate views, and recurse, for all slots except 0 (which is
+	    // where we are coming from.  For each iteration, we rearrange the
+	    // slots so that the views which we are currently calculating are
+	    // in the last slot.
+	    for (i = degree - 1; i > 0; i--)
+	    {
+		// Swap slots.
+		tPs = psVec[degree - 1];
+		psVec[degree - 1] = psVec[i];
+		psVec[i] = tPs;
+
+		tPs = psOtherVec[degree - 1];
+		psOtherVec[degree - 1] = psOtherVec[i];
+		psOtherVec[i] = tPs;
+
+		tPs = psEdgeVec[degree - 1];
+		psEdgeVec[degree - 1] = psEdgeVec[i];
+		psEdgeVec[i] = tPs;
+
+		ring = ringOtherVec[degree - 1];
+		ringOtherVec[degree - 1] = ringOtherVec[i];
+		ringOtherVec[i] = ring;
+
+		CxpTreeMpCachePScoreVec(psVec[degree - 1], psOtherVec,
+					degree - 1);
+		CxpTreeMpPScore(psEdgeVec[degree - 1], psVec[degree - 1],
+				psOtherVec[degree - 1]);
+		CxpTreeMpViewsRecurse(aData, ringOtherVec[degree - 1],
+				      psVec[degree - 1], aBisect);
+	    }
 	}
     }
 }
