@@ -1,8 +1,5 @@
 === Lewis crossover experiment =================================================
 
-* Add ability to calculate MP scores of multifurcating trees.  This includes
-  making the caching machinery work correctly.
-
 * Use CTMatrix to prepare trees for MP.  This will potentially be important,
   since we'll have multiple prepared trees in use at the same time.
 
@@ -90,8 +87,6 @@
 
 * Implement other heuristic tree constructors, such as sequential addition,
   UPGMA, etc.
-
-* Implement crux.Tree.Tree.dup().
 
 * Implement NNI and SPR.  SPR should be easy, since it is a subset of TBR.
 

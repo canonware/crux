@@ -216,6 +216,35 @@ class Tree(C_Tree):
         parser = _NewickParser(self, self._taxonMap, newickAutoMap)
         return parser.parse(input)
 
+    def _dup(self, newTree, node, prevRing):
+	newNode = crux.Node.Node(newTree)
+	taxonNum = node.taxonNumGet()
+	if taxonNum != None:
+	    newNode.taxonNumSet(taxonNum)
+
+	i = 0
+	degree = node.degree()
+	ring = node.ring()
+	while (i < degree):
+	    if ring != prevRing:
+		otherRing = ring.other()
+		newOtherNode = self._dup(newTree, otherRing.node(), otherRing)
+
+		newEdge = crux.Edge.Edge(newTree)
+		newEdge.attach(newNode, newOtherNode)
+
+	    ring = ring.next()
+	    i += 1
+
+	return newNode
+	
+    def dup(self):
+	newTree = crux.Tree.Tree()
+	newNode = self._dup(newTree, self.baseGet(), None)
+	newTree.baseSet(newNode)
+
+	return newTree
+
     def taxonMapGet(self):
         return self._taxonMap
 
