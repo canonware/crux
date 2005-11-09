@@ -12,9 +12,9 @@
 // This file implements the Robinson-Foulds distance measure, precisely as
 // defined in:
 //
-//   Bernard M.E., L. Nakhleh, T. Warnow, C.R. Linder, A. Tholse, A. Padolina,
+//   Moret B.M.E., L. Nakhleh, T. Warnow, C.R. Linder, A. Tholse, A. Padolina,
 //   J. Sun, and R. Timme.  2004.  Phylogenetic Networks: Modeling,
-//   Reconstructibility, and Accuracy.  IEEE Transactions on Computational
+//   Reconstructibility, and Accuracy.  IEEE/ACM Transactions on Computational
 //   Biology and Bioinformatics 1(1):13-23.
 //
 //==============================================================================
