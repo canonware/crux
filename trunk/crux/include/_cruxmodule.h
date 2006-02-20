@@ -110,7 +110,7 @@ extern PyObject *CxgException;
 
 // Convenience macro for determining the offset of a field within a structure.
 #define CxmOffsetOf(aType, aField)					\
-    ((uint32_t) &(((aType *)NULL)->aField))
+    ((size_t) &(((aType *)NULL)->aField))
 
 #include "CxMt.h"
 #include "CxRi.h"
@@ -124,6 +124,8 @@ extern PyObject *CxgException;
 
 #ifdef CxmCpuIa32
 #include "CxIa32.h"
+#elif (defined(CxmCpuAmd64))
+#include "CxAmd64.h"
 #elif (defined(CxmCpuPpc))
 #include "CxPpc.h"
 #endif

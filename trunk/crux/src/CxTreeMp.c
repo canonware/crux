@@ -11,8 +11,7 @@
 
 #include "../include/_cruxmodule.h"
 
-// XXX
-#define CxmTreeMpCachePScoreValidate
+//#define CxmTreeMpCachePScoreValidate
 
 typedef struct CxsTreeMpHeld CxtTreeMpHeld;
 typedef struct CxsTreeMpData CxtTreeMpData;
@@ -217,7 +216,7 @@ CxpTreePsPrepare(CxtTreeMpData *aData, CxtTreeMpPs *aPs)
 
 	    // Make sure that aPs->chars is 16 byte-aligned.  Assume that
 	    // aPs->aChars is at least 8 byte-aligned.
-	    aPs->chars = &aPs->aChars[((unsigned) aPs->aChars) & 0xfU];
+	    aPs->chars = &aPs->aChars[((uintptr_t) aPs->aChars) & 0xfU];
 
 	    aPs->nChars = aData->nChars + nPad;
 
@@ -850,14 +849,16 @@ CxTreeMpPrepare(CxtTreeObject *self, PyObject *args)
 	;
     PyObject *ctm, *result, *label, *tobj;
     PyObject *taxonMap = NULL;
-    unsigned long elim, ntaxa, i, j;
+    unsigned elim;
+    unsigned long ntaxa, i, j;
     char **tarr
 #ifdef CxmCcSilence
 	= NULL
 #endif
 	;
 
-    if (PyArg_ParseTuple(args, "Oi", &ctm, &elim) == 0)
+    elim = 1;
+    if (PyArg_ParseTuple(args, "O|i", &ctm, &elim) == 0)
     {
 	rVal = NULL;
 	goto RETURN;
@@ -1187,6 +1188,11 @@ CxTreeMpFinish(CxtTreeObject *self)
 #ifdef CxmCpuIa32
 CxmpInline void
 CxpTreeMpIa32PScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+#elif (defined(CxmCpuAmd64))
+CxmpInline void
+CxpTreeMpAmd64PScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
+#endif
+#if (defined(CxmCpuIa32) || defined(CxmCpuAmd64))
 {
     unsigned curlimit, i, nbytes, ns;
     CxtTreeMpC *charsP, *charsA, *charsB;
@@ -1557,6 +1563,12 @@ CxpTreeMpPScore(CxtTreeMpPs *aP, CxtTreeMpPs *aA, CxtTreeMpPs *aB)
 	CxpTreeMpIa32PScore(aP, aA, aB);
     }
     else
+#elif (defined(CxmCpuAmd64))
+    if (CxgAmd64UseSse2)
+    {
+	CxpTreeMpAmd64PScore(aP, aA, aB);
+    }
+    else
 #elif (defined(CxmCpuPpc))
     if (CxgPpcUseAltivec)
     {
@@ -1737,6 +1749,11 @@ CxpTreeMpCacheInvalidate(CxtTreeMpPs *aPs)
 #ifdef CxmCpuIa32
 CxmpInline unsigned
 CxpTreeMpIa32FScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
+#elif (defined(CxmCpuAmd64))
+CxmpInline unsigned
+CxpTreeMpAmd64FScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
+#endif
+#if (defined(CxmCpuIa32) || defined(CxmCpuAmd64))
 {
     unsigned rVal, i, nbytes, pns;
     CxtTreeMpC *charsA, *charsB;
@@ -1984,7 +2001,8 @@ RETURN:
 static unsigned
 CxpTreeMpCFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
 {
-    uint32_t rVal, i, nwords, a, b, m;
+    unsigned rVal;
+    uint32_t i, nwords, a, b, m;
     uint32_t *charsA, *charsB;
     static const uint32_t bitsTable[] =
     {
@@ -2053,6 +2071,12 @@ CxpTreeMpFScore(CxtTreeMpPs *aA, CxtTreeMpPs *aB, unsigned aMaxScore)
     if (CxgIa32UseSse2)
     {
 	rVal = CxpTreeMpIa32FScore(aA, aB, aMaxScore);
+    }
+    else
+#elif (defined(CxmCpuAmd64))
+    if (CxgAmd64UseSse2)
+    {
+	rVal = CxpTreeMpAmd64FScore(aA, aB, aMaxScore);
     }
     else
 #elif (defined(CxmCpuPpc))

@@ -30,6 +30,7 @@
 #endif
 
 #undef CxmCpuIa32
+#undef CxmCpuAmd64
 #undef CxmCpuPpc
 
 #undef HAVE_STDBOOL_H

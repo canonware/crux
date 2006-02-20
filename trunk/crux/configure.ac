@@ -61,6 +61,10 @@ case "${host_cpu}" in
 	AC_DEFINE([CxmCpuIa32])
 	extra_compile_args=""
 	;;
+  x86_64)
+	AC_DEFINE([CxmCpuAmd64])
+	extra_compile_args=""
+	;;
   powerpc)
 	AC_DEFINE([CxmCpuPpc])
 	extra_compile_args="'-faltivec'"
