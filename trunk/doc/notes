@@ -284,4 +284,13 @@ figure out how to subclass Python objects in C.  It looks like we do that by
 defining the tp_base field of the PyTypeObject data structure.
 
 --------------------------------------------------------------------------------
+19 February 2006
+--------------------------------------------------------------------------------
+
+I did some experimentation with 64-bit versions of the C-based MP functions on
+amd64.  The code is ~1.7X faster than the 32-bit version, but the SSE2 version
+is ~2.5X faster than the 32-bit version.  For now, I don't see a point in
+maintaining a 64-bit C version.
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
