@@ -375,16 +375,16 @@ CxpDistMatrixNtaxaAccept(CxtDistMatrixObject *self)
 
     if (self->symmetric)
     {
-	rVal = sizeof(float) * (CxpDistMatrixXy2i(self,
+	rVal = sizeof(double) * (CxpDistMatrixXy2i(self,
 						  self->ntaxa - 2,
 						  self->ntaxa - 1)
 				  + 1);
-	self->matrix = (float *) CxmMalloc(rVal);
+	self->matrix = (double *) CxmMalloc(rVal);
     }
     else
     {
-	rVal = sizeof(float) * self->ntaxa * self->ntaxa;
-	self->matrix = (float *) CxmMalloc(rVal);
+	rVal = sizeof(double) * self->ntaxa * self->ntaxa;
+	self->matrix = (double *) CxmMalloc(rVal);
     }
 
     return rVal;
@@ -411,10 +411,10 @@ CxpDistMatrixLabelAccept(CxtDistMatrixObject *self, long index)
 }
 
 static bool
-CxpDistMatrixTokenToDistance(CxtDistMatrixObject *self, float *rDistance)
+CxpDistMatrixTokenToDistance(CxtDistMatrixObject *self, double *rDistance)
 {
     bool rVal;
-    float distance;
+    double distance;
 
     CxpDistMatrixAppendC(self, '\0');
 
@@ -436,7 +436,7 @@ static bool
 CxpDistMatrixTokenSetDistance(CxtDistMatrixObject *self, long x, long y)
 {
     bool rVal;
-    float distance;
+    double distance;
 
     if (CxpDistMatrixTokenToDistance(self, &distance))
     {
@@ -557,7 +557,7 @@ CxpDistMatrixProcessDistance(CxtDistMatrixObject *self, long x, long y,
 }
 
 static bool
-CxpDistMatrixStashDistance(CxtDistMatrixObject *self, float *tdists, long y,
+CxpDistMatrixStashDistance(CxtDistMatrixObject *self, double *tdists, long y,
 			   bool *arEof)
 {
     bool rVal;
@@ -753,14 +753,14 @@ CxpDistMatrixParse(CxtDistMatrixObject *self)
     }
     else
     {
-	float *tdists;
+	double *tdists;
 
 	// Full or upper triangle format.
 
 	// Allocate a temporary array that is large enough to store the
 	// distances until it's possible to tell whether this is a symmetric
 	// matrix.
-	tdists = (float *) CxmMalloc(sizeof(float) * (self->ntaxa - 1));
+	tdists = (double *) CxmMalloc(sizeof(double) * (self->ntaxa - 1));
 
 	// Insert the first distance as though parsing an upper-triangle
 	// matrix.
@@ -1116,7 +1116,7 @@ CxDistMatrixParse(CxtDistMatrixObject *self, PyObject *args)
 		    self->symmetric = false;
 		}
 
-		self->matrix = (float *) CxmMalloc(sizeof(float) * nelms);
+		self->matrix = (double *) CxmMalloc(sizeof(double) * nelms);
 		for (i = 0; i < nelms; i++)
 		{
 		    self->matrix[i] = 0.0;
@@ -1212,7 +1212,7 @@ CxpDistMatrixSample(CxtDistMatrixObject *self, PyObject *args)
     PyObject *rVal, *map, *rows;
     CxtDistMatrixObject *orig;
     long i, j, *rowTab;
-    float dist;
+    double dist;
 
     if (PyArg_ParseTuple(args, "OOO!", &orig, &map, &PyList_Type, &rows) == 0)
     {
@@ -1313,10 +1313,10 @@ CxDistMatrixTaxonMapGet(CxtDistMatrixObject *self)
     return self->map;
 }
 
-float
+double
 CxDistMatrixDistanceGet(CxtDistMatrixObject *self, long x, long y)
 {
-    float rVal;
+    double rVal;
 
     if (self->symmetric && x == y)
     {
@@ -1335,7 +1335,7 @@ CxDistMatrixDistanceGetPargs(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *rVal;
     long fr, to;
-    float distance;
+    double distance;
 
     // Parse arguments.
     if (PyArg_ParseTuple(args, "ll", &fr, &to) == 0)
@@ -1360,7 +1360,7 @@ CxDistMatrixDistanceGetPargs(CxtDistMatrixObject *self, PyObject *args)
 }
 
 void
-CxDistMatrixDistanceSet(CxtDistMatrixObject *self, long x, long y, float dist)
+CxDistMatrixDistanceSet(CxtDistMatrixObject *self, long x, long y, double dist)
 {
     CxmAssert(self->symmetric == false || x != y);
 
@@ -1372,7 +1372,7 @@ CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *rVal;
     long fr, to;
-    float distance;
+    double distance;
 
     // Parse arguments.
     if (PyArg_ParseTuple(args, "llf", &fr, &to, &distance) == 0)
@@ -1409,7 +1409,7 @@ CxmpInline void
 CxpDistMatrixRowsSwap(CxtDistMatrixObject *self, long aA, long aB)
 {
     long i;
-    float distA, distB;
+    double distA, distB;
 
     if (self->symmetric)
     {
@@ -1787,7 +1787,7 @@ CxpDistMatrixRender(CxtDistMatrixObject *self, PyObject *args)
     return rVal;
 }
 
-// Hand off an array of floats that represent an upper-triangle distance matrix,
+// Hand off an array of doubles that represent an upper-triangle distance matrix,
 // and clean up such that this DistMatrix no longer refers to the data (though
 // the TaxonMap continues to be referred to by the DistMatrix).
 //
@@ -1795,7 +1795,7 @@ CxpDistMatrixRender(CxtDistMatrixObject *self, PyObject *args)
 // subclassed and initialization methods overridden, but the Python overhead for
 // such a solution is unacceptably high.
 void
-CxDistMatrixUpperHandoff(CxtDistMatrixObject *self, float **rMatrix,
+CxDistMatrixUpperHandoff(CxtDistMatrixObject *self, double **rMatrix,
 			 long *rNtaxa)
 {
     if (self->symmetric == false)
@@ -1809,11 +1809,11 @@ CxDistMatrixUpperHandoff(CxtDistMatrixObject *self, float **rMatrix,
 	{
 	    memmove(&self->matrix[CxpDistMatrixXy2i(self, i, i + 1)],
 		    &self->matrix[self->ntaxa * i + (i + 1)],
-		    sizeof(float) * (self->ntaxa - (i + 1)));
+		    sizeof(double) * (self->ntaxa - (i + 1)));
 	}
 
 	self->matrix
-	    = (float *) CxmRealloc(self->matrix, sizeof(float)
+	    = (double *) CxmRealloc(self->matrix, sizeof(double)
 				   * (CxpDistMatrixXy2i(self,
 							self->ntaxa - 2,
 							self->ntaxa - 1)

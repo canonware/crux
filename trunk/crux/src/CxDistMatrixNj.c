@@ -152,16 +152,15 @@
 
 #include "../include/_cruxmodule.h"
 
-#include <float.h>
-
+//#define CxmDistMatrixNjTime
 //#define CxmDistMatrixNjDump
 
 #ifdef CxmDistMatrixNjDump
 static void
-CxpDistMatrixNjDump(float *aD, float *aR, float *aRScaled,
+CxpDistMatrixNjDump(double *aD, double *aR, double *aRScaled,
 		    CxtNodeObject **aNodes, long aNleft)
 {
-    float *dElm;
+    double *dElm;
     long x, y;
     uint32_t taxonNum;
 
@@ -219,14 +218,14 @@ CxpDistMatrixNjXy2i(unsigned long aN, unsigned long aX, unsigned long aY)
     return aN * aX + aY - (((aX + 3) * aX) >> 1) - 1;
 }
 
-static float *
-CxpDistMatrixNjRInit(float *aD, long aNtaxa)
+static double *
+CxpDistMatrixNjRInit(double *aD, long aNtaxa)
 {
-    float *rVal;
-    float dist, *dElm;
+    double *rVal;
+    double dist, *dElm;
     long x, y;
 
-    rVal = (float *) CxmMalloc(sizeof(float) * aNtaxa);
+    rVal = (double *) CxmMalloc(sizeof(double) * aNtaxa);
 
     // Calculate r (sum of distances to other nodes) for each node.
     for (x = 0; x < aNtaxa; x++)
@@ -249,12 +248,12 @@ CxpDistMatrixNjRInit(float *aD, long aNtaxa)
     return rVal;
 }
 
-static float *
+static double *
 CxpDistMatrixNjRScaledInit(long aNtaxa)
 {
-    float *rVal;
+    double *rVal;
 
-    rVal = (float *) CxmMalloc(sizeof(float) * aNtaxa);
+    rVal = (double *) CxmMalloc(sizeof(double) * aNtaxa);
 
     return rVal;
 }
@@ -278,7 +277,7 @@ CxpDistMatrixNjNodesInit(CxtTreeObject *aTree, long aNtaxa)
 }
 
 CxmpInline void
-CxpDistMatrixNjRScaledUpdate(float *aRScaled, float *aR, long aNleft)
+CxpDistMatrixNjRScaledUpdate(double *aRScaled, double *aR, long aNleft)
 {
     long x;
 
@@ -290,13 +289,13 @@ CxpDistMatrixNjRScaledUpdate(float *aRScaled, float *aR, long aNleft)
 }
 
 CxmpInline void
-CxpDistMatrixNjNodesJoin(float *aD, float *aRScaled, CxtNodeObject **aNodes,
+CxpDistMatrixNjNodesJoin(double *aD, double *aRScaled, CxtNodeObject **aNodes,
 			 CxtTreeObject *aTree, long aNleft,
 			 long aXMin, long aYMin, CxtNodeObject **rNode,
-			 float *rDistX, float *rDistY)
+			 double *rDistX, double *rDistY)
 {
     CxtNodeObject *node;
-    float distX, distY;
+    double distX, distY;
     CxtEdgeObject *edgeX, *edgeY;
     long iMin;
 
@@ -323,11 +322,11 @@ CxpDistMatrixNjNodesJoin(float *aD, float *aRScaled, CxtNodeObject **aNodes,
 }
 
 CxmpInline void
-CxpDistMatrixNjRSubtract(float *aD, float *aR, long aNleft, long aXMin,
+CxpDistMatrixNjRSubtract(double *aD, double *aR, long aNleft, long aXMin,
 			 long aYMin)
 {
     long x, iX, iY;
-    float dist;
+    double dist;
 
     // Subtract old distances from r.
     for (x = 0,
@@ -382,19 +381,19 @@ CxpDistMatrixNjRSubtract(float *aD, float *aR, long aNleft, long aXMin,
     }
 
     // Rather than repeatedly subtracting distances from aR[aXMin] and
-    // aR[aYMin] (and accumulating floating point error), simply clear these
+    // aR[aYMin] (and accumulating doubleing point error), simply clear these
     // two elements of r.
     aR[aXMin] = 0.0;
     aR[aYMin] = 0.0;
 }
 
 CxmpInline void
-CxpDistMatrixNjCompact(float *aD, float *aR, CxtNodeObject **aNodes,
+CxpDistMatrixNjCompact(double *aD, double *aR, CxtNodeObject **aNodes,
 		       long aNleft, long aXMin, long aYMin,
-		       CxtNodeObject *aNode, float aDistX, float aDistY)
+		       CxtNodeObject *aNode, double aDistX, double aDistY)
 {
     long x, iX, iY;
-    float dist;
+    double dist;
 
     // Insert the new node into r.
     aNodes[aXMin] = aNode;
@@ -483,7 +482,7 @@ CxpDistMatrixNjCompact(float *aD, float *aR, CxtNodeObject **aNodes,
 }
 
 CxmpInline void
-CxpDistMatrixNjDiscard(float **arD, float **arR, float **arRScaled,
+CxpDistMatrixNjDiscard(double **arD, double **arR, double **arRScaled,
 		 CxtNodeObject ***arNodes, long aNleft)
 {
     // Move pointers forward, which removes the first row.
@@ -494,7 +493,7 @@ CxpDistMatrixNjDiscard(float **arD, float **arR, float **arRScaled,
 }
 
 static CxtNodeObject *
-CxpDistMatrixNjFinalJoin(float *aD, CxtNodeObject **aNodes,
+CxpDistMatrixNjFinalJoin(double *aD, CxtNodeObject **aNodes,
 			 CxtTreeObject *aTree)
 {
     CxtEdgeObject *edge;
@@ -516,30 +515,29 @@ CxpDistMatrixNjFinalJoin(float *aD, CxtNodeObject **aNodes,
 // during tree construction, but the error grows exponentially, so that
 // approach ends up not being practical.
 //
-// Provide 5 (base 10) digits of accuracy.  For 6 digits of accuracy, we would
-// use 0x7U here, and for 4 digits of accuracy, we would use 0x1ffU.
-#define CxmDistMatrixNjMaxUlps 0x3fU
+// Provide 9 (base 10) digits of accuracy.
+#define CxmDistMatrixNjMaxUlps 0x3fffffU
 CxmpInline int
-CxpDistMatrixNjDistCompare(float aA, float aB)
+CxpDistMatrixNjDistCompare(double aA, double aB)
 {
     int rVal;
-    int32_t a, b;
+    int64_t a, b;
 
     // Convert aA and aB to lexicographically ordered ints.
-    a = *(int32_t *) &aA;
+    a = *(int64_t *) &aA;
     if (a < 0)
     {
-	a = 0x80000000 - a;
+	a = 0x8000000000000000ULL - a;
     }
 
-    b = *(int32_t *) &aB;
+    b = *(int64_t *) &aB;
     if (b < 0)
     {
-	b = 0x80000000 - b;
+	b = 0x8000000000000000ULL - b;
     }
 
     // Check if aA and aB are within aMaxUlps of each other.
-    if (abs(a - b) <= CxmDistMatrixNjMaxUlps)
+    if (llabs(a - b) <= CxmDistMatrixNjMaxUlps)
     {
 	rVal = 0;
     }
@@ -556,10 +554,10 @@ CxpDistMatrixNjDistCompare(float aA, float aB)
 }
 
 CxmpInline void
-CxpDistMatrixNjRandomMinFind(float *aD, float *aRScaled, long aNleft,
+CxpDistMatrixNjRandomMinFind(double *aD, double *aRScaled, long aNleft,
 			     CxtMt *aMt, long *rXMin, long *rYMin)
 {
-    float *dElm, transMin, transCur;
+    double *dElm, transMin, transCur;
     long x, y, xMin, yMin, nmins;
 
     // Calculate the transformed distance for each pairwise distance.  Keep
@@ -624,10 +622,10 @@ CxpDistMatrixNjRandomMinFind(float *aD, float *aRScaled, long aNleft,
 }
 
 CxmpInline void
-CxpDistMatrixNjDeterministicMinFind(float *aD, float *aRScaled, long aNleft,
+CxpDistMatrixNjDeterministicMinFind(double *aD, double *aRScaled, long aNleft,
 				    long *rXMin, long *rYMin)
 {
-    float *dElm, transMin, transCur;
+    double *dElm, transMin, transCur;
     long x, y, xMin, yMin, nmins;
 
     // Calculate the transformed distance for each pairwise distance.  Keep
@@ -665,15 +663,15 @@ CxpDistMatrixNjDeterministicMinFind(float *aD, float *aRScaled, long aNleft,
 }
 
 CxmpInline long
-CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
-			     long aX, CxtMt *aMt, float *rDist)
+CxpDistMatrixNjRowAllMinFind(double *d, double *aRScaled, long aNleft,
+			     long aX, CxtMt *aMt, double *rDist)
 {
     long rVal
 #ifdef CxmCcSilence
 	= 0
 #endif
 	;
-    float *dElm, dist, minDist;
+    double *dElm, dist, minDist;
     long y, nMins
 #ifdef CxmCcSilence
 	= 0
@@ -777,11 +775,11 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 }
 
 CxmpInline bool
-CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
-			   float aDist)
+CxpDistMatrixNjRowAllMinOk(double *d, double *aRScaled, long aNleft, long aX,
+			   double aDist)
 {
     bool rVal;
-    float *dElm, dist;
+    double *dElm, dist;
     long y;
 
     // Make sure that aDist is <= any transformed distance in the row portion of
@@ -830,7 +828,7 @@ CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
 }
 
 CxmpInline long
-CxpDistMatrixNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
+CxpDistMatrixNjRowMinFind(double *d, double *aRScaled, long aNleft, long x)
 {
     long rVal
 #ifdef CxmCcSilence
@@ -838,7 +836,7 @@ CxpDistMatrixNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 #endif
 	;
     long y;
-    float *dElm, dist, minDist;
+    double *dElm, dist, minDist;
 
     // Find the minimum distance from the node on row x to any other node that
     // comes after it in the matrix.
@@ -871,12 +869,12 @@ CxpDistMatrixNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 // (distances are additive).  If the distances are non-additive though, there is
 // no need to do this check.
 CxmpInline bool
-CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
+CxpDistMatrixNjPairClusterAdditive(double *aD, double *aRScaled, long aNleft,
 				   long aA, long aB)
 {
     bool rVal;
     long iAB, iA, iB, x;
-    float distA, distB, dist;
+    double distA, distB, dist;
 
     // Calculate distances from {aA,aB} to the new node.
     iAB = CxpDistMatrixNjXy2i(aNleft, aA, aB);
@@ -991,12 +989,12 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 // them is less than or equal to the transformed distances from aA or aB to any
 // other node.
 CxmpInline bool
-CxpDistMatrixNjPairClusterOk(float *aD, float *aRScaled, long aNleft,
+CxpDistMatrixNjPairClusterOk(double *aD, double *aRScaled, long aNleft,
 			     long aA, long aB)
 {
     bool rVal;
     long x, iA, iB;
-    float distAB, dist;
+    double distAB, dist;
 
     CxmAssert(aA < aB);
 
@@ -1154,20 +1152,20 @@ seed = random.randint(0, max)\n\
 // 2) Check whether it is okay to cluster x and y, by calling
 //    CxpDistMatrixNjAllMinOk().
 static bool
-CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
+CxpDistMatrixNjRandomCluster(double **arD, double *aR, double *aRScaled,
 			     CxtNodeObject ***arNodes, long aNleft,
 			     CxtTreeObject *aTree, bool aAdditive)
 {
     bool rVal;
     long randomRow, closestRow, x, y;
-    float distX, distY;
-    float *d = *arD;
+    double distX, distY;
+    double *d = *arD;
     CxtNodeObject *node;
     CxtNodeObject **nodes = *arNodes;
     CxtMt mt;
     CxtRi ri;
     long seed;
-    float dist;
+    double dist;
     bool clustered;
 
     if (CxpDistMatrixNjSeedGet(&seed))
@@ -1277,13 +1275,13 @@ CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
 // 3) If x and y can be clustered, do so, then immediately try to cluster with
 //    x again (as long as collapsing the matrix didn't move row x).
 static void
-CxpDistMatrixNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
+CxpDistMatrixNjDeterministicCluster(double **arD, double *aR, double *aRScaled,
 				    CxtNodeObject ***arNodes, long aNleft,
 				    CxtTreeObject *aTree, bool aAdditive)
 {
     long x, y;
-    float distX, distY;
-    float *d = *arD;
+    double distX, distY;
+    double *d = *arD;
     CxtNodeObject *node;
     CxtNodeObject **nodes = *arNodes;
     bool clustered;
@@ -1293,7 +1291,6 @@ CxpDistMatrixNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
     {
 	if (clustered == false)
 	{
-	    fprintf(stderr, "XXX Not additive\n");
 	    aAdditive = false;
 	}
 	clustered = false;
@@ -1357,17 +1354,25 @@ CxpDistMatrixNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
 
 // Create a tree from a pairwise distance matrix, using the NJ algorithm.
 static bool
-CxpDistMatrixNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
+CxpDistMatrixNj(CxtTreeObject *aTree, double *aD, long aNtaxa, bool aRandom)
 {
     bool rVal;
-    float *rOrig, *r; // Distance sums.
-    float *rScaledOrig, *rScaled; // Scaled distance sums: r/(nleft-2)).
+    double *rOrig, *r; // Distance sums.
+    double *rScaledOrig, *rScaled; // Scaled distance sums: r/(nleft-2)).
     CxtNodeObject **nodesOrig, **nodes; // Nodes associated with each row.
     CxtNodeObject *node;
     long nleft, xMin, yMin;
-    float distX, distY;
+    double distX, distY;
     CxtMt mt;
     long seed;
+#ifdef CxmDistMatrixNjTime
+    struct timeval tv;
+    unsigned long long startUs, endUs;
+
+    gettimeofday(&tv, NULL);
+    startUs = ((unsigned long long) tv.tv_sec * 1000000ULL)
+	+ ((unsigned long long) tv.tv_usec);
+#endif
 
     CxmCheckPtr(aD);
     CxmAssert(aNtaxa > 1);
@@ -1417,6 +1422,15 @@ CxpDistMatrixNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
     // Join last two nodes.
     node = CxpDistMatrixNjFinalJoin(aD, nodes, aTree);
 
+#ifdef CxmDistMatrixNjTime
+    gettimeofday(&tv, NULL);
+    endUs = ((unsigned long long) tv.tv_sec * 1000000ULL)
+	    + ((unsigned long long) tv.tv_usec);
+    fprintf(stderr, "RNJ tree built in %llu.%06llu secs\n",
+	    (endUs - startUs) / 1000000ULL,
+	    (endUs - startUs) % 1000000ULL);
+#endif
+
     // Set the tree base.
     CxTreeBaseSet(aTree, node);
     Py_DECREF(node);
@@ -1436,14 +1450,22 @@ CxpDistMatrixNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
 
 // Create a tree from a pairwise distance matrix, using the RNJ algorithm.
 static bool
-CxpDistMatrixRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
+CxpDistMatrixRnj(CxtTreeObject *aTree, double *aD, long aNtaxa, bool aAdditive,
 		 bool aRandom)
 {
     bool rVal;
-    float *rOrig, *r; // Distance sums.
-    float *rScaledOrig, *rScaled; // Scaled distance sums: r/(nleft-2)).
+    double *rOrig, *r; // Distance sums.
+    double *rScaledOrig, *rScaled; // Scaled distance sums: r/(nleft-2)).
     CxtNodeObject **nodesOrig, **nodes; // Nodes associated with each row.
     CxtNodeObject *node;
+#ifdef CxmDistMatrixNjTime
+    struct timeval tv;
+    unsigned long long startUs, endUs;
+
+    gettimeofday(&tv, NULL);
+    startUs = ((unsigned long long) tv.tv_sec * 1000000ULL)
+	+ ((unsigned long long) tv.tv_usec);
+#endif
 
     CxmCheckPtr(aD);
     CxmAssert(aNtaxa > 1);
@@ -1474,6 +1496,14 @@ CxpDistMatrixRnj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aAdditive,
     // Join last two nodes.
     node = CxpDistMatrixNjFinalJoin(aD, nodes, aTree);
 
+#ifdef CxmDistMatrixNjTime
+    gettimeofday(&tv, NULL);
+    endUs = ((unsigned long long) tv.tv_sec * 1000000ULL)
+	    + ((unsigned long long) tv.tv_usec);
+    fprintf(stderr, "RNJ tree built in %llu.%06llu secs\n",
+	    (endUs - startUs) / 1000000ULL,
+	    (endUs - startUs) % 1000000ULL);
+#endif
     // Set the tree base.
     CxTreeBaseSet(aTree, node);
     Py_DECREF(node);
@@ -1492,7 +1522,7 @@ CxDistMatrixNj(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *rVal;
     CxtTreeObject *tree;
-    float *d;
+    double *d;
     long ntaxa;
     int random;
 
@@ -1536,7 +1566,7 @@ CxDistMatrixRnj(CxtDistMatrixObject *self, PyObject *args)
 {
     PyObject *rVal;
     CxtTreeObject *tree;
-    float *d;
+    double *d;
     long ntaxa;
     int additive, random;
 

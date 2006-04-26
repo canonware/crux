@@ -49,7 +49,7 @@ typedef struct
 
     PyObject *map;
     long ntaxa;
-    float *matrix;
+    double *matrix;
     bool symmetric;
 } CxtDistMatrixObject;
 
@@ -70,15 +70,15 @@ PyObject *
 CxDistMatrixIsSymmetric(CxtDistMatrixObject *self);
 PyObject *
 CxDistMatrixTaxonMapGet(CxtDistMatrixObject *self);
-float
+double
 CxDistMatrixDistanceGet(CxtDistMatrixObject *self, long x, long y);
 PyObject *
 CxDistMatrixDistanceGetPargs(CxtDistMatrixObject *self, PyObject *args);
 void
-CxDistMatrixDistanceSet(CxtDistMatrixObject *self, long x, long y, float dist);
+CxDistMatrixDistanceSet(CxtDistMatrixObject *self, long x, long y, double dist);
 PyObject *
 CxDistMatrixDistanceSetPargs(CxtDistMatrixObject *self, PyObject *args);
 
 void
-CxDistMatrixUpperHandoff(CxtDistMatrixObject *self, float **rMatrix,
+CxDistMatrixUpperHandoff(CxtDistMatrixObject *self, double **rMatrix,
 			 long *rNtaxa);
