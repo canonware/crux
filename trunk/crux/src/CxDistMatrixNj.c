@@ -149,6 +149,27 @@
 // proportional to (n^2 lg n).
 //
 //==============================================================================
+//
+// Floating point error accumulates super-linearly in the worst case (pectinate
+// trees).  For sufficiently large inputs, this can cause saturation (no
+// remaining accuracy).  There are two potential methods for mitigating this
+// (not implemented):
+//
+// 1) Add a per-element ulps counter for every cell in D, R, and RScaled, in
+//    order to keep precise track of accumulated error.  This would allow
+//    precise bounding of error, whereaas the current code uses loose upper
+//    bounds that are rarely necessary in practice.
+//
+// 2) Switch from using float to double.  This would substantially increase the
+//    size of input that could be handled.
+//
+// Unfortunately, each of the above options individually doubles memory usage
+// (implementing both would quadruple memory usage), so they are not currently
+// implemented.  At this point in time (spring 2006), typical computer memory
+// sizes do not warrant the above enhancements, but there will come a time when
+// they are worthwhile.
+//
+//==============================================================================
 
 #include "../include/_cruxmodule.h"
 
@@ -339,12 +360,10 @@ CxpDistMatrixNjRSubtract(float *aD, float *aR, long aNleft, long aXMin,
 	dist = aD[iX];
 	iX += aNleft - 2 - x;
 	aR[x] -= dist;
-	aR[aXMin] -= dist;
 
 	dist = aD[iY];
 	iY += aNleft - 2 - x;
 	aR[x] -= dist;
-	aR[aYMin] -= dist;
     }
 
     // (x == aXMin)
@@ -358,19 +377,16 @@ CxpDistMatrixNjRSubtract(float *aD, float *aR, long aNleft, long aXMin,
 	iX++;
 	dist = aD[iX];
 	aR[x] -= dist;
-	aR[aXMin] -= dist;
 
 	dist = aD[iY];
 	iY += aNleft - 2 - x;
 	aR[x] -= dist;
-	aR[aYMin] -= dist;
     }
 
     // (x == aYMin)
     iX++;
     dist = aD[iX];
     aR[x] -= dist;
-    aR[aXMin] -= dist;
     x++;
 
     for (;
@@ -380,13 +396,17 @@ CxpDistMatrixNjRSubtract(float *aD, float *aR, long aNleft, long aXMin,
 	iX++;
 	dist = aD[iX];
 	aR[x] -= dist;
-	aR[aXMin] -= dist;
 
 	iY++;
 	dist = aD[iY];
 	aR[x] -= dist;
-	aR[aYMin] -= dist;
     }
+
+    // Rather than repeatedly subtracting distances from aR[aXMin] and
+    // aR[aYMin] (and accumulating floating point error), simply clear these
+    // two elements of r.
+    aR[aXMin] = 0.0;
+    aR[aYMin] = 0.0;
 }
 
 CxmpInline void
@@ -521,6 +541,8 @@ CxpDistMatrixNjDistCompare(float aA, float aB, unsigned aMaxUlps)
 {
     int rVal;
     int32_t a, b;
+
+    CxmAssert(sizeof(float) <= sizeof(unsigned));
 
     // Convert aA and aB to lexicographically ordered ints.
     a = *(int32_t *) &aA;
@@ -663,7 +685,8 @@ CxpDistMatrixNjDeterministicMinFind(float *aD, float *aRScaled, long aNleft,
 
 CxmpInline long
 CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
-			     long aX, CxtMt *aMt, float *rDist)
+			     long aX, CxtMt *aMt, uint32_t aRHalfUlps,
+			     uint32_t aHalfUlps, float *rDist)
 {
     long rVal
 #ifdef CxmCcSilence
@@ -676,8 +699,11 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 	= 0
 #endif
 	;
+    uint32_t ulps;
 
     minDist = HUGE_VAL;
+
+    ulps = aHalfUlps + (aRHalfUlps << 1) + 2;
 
     // Find the minimum distance from the node on row aX to any other node that
     // comes before it in the matrix.
@@ -691,7 +717,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 	    dist = *dElm - (aRScaled[y] + aRScaled[aX]);
 	    dElm += (aNleft - 2 - y);
 
-	    switch (CxpDistMatrixNjDistCompare(dist, minDist, 2))
+	    switch (CxpDistMatrixNjDistCompare(dist, minDist, ulps))
 	    {
 		case -1:
 		{
@@ -736,7 +762,7 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 	    dist = *dElm - (aRScaled[aX] + aRScaled[y]);
 	    dElm++;
 
-	    switch (CxpDistMatrixNjDistCompare(dist, minDist, 2))
+	    switch (CxpDistMatrixNjDistCompare(dist, minDist, ulps))
 	    {
 		case -1:
 		{
@@ -775,11 +801,14 @@ CxpDistMatrixNjRowAllMinFind(float *d, float *aRScaled, long aNleft,
 
 CxmpInline bool
 CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
-			   float aDist)
+			   float aDist, uint32_t aRHalfUlps, uint32_t aHalfUlps)
 {
     bool rVal;
     float *dElm, dist;
     long y;
+    uint32_t ulps;
+
+    ulps = aHalfUlps + (aRHalfUlps << 1) + 2;
 
     // Make sure that aDist is <= any transformed distance in the row portion of
     // row aX.
@@ -793,7 +822,7 @@ CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
 	    dist = *dElm - (aRScaled[aX] + aRScaled[y]);
 	    dElm++;
 
-	    if (CxpDistMatrixNjDistCompare(dist, aDist, 2) == -1)
+	    if (CxpDistMatrixNjDistCompare(dist, aDist, ulps) == -1)
 	    {
 		rVal = false;
 		goto RETURN;
@@ -813,7 +842,7 @@ CxpDistMatrixNjRowAllMinOk(float *d, float *aRScaled, long aNleft, long aX,
 	    dist = *dElm - (aRScaled[y] + aRScaled[aX]);
 	    dElm += (aNleft - 2 - y);
 
-	    if (CxpDistMatrixNjDistCompare(dist, aDist, 2) == -1)
+	    if (CxpDistMatrixNjDistCompare(dist, aDist, ulps) == -1)
 	    {
 		rVal = false;
 		goto RETURN;
@@ -869,11 +898,15 @@ CxpDistMatrixNjRowMinFind(float *d, float *aRScaled, long aNleft, long x)
 // no need to do this check.
 CxmpInline bool
 CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
-				   long aA, long aB)
+				   long aA, long aB, uint32_t aRHalfUlps,
+				   uint32_t aHalfUlps)
 {
     bool rVal;
     long iAB, iA, iB, x;
     float distA, distB, dist;
+    uint32_t ulps;
+
+    ulps = aHalfUlps + aRHalfUlps + 4;
 
     // Calculate distances from {aA,aB} to the new node.
     iAB = CxpDistMatrixNjXy2i(aNleft, aA, aB);
@@ -899,7 +932,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 	    if (CxpDistMatrixNjDistCompare(dist + distA,
 					   aD[CxpDistMatrixNjXy2i(aNleft,
 								  aA, x)],
-					   4)
+					   ulps)
 		!= 0)
 	    {
 		rVal = false;
@@ -909,7 +942,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 	    if (CxpDistMatrixNjDistCompare(dist + distB,
 					   aD[CxpDistMatrixNjXy2i(aNleft,
 								  aB, x)],
-					   4)
+					   ulps)
 		!= 0)
 	    {
 		rVal = false;
@@ -931,7 +964,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 
 	if (CxpDistMatrixNjDistCompare(dist + distA,
 				       aD[CxpDistMatrixNjXy2i(aNleft, x, aA)],
-				       4)
+				       ulps)
 	    != 0)
 	{
 	    rVal = false;
@@ -940,7 +973,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 
 	if (CxpDistMatrixNjDistCompare(dist + distB,
 				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)],
-				       4)
+				       ulps)
 	    != 0)
 	{
 	    rVal = false;
@@ -964,7 +997,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 
 	if (CxpDistMatrixNjDistCompare(dist + distA,
 				       aD[CxpDistMatrixNjXy2i(aNleft, aA, x)],
-				       4)
+				       ulps)
 	    != 0)
 	{
 	    rVal = false;
@@ -973,7 +1006,7 @@ CxpDistMatrixNjPairClusterAdditive(float *aD, float *aRScaled, long aNleft,
 
 	if (CxpDistMatrixNjDistCompare(dist + distB,
 				       aD[CxpDistMatrixNjXy2i(aNleft, x, aB)],
-				       4)
+				       ulps)
 	    != 0)
 	{
 	    rVal = false;
@@ -1172,6 +1205,7 @@ CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
     long seed;
     float dist;
     bool clustered;
+    unsigned RHalfUlps, halfUlps;
 
     if (CxpDistMatrixNjSeedGet(&seed))
     {
@@ -1182,6 +1216,10 @@ CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
     CxMtUint32Seed(&mt, seed);
     CxRiNew(&ri);
     CxRiInit(&ri, aNleft);
+
+    // Initialization of aR and aRScaled accumulated some error.
+    RHalfUlps = aNleft - 1;
+    halfUlps = 0;
 
     clustered = true;
     while (true)
@@ -1199,7 +1237,9 @@ CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
 
 	    // Find a row that is closest to x.
 	    closestRow = CxpDistMatrixNjRowAllMinFind(d, aRScaled, aNleft,
-						      randomRow, &mt, &dist);
+						      randomRow, &mt, 
+						      RHalfUlps, halfUlps,
+						      &dist);
 
 	    if (randomRow < closestRow)
 	    {
@@ -1215,9 +1255,10 @@ CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
 	    // Make sure that no row is closer to y than x is.
 	    if ((aAdditive == false
 		 || CxpDistMatrixNjPairClusterAdditive(d, aRScaled, aNleft,
-						       x, y))
+						       x, y, RHalfUlps,
+						       halfUlps))
 		&& CxpDistMatrixNjRowAllMinOk(d, aRScaled, aNleft, closestRow,
-					      dist))
+					      dist, RHalfUlps, halfUlps))
 	    {
 		clustered = true;
 #ifdef CxmDistMatrixNjDump
@@ -1225,12 +1266,30 @@ CxpDistMatrixNjRandomCluster(float **arD, float *aR, float *aRScaled,
 #endif
 		CxpDistMatrixNjNodesJoin(d, aRScaled, nodes, aTree, aNleft,
 					 x, y, &node, &distX, &distY);
+		// halfUlps += (RHalfUlps << 1) + 4;
+
 		CxpDistMatrixNjRSubtract(d, aR, aNleft, x, y);
+		// RHalfUlps += 2;
+
 		CxpDistMatrixNjCompact(d, aR, nodes, aNleft, x, y, node,
 				       distX, distY);
+		// RHalfUlps += aNleft + 6;
+
 		CxpDistMatrixNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
 		aNleft--;
 		CxpDistMatrixNjRScaledUpdate(aRScaled, aR, aNleft);
+		// RHalfUlps++;
+
+		// Update upper bounds on accumulated error.  Preceding
+		// comments show how various functions contribute to the error.
+		if ((RHalfUlps << 1) < RHalfUlps
+		    || (halfUlps + (RHalfUlps << 1) + 4 < halfUlps)
+		    || (RHalfUlps + aNleft + 10 < RHalfUlps))
+		{
+		    fprintf(stderr, "Floating point error saturation\n");
+		}
+		halfUlps += (RHalfUlps << 1) + 4;
+		RHalfUlps += aNleft + 10;
 
 		// Shrinking the matrix may have reduced it to the point
 		// that the enclosing loop will no longer function
@@ -1290,36 +1349,63 @@ CxpDistMatrixNjDeterministicCluster(float **arD, float *aR, float *aRScaled,
     CxtNodeObject *node;
     CxtNodeObject **nodes = *arNodes;
     bool clustered;
+    unsigned RHalfUlps, halfUlps;
+
+    // Initialization of aR and aRScaled accumulated some error.
+    RHalfUlps = aNleft - 1;
+    halfUlps = 0;
 
     clustered = true;
     while (true)
     {
 	if (clustered == false)
 	{
+	    fprintf(stderr, "XXX Not additive\n");
 	    aAdditive = false;
 	}
 	clustered = false;
 	for (x = 0; x < aNleft - 1;) // y indexes one past x.
 	{
+	    fprintf(stderr, "x: %ld, RHalfUlps: %u, halfUps: %u\n",
+		    x, RHalfUlps, halfUlps);
 	    y = CxpDistMatrixNjRowMinFind(d, aRScaled, aNleft, x);
 
 	    if ((aAdditive == false
 		 || CxpDistMatrixNjPairClusterAdditive(d, aRScaled, aNleft, x,
-						       y))
+						       y, RHalfUlps, halfUlps))
 		&& CxpDistMatrixNjPairClusterOk(d, aRScaled, aNleft, x, y))
 	    {
 		clustered = true;
 #ifdef CxmDistMatrixNjDump
 		CxpDistMatrixNjDump(d, aR, aRScaled, nodes, aNleft);
 #endif
+
 		CxpDistMatrixNjNodesJoin(d, aRScaled, nodes, aTree, aNleft, x,
 					 y, &node, &distX, &distY);
+		// halfUlps += (RHalfUlps << 1) + 4;
+
 		CxpDistMatrixNjRSubtract(d, aR, aNleft, x, y);
+		// RHalfUlps += 2;
+
 		CxpDistMatrixNjCompact(d, aR, nodes, aNleft, x, y, node,
 				       distX, distY);
+		// RHalfUlps += aNleft + 6;
+
 		CxpDistMatrixNjDiscard(&d, &aR, &aRScaled, &nodes, aNleft);
 		aNleft--;
 		CxpDistMatrixNjRScaledUpdate(aRScaled, aR, aNleft);
+		// RHalfUlps++;
+
+		// Update upper bounds on accumulated error.  Preceding
+		// comments show how various functions contribute to the error.
+		if ((RHalfUlps << 1) < RHalfUlps
+		    || (halfUlps + (RHalfUlps << 1) + 4 < halfUlps)
+		    || (RHalfUlps + aNleft + 10 < RHalfUlps))
+		{
+		    fprintf(stderr, "Floating point error saturation\n");
+		}
+		halfUlps += (RHalfUlps << 1) + 4;
+		RHalfUlps += aNleft + 10;
 
 		// Shrinking the matrix may have reduced it to the point
 		// that the enclosing loop will no longer function
@@ -1400,6 +1486,7 @@ CxpDistMatrixNj(CxtTreeObject *aTree, float *aD, long aNtaxa, bool aRandom)
 #endif
 	if (aRandom)
 	{
+	    // XXX Maintain ulps for comparisons.
 	    CxpDistMatrixNjRandomMinFind(aD, rScaled, nleft, &mt, &xMin, &yMin);
 	}
 	else
