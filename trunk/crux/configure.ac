@@ -59,11 +59,11 @@ AC_CANONICAL_HOST
 case "${host_cpu}" in
   i[[3456]]86)
 	AC_DEFINE([CxmCpuIa32])
-	extra_compile_args=""
+	extra_compile_args="'-msse2'"
 	;;
   x86_64)
 	AC_DEFINE([CxmCpuAmd64])
-	extra_compile_args=""
+	extra_compile_args="'-msse2'"
 	;;
   powerpc)
 	AC_DEFINE([CxmCpuPpc])
