@@ -23,34 +23,34 @@ Test begin
 --chars--: 'ACG-T'
 
 === '\n>\n' ===
-Exception C_FastaParser.SyntaxError: At 2:1 (token '', char '
+Exception <class 'C_FastaParser.SyntaxError'>: At 2:1 (token '', char '
 '): Empty label
 
 === '\n> Comment\n' ===
-Exception C_FastaParser.SyntaxError: At 2:1 (token '', char ' '): Empty label
+Exception <class 'C_FastaParser.SyntaxError'>: At 2:1 (token '', char ' '): Empty label
 
 === '\n>Label\n' ===
 --label--: 'Label'
-Exception C_FastaParser.SyntaxError: At 2:6 (token '', char '
+Exception <class 'C_FastaParser.SyntaxError'>: At 2:6 (token '', char '
 '): Missing character data
 
 === '\n>Label\nACGTZ\n' ===
 --label--: 'Label'
-Exception C_FastaParser.SyntaxError: At 3:4 (token 'ACGT', char 'Z'): Invalid DNA character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:4 (token 'ACGT', char 'Z'): Invalid DNA character data
 
 === '\n>Taxon_A\n>Taxon_B\nACGT\n' ===
 --label--: 'Taxon_A'
-Exception C_FastaParser.SyntaxError: At 3:0 (token '', char '>'): Missing character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:0 (token '', char '>'): Missing character data
 
 === '\n>Taxon_A\nACGT>Taxon_B\nACGT\n' ===
 --label--: 'Taxon_A'
-Exception C_FastaParser.SyntaxError: At 3:4 (token 'ACGT', char '>'): Invalid DNA character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:4 (token 'ACGT', char '>'): Invalid DNA character data
 
 === '\n>Taxon_A\nACGT\n>Taxon_B\n' ===
 --label--: 'Taxon_A'
 --chars--: 'ACGT'
 --label--: 'Taxon_B'
-Exception C_FastaParser.SyntaxError: At 4:8 (token '', char '
+Exception <class 'C_FastaParser.SyntaxError'>: At 4:8 (token '', char '
 '): Missing character data
 
 === '>Label\nNXVHMDRWABSYCKGT-\n' ===
@@ -76,34 +76,34 @@ Exception C_FastaParser.SyntaxError: At 4:8 (token '', char '
 --chars--: 'ACG-T'
 
 === '\n>\n' ===
-Exception C_FastaParser.SyntaxError: At 2:1 (token '', char '
+Exception <class 'C_FastaParser.SyntaxError'>: At 2:1 (token '', char '
 '): Empty label
 
 === '\n> Comment\n' ===
-Exception C_FastaParser.SyntaxError: At 2:1 (token '', char ' '): Empty label
+Exception <class 'C_FastaParser.SyntaxError'>: At 2:1 (token '', char ' '): Empty label
 
 === '\n>Label\n' ===
 --label--: 'Label'
-Exception C_FastaParser.SyntaxError: At 2:6 (token '', char '
+Exception <class 'C_FastaParser.SyntaxError'>: At 2:6 (token '', char '
 '): Missing character data
 
 === '\n>Label\nACGTZ\n' ===
 --label--: 'Label'
-Exception C_FastaParser.SyntaxError: At 3:4 (token 'ACGT', char 'Z'): Invalid DNA character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:4 (token 'ACGT', char 'Z'): Invalid DNA character data
 
 === '\n>Taxon_A\n>Taxon_B\nACGT\n' ===
 --label--: 'Taxon_A'
-Exception C_FastaParser.SyntaxError: At 3:0 (token '', char '>'): Missing character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:0 (token '', char '>'): Missing character data
 
 === '\n>Taxon_A\nACGT>Taxon_B\nACGT\n' ===
 --label--: 'Taxon_A'
-Exception C_FastaParser.SyntaxError: At 3:4 (token 'ACGT', char '>'): Invalid DNA character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:4 (token 'ACGT', char '>'): Invalid DNA character data
 
 === '\n>Taxon_A\nACGT\n>Taxon_B\n' ===
 --label--: 'Taxon_A'
 --chars--: 'ACGT'
 --label--: 'Taxon_B'
-Exception C_FastaParser.SyntaxError: At 4:8 (token '', char '
+Exception <class 'C_FastaParser.SyntaxError'>: At 4:8 (token '', char '
 '): Missing character data
 
 === '>Label\nABCDEFGHIKLMNPQRSTUVWXYZ-\n' ===
@@ -112,11 +112,11 @@ Exception C_FastaParser.SyntaxError: At 4:8 (token '', char '
 
 === '\n>Label\nABCDEFGHIJKLMN\n' ===
 --label--: 'Label'
-Exception C_FastaParser.SyntaxError: At 3:9 (token 'ABCDEFGHI', char 'J'): Invalid protein character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:9 (token 'ABCDEFGHI', char 'J'): Invalid protein character data
 
 === '\n>Label\nABCDE789FGHIK\n' ===
 --label--: 'Label'
-Exception C_FastaParser.SyntaxError: At 3:5 (token 'ABCDE', char '7'): Invalid protein character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:5 (token 'ABCDE', char '7'): Invalid protein character data
 
 === '>Label\nABCDEFGHIKLMNPQRSTUVWXYZ-\n' ===
 --label--: 'Label'
@@ -124,9 +124,9 @@ Exception C_FastaParser.SyntaxError: At 3:5 (token 'ABCDE', char '7'): Invalid p
 
 === '\n>Label\nABCDEFGHIJKLMN\n' ===
 --label--: 'Label'
-Exception C_FastaParser.SyntaxError: At 3:9 (token 'ABCDEFGHI', char 'J'): Invalid protein character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:9 (token 'ABCDEFGHI', char 'J'): Invalid protein character data
 
 === '\n>Label\nABCDE789FGHIK\n' ===
 --label--: 'Label'
-Exception C_FastaParser.SyntaxError: At 3:5 (token 'ABCDE', char '7'): Invalid protein character data
+Exception <class 'C_FastaParser.SyntaxError'>: At 3:5 (token 'ABCDE', char '7'): Invalid protein character data
 Test end

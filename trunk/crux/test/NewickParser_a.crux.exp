@@ -725,7 +725,7 @@ Test begin
 --leafLabel--: 'B'
 --)--: ')'
 --rootLabel--: ''
-Exception C_NewickParser.SyntaxError: At offset 5 (token ')', char ')'): ';' expected
+Exception <class 'C_NewickParser.SyntaxError'>: At offset 5 (token ')', char ')'): ';' expected
 
 === '((A,B);' ===
 --(--: '('
@@ -735,7 +735,7 @@ Exception C_NewickParser.SyntaxError: At offset 5 (token ')', char ')'): ';' exp
 --leafLabel--: 'B'
 --)--: ')'
 --internalLabel--: ''
-Exception C_NewickParser.SyntaxError: At offset 6 (token ';', char ';'): ',' expected
+Exception <class 'C_NewickParser.SyntaxError'>: At offset 6 (token ';', char ';'): ',' expected
 
 === '(A,B)' ===
 --(--: '('
@@ -743,7 +743,7 @@ Exception C_NewickParser.SyntaxError: At offset 6 (token ';', char ';'): ',' exp
 --,--: ','
 --leafLabel--: 'B'
 --)--: ')'
-Exception C_NewickParser.EOF: At offset 5 (token ''): End of input reached
+Exception <class 'C_NewickParser.EOF'>: At offset 5 (token ''): End of input reached
 
 === '(A,B:42.43.44);' ===
 --(--: '('
@@ -752,18 +752,18 @@ Exception C_NewickParser.EOF: At offset 5 (token ''): End of input reached
 --leafLabel--: 'B'
 --:--: ':'
 --length--: '42.43'
-Exception C_NewickParser.SyntaxError: At offset 10 (token '.', char '.'): ',' or ')' expected
+Exception <class 'C_NewickParser.SyntaxError'>: At offset 10 (token '.', char '.'): ',' or ')' expected
 
 === '(A:42.);' ===
 --(--: '('
 --leafLabel--: 'A'
 --:--: ':'
-Exception C_NewickParser.SyntaxError: At offset 6 (token '42.)', char ')'): Expected digit
+Exception <class 'C_NewickParser.SyntaxError'>: At offset 6 (token '42.)', char ')'): Expected digit
 
 === '(A);' ===
 --(--: '('
 --leafLabel--: 'A'
-Exception C_NewickParser.SyntaxError: At offset 2 (token ')', char ')'): ',' expected
+Exception <class 'C_NewickParser.SyntaxError'>: At offset 2 (token ')', char ')'): ',' expected
 
 === '(A,(B));' ===
 --(--: '('
@@ -771,7 +771,7 @@ Exception C_NewickParser.SyntaxError: At offset 2 (token ')', char ')'): ',' exp
 --,--: ','
 --(--: '('
 --leafLabel--: 'B'
-Exception C_NewickParser.SyntaxError: At offset 5 (token ')', char ')'): ',' expected
+Exception <class 'C_NewickParser.SyntaxError'>: At offset 5 (token ')', char ')'): ',' expected
 
 === '(A,((B,C)));' ===
 --(--: '('
@@ -784,7 +784,7 @@ Exception C_NewickParser.SyntaxError: At offset 5 (token ')', char ')'): ',' exp
 --leafLabel--: 'C'
 --)--: ')'
 --internalLabel--: ''
-Exception C_NewickParser.SyntaxError: At offset 9 (token ')', char ')'): ',' expected
+Exception <class 'C_NewickParser.SyntaxError'>: At offset 9 (token ')', char ')'): ',' expected
 
 === '(A,((B,(C,D))));' ===
 --(--: '('
@@ -802,7 +802,7 @@ Exception C_NewickParser.SyntaxError: At offset 9 (token ')', char ')'): ',' exp
 --internalLabel--: ''
 --)--: ')'
 --internalLabel--: ''
-Exception C_NewickParser.SyntaxError: At offset 13 (token ')', char ')'): ',' expected
+Exception <class 'C_NewickParser.SyntaxError'>: At offset 13 (token ')', char ')'): ',' expected
 
 === "( [hi]1_1[bye[hi again]bye for real]: 4.2,3,('4_4',5));" ===
 --(--: '('

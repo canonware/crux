@@ -153,15 +153,15 @@ class _NewickParser(NewickParser.NewickParser):
                 self._taxonStack.insert(0, nodeA)
 
 class Tree(C_Tree):
-    def __init__(self, with=None, taxonMap=None, newickAutoMap=False,
+    def __init__(self, with_=None, taxonMap=None, newickAutoMap=False,
                  randomBranchCallback=None):
-        if type(with) == int:
-            self._randomNew(with, taxonMap, randomBranchCallback)
-        elif type(with) == str or type(with) == file:
+        if type(with_) == int:
+            self._randomNew(with_, taxonMap, randomBranchCallback)
+        elif type(with_) == str or type(with_) == file:
             if taxonMap == None:
                 taxonMap = TaxonMap.TaxonMap()
             self._taxonMap = taxonMap
-            self._newickNew(with, newickAutoMap)
+            self._newickNew(with_, newickAutoMap)
         else:
             if taxonMap == None:
                 taxonMap = TaxonMap.TaxonMap()

@@ -44,11 +44,11 @@ d --> 8
 D <-- 8
 Codes: ['A', 'B', 'C', 'D', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd']
 nstates: 4
-Exception crux.CharacterType.ValueError: State already defined: 'A'
-Exception crux.CharacterType.ValueError: State already defined: 'A'
-Exception crux.CharacterType.ValueError: State already defined: 'A'
-Exception crux.CharacterType.ValueError: State not defined: 'J'
-Exception crux.CharacterType.ValueError: Value not defined: 42
+Exception <class 'crux.CharacterType.ValueError'>: State already defined: 'A'
+Exception <class 'crux.CharacterType.ValueError'>: State already defined: 'A'
+Exception <class 'crux.CharacterType.ValueError'>: State already defined: 'A'
+Exception <class 'crux.CharacterType.ValueError'>: State not defined: 'J'
+Exception <class 'crux.CharacterType.ValueError'>: Value not defined: 42
 === DnaCharacterType ===
 Codes: ['-', 'A', 'B', 'C', 'D', 'G', 'H', 'K', 'M', 'N', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'a', 'b', 'c', 'd', 'g', 'h', 'k', 'm', 'n', 'r', 's', 't', 'v', 'w', 'x', 'y']
 nstates: 4
