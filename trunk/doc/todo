@@ -66,6 +66,9 @@
 
 === General features ===========================================================
 
+* Implement NNI/SPR/TBR distance calculation.  These may be heuristics, since
+  IIRC TBR distance computation is NP-complete.
+
 * Add true tree holding, rather than just the limited form of holding that the
   tr code supports.  Collapse unsupported (zero-change) branches when storing
   trees, in order to avoid storing equivalent trees.
