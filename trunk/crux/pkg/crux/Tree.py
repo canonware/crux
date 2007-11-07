@@ -167,9 +167,12 @@ class Tree(C_Tree):
                 taxonMap = TaxonMap.TaxonMap()
             self._taxonMap = taxonMap
 
+    # Generate a random tree via sequential addition.
     def _randomNew(self, ntaxa, taxonMap, randomBranchCallback):
         if taxonMap == None:
             self._taxonMap = TaxonMap.TaxonMap()
+	    for i in xrange(ntaxa):
+		self._taxonMap.map("T%d" % i, i)
         else:
             self._taxonMap = taxonMap
 
@@ -177,40 +180,47 @@ class Tree(C_Tree):
         if randomBranchCallback == None:
             randomBranchCallback = _defaultRandomBranchCallback
 
-        # Create a list of leaf nodes.
-        subtrees = []
-        for i in forints(ntaxa):
-            nnode = Node.Node(self)
-            nnode.taxonNumSet(i)
-            subtrees.append(nnode)
-            if taxonMap == None:
-                self._taxonMap.map("T%d" % i, i)
+	if ntaxa == 0:
+	    return
 
-        # Iteratively randomly remove two items from the list, join them, and
-        # insert the result back into the list.  Stop when there are two
-        # subtrees left.
-        while len(subtrees) > 2:
-            subtreeA = subtrees.pop(random.randint(0, len(subtrees) - 1))
-            subtreeB = subtrees.pop(random.randint(0, len(subtrees) - 1))
-            nnode = Node.Node(self)
-            edgeA = Edge.Edge(self)
-            edgeA.lengthSet(randomBranchCallback())
-            edgeA.attach(nnode, subtreeA)
-            edgeB = Edge.Edge(self)
-            edgeB.lengthSet(randomBranchCallback())
-            edgeB.attach(nnode, subtreeB)
-            subtrees.append(nnode)
+	# Create the first taxon.
+	nodeA = Node.Node(self)
+	nodeA.taxonNumSet(0)
+	self.baseSet(nodeA)
+	if ntaxa == 1:
+	    return
+	# Create the initial two-taxon tree that other taxa will be added to.
+	nodeB = Node.Node(self)
+	nodeB.taxonNumSet(1)
+	edge = Edge.Edge(self)
+	edges = [edge]
+	edge.lengthSet(randomBranchCallback())
+	edge.attach(nodeA, nodeB)
 
-        subtreeA = subtrees.pop(0)
-        if (len(subtrees) > 0):
-            # Attach the last two subtrees directly, in order to finish
-            # constructing an unrooted tree.
-            subtreeB = subtrees.pop(0)
-            edge = Edge.Edge(self)
-            edge.lengthSet(randomBranchCallback())
-            edge.attach(subtreeA, subtreeB)
+	# Use random sequential addition to attach the remaning taxa.
+	for i in xrange(2, ntaxa):
+	    # Pick an edge to bisect and add this taxon to.
+	    edgeA = edges[random.randint(0, len(edges)-1)]
 
-        self.baseSet(subtreeA)
+	    # Attach a new taxon node to a new internal node.
+	    nodeA = Node.Node(self)
+	    nodeB = Node.Node(self)
+	    nodeB.taxonNumSet(i)
+	    edgeB = Edge.Edge(self)
+	    edges.append(edgeB)
+	    edgeB.lengthSet(randomBranchCallback())
+	    edgeB.attach(nodeA, nodeB)
+
+	    (ringA, ringB) = edgeA.rings()
+	    nodeB = ringA.node()
+	    nodeC = ringB.node()
+	    edgeA.detach()
+	    edgeA.attach(nodeA, nodeB)
+
+	    edgeB = Edge.Edge(self)
+	    edges.append(edgeB)
+	    edgeB.lengthSet(randomBranchCallback())
+	    edgeB.attach(nodeA, nodeC)
 
     def _newickNew(self, input, newickAutoMap):
         parser = _NewickParser(self, self._taxonMap, newickAutoMap)
