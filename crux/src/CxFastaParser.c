@@ -211,6 +211,11 @@ CxFastaParserParse(CxtFastaParserObject *self, PyObject *args)
 	self->column = 0;
 	self->tokenLen = 0;
 
+#ifdef CxmCcSilence
+	c = '\0';
+	line = 0;
+	column = 0;
+#endif
 	while (CxpFastaParserGetC(self, &c, &line, &column) == false)
 	{
 	    switch (state)

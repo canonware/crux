@@ -66,7 +66,7 @@ CxpIa32Cpuid(unsigned aEax, unsigned *rAbcd)
 void
 CxIa32CpuInit(void)
 {
-    int abcd[4];
+    unsigned abcd[4];
 
     // If the cpuid instruction is supported, and the SSE2 feature flag is set,
     // enable the use of SSE2.
@@ -75,7 +75,7 @@ CxIa32CpuInit(void)
 	CxpIa32Cpuid(1, abcd);
 
 	// Mask everything but bit 26 (SSE2 feature flag) of edx.
-	if ((abcd[3] & 0x04000000) != 0)
+	if ((abcd[3] & 0x04000000U) != 0)
 	{
 	    CxgIa32UseSse2 = true;
 	}

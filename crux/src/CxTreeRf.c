@@ -211,6 +211,9 @@ CxpTreeRfBipartitionsInitRecurse(CxtTreeObject *self,
 	{
 	    // Avoid creating a vector if the previous node is a leaf node.
 	    // This only happens when the tree base is a leaf node.
+#ifdef CxmCcSilence
+	    rVal = NULL;
+#endif
 	    calcVector = false;
 	}
 
