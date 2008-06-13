@@ -44,8 +44,8 @@ MANDIR=`eval echo $mandir`
 MANDIR=`eval echo $MANDIR`
 AC_SUBST([MANDIR])
 
-cfgoutputs="Makefile setup.py bin/crux pkg/crux/__init__.py"
-cfghdrs="config.stamp include/_cruxmodule_defs.h"
+cfgoutputs="Makefile setup.py bin/crux pkg/Crux/__init__.py"
+cfghdrs="config.stamp include/Crux/_cruxmodule_defs.h"
 bins=
 mods=
 
@@ -205,37 +205,13 @@ else
 fi
 AC_SUBST([crux_version])
 
-dnl Packages.
-crux_packages=""
-for p in crux ; do
-  crux_packages="${crux_packages} '${p}',"
-done
-crux_packages="[[${crux_packages}]]"
-AC_SUBST([crux_packages])
-
-dnl C sources.
-crux_sources=""
-for s in `find ${srcroot}/src -type f |grep "\.c$"` ; do
-  crux_sources="${crux_sources} '${s}',"
-done
-crux_sources="[[${crux_sources}]]"
-AC_SUBST([crux_sources])
-
-dnl C headers.
-crux_headers=""
+dnl Manual file dependencies (force rebuild if these change).
+manual_deps=""
 for h in `find ${srcroot}/include -type f |grep "\.h$"` \
-         $objroot/_cruxmodule_defs.h.in ${srcroot}/src/asprintf_c ; do
-  crux_headers="${crux_headers} ${h}"
+         $objroot/Crux/_cruxmodule_defs.h.in ${srcroot}/src/Crux/asprintf_c ; do
+  manual_deps="${manual_deps} ${h}"
 done
-AC_SUBST([crux_headers])
-
-dnl Python scripts.
-crux_scripts=""
-for s in crux ; do
-  crux_scripts="${crux_scripts} '${objroot}/bin/${s}',"
-done
-crux_scripts="[[${crux_scripts}]]"
-AC_SUBST([crux_scripts])
+AC_SUBST([manual_deps])
 
 dnl Crux tests.
 crux_tests=""

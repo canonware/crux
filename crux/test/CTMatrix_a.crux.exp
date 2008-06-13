@@ -1,7 +1,7 @@
 Test begin
-Character 0 (0..4) type: <class 'crux.CharacterType.DnaCharacterType'>
+Character 0 (0..4) type: <class 'Crux.CharacterType.DnaCharacterType'>
 Taxon map: ['Taxon_A', 'Taxon_B', 'Taxon_C']
 Taxon_B data: 'CCCCC'
-Exception <class 'crux.CTMatrix.ValueError'>: Wrong number of characters (4, expected 5)
-Exception <class 'crux.CTMatrix.ValueError'>: Taxon 'Taxon_D' not in taxon map
+Exception <class 'Crux.CTMatrix.ValueError'>: Wrong number of characters (4, expected 5)
+Exception <class 'Crux.CTMatrix.ValueError'>: Taxon 'Taxon_D' not in taxon map
 Test end

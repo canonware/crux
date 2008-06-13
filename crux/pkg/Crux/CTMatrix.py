@@ -14,9 +14,9 @@ import FastaParser
 import CharacterType
 import CTMatrix
 
-import crux
+import Crux
 
-class Exception(crux.Exception):
+class Exception(Crux.Exception):
     pass
 
 class ValueError(Exception, ValueError):
@@ -140,11 +140,11 @@ class CTMatrix(object):
     # Set the character data for a taxon.
     def dataSet(self, taxon, data):
         if len(data) != len(self._chars):
-            raise crux.CTMatrix\
+            raise Crux.CTMatrix\
                   .ValueError("Wrong number of characters (%d, expected %d)"
                               % (len(data), len(self._chars)))
         if (self._taxonMap.indGet(taxon) == None):
-            raise crux.CTMatrix\
+            raise Crux.CTMatrix\
                   .ValueError("Taxon %r not in taxon map" % taxon)
 
         self._taxonData[self._taxonMap.indGet(taxon)] = data

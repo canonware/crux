@@ -20,9 +20,9 @@
 ################################################################################
 
 import DistMatrix
-import crux
+import Crux
 
-class Exception(crux.Exception):
+class Exception(Crux.Exception):
     pass
 
 class ValueError(Exception, ValueError):
@@ -47,7 +47,7 @@ class CharacterType(object):
     # Define state code.
     def stateCodeAdd(self, code):
         if self._aStates.has_key(code):
-            raise crux.CharacterType\
+            raise Crux.CharacterType\
                   .ValueError("State already defined: %r" % code)
 
         # Define a key in _pStates and _aStates that makes it possible to get
@@ -62,7 +62,7 @@ class CharacterType(object):
 
     def ambiguityCodeAdd(self, code, oStates=None):
         if self._aStates.has_key(code):
-            raise crux.CharacterType\
+            raise Crux.CharacterType\
                   .ValueError("State already defined: %r" % code)
 
         # Define a key in _ambiguities that makes it possible to get the state's
@@ -79,10 +79,10 @@ class CharacterType(object):
 
     def aliasCodeAdd(self, code, oState):
         if self._aStates.has_key(code):
-            raise crux.CharacterType\
+            raise Crux.CharacterType\
                   .ValueError("State already defined: %r" % code)
         if not self._aStates.has_key(oState):
-            raise crux.CharacterType.ValueError("State not defined: %r"
+            raise Crux.CharacterType.ValueError("State not defined: %r"
                                                 % oState)
 
         # Define a key in _aStates that makes it possible to get the state's
@@ -97,14 +97,14 @@ class CharacterType(object):
     # Given a state code, return the associated value.
     def code2val(self, code):
         if not self._aStates.has_key(code):
-            raise crux.CharacterType.ValueError("State not defined: %r" % code)
+            raise Crux.CharacterType.ValueError("State not defined: %r" % code)
 
         return self._aStates[code]
 
     # Given an index value, return the primary associated state key.
     def val2code(self, val):
         if not self._vals.has_key(val):
-            raise crux.CharacterType.ValueError("Value not defined: %r" % val)
+            raise Crux.CharacterType.ValueError("Value not defined: %r" % val)
 
         return self._vals[val]
 

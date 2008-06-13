@@ -44,7 +44,7 @@ trees = [';',
 
 for tree in trees:
     print "========================================================="
-    t = crux.Tree.Tree(tree, newickAutoMap=True)
+    t = Crux.Tree.Tree(tree, newickAutoMap=True)
     t.canonize()
     print t.render(labels=True, lengths=True, lengthFormat="%.0f")
     nCollapsed = t.collapse()
@@ -52,7 +52,7 @@ for tree in trees:
     print t.render(labels=True, lengths=True, lengthFormat="%.0f")
     print "Number of collapsed edges: %d" % nCollapsed
 
-    t = crux.Tree.Tree(tree, newickAutoMap=True)
+    t = Crux.Tree.Tree(tree, newickAutoMap=True)
     nCollapsed = t.collapse()
     t.canonize()
     print t.render(labels=True, lengths=True, lengthFormat="%.0f")

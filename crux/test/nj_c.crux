@@ -20,7 +20,7 @@ C  7  9  0 11
 D 12 14 11  0
 """
 
-matrix = crux.DistMatrix.DistMatrix(testMatrix)
+matrix = Crux.DistMatrix.DistMatrix(testMatrix)
 t = matrix.nj()
 t.canonize()
 t.render(labels=True, lengths=True, lengthFormat="%.6f", outFile=sys.stdout)

@@ -20,7 +20,7 @@ maps = [
     ]
 
 for map in maps:
-    m = crux.TaxonMap.TaxonMap(map)
+    m = Crux.TaxonMap.TaxonMap(map)
     print
     print "map:", m.taxaGet()
     print "ntaxa: %d" % m.ntaxaGet()
@@ -32,7 +32,7 @@ for map in maps:
 
         i += 1
 
-m = crux.TaxonMap.TaxonMap()
+m = Crux.TaxonMap.TaxonMap()
 print
 print "map:", m.taxaGet()
 print "ntaxa: %d" % m.ntaxaGet()

@@ -105,7 +105,7 @@
 //
 //==============================================================================
 
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 
 static PyTypeObject CxtNewickParser;
 

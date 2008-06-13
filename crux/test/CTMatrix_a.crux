@@ -11,9 +11,9 @@
 
 print "Test begin"
 
-dnaChar = crux.CharacterType.DnaCharacterType()
-map = crux.TaxonMap.TaxonMap(['Taxon_A', 'Taxon_B', 'Taxon_C'])
-matrix = crux.CTMatrix.CTMatrix(map)
+dnaChar = Crux.CharacterType.DnaCharacterType()
+map = Crux.TaxonMap.TaxonMap(['Taxon_A', 'Taxon_B', 'Taxon_C'])
+matrix = Crux.CTMatrix.CTMatrix(map)
 
 matrix.charsAppend([dnaChar] * 5)
 #print matrix.charsGet()

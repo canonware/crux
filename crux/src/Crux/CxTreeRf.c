@@ -22,7 +22,7 @@
 // XXX This implementation assumes that taxon numbers start at 0, and are
 // contiguous.
 
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 
 typedef struct
 {

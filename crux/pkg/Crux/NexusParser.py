@@ -19,9 +19,9 @@ import NexusParserStatement
 import NexusParserWord
 import NexusParserSeparator
 
-import crux
+import Crux
 
-class Exception(crux.Exception):
+class Exception(Crux.Exception):
     pass
 
 class SyntaxError(Exception, SyntaxError):

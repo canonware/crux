@@ -53,7 +53,7 @@
 from C_DistMatrix import *
 import TaxonMap
 import Tree
-import crux
+import Crux
 
 import random
 
@@ -85,11 +85,11 @@ class DistMatrix(C_DistMatrix):
                 C_DistMatrix._dup(self, input, taxonMap)
             else:
                 if sample < 2 or sample > input.ntaxaGet():
-                    raise crux.DistMatrix\
+                    raise Crux.DistMatrix\
                           .ValueError("sample: Out of range (%d not in 2..%d)" \
                                       % (sample, input.ntaxaGet()))
                 if symmetric:
-                    raise crux.DistMatrix\
+                    raise Crux.DistMatrix\
                           .ValueError("symmetric: Automatic for sampling")
 
                 # Create a sample of rows.
@@ -103,7 +103,7 @@ class DistMatrix(C_DistMatrix):
 
                 C_DistMatrix._sample(self, input, taxonMap, rows)
         else:
-            raise crux.DistMatrix\
+            raise Crux.DistMatrix\
                   .ValueError(
                 "input: File, string, TaxonMap, or DistMatrix expected")
 

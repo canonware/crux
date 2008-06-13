@@ -4,8 +4,8 @@
 ^crux/configure$
 ^crux/crux$
 ^crux/build
-^crux/include/_cruxmodule_defs\.h$
+^crux/include/Crux/_cruxmodule_defs\.h$
 ^crux/Makefile$
-^crux/pkg/crux/__init__\.py$
+^crux/pkg/Crux/__init__\.py$
 ^crux/setup\.py$
-^crux/test/[A-Za-z]*_[a-c]\.crux\.out$
+^crux/test/[A-Za-z]*_[a-z]\.crux\.out$

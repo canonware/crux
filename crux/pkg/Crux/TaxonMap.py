@@ -9,9 +9,9 @@
 #
 ################################################################################
 
-import crux
+import Crux
 
-class Exception(crux.Exception):
+class Exception(Crux.Exception):
     pass
 
 class ValueError(Exception, ValueError):
@@ -58,7 +58,7 @@ class TaxonMap(object):
         for ind in rVal:
             # Make sure that taxon indices are contiguous.
             if ind != i:
-                raise crux.TaxonMap.ValueError(
+                raise Crux.TaxonMap.ValueError(
                     "Taxon indices must be contiguous")
 
             rVal[ind] = self._ind2label[ind]
@@ -90,7 +90,7 @@ class TaxonMap(object):
         if replace == False:
             # Make sure that label hasn't already been mapped to an index.
             if self._label2ind.has_key(label):
-                raise crux.TaxonMap.ValueError(
+                raise Crux.TaxonMap.ValueError(
                     "Label '%s' already mapped" % label)
 
         self._label2ind[label] = ind

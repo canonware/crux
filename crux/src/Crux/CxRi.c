@@ -9,7 +9,7 @@
 //
 //==============================================================================
 
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 
 void
 CxRiNew(CxtRi *aRi)

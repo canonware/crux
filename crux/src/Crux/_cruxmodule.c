@@ -9,7 +9,7 @@
 //
 //==============================================================================
 
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 #ifndef HAVE_ASPRINTF
 #include "asprintf_c"
 #endif

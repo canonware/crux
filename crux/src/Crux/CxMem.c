@@ -9,7 +9,7 @@
 //
 //==============================================================================
 
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 
 void *
 CxMemMallocE(size_t aSize, const char *aFilename, uint32_t aLineNum)

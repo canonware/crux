@@ -10,18 +10,27 @@
 #
 ################################################################################
 
+from glob import glob
+
 from distutils.core import setup, Extension
-setup(name = 'crux',
+from Cython.Distutils import build_ext
+
+setup(name = 'Crux',
       version = '@crux_version@',
-      description = 'Pylogenetic inferencing program',
+      description = 'Pylogenetic inference program',
       author = 'Jason Evans',
-      author_email = 'jevans@uidaho.edu',
+      author_email = 'jasone@canonware.com',
+      url = 'http://www.canonware.com/cgi-bin/hg_crux',
+      download_url = 'http://www.canonware.com/cgi-bin/hg_crux',
       package_dir = {'': '@srcroot@/pkg'},
-      packages = @crux_packages@,
-      ext_modules = [Extension('crux._crux',
-                               sources=@crux_sources@,
+      packages = ['Crux'],
+      ext_modules = [Extension('Crux._crux',
+                               sources=glob("@srcroot@/src/Crux/*.c"),
                                include_dirs=["@srcroot@/include",
                                              "@objroot@/include"],
-			       extra_compile_args=[@extra_compile_args@])],
-      scripts = @crux_scripts@,
+                               extra_compile_args=[@extra_compile_args@]),
+                     Extension('Parsing',
+                               sources=["./src/Parsing/Parsing.pyx"])],
+      scripts = ['@objroot@/bin/crux'],
+      cmdclass = {'build_ext': build_ext}
       )

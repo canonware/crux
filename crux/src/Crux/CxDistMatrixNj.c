@@ -150,7 +150,7 @@
 //
 //==============================================================================
 
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 
 //#define CxmDistMatrixNjTime
 //#define CxmDistMatrixNjDump

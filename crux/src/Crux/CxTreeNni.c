@@ -9,7 +9,7 @@
 //
 //==============================================================================
 
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 
 //#define CxmTreeGCVerbose
 #ifdef CxmTreeGCVerbose
@@ -33,24 +33,24 @@
 		_Py_Dealloc((PyObject *)(op))
 #endif
 
-typedef struct CxsTreeTbrBisection CxtTreeTbrBisection;
-typedef struct CxsTreeTbrData CxtTreeTbrData;
+typedef struct CxsTreeNniBisection CxtTreeNniBisection;
+typedef struct CxsTreeNniData CxtTreeNniData;
 
-struct CxsTreeTbrBisection
+struct CxsTreeNniBisection
 {
     // Bisection edge.
     CxtEdgeObject *edge;
 
-    // Number of TBR neighbors that come before those for this bisection edge.
+    // Number of NNI neighbors that come before those for this bisection edge.
     unsigned offset;
 };
 
-struct CxsTreeTbrData
+struct CxsTreeNniData
 {
     uint64_t seq;
 
-#define CxmTreeTbrInitNBisections 32
-    CxtTreeTbrBisection *bisections;
+#define CxmTreeNniInitNBisections 32
+    CxtTreeNniBisection *bisections;
     unsigned maxBisections;
     unsigned nBisections;
 
@@ -66,9 +66,9 @@ struct CxsTreeTbrData
 };
 
 static void
-CxpTreeTbrCleanupFinal(CxtTreeObject *aTree, void *aData, unsigned aInd)
+CxpTreeNniCleanupFinal(CxtTreeObject *aTree, void *aData, unsigned aInd)
 {
-    CxtTreeTbrData *data = (CxtTreeTbrData *) aData;
+    CxtTreeNniData *data = (CxtTreeNniData *) aData;
 
     if (data->bisections != NULL)
     {
@@ -79,17 +79,17 @@ CxpTreeTbrCleanupFinal(CxtTreeObject *aTree, void *aData, unsigned aInd)
 }
 
 static bool
-CxpTreeTbrBisectEdgeCallback(CxtEdgeObject *aEdge, CxtTreeIteratorStage aStage,
+CxpTreeNniBisectEdgeCallback(CxtEdgeObject *aEdge, CxtTreeIteratorStage aStage,
 			     void *aData)
 {
     bool rVal;
 
     if (aStage == CxTreeIteratorStagePre)
     {
-	CxtTreeTbrData *data = (CxtTreeTbrData *) aData;
+	CxtTreeNniData *data = (CxtTreeNniData *) aData;
 
 	// Make sure there is enough space to record aEdge.  There must be one
-	// extra element in which is stored the total number of TBR neighbors.
+	// extra element in which is stored the total number of NNI neighbors.
 	// This is important for the function of bsearch(3).
 	if (data->nBisections + 1 < data->maxBisections)
 	{
@@ -99,26 +99,26 @@ CxpTreeTbrBisectEdgeCallback(CxtEdgeObject *aEdge, CxtTreeIteratorStage aStage,
 	{
 	    // Allocate for the first time.
 	    data->bisections
-		= (CxtTreeTbrBisection *)
-		malloc(CxmTreeTbrInitNBisections * sizeof(CxtTreeTbrBisection));
+		= (CxtTreeNniBisection *)
+		malloc(CxmTreeNniInitNBisections * sizeof(CxtTreeNniBisection));
 	    if (data->bisections == NULL)
 	    {
 		rVal = true;
 		goto RETURN;
 	    }
 
-	    data->maxBisections = CxmTreeTbrInitNBisections;
+	    data->maxBisections = CxmTreeNniInitNBisections;
 	}
 	else
 	{
-	    CxtTreeTbrBisection *tBisections;
+	    CxtTreeNniBisection *tBisections;
 
 	    // Reallocate.
 	    tBisections
-		= (CxtTreeTbrBisection *)
+		= (CxtTreeNniBisection *)
 		realloc(data->bisections,
 			data->maxBisections << 1
-			* sizeof(CxtTreeTbrBisection));
+			* sizeof(CxtTreeNniBisection));
 	    if (tBisections == NULL)
 	    {
 		rVal = true;
@@ -139,7 +139,7 @@ CxpTreeTbrBisectEdgeCallback(CxtEdgeObject *aEdge, CxtTreeIteratorStage aStage,
 }
 
 static void
-CxpTreeTbrBEdgeSetGenRecurse(CxtTreeObject *self, CxtRingObject *aRing,
+CxpTreeNniBEdgeSetGenRecurse(CxtTreeObject *self, CxtRingObject *aRing,
 			     CxtEdgeObject **rEdgeSet, unsigned *rNEdges)
 {
     CxtRingObject *ring;
@@ -151,13 +151,13 @@ CxpTreeTbrBEdgeSetGenRecurse(CxtTreeObject *self, CxtRingObject *aRing,
 	(*rNEdges)++;
 
 	// Subtree.
-	CxpTreeTbrBEdgeSetGenRecurse(self, CxRingOther(ring), rEdgeSet,
+	CxpTreeNniBEdgeSetGenRecurse(self, CxRingOther(ring), rEdgeSet,
 				     rNEdges);
     }
 }
 
 CxmpInline void
-CxpTreeTbrBEdgeSetGen(CxtTreeObject *self, CxtRingObject *aRing,
+CxpTreeNniBEdgeSetGen(CxtTreeObject *self, CxtRingObject *aRing,
 		      CxtEdgeObject **rEdgeSet, unsigned *rNEdges,
 		      CxtRingObject **rRing)
 {
@@ -186,7 +186,7 @@ CxpTreeTbrBEdgeSetGen(CxtTreeObject *self, CxtRingObject *aRing,
 	    CxtRingObject *ring;
 
 	    // Take care to add only one of the edges that is connected to the
-	    // node, since from the perspective of TBR, the node does not exist.
+	    // node, since from the perspective of NNI, the node does not exist.
 	    // (A node of degree 2 is a superfluous node.)
 
 	    // First edge.
@@ -195,12 +195,12 @@ CxpTreeTbrBEdgeSetGen(CxtTreeObject *self, CxtRingObject *aRing,
 	    (*rNEdges)++;
 
 	    // First subtree.
-	    CxpTreeTbrBEdgeSetGenRecurse(self, CxRingOther(ring), rEdgeSet,
+	    CxpTreeNniBEdgeSetGenRecurse(self, CxRingOther(ring), rEdgeSet,
 					 rNEdges);
 
 	    // Second subtree.
 	    ring = CxRingNext(ring);
-	    CxpTreeTbrBEdgeSetGenRecurse(self, CxRingOther(ring), rEdgeSet,
+	    CxpTreeNniBEdgeSetGenRecurse(self, CxRingOther(ring), rEdgeSet,
 					 rNEdges);
 
 	    break;
@@ -222,7 +222,7 @@ CxpTreeTbrBEdgeSetGen(CxtTreeObject *self, CxtRingObject *aRing,
 		(*rNEdges)++;
 
 		// Subtree.
-		CxpTreeTbrBEdgeSetGenRecurse(self, CxRingOther(ring), rEdgeSet,
+		CxpTreeNniBEdgeSetGenRecurse(self, CxRingOther(ring), rEdgeSet,
 					     rNEdges);
 	    }
 
@@ -232,7 +232,7 @@ CxpTreeTbrBEdgeSetGen(CxtTreeObject *self, CxtRingObject *aRing,
 }
 
 static bool
-CxpTreeTbrBEdgeSetsGen(CxtTreeObject *self, CxtTreeTbrData *aData,
+CxpTreeNniBEdgeSetsGen(CxtTreeObject *self, CxtTreeNniData *aData,
 		       CxtRingObject *aRingA, CxtRingObject *aRingB)
 {
     bool rVal;
@@ -269,9 +269,9 @@ CxpTreeTbrBEdgeSetsGen(CxtTreeObject *self, CxtTreeTbrData *aData,
 	aData->maxEdgeSets = aData->nBisections;
     }
 
-    CxpTreeTbrBEdgeSetGen(self, aRingA, aData->edgeSets, &aData->nSetA,
+    CxpTreeNniBEdgeSetGen(self, aRingA, aData->edgeSets, &aData->nSetA,
 			  &aData->ringA);
-    CxpTreeTbrBEdgeSetGen(self, aRingB, &aData->edgeSets[aData->nSetA],
+    CxpTreeNniBEdgeSetGen(self, aRingB, &aData->edgeSets[aData->nSetA],
 			  &aData->nSetB, &aData->ringB);
 
     rVal = false;
@@ -280,17 +280,17 @@ CxpTreeTbrBEdgeSetsGen(CxtTreeObject *self, CxtTreeTbrData *aData,
 }
 
 static bool
-CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
+CxpTreeNniUpdate(CxtTreeObject *self, CxtTreeNniData **rData)
 {
     bool rVal;
     unsigned treeAuxInd;
-    CxtTreeTbrData *data;
+    CxtTreeNniData *data;
 
-    // Get aux indices for TBR data.
-    if (CxTreeAuxSearch(self, "TBR", &treeAuxInd))
+    // Get aux indices for NNI data.
+    if (CxTreeAuxSearch(self, "NNI", &treeAuxInd))
     {
 	// No aux registration.
-	data = (CxtTreeTbrData *) malloc(sizeof(CxtTreeTbrData));
+	data = (CxtTreeNniData *) malloc(sizeof(CxtTreeNniData));
 	if (data == NULL)
 	{
 	    rVal = true;
@@ -307,8 +307,8 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
 	data->nSetA = 0;
 	data->nSetB = 0;
 
-	if (CxTreeAuxRegister(self, "TBR", (void *) data,
-			      CxpTreeTbrCleanupFinal, NULL, &treeAuxInd))
+	if (CxTreeAuxRegister(self, "NNI", (void *) data,
+			      CxpTreeNniCleanupFinal, NULL, &treeAuxInd))
 	{
 	    free(data);
 	    rVal = true;
@@ -317,10 +317,10 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
     }
     else
     {
-	data = (CxtTreeTbrData *) CxTreeAuxData(self, treeAuxInd);
+	data = (CxtTreeNniData *) CxTreeAuxData(self, treeAuxInd);
     }
 
-    // Update data if the tree has changed, or if the TBR data have never been
+    // Update data if the tree has changed, or if the NNI data have never been
     // initialized.
     if (data->seq != CxTreeSeq(self))
     {
@@ -329,7 +329,7 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
 
 	// Traverse the tree, and initialize data->bisections along the way.
 	data->nBisections = 0;
-	if (CxTreeIterate(self, NULL, CxpTreeTbrBisectEdgeCallback, NULL, data))
+	if (CxTreeIterate(self, NULL, CxpTreeNniBisectEdgeCallback, NULL, data))
 	{
 	    rVal = true;
 	    goto RETURN;
@@ -340,14 +340,14 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
 	{
 	    // Calculate number of neighbors reachable from this bisection.
 	    CxEdgeRingsGet(data->bisections[i].edge, &ringA, &ringB);
-	    if (CxpTreeTbrBEdgeSetsGen(self, data, ringA, ringB))
+	    if (CxpTreeNniBEdgeSetsGen(self, data, ringA, ringB))
 	    {
 		rVal = true;
 		goto RETURN;
 	    }
 
 	    n = (data->nSetA * data->nSetB);
-	    // TBR can only be reversed for an edge that is attached to two
+	    // NNI can only be reversed for an edge that is attached to two
 	    // nodes of degree 3.
 	    degreeA = CxNodeDegree(CxRingNode(ringA));
 	    degreeB = CxNodeDegree(CxRingNode(ringB));
@@ -371,7 +371,7 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
 
 	// It may be that not all bisections result in neighbors, so the table
 	// may not be full.  Keep track of the number of valid elements (not
-	// counting the trailing one that stores the total number of TBR
+	// counting the trailing one that stores the total number of NNI
 	// neighbors).
 	data->nBisections = j;
 
@@ -384,12 +384,12 @@ CxpTreeTbrUpdate(CxtTreeObject *self, CxtTreeTbrData **rData)
     return rVal;
 }
 
-// As part of TBR, extract a node that has only two neighbors.  Take care to
+// As part of NNI, extract a node that has only two neighbors.  Take care to
 // leave reconnection edges in the tree.  Return NULL, unless there is only one
 // node in the subtree; in that case, return the node so that it can be used
 // directly during reconnection.
 CxmpInline CxtNodeObject *
-CxpTreeTbrNodeExtract(CxtTreeObject *self, CxtNodeObject *aNode,
+CxpTreeNniNodeExtract(CxtTreeObject *self, CxtNodeObject *aNode,
 		      CxtEdgeObject *aReconnectA, CxtEdgeObject *aReconnectB,
 		      CxtEdgeObject **arTEdges, unsigned *arNTEdges,
 		      CxtNodeObject **arTNodes, unsigned *arNTNodes)
@@ -515,7 +515,7 @@ CxpTreeTbrNodeExtract(CxtTreeObject *self, CxtNodeObject *aNode,
 
 // Splice a node into the middle of aEdge, and return the node.
 CxmpInline CxtNodeObject *
-CxpTreeTbrNodeSplice(CxtTreeObject *self, CxtEdgeObject *aEdge,
+CxpTreeNniNodeSplice(CxtTreeObject *self, CxtEdgeObject *aEdge,
 		     CxtEdgeObject **arTEdges, unsigned *arNTEdges,
 		     CxtNodeObject **arTNodes, unsigned *arNTNodes)
 {
@@ -564,11 +564,11 @@ CxpTreeTbrNodeSplice(CxtTreeObject *self, CxtEdgeObject *aEdge,
 
 // Comparison function that is passed to bsearch(3).
 static int
-CxpTreeTbrBisectionCompare(const void *aKey, const void *aVal)
+CxpTreeNniBisectionCompare(const void *aKey, const void *aVal)
 {
     int rVal;
-    const CxtTreeTbrBisection *key = (const CxtTreeTbrBisection *) aKey;
-    const CxtTreeTbrBisection *val = (const CxtTreeTbrBisection *) aVal;
+    const CxtTreeNniBisection *key = (const CxtTreeNniBisection *) aKey;
+    const CxtTreeNniBisection *val = (const CxtTreeNniBisection *) aVal;
 
     if (key->offset < val->offset)
     {
@@ -587,19 +587,19 @@ CxpTreeTbrBisectionCompare(const void *aKey, const void *aVal)
 }
 
 bool
-CxTreeTbrBEdgeSetsGet(CxtTreeObject *self, CxtEdgeObject *aEdge,
+CxTreeNniBEdgeSetsGet(CxtTreeObject *self, CxtEdgeObject *aEdge,
 		      CxtEdgeObject ***rSetA, unsigned *rNSetA,
 		      CxtRingObject **rRingA,
 		      CxtEdgeObject ***rSetB, unsigned *rNSetB,
 		      CxtRingObject **rRingB)
 {
     bool rVal;
-    CxtTreeTbrData *data;
+    CxtTreeNniData *data;
     CxtRingObject *ringA, *ringB;
 
     CxEdgeRingsGet(aEdge, &ringA, &ringB);
-    if (CxpTreeTbrUpdate(self, &data)
-	|| CxpTreeTbrBEdgeSetsGen(self, data, ringA, ringB))
+    if (CxpTreeNniUpdate(self, &data)
+	|| CxpTreeNniBEdgeSetsGen(self, data, ringA, ringB))
     {
 	rVal = true;
 	goto RETURN;
@@ -633,11 +633,11 @@ CxTreeTbrBEdgeSetsGet(CxtTreeObject *self, CxtEdgeObject *aEdge,
 }
 
 bool
-CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
+CxTreeNni(CxtTreeObject *self, CxtEdgeObject *aBisect,
 	  CxtEdgeObject *aReconnectA, CxtEdgeObject *aReconnectB)
 {
     bool rVal;
-    CxtTreeTbrData *data;
+    CxtTreeNniData *data;
     CxtRingObject *ringA, *ringB;
     CxtNodeObject *nodeA, *nodeB, *nodes[4] = {NULL, NULL, NULL, NULL};
     CxtEdgeObject *tEdges[2];
@@ -645,7 +645,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
     CxtNodeObject *tNodes[2];
     unsigned nTNodes = 0;
 
-    if (CxpTreeTbrUpdate(self, &data))
+    if (CxpTreeNniUpdate(self, &data))
     {
 	rVal = true;
 	goto RETURN;
@@ -713,14 +713,14 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
     // For node[AB], extract the node if it has only two neighbors.
     //
     // nodes[0..1] are NULL, unless they refer to the only node in a subtree.
-    nodes[0] = CxpTreeTbrNodeExtract(self, nodeA, aReconnectA, aReconnectB,
+    nodes[0] = CxpTreeNniNodeExtract(self, nodeA, aReconnectA, aReconnectB,
 				     tEdges, &nTEdges, tNodes, &nTNodes);
     // +1? nodeA === tNodes[nTNodes - 1]
     // +1? tEdges[nTEdges - 1]
     CxmAssert(nTEdges <= 2);
     CxmAssert(nTNodes <= 2);
 
-    nodes[1] = CxpTreeTbrNodeExtract(self, nodeB, aReconnectA, aReconnectB,
+    nodes[1] = CxpTreeNniNodeExtract(self, nodeB, aReconnectA, aReconnectB,
 				     tEdges, &nTEdges, tNodes, &nTNodes);
     // +1? nodeB === tNodes[nTNodes - 1]
     // +1? tEdges[nTEdges - 1]
@@ -733,7 +733,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
     // nodes[2..3] are set to NULL if no reconnection edge is specified.
     if (aReconnectA != NULL)
     {
-	nodes[2] = CxpTreeTbrNodeSplice(self, aReconnectA,
+	nodes[2] = CxpTreeNniNodeSplice(self, aReconnectA,
 					tEdges, &nTEdges, tNodes, &nTNodes);
 	// +1? nodes[2] === -1? tNodes[nTNodes]
 	// -1 tEdges[nTEdges]
@@ -745,7 +745,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
 
     if (aReconnectB != NULL)
     {
-	nodes[3] = CxpTreeTbrNodeSplice(self, aReconnectB,
+	nodes[3] = CxpTreeNniNodeSplice(self, aReconnectB,
 					tEdges, &nTEdges, tNodes, &nTNodes);
 	// +1? nodes[3] === -1? tNodes[nTNodes]
 	// -1 tEdges[nTEdges]
@@ -816,7 +816,7 @@ CxTreeTbr(CxtTreeObject *self, CxtEdgeObject *aBisect,
 }
 
 PyObject *
-CxTreeTbrPargs(CxtTreeObject *self, PyObject *args)
+CxTreeNniPargs(CxtTreeObject *self, PyObject *args)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
@@ -865,7 +865,7 @@ CxTreeTbrPargs(CxtTreeObject *self, PyObject *args)
 	reconnectB = NULL;
     }
 
-    if (CxTreeTbr(self, bisect, reconnectA, reconnectB))
+    if (CxTreeNni(self, bisect, reconnectA, reconnectB))
     {
 	rVal = PyErr_NoMemory();
 	goto RETURN;
@@ -878,12 +878,12 @@ CxTreeTbrPargs(CxtTreeObject *self, PyObject *args)
 }
 
 bool
-CxTreeTbrNEdgesGet(CxtTreeObject *self, unsigned *rNEdges)
+CxTreeNniNEdgesGet(CxtTreeObject *self, unsigned *rNEdges)
 {
     bool rVal;
-    CxtTreeTbrData *data;
+    CxtTreeNniData *data;
 
-    if (CxpTreeTbrUpdate(self, &data))
+    if (CxpTreeNniUpdate(self, &data))
     {
 	rVal = true;
 	goto RETURN;
@@ -897,12 +897,12 @@ CxTreeTbrNEdgesGet(CxtTreeObject *self, unsigned *rNEdges)
 }
 
 bool
-CxTreeTbrEdgeGet(CxtTreeObject *self, unsigned aEdge, CxtEdgeObject **rEdge)
+CxTreeNniEdgeGet(CxtTreeObject *self, unsigned aEdge, CxtEdgeObject **rEdge)
 {
     bool rVal;
-    CxtTreeTbrData *data;
+    CxtTreeNniData *data;
 
-    if (CxpTreeTbrUpdate(self, &data))
+    if (CxpTreeNniUpdate(self, &data))
     {
 	rVal = true;
 	goto RETURN;
@@ -917,12 +917,12 @@ CxTreeTbrEdgeGet(CxtTreeObject *self, unsigned aEdge, CxtEdgeObject **rEdge)
 }
 
 bool
-CxTreeTbrEdgeOffset(CxtTreeObject *self, unsigned aEdge, unsigned *rOffset)
+CxTreeNniEdgeOffset(CxtTreeObject *self, unsigned aEdge, unsigned *rOffset)
 {
     bool rVal;
-    CxtTreeTbrData *data;
+    CxtTreeNniData *data;
 
-    if (CxpTreeTbrUpdate(self, &data))
+    if (CxpTreeNniUpdate(self, &data))
     {
 	rVal = true;
 	goto RETURN;
@@ -937,12 +937,12 @@ CxTreeTbrEdgeOffset(CxtTreeObject *self, unsigned aEdge, unsigned *rOffset)
 }
 
 bool
-CxTreeTbrNNeighborsGet(CxtTreeObject *self, unsigned *rNNeighbors)
+CxTreeNniNNeighborsGet(CxtTreeObject *self, unsigned *rNNeighbors)
 {
     bool rVal;
-    CxtTreeTbrData *data;
+    CxtTreeNniData *data;
 
-    if (CxpTreeTbrUpdate(self, &data))
+    if (CxpTreeNniUpdate(self, &data))
     {
 	rVal = true;
 	goto RETURN;
@@ -963,7 +963,7 @@ CxTreeTbrNNeighborsGet(CxtTreeObject *self, unsigned *rNNeighbors)
 }
 
 PyObject *
-CxTreeTbrNNeighborsGetPargs(CxtTreeObject *self)
+CxTreeNniNNeighborsGetPargs(CxtTreeObject *self)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
@@ -972,7 +972,7 @@ CxTreeTbrNNeighborsGetPargs(CxtTreeObject *self)
 	;
     unsigned nneighbors;
 
-    if (CxTreeTbrNNeighborsGet(self, &nneighbors))
+    if (CxTreeNniNNeighborsGet(self, &nneighbors))
     {
 	rVal = PyErr_NoMemory();
 	goto RETURN;
@@ -984,17 +984,17 @@ CxTreeTbrNNeighborsGetPargs(CxtTreeObject *self)
 }
 
 bool
-CxTreeTbrNeighborGet(CxtTreeObject *self, unsigned aNeighbor,
+CxTreeNniNeighborGet(CxtTreeObject *self, unsigned aNeighbor,
 		     CxtEdgeObject **rBisect, CxtEdgeObject **rReconnectA,
 		     CxtEdgeObject **rReconnectB)
 {
     bool rVal;
-    CxtTreeTbrData *data;
-    CxtTreeTbrBisection key, *bisection;
+    CxtTreeNniData *data;
+    CxtTreeNniBisection key, *bisection;
     CxtRingObject *ringA, *ringB;
     unsigned rem, degreeA, degreeB;
 
-    if (CxpTreeTbrUpdate(self, &data))
+    if (CxpTreeNniUpdate(self, &data))
     {
 	rVal = true;
 	goto RETURN;
@@ -1004,14 +1004,14 @@ CxTreeTbrNeighborGet(CxtTreeObject *self, unsigned aNeighbor,
     CxmAssert(aNeighbor < data->bisections[data->nBisections].offset);
     key.offset = aNeighbor;
     bisection = bsearch(&key, data->bisections, data->nBisections,
-			sizeof(CxtTreeTbrBisection),
-			CxpTreeTbrBisectionCompare);
+			sizeof(CxtTreeNniBisection),
+			CxpTreeNniBisectionCompare);
     CxmCheckPtr(bisection);
     *rBisect = bisection->edge;
 
     // Get the reconnection edges.  The indices for a and b are mapped onto the
     // edges of each subtree, in a peculiar fashion.  The actual ordering isn't
-    // important, as long as it is consistent (repeatable) and correct (all TBR
+    // important, as long as it is consistent (repeatable) and correct (all NNI
     // neighbors are enumerated).  The edge index mapping can be summarized as
     // follows:
     //
@@ -1030,7 +1030,7 @@ CxTreeTbrNeighborGet(CxtTreeObject *self, unsigned aNeighbor,
 
     // Generate the edge lists.
     CxEdgeRingsGet(bisection->edge, &ringA, &ringB);
-    if (CxpTreeTbrBEdgeSetsGen(self, data, ringA, ringB))
+    if (CxpTreeNniBEdgeSetsGen(self, data, ringA, ringB))
     {
 	rVal = true;
 	goto RETURN;
@@ -1058,7 +1058,7 @@ CxTreeTbrNeighborGet(CxtTreeObject *self, unsigned aNeighbor,
 }
 
 PyObject *
-CxTreeTbrNeighborGetPargs(CxtTreeObject *self, PyObject *args)
+CxTreeNniNeighborGetPargs(CxtTreeObject *self, PyObject *args)
 {
     PyObject *rVal
 #ifdef CxmCcSilence
@@ -1074,7 +1074,7 @@ CxTreeTbrNeighborGetPargs(CxtTreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    if (CxTreeTbrNNeighborsGet(self, &nneighbors))
+    if (CxTreeNniNNeighborsGet(self, &nneighbors))
     {
 	rVal = PyErr_NoMemory();
 	goto RETURN;
@@ -1089,7 +1089,7 @@ CxTreeTbrNeighborGetPargs(CxtTreeObject *self, PyObject *args)
 	goto RETURN;
     }
 
-    if (CxTreeTbrNeighborGet(self, neighbor, &bisect, &reconnectA, &reconnectB))
+    if (CxTreeNniNeighborGet(self, neighbor, &bisect, &reconnectA, &reconnectB))
     {
 	rVal = PyErr_NoMemory();
 	goto RETURN;

@@ -16,7 +16,7 @@ import Edge
 import Ring
 import NewickParser
 import TaxonMap
-import crux
+import Crux
 import __builtin__
 
 import random
@@ -96,7 +96,7 @@ class _NewickParser(NewickParser.NewickParser):
                     self._taxonMap.map(self.token(), val)
                 else:
                     # Failed conversion.
-                    raise crux.Tree.ValueError, \
+                    raise Crux.Tree.ValueError, \
                           "At offset %d: No mapping for '%s'" \
                           % (self.offset(), self.token())
 
@@ -227,7 +227,7 @@ class Tree(C_Tree):
         return parser.parse(input)
 
     def _dup(self, newTree, node, prevRing):
-	newNode = crux.Node.Node(newTree)
+	newNode = Crux.Node.Node(newTree)
 	taxonNum = node.taxonNumGet()
 	if taxonNum != None:
 	    newNode.taxonNumSet(taxonNum)
@@ -240,7 +240,7 @@ class Tree(C_Tree):
 		otherRing = ring.other()
 		newOtherNode = self._dup(newTree, otherRing.node(), otherRing)
 
-		newEdge = crux.Edge.Edge(newTree)
+		newEdge = Crux.Edge.Edge(newTree)
 		newEdge.attach(newNode, newOtherNode)
 
 	    ring = ring.next()
@@ -249,7 +249,7 @@ class Tree(C_Tree):
 	return newNode
 	
     def dup(self):
-	newTree = crux.Tree.Tree()
+	newTree = Crux.Tree.Tree()
 	newNode = self._dup(newTree, self.baseGet(), None)
 	newTree.baseSet(newNode)
 
@@ -267,7 +267,7 @@ class Tree(C_Tree):
     def mpPrepare(self, cTMatrix, elimUninformative=True):
         # Make sure that taxon maps are identical.
         if not self._taxonMap.equal(cTMatrix.taxonMapGet()):
-            raise crux.Tree.ValueError(
+            raise Crux.Tree.ValueError(
                 "TaxonMaps for Tree and CTMatrix must be equal")
 
         self._mpPrepare(cTMatrix, elimUninformative)

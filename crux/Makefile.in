@@ -19,7 +19,7 @@ SHELL := /bin/sh
 # partial rebuilds.
 all:
 	@sh -c 'force=0; \
-		for f in @crux_headers@; do \
+		for f in @manual_deps@; do \
 			if @TEST@ "@objroot@/build.stamp" -ot "$$f"; then \
 				@ECHO@ Force full rebuild due to $$f; \
 				force=1; \

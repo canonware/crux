@@ -276,7 +276,7 @@ for matrix in matrices:
     try:
         print "==="
         print matrix
-        distMatrix = crux.DistMatrix.DistMatrix(matrix)
+        distMatrix = Crux.DistMatrix.DistMatrix(matrix)
         print distMatrix.render('full', '%.5f')
         print distMatrix.render('upper', '%.5f')
         print distMatrix.render('lower', '%.5f')
@@ -293,7 +293,7 @@ for matrix in matrices:
         f = tempfile.TemporaryFile()
         f.write(matrix)
         f.seek(0, 0)
-        distMatrix = crux.DistMatrix.DistMatrix(f)
+        distMatrix = Crux.DistMatrix.DistMatrix(f)
         print distMatrix.render(format='full', distFormat='%.5f')
         print distMatrix.render(distFormat='%.5f')
     except:
@@ -304,8 +304,8 @@ for matrix in matrices:
 
 try:
     print "==="
-    taxonMap = crux.TaxonMap.TaxonMap(['A', 'B', 'C'])
-    distMatrix = crux.DistMatrix.DistMatrix(taxonMap)
+    taxonMap = Crux.TaxonMap.TaxonMap(['A', 'B', 'C'])
+    distMatrix = Crux.DistMatrix.DistMatrix(taxonMap)
     print distMatrix.render('full', '%.5f')
 except:
     import sys

@@ -12,7 +12,7 @@
 import NexusParser
 import NexusParserBase
 
-import crux
+import Crux
 
 class NexusParserSyntaxError(NexusParserBase.NexusParserBase):
     def __init__(self, nexusParser, parent=None, siblingIndex=None,
@@ -24,7 +24,7 @@ class NexusParserSyntaxError(NexusParserBase.NexusParserBase):
         self._message = message
 
     def accessCallback(self):
-        raise crux.NexusParser.SyntaxError(
+        raise Crux.NexusParser.SyntaxError(
             self.nexusParser().inputName(),
             self.line(), self.column(), self.offset(),
             self._message)

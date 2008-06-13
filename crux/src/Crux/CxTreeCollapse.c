@@ -9,7 +9,7 @@
 //
 //==============================================================================
 
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 
 // Collapse the edge that aRing is part of.  At the end of this function, aRing,
 // edge, ringOther, and nodeOther will have been removed from the tree.

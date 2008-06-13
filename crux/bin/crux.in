@@ -12,7 +12,7 @@ def forints(n, start=0, step=1):
         i += step
 __builtin__.__dict__['forints'] = forints
 
-import crux
+import Crux
 
 import sys
 import os
@@ -80,9 +80,9 @@ def parse_options():
 #
 
 # Parse command line options.
-crux.opts = parse_options()
+Crux.opts = parse_options()
 
-if not crux.opts.batch and not crux.opts.execed:
+if not Crux.opts.batch and not Crux.opts.execed:
     # Precursor to interactive mode.
     #
     # In order for interactive command line editing to work in its full glory,
@@ -104,52 +104,52 @@ if not crux.opts.batch and not crux.opts.execed:
     # Not reached.
 
 # Seed the pseudo-random number generator.
-if crux.opts.seed == None:
-    crux.opts.seed = int(time.time())
-random.seed(crux.opts.seed)
+if Crux.opts.seed == None:
+    Crux.opts.seed = int(time.time())
+random.seed(Crux.opts.seed)
 
 # Print various info, if in quiet mode.
-if not crux.opts.quiet:
+if not Crux.opts.quiet:
     print "Crux, version @crux_version@"
 
     print "Start batch processing, %s" \
           % time.strftime("%Y/%m/%d %H:%M:%S (%Z)",
                           time.localtime(time.time()))
 
-    if crux.opts.batch:
+    if Crux.opts.batch:
         print "Batch mode"
     else:
         print "Interactive mode"
 
     print "Process ID: %d" % os.getpid()
 
-    print "Random number seed: %d" % crux.opts.seed
+    print "Random number seed: %d" % Crux.opts.seed
 
-    if crux.opts.infile == None:
+    if Crux.opts.infile == None:
         print "Input file: <stdin>"
     else:
-        print "Input file: '%s'" % crux.opts.infile
+        print "Input file: '%s'" % Crux.opts.infile
 
-    if crux.opts.outfile == None:
+    if Crux.opts.outfile == None:
         print "Output file: <stdout>"
     else:
-        print "Output file: '%s'" % crux.opts.outfile
+        print "Output file: '%s'" % Crux.opts.outfile
 
-    if crux.opts.logfile != None:
-        print "Log file: '%s'" % crux.opts.logfile
-    if len(crux.opts.scriptargs) != 0:
-        print "Script argument(s): %s" % crux.opts.scriptargs
+    if Crux.opts.logfile != None:
+        print "Log file: '%s'" % Crux.opts.logfile
+    if len(Crux.opts.scriptargs) != 0:
+        print "Script argument(s): %s" % Crux.opts.scriptargs
 
 # Do batch processing.
-if crux.opts.infile != None:
-    execfile(crux.opts.infile)
-elif crux.opts.batch:
+if Crux.opts.infile != None:
+    execfile(Crux.opts.infile)
+elif Crux.opts.batch:
     exec(os.stdin)
 
 # Print various info, if in quiet mode.
-if not crux.opts.quiet:
+if not Crux.opts.quiet:
     print "Stop batch processing, %s" \
           % time.strftime("%Y/%m/%d %H:%M:%S (%Z)",
                           time.localtime(time.time()))
-    if not crux.opts.batch:
+    if not Crux.opts.batch:
         print "Interactive mode."

@@ -47,7 +47,7 @@
 //
 //==============================================================================
 
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 
 // Constant vector a.
 #define CxmMtMatrixA 0x9908b0dfUL

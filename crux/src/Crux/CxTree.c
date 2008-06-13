@@ -10,7 +10,7 @@
 //==============================================================================
 
 #define CxmTree_c
-#include "../include/_cruxmodule.h"
+#include "Crux/_cruxmodule.h"
 
 #include <math.h>
 
@@ -1235,8 +1235,8 @@ CxTreeInit(void)
 
     // Pre-compile Python code that is used for creating a tree.
     CxpTreeNewCode = Py_CompileString("\
-import crux.Tree\n\
-tree = crux.Tree.Tree()\n\
+import Crux.Tree\n\
+tree = Crux.Tree.Tree()\n\
 ",
 				      "<string>",
 				      Py_file_input);
@@ -1773,8 +1773,8 @@ CxNodeInit(void)
 
     // Pre-compile Python code that is used for creating a node.
     CxpNodeNewCode = Py_CompileString("\
-import crux.Node\n\
-node = crux.Node.Node(tree)\n\
+import Crux.Node\n\
+node = Crux.Node.Node(tree)\n\
 ",
 				      "<string>",
 				      Py_file_input);
@@ -2413,8 +2413,8 @@ CxEdgeInit(void)
 
     // Pre-compile Python code that is used for creating a wrapped edge.
     CxpEdgeNewCode = Py_CompileString("\
-import crux.Edge\n\
-edge = crux.Edge.Edge(tree)\n\
+import Crux.Edge\n\
+edge = Crux.Edge.Edge(tree)\n\
 ",
 				      "<string>",
 				      Py_file_input);
@@ -3026,8 +3026,8 @@ CxRingInit(void)
 
     // Pre-compile Python code that is used for creating a wrapped ring.
     CxpRingNewCode = Py_CompileString("\
-import crux.Ring\n\
-ring = crux.Ring.Ring(edge, end)\n\
+import Crux.Ring\n\
+ring = Crux.Ring.Ring(edge, end)\n\
 ",
 				      "<string>",
 				      Py_file_input);

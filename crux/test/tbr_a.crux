@@ -5,13 +5,13 @@
 #
 ################################################################################
 #
-# Version: Crux <Version = crux>
+# Version: Crux <Version = Crux>
 #
 ################################################################################
 
 print "Test begin"
 
-taxonMap = crux.TaxonMap.TaxonMap(['A', 'B', 'C', 'D', 'E',
+taxonMap = Crux.TaxonMap.TaxonMap(['A', 'B', 'C', 'D', 'E',
                                    'F', 'G', 'H', 'I', 'J'])
 
 trees = ["(A,B);",
@@ -35,14 +35,14 @@ trees = ["(A,B);",
          ]
 
 for tree in trees:
-    s = crux.Tree.Tree(tree, taxonMap)
+    s = Crux.Tree.Tree(tree, taxonMap)
     s.canonize()
     print "====================================="
     sys.stdout.write("=== ")
     s.render(labels=True, outFile=sys.stdout)
     nNeighbors = s.tbrNNeighborsGet()
     for i in forints(nNeighbors):
-        t = crux.Tree.Tree(tree, taxonMap)
+        t = Crux.Tree.Tree(tree, taxonMap)
         t.canonize()
         tbrArgs = t.tbrNeighborGet(i)
         sys.stdout.write("%d/%d (%r, %r, %r) --> " \

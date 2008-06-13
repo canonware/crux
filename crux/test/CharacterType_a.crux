@@ -16,7 +16,7 @@ print "Test begin"
 #
 
 print "=== CharacterType ==="
-c = crux.CharacterType.CharacterType()
+c = Crux.CharacterType.CharacterType()
 
 for code in ['A', 'B', 'C', 'D']:
     print "==> stateCodeAdd(%r)" % code
@@ -112,7 +112,7 @@ except:
 #
 
 print "=== DnaCharacterType ==="
-c = crux.CharacterType.DnaCharacterType()
+c = Crux.CharacterType.DnaCharacterType()
 codes = c.codes()
 codes.sort()
 print "Codes: %r" % codes
@@ -125,7 +125,7 @@ for code in codes:
 # ProteinCharacterType tests.
 #
 print "=== ProteinCharacterType ==="
-c = crux.CharacterType.ProteinCharacterType()
+c = Crux.CharacterType.ProteinCharacterType()
 codes = c.codes()
 codes.sort()
 print "Codes: %r" % codes

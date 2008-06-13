@@ -11,7 +11,7 @@
 
 print "Test begin"
 
-ctm = crux.CTMatrix.CTMatrix()
+ctm = Crux.CTMatrix.CTMatrix()
 ctm.fastaParse("""
 >a
 C
@@ -26,7 +26,7 @@ G
 """)
 
 taxonMap = ctm.taxonMapGet()
-t = crux.Tree.Tree('((a,b),(c,(d,e)));', taxonMap=taxonMap)
+t = Crux.Tree.Tree('((a,b),(c,(d,e)));', taxonMap=taxonMap)
 
 t.mpPrepare(ctm)
 
