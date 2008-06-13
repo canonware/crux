@@ -52,7 +52,7 @@ class Node(C_Node):
         # Iterate through neighbors.
         ring = self.ring()
         if ring != None:
-            for i in forints(self.degree()):
+            for i in xrange(self.degree()):
                 # Get the node on the other end of the edge.  If it isn't prev,
                 # recurse.
                 neighbor = ring.other().node()

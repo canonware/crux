@@ -98,7 +98,7 @@ class CTMatrix(object):
             if self.dataGet(taxon) != None:
                 callback(">%s\n" % taxon)
                 # Break into lines of length 75.
-                for i in forints(len(self.dataGet(taxon)), step=75):
+                for i in xrange(0, len(self.dataGet(taxon)), 75):
                     if i + 75 < len(self.dataGet(taxon)):
                         callback("%s\n" % self.dataGet(taxon)[i:i+75])
                     else:

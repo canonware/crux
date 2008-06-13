@@ -28,7 +28,7 @@ class TaxonMap(object):
 
         # Construct dictionaries for lookups in both directions.
         if taxa != None:
-            for i in forints(len(taxa)):
+            for i in xrange(len(taxa)):
                 self._label2ind[taxa[i]] = i
                 self._ind2label[i] = taxa[i]
 

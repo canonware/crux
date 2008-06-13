@@ -109,7 +109,7 @@ class NexusParserFile(NexusParserBase.NexusParserBase):
         if self.finished():
             rVal = None
             nChildren = self.nChildren()
-            for i in forints(nChildren, 1):
+            for i in xrange(nChildren, 1):
                 child = self.child(i)
                 if child.blockName() == name:
                     rVal = child

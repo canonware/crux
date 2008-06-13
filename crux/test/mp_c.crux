@@ -31,11 +31,11 @@ trees.append(t)
 t = Crux.Tree.Tree(500, taxonMap=taxonMap)
 trees.append(t)
 
-for i in forints(2):
+for i in xrange(2):
     t = matrix.rnj(joinRandom=True, tryAdditive=False)
     trees.append(t)
 
-for i in forints(1):
+for i in xrange(1):
     t = matrix.nj(joinRandom=True)
     trees.append(t)
 
@@ -47,7 +47,7 @@ for how in ("all", "better", "best"):
         t.mpPrepare(ctm)
         print "Initial tree has score %d" % t.mp()
 
-        for i in forints(5):
+        for i in xrange(5):
             print i
 
             print "  Neighbors: %d" % t.tbrNNeighborsGet()

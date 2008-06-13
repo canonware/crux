@@ -45,7 +45,7 @@ for testMatrix in testMatrices:
     t.canonize()
     t.render(labels=True, lengths=True, lengthFormat="%.0f", outFile=sys.stdout)
 
-    for i in forints(10):
+    for i in xrange(10):
         matrix = Crux.DistMatrix.DistMatrix(testMatrix)
         matrix.shuffle()
         t = matrix.rnj()
@@ -56,7 +56,7 @@ for testMatrix in testMatrices:
         t.render(labels=True, lengths=True, lengthFormat="%.0f",
                  outFile=sys.stdout)
 
-    for i in forints(10):
+    for i in xrange(10):
         matrix = Crux.DistMatrix.DistMatrix(testMatrix)
         t = matrix.rnj(joinRandom=True, tryAdditive=True)
 

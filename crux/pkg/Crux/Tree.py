@@ -61,7 +61,7 @@ class _NewickParser(NewickParser.NewickParser):
             nnode = Node.Node(self._tree)
 
             # Iteratively connect neighboring nodes to nnode.
-            for i in forints(cnt):
+            for i in xrange(cnt):
                 if type(self._taxonStack[0]) == float:
                     length = self._taxonStack.pop(0)
                 else:

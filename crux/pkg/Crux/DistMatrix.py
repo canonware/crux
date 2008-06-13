@@ -119,7 +119,7 @@ class DistMatrix(C_DistMatrix):
         # Shuffle the TaxonMap.
         taxonMap = self.taxonMapGet()
         labels = taxonMap.taxaGet()
-        for i in forints(self.ntaxaGet()):
+        for i in xrange(self.ntaxaGet()):
             taxonMap.map(labels[order[i]], i, replace=True)
 
     # Construct a neighbor joining (NJ) tree from the distance matrix.

@@ -40,7 +40,7 @@ class NexusParserBlock(NexusParserBase.NexusParserBase):
         if self.finished():
             rVal = None
             nChildren = self.nChildren()
-            for i in forints(nChildren - 2, 2):
+            for i in xrange(nChildren - 2, 2):
                 child = self.child()
                 if child.commandName() == command:
                     rVal = child
