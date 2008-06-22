@@ -129,6 +129,8 @@ import re
 import sys
 import types
 
+global __name__
+
 #===============================================================================
 # Begin exceptions.
 #
@@ -274,7 +276,10 @@ Following are some examples of how to specify precedence classes:
 class SymbolSpec(object):
     seq = 0
 
-    def __init__(self, name, prec):
+    def __init__(self, name=None, prec=None):
+        if name == None:
+            return
+
         assert type(name) == str
 
         self.name = name
@@ -285,6 +290,15 @@ class SymbolSpec(object):
         # Used for ordering symbols and hashing.
         self.seq = SymbolSpec.seq
         SymbolSpec.seq += 1
+
+    def __reduce__(self):
+        return (type(self), (), self.__getstate__())
+
+    def __getstate__(self):
+        return (self.name, self.prec, self.firstSet, self.followSet, self.seq)
+
+    def __setstate__(self, data):
+        (self.name, self.prec, self.firstSet, self.followSet, self.seq) = data
 
     def __repr__(self):
         return "%s" % self.name
@@ -405,7 +419,10 @@ class Symbol(object):
     parser = property(__getParser, __setParser)
 
 class NontermSpec(SymbolSpec):
-    def __init__(self, nontermType, name, qualified, prec):
+    def __init__(self, nontermType=None, name=None, qualified=None, prec=None):
+        if nontermType == None:
+            return
+
         assert issubclass(nontermType, Nonterm) # Add forward decl for Lyken.
 
         SymbolSpec.__init__(self, name, prec)
@@ -413,6 +430,26 @@ class NontermSpec(SymbolSpec):
         self.qualified = qualified
         self.nontermType = nontermType
         self.productions = [] # Set.
+
+    def __reduce__(self):
+        return (type(self), (), self.__getstate__())
+
+    def __getstate__(self):
+        return (SymbolSpec.__getstate__(self), self.qualified, self.productions)
+
+    def __setstate__(self, data):
+        (SymbolSpec_data, qualified, productions) = data
+
+        SymbolSpec.__setstate__(self, SymbolSpec_data)
+
+        # Convert qualified name to a type reference.
+        elms = qualified.split(".")
+        nontermType = sys.modules[elms[0]]
+        for elm in elms[1:]:
+            nontermType = nontermType.__dict__[elm]
+
+        (self.qualified, self.nontermType, self.productions) = \
+          (qualified, nontermType, productions)
 
 class Nonterm(Symbol):
     """
@@ -522,32 +559,54 @@ then derive all actual token types from that class.
 
 # AKA terminal symbol.
 class TokenSpec(SymbolSpec):
-    def __init__(self, tokenType, name, prec):
+    def __init__(self, tokenType=None, name=None, qualified=None, prec=None):
+        if tokenType == None:
+            return
+
         assert issubclass(tokenType, Token)
         assert type(name) == str
         assert isinstance(prec, Precedence) or type(prec) == str
 
         SymbolSpec.__init__(self, name, prec)
+
+        self.qualified = qualified
+        self.tokenType = tokenType
+
+    def __reduce__(self):
+        return (type(self), (), self.__getstate__())
+
+    def __getstate__(self):
+        return (SymbolSpec.__getstate__(self), self.qualified)
+
+    def __setstate__(self, data):
+        (SymbolSpec_data, qualified) = data
+
+        SymbolSpec.__setstate__(self, SymbolSpec_data)
+
+        # Convert qualified name to a type reference.
+        elms = qualified.split(".")
+        tokenType = sys.modules[elms[0]]
+        for elm in elms[1:]:
+            tokenType = tokenType.__dict__[elm]
+
         self.tokenType = tokenType
 
 # <$>.
 class EndOfInput(Token): pass
-class EndOfInputSpec(TokenSpec):
-    def __init__(self):
-        TokenSpec.__init__(self, EndOfInput, "<$>", "none")
-eoi = EndOfInputSpec()
+eoi = TokenSpec(EndOfInput, "<$>", "%s.EndOfInput" % __name__, "none")
 
 # <e>.
 class Epsilon(Token): pass
-class EpsilonSpec(TokenSpec):
-    def __init__(self):
-        TokenSpec.__init__(self, Epsilon, "<e>", "none")
-epsilon = EpsilonSpec()
+epsilon = TokenSpec(Epsilon, "<e>", "%s.Epsilon" % __name__, "none")
 
 class Production(object):
     seq = 0
 
-    def __init__(self, method, qualified, prec, lhs, rhs):
+    def __init__(self, method=None, qualified=None, prec=None, lhs=None,
+      rhs=None):
+        if (method == None):
+            return
+
         assert isinstance(prec, Precedence)
         assert isinstance(lhs, NontermSpec)
         if __debug__:
@@ -563,6 +622,9 @@ class Production(object):
         # Used for hashing.
         self.seq = Production.seq
         Production.seq += 1
+
+    def __reduce__(self):
+        return (type(self), (), self.__getstate__())
 
     def __getstate__(self):
         return (self.qualified, self.prec, self.lhs, self.rhs, self.seq)
@@ -1122,6 +1184,7 @@ the Parser class for parsing.
         #   <S> ::= S <$>.
         assert self._startSym == None
         assert isinstance(self._userStartSym, NontermSpec)
+        print "__name__: %r" % __name__
         self._startSym = NontermSpec(NontermStart, "<S>",
           "%s.NontermStart" % __name__, self._none)
         self._startProd = Production(NontermStart.reduce.im_func,
@@ -1174,6 +1237,8 @@ the Parser class for parsing.
         if self._skinny:
             # Discard data that are not needed during parsing.  Note that
             # _pickle() also discarded data that don't even need to be pickled.
+            del self._none
+            del self._split
             del self._precedences
             del self._nonterms
             del self._tokens
@@ -1247,7 +1312,7 @@ the Parser class for parsing.
                     # Token.
                     #
                     elif issubclass(v, Token) and dirtoks[0] in ["%token"]:
-                        name = k
+                        name = None
                         prec = None
                         i = 1
                         while i < len(dirtoks):
@@ -1268,6 +1333,10 @@ the Parser class for parsing.
                                       "Invalid token specification: %s" % \
                                       v.__doc__
                             i += 1
+                        if name == None:
+                            name = k
+                        if prec == None:
+                            prec = "none"
                         if name in self._precedences:
                             raise SpecError, \
                               "Identical precedence/token names: %s" % v.__doc__
@@ -1277,9 +1346,8 @@ the Parser class for parsing.
                         if name in self._nonterms:
                             raise SpecError, \
                               "Identical nonterm/token names: %s" % v.__doc__
-                        if prec == None:
-                            prec = "none"
-                        token = TokenSpec(v, name, prec)
+                        token = TokenSpec(v, name,
+                          "%s.%s" % (module.__name__, k), prec)
                         self._tokens[name] = token
                         self._sym2spec[v] = token
                     #===========================================================
@@ -1324,7 +1392,7 @@ the Parser class for parsing.
                             raise SpecError, \
                               "Duplicate nonterm name: %s" % v.__doc__
                         nonterm = NontermSpec(v, name,
-                          "%s.%s" % (module.__name__, name), prec)
+                          "%s.%s" % (module.__name__, k), prec)
                         self._nonterms[name] = nonterm
                         self._sym2spec[v] = nonterm
 
