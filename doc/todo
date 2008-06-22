@@ -1,3 +1,15 @@
+=== Conversion to Cython =======================================================
+
+* Optimize Parsing.pyx.
+
+* Rewrite Nexus parser using Parsing.
+
+* Rewrite Tree using Cython.  Keep the SSE2/AltiVEC code working.
+
+* Rewrite other parsers using Parsing/Cython.
+
+* Remove partial Nexus parser and write one using Parsing.
+
 === Lewis crossover experiment =================================================
 
 * Use CTMatrix to prepare trees for MP.  This will potentially be important,
@@ -37,32 +49,13 @@
 * Use tree validation API to make sure that the CxTreeRf.c code doesn't blow up
   on trees with non-contiguous taxon numbers.
 
-* Find out whether it's possible to write a Python class such that methods are
-  written in either Python or C.  If this is possible, it would allow me to
-  vastly simplify the way new nodes/edges/rings are created.
-
-  The example in 16.5 of _The_Python_Cookbook_ looks like it may provide a
-  mechanism for creating classes that have a mutable methods dictionary.  If so,
-  it will require quite a bit of code restructuring, but it may be possible to
-  merge the C/Python portions of all of crux's classes.
-
 === General maintenance ========================================================
-
-* Write a nexus parser.
 
 * Uniformly use standard malloc(3) APIs, catch and return errors.  Then, remove
   CxXep and CxMem.
 
 * Remove CxQri, CxQli, and CxQsi, after they are no longer used by the tree
   code.
-
-* It looks like the python code that is used to create tree/node/edge/ring
-  objects could be sped up quite a bit.  Right now, it imports, then does a
-  lookup of something like crux.Ring.Ring, then calls the constructor.  Instead,
-  the constructor could probably be looked up once, then called directly.  The
-  node/edge/ring constructors just pass, so they can probably be removed
-  completely, which would mean no python code interpretation for node/edge/ring
-  object creation.
 
 === General features ===========================================================
 
@@ -144,8 +137,6 @@
   redefine sys.argv, call the option parser, then restore sys.argv.
 
 * Add interactive help.
-
-* Create rpm for crux.
 
 * Add documentation infrastructure, as well as full documentation of APIs.
 
