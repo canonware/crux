@@ -82,6 +82,7 @@ distclean: clean
 relclean: distclean
 	rm -rf @objroot@/autom4te.cache
 	rm -f @objroot@/configure
+	rm -f $(patsubst @srcroot@%.pyx, @objroot@%.c, @crux_pyx@)
 
 # Re-configuration rules.
 ifeq (@enable_autogen@, 1)

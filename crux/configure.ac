@@ -220,6 +220,12 @@ for t in `find ${srcroot}/test -type f |grep "\.crux$"`; do
 done
 AC_SUBST([crux_tests])
 
+crux_pyx=""
+for g in `find ${srcroot}/src -type f |grep "\.pyx$"`; do
+  crux_pyx="${crux_cython_gens} ${g}"
+done
+AC_SUBST([crux_pyx])
+
 dnl Check for typedefs, structures, and compiler characteristics.
 AC_C_BIGENDIAN
 AC_HEADER_STDBOOL
