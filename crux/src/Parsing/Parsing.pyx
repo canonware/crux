@@ -131,9 +131,6 @@ import types
 
 global __name__
 
-cdef extern from "stdlib.h":
-    int strcmp(char *a, char *b)
-
 #===============================================================================
 # Begin exceptions.
 #
@@ -346,7 +343,7 @@ cdef class SymbolSpec:
         else:
             return NotImplemented
 
-    cpdef firstSetMerge(self, SymbolSpec sym):
+    cdef bint firstSetMerge(self, SymbolSpec sym):
         for 0 <= i < len(self.firstSet):
             elm = self.firstSet[i]
             if sym == elm:
@@ -354,7 +351,7 @@ cdef class SymbolSpec:
         self.firstSet.append(sym)
         return False
 
-    cpdef followSetMerge(self, list set):
+    cdef bint followSetMerge(self, list set):
         ret = True
         for 0 <= i < len(set):
             sym = set[i]
@@ -795,7 +792,7 @@ cdef class Item:
 
         return "".join(strs)
 
-    cpdef lr0__repr__(self):
+    cdef lr0__repr__(self):
         strs = []
         strs.append("%r ::=" % self.production.lhs)
         assert self.dotPos <= len(self.production.rhs)
@@ -811,10 +808,10 @@ cdef class Item:
 
         return "".join(strs)
 
-    cpdef lookaheadInsert(self, SymbolSpec sym):
+    cdef void lookaheadInsert(self, SymbolSpec sym):
         self.lookahead[sym] = sym
 
-    cpdef lookaheadDisjoint(self, Item other):
+    cdef bint lookaheadDisjoint(self, Item other):
         cdef dict sLookahead, oLookahead
         cdef SymbolSpec sSym, oSym
         cdef list keys
@@ -914,7 +911,7 @@ cdef class ItemSet:
         return _ItemSetIterHelper(self._items, self._added)
 
     # Merge a kernel item.
-    cpdef append(self, Item item):
+    cdef void append(self, Item item):
         cdef Item tItem
 
         assert item.production.lhs.name == "<S>" or item.dotPos != 0
@@ -926,7 +923,7 @@ cdef class ItemSet:
             self._items[tItem] = tItem
 
     # Merge an added item.
-    cpdef bint addedAppend(self, Item item):
+    cdef bint addedAppend(self, Item item):
         cdef dict lookahead
         cdef int oldLen
 
@@ -944,7 +941,7 @@ cdef class ItemSet:
 
     # Given a list of items, compute their closure and merge the results into
     # the set of added items.
-    cpdef _closeItems(self, list items):
+    cdef void _closeItems(self, list items):
         cdef int i, dotPos
         cdef list rhs
         cdef Item item, tItem
@@ -969,7 +966,7 @@ cdef class ItemSet:
             i += 1
 
     # Calculate and merge the kernel's transitive closure.
-    cpdef closure(self):
+    cdef void closure(self):
         cdef list items, rhs
         cdef Item item, tItem
         cdef int dotPos
@@ -993,7 +990,7 @@ cdef class ItemSet:
         self._closeItems(items)
 
     # Calculate the kernel of the goto set, given a particular symbol.
-    cpdef ItemSet xgoto(self, SymbolSpec sym):
+    cdef ItemSet xgoto(self, SymbolSpec sym):
         cdef ItemSet ret
         cdef Item item
         cdef list items, rhs
@@ -1017,7 +1014,7 @@ cdef class ItemSet:
     # Merge the kernel of other into this ItemSet, then update the closure.
     # It is not sufficient to copy other's added items, since other has not
     # computed its closure.
-    cpdef bint merge(self, ItemSet other):
+    cdef bint merge(self, ItemSet other):
         cdef list items
         cdef Item item, tItem
         cdef dict lookahead, tLookahead
@@ -1048,8 +1045,9 @@ cdef class ItemSet:
 
     # Determine if self and other are weakly compatible, as defined by the
     # Pager(1977) algorithm.
-    cpdef bint weakCompat(self, ItemSet other):
+    cdef bint weakCompat(self, ItemSet other):
         cdef int i, j
+        cdef Item isItem, ioItem, jsItem, joItem
 
         # Check for identical kernel LR(0) items, and pair items, for later use.
         if len(self) != len(other):
@@ -1417,7 +1415,8 @@ verbose : If true, print progress information while generating the
         ret = "\n".join(lines)
         return ret
 
-    cdef _prepare(self, modules, pickleFile, pickleMode, logFile, graphFile):
+    cdef void _prepare(self, modules, pickleFile, pickleMode, logFile,
+      graphFile):
         """
 Compile the specification into data structures that can be used by
 the Parser class for parsing.
@@ -1492,7 +1491,7 @@ the Parser class for parsing.
     # Introspect modules and find special parser declarations.  In order to be
     # a special class, the class must both 1) be subclassed from Token or
     # Nonterm, and 2) contain the appropriate %foo docstring.
-    cdef _introspect(self, modules):
+    cdef void _introspect(self, modules):
         if self._verbose:
             print ("Parsing.Spec: Introspecting module%s to acquire formal" + \
             " grammar specification...") % ("s", "")[len(modules) == 1]
@@ -1653,7 +1652,7 @@ the Parser class for parsing.
             raise SpecError, "No start symbol specified"
 
     # Resolve all symbolic (named) references.
-    cdef _references(self, logFile, graphFile):
+    cdef void _references(self, logFile, graphFile):
         # Build the graph of Precedence relationships.
         self._resolvePrec(graphFile)
 
@@ -1725,7 +1724,7 @@ the Parser class for parsing.
               nproductions, ("s", "")[nproductions == 1])
 
     # Build the graph of Precedence relationships.
-    cdef _resolvePrec(self, graphFile):
+    cdef void _resolvePrec(self, graphFile):
         # Resolve symbolic references and populate equiv/dominators.
         for precA in self._precedences.itervalues():
             for precBName in precA.relationships:
@@ -1824,7 +1823,7 @@ the Parser class for parsing.
             raise SpecError, "\n".join(cycles)
 
     # Store state to a pickle file, if requested.
-    cdef _pickle(self, file, mode):
+    cdef void _pickle(self, file, mode):
         if self._skinny:
             # Discard bulky data that don't need to be pickled.
             #self._startSym = ...
@@ -1862,14 +1861,14 @@ the Parser class for parsing.
 
             # Any exception at all in unpickling can be assumed to be due to
             # an incompatible pickle.
-            #try:
-            spec = cPickle.load(f)
-            #except:
-            #    if self._verbose:
-            #        error = sys.exc_info()
-            #        print "Parsing.Spec: Pickle load failed: Exception %s: %s" \
-            #          % (error[0], error[1])
-            #    return "incompatible"
+            try:
+                spec = cPickle.load(f)
+            except:
+                if self._verbose:
+                    error = sys.exc_info()
+                    print "Parsing.Spec: Pickle load failed: Exception %s: %s" \
+                      % (error[0], error[1])
+                return "incompatible"
 
             compat = self._compatible(spec)
             if compat == "incompatible":
@@ -2105,7 +2104,7 @@ the Parser class for parsing.
 
     # Check for unused prececence/token/nonterm/reduce specifications, then
     # throw a SpecError if any ambiguities exist in the grammar.
-    cdef _validate(self, logFile):
+    cdef void _validate(self, logFile):
         if self._verbose:
             print "Parsing.Spec: Validating grammar..."
 
@@ -2194,7 +2193,11 @@ the Parser class for parsing.
             sys.stdout.write("%s\n" % "\n".join(lines))
 
     # Compute the first sets for all symbols.
-    cdef _firstSets(self):
+    cdef void _firstSets(self):
+        cdef SymbolSpec sym, elm, elmSym
+        cdef bint done, containsEpsilon
+        cdef Production prod
+
         # Terminals.
         # first(X) is X for terminals.
         for sym in self._tokens.itervalues():
@@ -2229,11 +2232,11 @@ the Parser class for parsing.
                             break
 
     # Compute the follow sets for all symbols.
-    cdef _followSets(self):
+    cdef void _followSets(self):
         cdef int i, j
         cdef bint done
         cdef object name
-        cdef SymbolSpec sym
+        cdef SymbolSpec sym, rhsSym
         cdef Production prod
 
         self._startSym.followSet = [epsilon]
@@ -2249,8 +2252,8 @@ the Parser class for parsing.
                     # For all A ::= aBb, merge first(b) into follow(B).
                     for 0 <= i < len(prod.rhs) - 1:
                         for i+1 <= j < len(prod.rhs):
-                            if not prod.rhs[i].followSetMerge( \
-                              prod.rhs[j].firstSet):
+                            rhsSym = prod.rhs[i]
+                            if not rhsSym.followSetMerge(prod.rhs[j].firstSet):
                                 done = False
                             if epsilon not in prod.rhs[j].firstSet:
                                 break
@@ -2258,13 +2261,14 @@ the Parser class for parsing.
                     # For A ::= ab, or A ::= aBb where first(b) contains <e>,
                     # merge follow(A) into follow(B).
                     for len(prod.rhs)-1 >= i > -1:
-                        if not prod.rhs[i].followSetMerge(prod.lhs.followSet):
+                        rhsSym = prod.rhs[i]
+                        if not rhsSym.followSetMerge(prod.lhs.followSet):
                             done = False
                         if epsilon not in prod.rhs[i].firstSet:
                             break
 
     # Compute the collection of sets of LR(1) items.
-    cdef _items(self):
+    cdef void _items(self):
         cdef ItemSet tItemSet, itemSet, gotoSet, mergeSet
         cdef Item tItem
         cdef list worklist, syms
@@ -2340,7 +2344,7 @@ the Parser class for parsing.
         self._itemSetsHash = itemSetsHash
 
     # Compute LR parsing tables.
-    cdef _lr(self):
+    cdef void _lr(self):
         cdef dict itemSetsHash
         cdef ItemSet itemSet, itemSetB, itemSetC
         cdef dict state
@@ -2414,7 +2418,7 @@ the Parser class for parsing.
             sys.stdout.flush()
 
     # Add a symbol action to state, if the action doesn't already exist.
-    cdef _actionAppend(self, state, sym, action):
+    cdef void _actionAppend(self, state, sym, action):
         assert type(state) == dict
         assert isinstance(sym, SymbolSpec)
         assert isinstance(action, Action)
@@ -2427,7 +2431,7 @@ the Parser class for parsing.
                 state[sym].append(action)
 
     # Look for action ambiguities and resolve them if possible.
-    cdef _disambiguate(self):
+    cdef void _disambiguate(self):
         assert self._nActions == 0
         assert self._nConflicts == 0
         assert self._nImpure == 0
