@@ -273,8 +273,8 @@ class Tree(C_Tree):
         self._mpPrepare(cTMatrix, elimUninformative)
 
     # Render the tree in Newick format to a string or a file.
-    def render(self, labels=False, lengths=False, lengthFormat="%.5e",
-               outFile=None):
+    def render(self, rooted=False, labels=False, lengths=False,
+      lengthFormat="%.5e", outFile=None):
         # Set up for sending output to either a string or a file.
         if outFile == None:
             callback = self._stringRenderCallback
@@ -293,9 +293,13 @@ class Tree(C_Tree):
                 if ring != None:
                     neighbor = ring.other().node()
                     if neighbor.taxonNumGet() == None:
-                        # Start with the internal node.
-                        neighbor.rrender(None, self._taxonMap, labels, lengths,
-                                         lengthFormat, callback)
+                        if rooted:
+                            n.rrender(None, self._taxonMap, labels, lengths,
+                              lengthFormat, callback)
+                        else:
+                            # Start with the internal node.
+                            neighbor.rrender(None, self._taxonMap, labels,
+                              lengths, lengthFormat, callback)
                         callback(";")
                     else:
                         # This tree only has two taxa; start with the tree base.
