@@ -50,14 +50,13 @@
 #
 ################################################################################
 
-from C_DistMatrix import *
-import TaxonMap
-import Tree
+from TaxonMap cimport TaxonMap
+from Tree cimport Tree
 import Crux
 
 import random
 
-class DistMatrix(C_DistMatrix):
+cdef class DistMatrix:
     # Construct a DistMatrix from one of the following inputs:
     #
     #   str : Parse the string as a distance matrix.
@@ -76,13 +75,13 @@ class DistMatrix(C_DistMatrix):
         #
         # Also, make sure to pass in a TaxonMap.
         if type(input) == file or type(input) == str:
-            C_DistMatrix._parse(self, input, TaxonMap.TaxonMap(), symmetric)
-        elif type(input) == TaxonMap.TaxonMap:
-            C_DistMatrix._parse(self, None, input, symmetric)
+            self._parse(input, TaxonMap(), symmetric)
+        elif type(input) == TaxonMap:
+            self._parse(None, input, symmetric)
         elif type(input) == DistMatrix:
             if sample == None:
-                taxonMap = TaxonMap.TaxonMap(input.taxonMapGet().taxaGet())
-                C_DistMatrix._dup(self, input, taxonMap)
+                taxonMap = TaxonMap(input.taxonMapGet().taxaGet())
+                self._dup(input, taxonMap)
             else:
                 if sample < 2 or sample > input.ntaxaGet():
                     raise Crux.DistMatrix\
@@ -95,17 +94,58 @@ class DistMatrix(C_DistMatrix):
                 # Create a sample of rows.
                 rows = random.sample(range(input.ntaxaGet()), sample)
 
-                # Construct a TaxonMap for the new DistMatrix.
+                # Construct a TaxoMap for the new DistMatrix.
                 inputMap = input.taxonMapGet()
-                taxonMap = TaxonMap.TaxonMap()
+                taxonMap = TaxonMap()
                 for row in rows:
                     taxonMap.map(inputMap.labelGet(row), taxonMap.ntaxaGet())
 
-                C_DistMatrix._sample(self, input, taxonMap, rows)
+                self._sample(input, taxonMap, rows)
         else:
             raise Crux.DistMatrix\
                   .ValueError(
                 "input: File, string, TaxonMap, or DistMatrix expected")
+
+    cdef void _parse(self, input, TaxonMap taxonMap, bint symmetric):
+        pass # XXX
+
+    # XXX Make a property.
+    cdef int ntaxaGet(self):
+        pass # XXX
+
+    # XXX Make a property.
+    cdef bint isSymmetric(self):
+        pass # XXX
+
+    cdef DistMatrix _dup(self, input, TaxonMap taxonMap):
+        pass # XXX
+
+    cdef DistMatrix _sample(self, input, TaxonMap taxonMap, list rows):
+        pass # XXX
+
+    # XXX Make a property.
+    cdef TaxonMap taxonMapGet(self):
+        pass # XXX
+
+    # XXX Make a property.
+    cdef float distanceGet(self, int x, int y):
+        pass # XXX
+    cdef void distanceSet(self, int x, int y, float distance):
+        pass # XXX
+
+    cdef void _matrixShuffle(self, list order):
+        pass # XXX
+
+    cdef Tree _nj(self, bint random):
+        rVal = Tree(taxonMap=self.taxonMapGet())
+        pass # XXX
+
+    cdef Tree _rnj(self, bint random, bint additive):
+        rVal = Tree(taxonMap=self.taxonMapGet())
+        pass # XXX
+
+    cdef _render(self, format, distFormat, file file_=None):
+        pass # XXX
 
     # Randomly shuffle the order of rows/columns in the distance matrix, and
     # make corresponding changes to the TaxonMap.
@@ -124,23 +164,17 @@ class DistMatrix(C_DistMatrix):
 
     # Construct a neighbor joining (NJ) tree from the distance matrix.
     def nj(self, joinRandom=False, destructive=False):
-        rVal = Tree.Tree(taxonMap=self.taxonMapGet())
         if (destructive):
-            self._nj(rVal, joinRandom)
+            return self._nj(joinRandom)
         else:
-            DistMatrix(self)._nj(rVal, joinRandom)
-
-        return rVal
+            return DistMatrix(self)._nj(joinRandom)
 
     # Construct a relaxed neighbor joining (RNJ) tree from the distance matrix.
     def rnj(self, joinRandom=False, tryAdditive=True, destructive=False):
-        rVal = Tree.Tree(taxonMap=self.taxonMapGet())
         if (destructive):
-            self._rnj(rVal, joinRandom, tryAdditive)
+            return self._rnj(joinRandom, tryAdditive)
         else:
-            DistMatrix(self)._rnj(rVal, joinRandom, tryAdditive)
-
-        return rVal
+            return DistMatrix(self)._rnj(joinRandom, tryAdditive)
 
     # Print the matrix to a string in 'full', 'upper', or 'lower' format.
     def render(self, format=None, distFormat="%.5e", outFile=None):
@@ -159,4 +193,3 @@ class DistMatrix(C_DistMatrix):
             rVal = self._render(format, " " + distFormat, outFile)
 
         return rVal
-#EOF

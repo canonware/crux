@@ -9,9 +9,15 @@
 #
 ################################################################################
 
-from C_Ring import *
+import Tree
+import Node
+import Edge
+import Ring
 
-class Ring(C_Ring):
-    def __init__(self, edge, end):
-        pass
-#EOF
+import DistMatrix
+import FastaParser
+import NewickParser
+import NexusParser
+import TaxonMap
+import CharacterType
+import CTMatrix

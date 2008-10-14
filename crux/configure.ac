@@ -44,7 +44,7 @@ MANDIR=`eval echo $mandir`
 MANDIR=`eval echo $MANDIR`
 AC_SUBST([MANDIR])
 
-cfgoutputs="Makefile setup.py bin/crux pkg/Crux/__init__.py"
+cfgoutputs="Makefile setup.py bin/crux"
 cfghdrs="config.stamp include/Crux/_cruxmodule_defs.h"
 bins=
 mods=

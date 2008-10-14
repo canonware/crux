@@ -21,7 +21,9 @@ class ValueError(Exception, ValueError):
     def __str__(self):
         return self._message
 
-class TaxonMap(object):
+cimport TaxonMap
+
+cdef class TaxonMap:
     def __init__(self, taxa=None):
         self._label2ind = {}
         self._ind2label = {}
@@ -58,8 +60,7 @@ class TaxonMap(object):
         for ind in rVal:
             # Make sure that taxon indices are contiguous.
             if ind != i:
-                raise Crux.TaxonMap.ValueError(
-                    "Taxon indices must be contiguous")
+                raise TaxonMap.ValueError("Taxon indices must be contiguous")
 
             rVal[ind] = self._ind2label[ind]
 
@@ -90,9 +91,7 @@ class TaxonMap(object):
         if replace == False:
             # Make sure that label hasn't already been mapped to an index.
             if self._label2ind.has_key(label):
-                raise Crux.TaxonMap.ValueError(
-                    "Label '%s' already mapped" % label)
+                raise TaxonMap.ValueError("Label '%s' already mapped" % label)
 
         self._label2ind[label] = ind
         self._ind2label[ind] = label
-#EOF

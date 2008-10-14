@@ -19,7 +19,7 @@
 #
 ################################################################################
 
-import DistMatrix
+cimport DistMatrix
 import Crux
 
 class Exception(Crux.Exception):
@@ -32,7 +32,7 @@ class ValueError(Exception, ValueError):
     def __str__(self):
         return self._str
 
-class CharacterType(object):
+cdef class CharacterType:
     def __init__(self):
         self._pStates = {} # Primary states.
         self._aStates = {} # All states (including primary states).
@@ -108,7 +108,7 @@ class CharacterType(object):
 
         return self._vals[val]
 
-class DnaCharacterType(CharacterType):
+cdef class DnaCharacterType(CharacterType):
     def __init__(self):
         CharacterType.__init__(self)
 
@@ -151,7 +151,7 @@ class DnaCharacterType(CharacterType):
         for alias in aliases:
             self.aliasCodeAdd(alias, aliases[alias])
 
-class ProteinCharacterType(CharacterType):        
+cdef class ProteinCharacterType(CharacterType):
     def __init__(self):
         CharacterType.__init__(self)
 

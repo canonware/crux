@@ -250,12 +250,6 @@ Following are some examples of how to specify precedence classes:
   class P4(Parsing.Precedence):
       "%left p4 =p3" # No whitespace is allowed between = and p3.
 """
-    cdef readonly object name
-    cdef readonly object assoc
-    cdef readonly dict relationships
-    cdef public list equiv
-    cdef public list dominators
-
     def __init__(self, name=None, assoc=None, dict relationships=None):
         if name == None:
             return
@@ -297,12 +291,6 @@ cdef int _SymbolSpecSeq
 _SymbolSpecSeq = 0
 
 cdef class SymbolSpec:
-    cdef readonly object name
-    cdef public object prec
-    cdef public list firstSet
-    cdef public list followSet
-    cdef readonly int seq
-
     def __init__(self, name=None, prec=None):
         global _SymbolSpecSeq
 
@@ -361,14 +349,6 @@ cdef class SymbolSpec:
         return ret
 
 cdef class String:
-    # Conceptually, a String is represented as constructed in the syms property.
-    # However, it is possible to avoid directly contstructing the syms list,
-    # thus avoiding significant object construction/copying overhead.
-    cdef list rhs
-    cdef int dotPos
-    cdef SymbolSpec lookahead
-    cdef int hash
-
     def __init__(self, list rhs, int dotPos, SymbolSpec lookahead):
         self.rhs = rhs
         self.dotPos = dotPos
@@ -381,6 +361,9 @@ cdef class String:
 
         self.hash = self._hash()
 
+    # Conceptually, a String is represented as constructed in the syms property.
+    # However, it is possible to avoid directly contstructing the syms list,
+    # thus avoiding significant object construction/copying overhead.
     property syms:
         def __get__(self): return self.rhs[self.dotPos+1:] + [self.lookahead]
 
@@ -426,10 +409,6 @@ cdef class String:
 cdef dict _StringFirstSetCache
 _StringFirstSetCache = {}
 cdef dict _getStringFirstSet(list rhs, int dotPos, SymbolSpec lookahead):
-    cdef String s
-    cdef dict firstSet
-    cdef bint mergeEpsilon, hasEpsilon
-    cdef SymbolSpec sym, elm
     global _StringFirstSetCache
 
     s = String(rhs, dotPos, lookahead)
@@ -458,9 +437,6 @@ cdef dict _getStringFirstSet(list rhs, int dotPos, SymbolSpec lookahead):
         return firstSet
 
 cdef class Symbol:
-    cdef object __symSpec
-    cdef object __parser
-
     def __init__(self, symSpec, parser):
         self.__symSpec = symSpec
         self.__parser = parser
@@ -549,10 +525,6 @@ in merge().
           (type(self), self, other)
 
 cdef class NontermSpec(SymbolSpec):
-    cdef readonly object qualified
-    cdef readonly object nontermType
-    cdef readonly list productions
-
     def __init__(self, nontermType=None, name=None, qualified=None,
       prec=None):
         if nontermType == None:
@@ -621,9 +593,6 @@ then derive all actual token types from that class.
 
 # AKA terminal symbol.
 cdef class TokenSpec(SymbolSpec):
-    cdef readonly object qualified
-    cdef readonly object tokenType
-
     def __init__(self, tokenType=None, name=None, qualified=None, prec=None):
         if tokenType == None:
             return
@@ -671,13 +640,6 @@ cdef int _ProductionSeq
 _ProductionSeq = 0
 
 cdef class Production:
-    cdef readonly object method
-    cdef readonly object qualified
-    cdef readonly Precedence prec
-    cdef readonly NontermSpec lhs
-    cdef readonly list rhs
-    cdef readonly int seq
-
     def __init__(self, method=None, qualified=None, prec=None, lhs=None,
       rhs=None):
         global _ProductionSeq
@@ -739,11 +701,6 @@ cdef class Start(Production):
         Production.__init__(self, None, startSym, userStartSym)
 
 cdef class Item:
-    cdef Production __production
-    cdef readonly int dotPos
-    cdef readonly dict lookahead
-    cdef readonly int hash
-
     def __init__(self, Production production, int dotPos, dict lookahead):
         assert dotPos >= 0
         assert dotPos <= len(production.rhs)
@@ -835,9 +792,6 @@ cdef class Item:
         return True
 
 cdef class _ItemSetIterHelper:
-    cdef list _items
-    cdef int _index
-
     def __init__(self, dict items, dict added):
         if __debug__:
             for item in items.iterkeys():
@@ -859,9 +813,6 @@ cdef class _ItemSetIterHelper:
         return ret
 
 cdef class ItemSet:
-    cdef readonly dict _items
-    cdef dict _added
-
     def __init__(self):
         self._items = {}
         self._added = {}
@@ -1099,8 +1050,6 @@ cdef class ShiftAction(Action):
     """
 Shift action, with assocated nextState.
 """
-    cdef readonly int nextState
-
     def __init__(self, nextState=None):
         if nextState is None:
             return
@@ -1141,8 +1090,6 @@ cdef class ReduceAction(Action):
     """
 Reduce action, with associated production.
 """
-    cdef readonly Production production
-
     def __init__(self, production=None):
         if production is None:
             return
@@ -1214,27 +1161,6 @@ verbose : If true, print progress information while generating the
           parsing tables.
 ====================================================================
 """
-    cdef object _skinny
-    cdef object _verbose
-    cdef Precedence _none
-    cdef Precedence _split
-    cdef dict _precedences
-    cdef dict _nonterms
-    cdef dict _tokens
-    cdef readonly dict _sym2spec
-    cdef list _productions
-    cdef readonly NontermSpec _userStartSym
-    cdef NontermSpec _startSym
-    cdef Production _startProd
-    cdef list _itemSets
-    cdef dict _itemSetsHash
-    cdef readonly list _action
-    cdef readonly list _goto
-    cdef int _startState
-    cdef int _nActions
-    cdef int _nConflicts
-    cdef int _nImpure
-
     def __init__(self, modules=None, pickleFile=None, pickleMode="rw",
                  skinny=True, logFile=None, graphFile=None, verbose=False):
         if modules == None:
@@ -1823,7 +1749,7 @@ the Parser class for parsing.
             raise SpecError, "\n".join(cycles)
 
     # Store state to a pickle file, if requested.
-    cdef void _pickle(self, file, mode):
+    cdef void _pickle(self, file_, mode):
         if self._skinny:
             # Discard bulky data that don't need to be pickled.
             #self._startSym = ...
@@ -1832,26 +1758,26 @@ the Parser class for parsing.
             self._itemSetsHash = {}
             #self._startState = ...
 
-        if file != None and "w" in mode:
+        if file_ != None and "w" in mode:
             if self._verbose:
                 print "Parsing.Spec: Creating %s Spec pickle in %s..." % \
-                  (("fat", "skinny")[self._skinny], file)
-            f = open(file, "w")
+                  (("fat", "skinny")[self._skinny], file_)
+            f = open(file_, "w")
             cPickle.dump(self, f, protocol=cPickle.HIGHEST_PROTOCOL)
             f.close()
 
     # Restore state from a pickle file, if a compatible one is provided.  This
     # method uses the same set of return values as does _compatible().
-    cdef _unpickle(self, file, mode):
+    cdef _unpickle(self, file_, mode):
         cdef Spec spec
 
-        if file != None and "r" in mode:
+        if file_ != None and "r" in mode:
             if self._verbose:
                 print \
                   "Parsing.Spec: Attempting to use pickle from file \"%s\"..." \
-                  % file
+                  % file_
             try:
-                f = open(file, "r")
+                f = open(file_, "r")
             except IOError:
                 if self._verbose:
                     error = sys.exc_info()
@@ -1874,13 +1800,13 @@ the Parser class for parsing.
             if compat == "incompatible":
                 if self._verbose:
                     print "Parsing.Spec: Pickle in \"%s\" is incompatible." % \
-                      file
+                      file_
                 return compat
 
             if self._verbose:
                 print \
                   "Parsing.Spec: Using %s pickle in \"%s\" (%s)..." \
-                  % (("fat", "skinny")[spec._skinny], file, compat)
+                  % (("fat", "skinny")[spec._skinny], file_, compat)
 
             if compat in ["compatible", "repickle"]:
                 # Copy spec's data structures.
@@ -2592,7 +2518,7 @@ the Parser class for parsing.
 
         return ret
 
-class Lr(object):
+cdef class Lr:
     """
 LR(1) parser.  The Lr class uses a Spec instance in order to parse
 input that is fed to it via the token() method, and terminated via the
@@ -2745,9 +2671,6 @@ class Gsse(object):
         return True
 
 cdef class _GssnEdgesIterHelper:
-    cdef list _edges
-    cdef int _index
-
     def __init__(self, gssn):
         self._edges = gssn._edges[:]
         self._index = 0
@@ -2763,9 +2686,6 @@ cdef class _GssnEdgesIterHelper:
         return ret
 
 cdef class _GssnNodesIterHelper:
-    cdef list _nodes
-    cdef int _index
-
     def __init__(self, gssn):
         self._nodes = [edge.node for edge in gssn._edges]
         self._index = 0
@@ -2781,9 +2701,6 @@ cdef class _GssnNodesIterHelper:
         return ret
 
 cdef class _GssnPathsIterHelper:
-    cdef list _paths
-    cdef int _index
-
     def __init__(self, gssn, pathLen):
         assert ((type(pathLen) == int and pathLen >= 0) or pathLen == None)
 
@@ -2858,7 +2775,7 @@ class Gssn(object):
 # End graph-structured stack (GSS) classes.
 #===============================================================================
 
-class Glr(Lr):
+cdef class Glr(Lr):
     """
 GLR parser.  The Glr class uses a Spec instance in order to parse input
 that is fed to it via the token() method, and terminated via the eoi()

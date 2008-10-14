@@ -9,10 +9,9 @@
 #
 ################################################################################
 
-import TaxonMap
-import FastaParser
-import CharacterType
-import CTMatrix
+cimport TaxonMap
+cimport FastaParser
+cimport CharacterType
 
 import Crux
 
@@ -25,6 +24,8 @@ class ValueError(Exception, ValueError):
 
     def __str__(self):
         return self._str
+
+cimport CTMatrix
 
 class _FastaParser(FastaParser.FastaParser):
     def __init__(self, matrix, taxonMap):
@@ -54,7 +55,7 @@ class _FastaParser(FastaParser.FastaParser):
         # Set the character data for this taxon.
         self._matrix.dataSet(self._lastLabel, self.token())
 
-class CTMatrix(object):
+cdef class CTMatrix:
     def __init__(self, taxonMap=None):
         # This is an array of CharacterType objects, and stores the character
         # types for the columns in _taxonData.
@@ -115,8 +116,8 @@ class CTMatrix(object):
 
     # Append CharacterType objects to _chars.
     def charsAppend(self, chars):
-	# XXX Only allow this to succeed if no character data have been set
-	# yet.
+        # XXX Only allow this to succeed if no character data have been set
+        # yet.
         self._chars += chars
         self._seq += 1
 
@@ -140,12 +141,11 @@ class CTMatrix(object):
     # Set the character data for a taxon.
     def dataSet(self, taxon, data):
         if len(data) != len(self._chars):
-            raise Crux.CTMatrix\
-                  .ValueError("Wrong number of characters (%d, expected %d)"
+            raise CTMatrix.ValueError(
+              "Wrong number of characters (%d, expected %d)"
                               % (len(data), len(self._chars)))
         if (self._taxonMap.indGet(taxon) == None):
-            raise Crux.CTMatrix\
-                  .ValueError("Taxon %r not in taxon map" % taxon)
+            raise CTMatrix.ValueError("Taxon %r not in taxon map" % taxon)
 
         self._taxonData[self._taxonMap.indGet(taxon)] = data
 
@@ -162,4 +162,3 @@ class CTMatrix(object):
     def _filePrintCallback(self, string):
         # Print string to self._outFile.
         self._outFile.write(string)
-#EOF

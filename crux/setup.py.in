@@ -13,7 +13,27 @@
 from glob import glob
 
 from distutils.core import setup, Extension
-from Cython.Distutils import build_ext
+if @enable_autogen@:
+    from Cython.Distutils import build_ext
+
+ext_modules = []
+#Extension('Crux._crux',
+#                               sources=glob("@srcroot@/src/Crux/*.c"),
+#                               include_dirs=["@srcroot@/include",
+#                                             "@objroot@/include"],
+#                               extra_compile_args=[@extra_compile_args@]),
+
+# Crux.*
+for pkg in [x.split("/")[-1].split(".")[0] for x in
+  glob("@srcroot@/src/Crux/*.pyx")]:
+    ext = Extension('Crux.%s' % pkg,
+                    sources=["@srcroot@/src/Crux/%s.pyx" % pkg],
+                    include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"])
+    ext_modules.append(ext)
+# Parsing
+ext = Extension('Parsing',
+                sources=["@srcroot@/src/Parsing.pyx"])
+ext_modules.append(ext)
 
 setup(name = 'Crux',
       version = '@crux_version@',
@@ -22,15 +42,9 @@ setup(name = 'Crux',
       author_email = 'jasone@canonware.com',
       url = 'http://www.canonware.com/cgi-bin/hg_crux',
       download_url = 'http://www.canonware.com/cgi-bin/hg_crux',
-      package_dir = {'': '@srcroot@/pkg'},
+      package_dir = {'': '@srcroot@/src'},
       packages = ['Crux'],
-      ext_modules = [Extension('Crux._crux',
-                               sources=glob("@srcroot@/src/Crux/*.c"),
-                               include_dirs=["@srcroot@/include",
-                                             "@objroot@/include"],
-                               extra_compile_args=[@extra_compile_args@]),
-                     Extension('Parsing',
-                               sources=["./src/Parsing/Parsing.pyx"])],
+      ext_modules = ext_modules,
       scripts = ['@objroot@/bin/crux'],
       cmdclass = {'build_ext': build_ext}
       )
