@@ -1,31 +1,20 @@
-################################################################################
-#
-# <Copyright = jasone>
-# <License>
-#
-################################################################################
-#
-# Version: Crux <Version = crux>
-#
-################################################################################
-
-cimport TaxonMap
-cimport FastaParser
-cimport CharacterType
-
 import Crux
 
 class Exception(Crux.Exception):
     pass
 
-class ValueError(Exception, ValueError):
+import exceptions
+
+class ValueError(Exception, exceptions.ValueError):
     def __init__(self, str):
         self._str = str
 
     def __str__(self):
         return self._str
 
-cimport CTMatrix
+cimport TaxonMap
+cimport FastaParser
+cimport CharacterType
 
 class _FastaParser(FastaParser.FastaParser):
     def __init__(self, matrix, taxonMap):
@@ -141,11 +130,11 @@ cdef class CTMatrix:
     # Set the character data for a taxon.
     def dataSet(self, taxon, data):
         if len(data) != len(self._chars):
-            raise CTMatrix.ValueError(
+            raise ValueError(
               "Wrong number of characters (%d, expected %d)"
                               % (len(data), len(self._chars)))
         if (self._taxonMap.indGet(taxon) == None):
-            raise CTMatrix.ValueError("Taxon %r not in taxon map" % taxon)
+            raise ValueError("Taxon %r not in taxon map" % taxon)
 
         self._taxonData[self._taxonMap.indGet(taxon)] = data
 

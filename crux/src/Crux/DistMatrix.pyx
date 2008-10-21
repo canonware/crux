@@ -1,14 +1,5 @@
 ################################################################################
 #
-# <Copyright = jasone>
-# <License>
-#
-################################################################################
-#
-# Version: Crux <Version = crux>
-#
-################################################################################
-#
 # This parser implements a superset of the PHYLIP distance matrix format.  There
 # are several rather byzantine limitations in the PHYLIP distance matrix format
 # that are not worth faithfully enforcing.

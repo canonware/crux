@@ -1,20 +1,11 @@
-################################################################################
-#
-# <Copyright = jasone>
-# <License>
-#
-################################################################################
-#
-# Version: Crux <Version = crux>
-#
-################################################################################
-
 import Crux
 
 class Exception(Crux.Exception):
     pass
 
-class ValueError(Exception, ValueError):
+import exceptions
+
+class ValueError(Exception, exceptions.ValueError):
     def __init__(self, message):
         self._message = message
 

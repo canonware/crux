@@ -1,4 +1,4 @@
-# Forward declarations
+# Forward declarations.
 cdef class Tree
 cdef class Node
 cdef class Edge

@@ -1,14 +1,5 @@
 ################################################################################
 #
-# <Copyright = jasone>
-# <License>
-#
-################################################################################
-#
-# Version: Crux <Version = crux>
-#
-################################################################################
-#
 # The CharacterType class encapsulates the functionality that is necessary to
 # map character codes to bit vectors (as well as the reverse mapping).  Under
 # normal circumstances, there are only a few CharacterType instances, though
@@ -19,18 +10,21 @@
 #
 ################################################################################
 
-cimport DistMatrix
 import Crux
 
 class Exception(Crux.Exception):
     pass
 
-class ValueError(Exception, ValueError):
+import exceptions
+
+class ValueError(Exception, exceptions.ValueError):
     def __init__(self, str):
         self._str = str
 
     def __str__(self):
         return self._str
+
+cimport DistMatrix
 
 cdef class CharacterType:
     def __init__(self):

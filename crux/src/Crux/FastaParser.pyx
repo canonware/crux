@@ -1,14 +1,5 @@
 ################################################################################
 #
-# <Copyright = jasone>
-# <License>
-#
-################################################################################
-#
-# Version: Crux <Version = crux>
-#
-################################################################################
-#
 # FASTA parser.  This parser can parse a superset of the standard FASTA format.
 # Ordinarily, a FASTA file looks something like:
 #
