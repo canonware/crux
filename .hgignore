@@ -8,5 +8,6 @@
 ^crux/Makefile$
 ^crux/pkg/Crux/__init__\.py$
 ^crux/setup\.py$
-^crux/src/Parsing/[A-Za-z0-9_]+.c$
+^crux/src/[A-Za-z0-9_]+.c$
+^crux/src/Crux/[A-Za-z0-9_]+.c$
 ^crux/test/[A-Za-z]*_[a-z]\.crux\.out$
