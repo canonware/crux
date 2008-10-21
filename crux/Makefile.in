@@ -79,7 +79,10 @@ distclean: clean
 	rm -f @cfghdrs@
 	rm -f @cfgoutputs@
 
-relclean: distclean
+cyclean:
+	rm -f @cython_outputs@
+
+relclean: distclean cyclean
 	rm -rf @objroot@/autom4te.cache
 	rm -f @objroot@/configure
 	rm -f $(patsubst @srcroot@%.pyx, @objroot@%.c, @crux_pyx@)
