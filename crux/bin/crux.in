@@ -1,7 +1,4 @@
 #!@PYTHON@@python_opts@
-#-*-mode:python-*-
-
-import Crux
 
 import sys
 import os
@@ -10,6 +7,15 @@ import time
 import re
 import random
 import optparse
+
+try:
+    import Crux
+except:
+    # Munge the module path in order to support running crux in the source tree.
+    import glob
+    for d in glob.glob("@abs_objroot@/build/lib*"):
+        sys.path.append(d)
+    import Crux
 
 # Create a help formatter subclass for the command line parser.
 class CruxHelpFormatter(optparse.IndentedHelpFormatter):
@@ -97,7 +103,7 @@ if Crux.opts.seed == None:
     Crux.opts.seed = int(time.time())
 random.seed(Crux.opts.seed)
 
-# Print various info, if in quiet mode.
+# Print various info, unless in quiet mode.
 if not Crux.opts.quiet:
     print "Crux, version @crux_version@"
 
@@ -135,7 +141,7 @@ if Crux.opts.infile != None:
 elif Crux.opts.batch:
     exec(os.stdin)
 
-# Print various info, if in quiet mode.
+# Print various info, unless in quiet mode.
 if not Crux.opts.quiet:
     print "Stop batch processing, %s" \
           % time.strftime("%Y/%m/%d %H:%M:%S (%Z)",
