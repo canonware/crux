@@ -9,8 +9,8 @@ for i in autoconf; do
     fi
 done
 
-echo "./configure --enable-autogen $@"
-./configure --enable-autogen $@
+echo "./configure --enable-autogen --enable-cython $@"
+./configure --enable-autogen --enable-cython $@
 if [ $? -ne 0 ]; then
     echo "Error $? in ./configure"
     exit 1

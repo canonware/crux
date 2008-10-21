@@ -44,7 +44,7 @@ MANDIR=`eval echo $mandir`
 MANDIR=`eval echo $MANDIR`
 AC_SUBST([MANDIR])
 
-cfgoutputs="Makefile setup.py bin/crux"
+cfgoutputs="Makefile setup.py"
 cfghdrs="config.stamp include/Crux/_cruxmodule_defs.h"
 bins=
 mods=
@@ -86,6 +86,18 @@ fi
 enable_autogen="0"
 )
 AC_SUBST([enable_autogen])
+
+dnl Disable Cython code generation by default.
+AC_ARG_ENABLE([cython], [  --enable-cython         Automatically generate .c files from .pyx/.pxd inputs],
+if test "x$enable_cython" = "xno" ; then
+  enable_cython="0"
+else
+  enable_cython="1"
+fi
+,
+enable_cython="0"
+)
+AC_SUBST([enable_cython])
 
 AC_PROG_INSTALL
 AC_PROG_RANLIB
@@ -246,8 +258,8 @@ AC_CONFIG_HEADER([$cfghdrs])
 
 dnl crux is handled separately, since it must be executable.
 AC_CONFIG_FILES([$cfgoutputs])
-AC_CONFIG_FILES([crux], [chmod +x crux])
-cfgoutputs="$cfgoutputs crux"
+AC_CONFIG_FILES([bin/crux], [chmod +x bin/crux])
+cfgoutputs="$cfgoutputs bin/crux"
 AC_SUBST([cfgoutputs])
 AC_OUTPUT
 
@@ -276,6 +288,7 @@ AC_MSG_RESULT([objroot       : ${objroot}])
 AC_MSG_RESULT([abs_objroot   : ${abs_objroot}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([autogen       : ${enable_autogen}])
+AC_MSG_RESULT([cython        : ${enable_cython}])
 AC_MSG_RESULT([debug         : ${enable_debug}])
 AC_MSG_RESULT([cc-silence    : ${enable_cc_silence}])
 AC_MSG_RESULT([===============================================================================])

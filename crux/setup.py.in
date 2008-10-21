@@ -1,4 +1,4 @@
-#!@PYTHON@
+#!@PYTHON@@python_opts@
 ################################################################################
 #
 # <Copyright = jasone>
@@ -13,7 +13,7 @@
 from glob import glob
 
 from distutils.core import setup, Extension
-if @enable_autogen@:
+if @enable_cython@:
     from Cython.Distutils import build_ext
 
 ext_modules = []
@@ -23,17 +23,32 @@ ext_modules = []
 #                                             "@objroot@/include"],
 #                               extra_compile_args=[@extra_compile_args@]),
 
-# Crux.*
-for pkg in [x.split("/")[-1].split(".")[0] for x in
-  glob("@srcroot@/src/Crux/*.pyx")]:
-    ext = Extension('Crux.%s' % pkg,
-                    sources=["@srcroot@/src/Crux/%s.pyx" % pkg],
-                    include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"])
+if @enable_cython@:
+    # Crux.*
+    for pkg in [x.split("/")[-1].split(".")[0] for x in
+      glob("@srcroot@/src/Crux/*.pyx")]:
+        ext = Extension('Crux.%s' % pkg,
+                        sources=["@srcroot@/src/Crux/%s.pyx" % pkg],
+                        include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"])
+        ext_modules.append(ext)
+    # Parsing
+    ext = Extension('Parsing',
+                    sources=["@srcroot@/src/Parsing.pyx"])
     ext_modules.append(ext)
-# Parsing
-ext = Extension('Parsing',
-                sources=["@srcroot@/src/Parsing.pyx"])
-ext_modules.append(ext)
+    cmdclass = {'build_ext': build_ext}
+else:
+    # Crux.*
+    for pkg in [x.split("/")[-1].split(".")[0] for x in
+      glob("@srcroot@/src/Crux/*.c")]:
+        ext = Extension('Crux.%s' % pkg,
+                        sources=["@srcroot@/src/Crux/%s.c" % pkg],
+                        include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"])
+        ext_modules.append(ext)
+    # Parsing
+    ext = Extension('Parsing',
+                    sources=["@srcroot@/src/Parsing.c"])
+    ext_modules.append(ext)
+    cmdclass = {}
 
 setup(name = 'Crux',
       version = '@crux_version@',
@@ -46,5 +61,5 @@ setup(name = 'Crux',
       packages = ['Crux'],
       ext_modules = ext_modules,
       scripts = ['@objroot@/bin/crux'],
-      cmdclass = {'build_ext': build_ext}
+      cmdclass = cmdclass
       )
