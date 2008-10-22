@@ -1,6 +1,6 @@
-import Crux
+import Crux.Exception
 
-class Exception(Crux.Exception):
+class Exception(Crux.Exception.Exception):
     pass
 
 import exceptions
@@ -12,11 +12,11 @@ class ValueError(Exception, exceptions.ValueError):
     def __str__(self):
         return self._str
 
-cimport TaxonMap
-cimport FastaParser
-cimport CharacterType
+from TaxonMap cimport TaxonMap
+from FastaParser cimport FastaParser
+from CharacterType cimport DnaCharacterType, ProteinCharacterType
 
-class _FastaParser(FastaParser.FastaParser):
+class _FastaParser(FastaParser):
     def __init__(self, matrix, taxonMap):
         self._matrix = matrix
         self._taxonMap = taxonMap
@@ -31,11 +31,11 @@ class _FastaParser(FastaParser.FastaParser):
         # Set the character data type if it hasn't already been done.
         if len(self._matrix.charsGet()) == 0:
             if self.charType() == 'DNA':
-                self._matrix.charsAppend([CharacterType.DnaCharacterType()]
-                                         * len(self.token()))
+                self._matrix.charsAppend([DnaCharacterType()]
+                  * len(self.token()))
             else: # Protein data.
-                self._matrix.charsAppend([CharacterType.ProteinCharacterType()]
-                                         * len(self.token()))
+                self._matrix.charsAppend([ProteinCharacterType()]
+                  * len(self.token()))
 
         if self._taxonMap.indGet(self._lastLabel) == None:
             # Define a taxon mapping for this label.
@@ -52,7 +52,7 @@ cdef class CTMatrix:
 
         # This is used to manage the rows of the data matrix (_taxonData).
         if taxonMap == None:
-            taxonMap = TaxonMap.TaxonMap()
+            taxonMap = TaxonMap()
         self._taxonMap = taxonMap
 
         # Row-major character data.  Each element in _taxonData is a string of

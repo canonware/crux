@@ -1,12 +1,12 @@
-import exceptions
+"""
+Classes for phylogenetic inference.
+"""
 
-class Exception(exceptions.Exception):
-    pass
-
-import Tree
+import CharacterType
+import CTMatrix
 import DistMatrix
+import Exception
 import FastaParser
 import NewickParser
 import TaxonMap
-import CharacterType
-import CTMatrix
+import Tree

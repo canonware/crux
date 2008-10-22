@@ -1,15 +1,19 @@
-from CTMatrix cimport CTMatrix
-import NewickParser
-from TaxonMap cimport TaxonMap
+# Forward declarations.
+cdef class Tree
+cdef class Node
+cdef class Edge
+cdef class Ring
 
-import Crux
+from CTMatrix cimport CTMatrix
+from NewickParser cimport NewickParser
+from TaxonMap cimport TaxonMap
 
 import __builtin__
 
 import random
 import re
 
-class _NewickParser(NewickParser.NewickParser):
+class _NewickParser(NewickParser):
     def __init__(self, tree, taxonMap, newickAutoMap=False):
         self._tree = tree
         self._taxonMap = taxonMap
@@ -18,7 +22,7 @@ class _NewickParser(NewickParser.NewickParser):
 
     # Overridden method.
     def parse(self, input):
-        if not NewickParser.NewickParser.parse(self, input):
+        if not NewickParser.parse(self, input):
             if len(self._taxonStack) > 0:
                 self._tree.baseSet(self._taxonStack[0])
             rVal = False
@@ -84,7 +88,7 @@ class _NewickParser(NewickParser.NewickParser):
                     self._taxonMap.map(self.token(), val)
                 else:
                     # Failed conversion.
-                    raise Crux.Tree.ValueError, \
+                    raise Tree.ValueError, \
                           "At offset %d: No mapping for '%s'" \
                           % (self.offset(), self.token())
 
@@ -240,99 +244,99 @@ cdef class Tree:
 
         return newNode
 
-    cdef dup(self):
-        newTree = Crux.Tree.Tree()
+    cpdef dup(self):
+        newTree = Tree()
         newNode = self._dup(newTree, self.baseGet(), None)
         newTree.baseSet(newNode)
 
     # XXX Make a property.
-    cdef taxonMapGet(self):
+    cpdef taxonMapGet(self):
         pass # XXX
 
-    cdef rf(self, Tree other):
+    cpdef rf(self, Tree other):
         if type(other) == Tree:
             return self._rfPair(other)
         else:
             return self._rfSequence(other)
 
     # XXX Make a property.
-    cdef ntaxaGet(self):
+    cpdef ntaxaGet(self):
         pass # XXX
 
     # XXX Make a property.
-    cdef nedgesGet(self):
+    cpdef nedgesGet(self):
         pass # XXX
 
     # XXX Make a property.
-    cdef Node baseGet(self):
+    cpdef baseGet(self):
         pass # XXX
-    cdef baseSet(self, Node base):
-        pass # XXX
-
-    cdef canonize(self):
+    cpdef baseSet(self, Node base):
         pass # XXX
 
-    cdef collapse(self):
+    cpdef canonize(self):
         pass # XXX
 
-    cdef tbr(self, Edge bisect, Edge reconnectA, Edge reconnectB):
+    cpdef collapse(self):
         pass # XXX
 
-    # XXX Make a property.
-    cdef int tbrNNeigbhorsGet(self):
+    cpdef tbr(self, Edge bisect, Edge reconnectA, Edge reconnectB):
         pass # XXX
 
     # XXX Make a property.
-    cdef tbrNeighborGet(self, int neighbor):
-        pass # XXX
-
-    cdef nni(self, Edge edge, Edge reconnectA, Edge reconnectB):
+    cpdef int tbrNNeigbhorsGet(self):
         pass # XXX
 
     # XXX Make a property.
-    cdef nniNNeigbhorsGet(self):
+    cpdef tbrNeighborGet(self, int neighbor):
+        pass # XXX
+
+    cpdef nni(self, Edge edge, Edge reconnectA, Edge reconnectB):
         pass # XXX
 
     # XXX Make a property.
-    cdef nniNeighborGet(self, int neighbor):
+    cpdef nniNNeigbhorsGet(self):
+        pass # XXX
+
+    # XXX Make a property.
+    cpdef nniNeighborGet(self, int neighbor):
         pass # XXX
 
     # XXX Rename mp* methods to reflect that these implement *Fitch* parsimony
     # *scoring*.  *Maximum* parsimony is a different concept.
-    cdef mpPrepare(self, CTMatrix cTMatrix, bint elimUninformative=True):
+    cpdef mpPrepare(self, CTMatrix cTMatrix, bint elimUninformative=True):
         # Make sure that taxon maps are identical.
         if not self._taxonMap.equal(cTMatrix.taxonMapGet()):
-            raise Crux.Tree.ValueError(
+            raise Tree.ValueError(
                 "TaxonMaps for Tree and CTMatrix must be equal")
 
         self._mpPrepare(cTMatrix, elimUninformative)
 
-    cdef mpFinish(self):
+    cpdef mpFinish(self):
         pass # XXX
 
-    cdef mp(self):
+    cpdef mp(self):
         pass # XXX
 
     # XXX Implement more sophisticated tree holding, such that TBR neighbors
     # can be merged into a general pool of held trees.
-    cdef tbrBestNeighbhorsMp(self, int maxHold=-1):
+    cpdef tbrBestNeighbhorsMp(self, int maxHold=-1):
         pass # XXX
 
-    cdef tbrBetterNeighborsMp(self, int maxHold=-1):
+    cpdef tbrBetterNeighborsMp(self, int maxHold=-1):
         pass # XXX
 
-    cdef tbrAllNeighborsMp(self, int maxHold=-1):
-        pass # XXX
-
-    # XXX Make a property.
-    cdef nHeldGet(self):
+    cpdef tbrAllNeighborsMp(self, int maxHold=-1):
         pass # XXX
 
     # XXX Make a property.
-    cdef heldGet(self, int i):
+    cpdef nHeldGet(self):
         pass # XXX
 
-    cdef render(self, bint rooted=False, bint labels=False, bint lengths=False,
+    # XXX Make a property.
+    cpdef heldGet(self, int i):
+        pass # XXX
+
+    cpdef render(self, bint rooted=False, bint labels=False, bint lengths=False,
       lengthFormat="%.5e", outFile=None):
         # Set up for sending output to either a string or a file.
         if outFile == None:
@@ -402,26 +406,38 @@ cdef class Tree:
         self._renderOutFile.write(string)
 
 cdef class Node:
-    def __init__(self, tree):
-        pass
+    def __init__(self, Tree tree):
+        self._tree = tree
+        self._ring = None
+        self._taxonNum = -1
 
     # XXX Make a property.
-    cdef Tree tree(self):
-        pass # XXX
+    cpdef Tree tree(self):
+        return self._tree
 
     # XXX Make a property.
-    cdef int taxonNumGet(self):
-        pass # XXX
-    cdef void taxonNumSet(self, int taxonNum):
-        pass # XXX
+    cpdef int taxonNumGet(self):
+        return self._taxonNum
+    cpdef taxonNumSet(self, int taxonNum):
+        self._taxonNum = taxonNum
 
     # XXX Make a property.
-    cdef Ring ring(self):
-        pass # XXX
+    cpdef Ring ring(self):
+        return self._ring
 
     # XXX Make a property.
-    cdef int degree(self):
-        pass # XXX
+    cpdef int degree(self):
+        cdef int ret
+        cdef Ring ring
+
+        if self._ring == None:
+            return 0
+        ret = 1
+        ring = self._ring._next
+        while ring != self._ring:
+            ret += 1
+            ring = ring._next
+        return ret
 
     def rrender(self, prev, taxonMap, labels, lengths, lengthFormat, callback,
                 twoTaxa=False):
@@ -491,20 +507,20 @@ cdef class Edge:
         self._ringA = Ring(self)
         self._ringB = Ring(self)
 
-    cdef Tree tree(self):
+    cpdef Tree tree(self):
         return self._tree
 
     # XXX Directly expose both rings as attributes to avoid tuple creation.
-    cdef rings(self):
+    cpdef rings(self):
         return (self._ringA, self._ringB)
 
-    cdef float lengthGet(self):
+    cpdef float lengthGet(self):
         return self._length
 
-    cdef void lengthSet(self, float length):
+    cpdef lengthSet(self, float length):
         self._length = length
 
-    cdef void attach(self, Node nodeA, Node nodeB):
+    cpdef attach(self, Node nodeA, Node nodeB):
         cdef Ring ring, nRing, pRing
         assert self._ringA._node == None
         assert self._ringB._node == None
@@ -531,7 +547,7 @@ cdef class Edge:
             pRing._next = ring
         nodeB._ring = ring
 
-    cdef detach(self):
+    cpdef detach(self):
         assert type(self._ringA._node) == Node
         assert type(self._ringB._node) == Node
 
@@ -542,23 +558,23 @@ cdef class Edge:
 
 # XXX Make methods into properties.
 cdef class Ring:
-    cdef Tree tree(self):
+    cpdef Tree tree(self):
         return self._edge.tree()
 
-    cdef Node node(self):
+    cpdef Node node(self):
         return self._node
 
-    cdef Edge edge(self):
+    cpdef Edge edge(self):
         return self._edge
 
-    cdef Ring other(self):
+    cpdef Ring other(self):
         ret = self._edge._ringA
         if ret != self:
             return ret
         return self._edge._ringB
 
-    cdef Ring next(self):
+    cpdef Ring next(self):
         return self._next
 
-    cdef Ring prev(self):
+    cpdef Ring prev(self):
         return self._prev

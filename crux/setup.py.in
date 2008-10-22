@@ -25,10 +25,11 @@ ext_modules = []
 
 if @enable_cython@:
     # Crux.*
-    for pkg in [x.split("/")[-1].split(".")[0] for x in
-      glob("@srcroot@/src/Crux/*.pyx")]:
+    for (pkg, ext) in [x.split("/")[-1].split(".") for x in
+      glob("@srcroot@/src/Crux/[A-Z]*.py") +
+      glob("@srcroot@/src/Crux/[A-Z]*.pyx")]:
         ext = Extension('Crux.%s' % pkg,
-                        sources=["@srcroot@/src/Crux/%s.pyx" % pkg],
+                        sources=["@srcroot@/src/Crux/%s.%s" % (pkg, ext)],
                         include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"])
         ext_modules.append(ext)
     # Parsing
@@ -38,10 +39,11 @@ if @enable_cython@:
     cmdclass = {'build_ext': build_ext}
 else:
     # Crux.*
-    for pkg in [x.split("/")[-1].split(".")[0] for x in
-      glob("@srcroot@/src/Crux/*.c")]:
+    for (pkg, ext) in [x.split("/")[-1].split(".") for x in
+      glob("@srcroot@/src/Crux/[A-Z]*.py") +
+      glob("@srcroot@/src/Crux/[A-Z]*.c")]:
         ext = Extension('Crux.%s' % pkg,
-                        sources=["@srcroot@/src/Crux/%s.c" % pkg],
+                        sources=["@srcroot@/src/Crux/%s.%s" % (pkg, ext)],
                         include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"])
         ext_modules.append(ext)
     # Parsing

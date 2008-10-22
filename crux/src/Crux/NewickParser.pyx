@@ -17,9 +17,6 @@ cimport Parsing
 #
 
 cdef class Node(Parsing.Nonterm):
-    cdef int begPos, endPos
-    cdef object variant
-
     def __init__(self, parser):
         Parsing.Nonterm.__init__(self, parser)
 
@@ -40,8 +37,8 @@ class Token(Parsing.Token, Node):
 # End Nonterm.
 #===============================================================================
 
-spec = Parsing.Spec(sys.modules[__name__], "NewickParser.pickle", \
-  verbose=True, skinny=False, logFile="NewickParser.log")
+#spec = Parsing.Spec(sys.modules[__name__], "NewickParser.pickle", \
+#  verbose=True, skinny=False, logFile="NewickParser.log")
 
 cdef class NewickParser(Parsing.Lr):
     cdef parse(self, input):

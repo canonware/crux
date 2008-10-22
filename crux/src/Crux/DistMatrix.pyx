@@ -41,9 +41,22 @@
 #
 ################################################################################
 
+import Crux.Exception
+
+class Exception(Crux.Exception.Exception):
+    pass
+
+import exceptions
+
+class ValueError(Exception, exceptions.ValueError):
+    def __init__(self, str):
+        self._str = str
+
+    def __str__(self):
+        return self._str
+
 from TaxonMap cimport TaxonMap
 from Tree cimport Tree
-import Crux
 
 import random
 
@@ -75,12 +88,10 @@ cdef class DistMatrix:
                 self._dup(input, taxonMap)
             else:
                 if sample < 2 or sample > input.ntaxaGet():
-                    raise Crux.DistMatrix\
-                          .ValueError("sample: Out of range (%d not in 2..%d)" \
+                    raise ValueError("sample: Out of range (%d not in 2..%d)" \
                                       % (sample, input.ntaxaGet()))
                 if symmetric:
-                    raise Crux.DistMatrix\
-                          .ValueError("symmetric: Automatic for sampling")
+                    raise ValueError("symmetric: Automatic for sampling")
 
                 # Create a sample of rows.
                 rows = random.sample(range(input.ntaxaGet()), sample)
@@ -93,8 +104,7 @@ cdef class DistMatrix:
 
                 self._sample(input, taxonMap, rows)
         else:
-            raise Crux.DistMatrix\
-                  .ValueError(
+            raise ValueError(
                 "input: File, string, TaxonMap, or DistMatrix expected")
 
     cdef void _parse(self, input, TaxonMap taxonMap, bint symmetric):
