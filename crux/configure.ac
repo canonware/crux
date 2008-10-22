@@ -220,6 +220,7 @@ AC_SUBST([crux_version])
 dnl Manual file dependencies (force rebuild if these change).
 manual_deps=""
 for h in `find ${srcroot}/include -type f |grep "\.h$"` \
+         `find ${srcroot}/src -type f |grep "\.pxd$"` \
          $objroot/Crux/_cruxmodule_defs.h.in ${srcroot}/src/Crux/asprintf_c ; do
   manual_deps="${manual_deps} ${h}"
 done
