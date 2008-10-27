@@ -9,14 +9,19 @@ from TaxonMap cimport TaxonMap
 
 cdef class Tree:
     cdef TaxonMap _taxonMap
-    cdef _base
+    cdef Node _base
+    cdef _renderTarget
+    cdef int _sn # Incremented every time the tree is modified.
+    cdef int _cacheSn, _cachedNtaxa, _cachedNedges
 
     cpdef dup(self)
     cpdef taxonMapGet(self)
     cpdef rf(self, Tree other)
+    cdef _recacheRecurse(self, Ring ring)
+    cdef _recache(self)
     cpdef ntaxaGet(self)
     cpdef nedgesGet(self)
-    cpdef baseGet(self)
+    cpdef Node baseGet(self)
     cpdef baseSet(self, Node base)
     cpdef canonize(self)
     cpdef collapse(self)
@@ -47,6 +52,9 @@ cdef class Node:
     cpdef taxonNumSet(self, int taxonNum)
     cpdef Ring ring(self)
     cpdef int degree(self)
+    cpdef rrender(self, Node prev, TaxonMap taxonMap, bint labels,
+      bint lengths, lengthFormat, callback, bint twoTaxa=?)
+    cpdef int separation(self, Node other)
 
 cdef class Edge:
     cdef Tree _tree
@@ -65,9 +73,12 @@ cdef class Ring:
     cdef Edge _edge
     cdef Ring _next, _prev
 
+    cpdef siblings(self) # Iterator.
+
     cpdef Tree tree(self)
     cpdef Node node(self)
     cpdef Edge edge(self)
     cpdef Ring other(self)
     cpdef Ring next(self)
     cpdef Ring prev(self)
+    cdef int _separation(self, Node other, int sep)
