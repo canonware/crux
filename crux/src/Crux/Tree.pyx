@@ -5,7 +5,7 @@ cdef class Edge
 cdef class Ring
 
 from CTMatrix cimport CTMatrix
-from NewickParser cimport NewickParser
+cimport Newick
 from TaxonMap cimport TaxonMap
 
 import __builtin__
@@ -13,7 +13,7 @@ import __builtin__
 import random
 import re
 
-class _NewickParser(NewickParser):
+class _NewickParser(Newick.Parser):
     def __init__(self, tree, taxonMap, newickAutoMap=False):
         self._tree = tree
         self._taxonMap = taxonMap
@@ -21,8 +21,8 @@ class _NewickParser(NewickParser):
         self._newickAutoMap = newickAutoMap
 
     # Overridden method.
-    def parse(self, input):
-        if not NewickParser.parse(self, input):
+    def parse(self, str input):
+        if not Newick.Parser.parse(self, input):
             if len(self._taxonStack) > 0:
                 self._tree.baseSet(self._taxonStack[0])
             rVal = False

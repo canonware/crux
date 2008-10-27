@@ -125,11 +125,16 @@ __all__ = ["Exception", "SpecError", "SyntaxError", "AttributeError",
 
 import cPickle
 import exceptions
+import inspect
 import re
 import sys
 import types
 
 global __name__
+
+# Forward declarations.
+cdef class Gsse
+cdef class Gssn
 
 #===============================================================================
 # Begin exceptions.
@@ -497,7 +502,7 @@ associated productions:
         assert isinstance(parser, Lr)
         Symbol.__init__(self, parser._spec._sym2spec[type(self)], parser)
 
-    cdef merge(self, Nonterm other):
+    cpdef merge(self, Nonterm other):
         """
 Merging happens when there is an ambiguity in the input that allows
 non-terminals to be part of multiple overlapping series of
@@ -792,6 +797,9 @@ cdef class Item:
         return True
 
 cdef class _ItemSetIterHelper:
+    cdef _items
+    cdef int _index
+
     def __init__(self, dict items, dict added):
         if __debug__:
             for item in items.iterkeys():
@@ -1242,6 +1250,10 @@ verbose : If true, print progress information while generating the
         def __get__(self): return self._nConflicts
 
     def __repr__(self):
+        cdef SymbolSpec sym
+        cdef Item item
+        cdef int i, ntokens, nnonterms, nproductions, nstates
+
         if self._skinny:
             # Print a very reduced summary, since most info has been discarded.
             return "Parsing.Spec: %d states, %d actions (%d split)" % \
@@ -1342,7 +1354,7 @@ verbose : If true, print progress information while generating the
         return ret
 
     cdef void _prepare(self, modules, pickleFile, pickleMode, logFile,
-      graphFile):
+      graphFile) except *:
         """
 Compile the specification into data structures that can be used by
 the Parser class for parsing.
@@ -1417,7 +1429,7 @@ the Parser class for parsing.
     # Introspect modules and find special parser declarations.  In order to be
     # a special class, the class must both 1) be subclassed from Token or
     # Nonterm, and 2) contain the appropriate %foo docstring.
-    cdef void _introspect(self, modules):
+    cdef void _introspect(self, modules) except *:
         if self._verbose:
             print ("Parsing.Spec: Introspecting module%s to acquire formal" + \
             " grammar specification...") % ("s", "")[len(modules) == 1]
@@ -1578,7 +1590,7 @@ the Parser class for parsing.
             raise SpecError, "No start symbol specified"
 
     # Resolve all symbolic (named) references.
-    cdef void _references(self, logFile, graphFile):
+    cdef void _references(self, logFile, graphFile) except *:
         # Build the graph of Precedence relationships.
         self._resolvePrec(graphFile)
 
@@ -1597,7 +1609,7 @@ the Parser class for parsing.
             d = nonterm.nontermType.__dict__
             for k in d:
                 v = d[k]
-                if type(v) is types.FunctionType and type(v.__doc__) == str:
+                if inspect.isroutine(v) and type(v.__doc__) == str:
                     dirtoks = v.__doc__.split(" ")
                     if dirtoks[0] == "%reduce":
                         rhs = []
@@ -1749,7 +1761,7 @@ the Parser class for parsing.
             raise SpecError, "\n".join(cycles)
 
     # Store state to a pickle file, if requested.
-    cdef void _pickle(self, file_, mode):
+    cdef void _pickle(self, object file, mode):
         if self._skinny:
             # Discard bulky data that don't need to be pickled.
             #self._startSym = ...
@@ -1758,26 +1770,26 @@ the Parser class for parsing.
             self._itemSetsHash = {}
             #self._startState = ...
 
-        if file_ != None and "w" in mode:
+        if file != None and "w" in mode:
             if self._verbose:
                 print "Parsing.Spec: Creating %s Spec pickle in %s..." % \
-                  (("fat", "skinny")[self._skinny], file_)
-            f = open(file_, "w")
+                  (("fat", "skinny")[self._skinny], file)
+            f = open(file, "w")
             cPickle.dump(self, f, protocol=cPickle.HIGHEST_PROTOCOL)
             f.close()
 
     # Restore state from a pickle file, if a compatible one is provided.  This
     # method uses the same set of return values as does _compatible().
-    cdef _unpickle(self, file_, mode):
+    cdef _unpickle(self, object file, mode):
         cdef Spec spec
 
-        if file_ != None and "r" in mode:
+        if file != None and "r" in mode:
             if self._verbose:
                 print \
                   "Parsing.Spec: Attempting to use pickle from file \"%s\"..." \
-                  % file_
+                  % file
             try:
-                f = open(file_, "r")
+                f = open(file, "r")
             except IOError:
                 if self._verbose:
                     error = sys.exc_info()
@@ -1800,13 +1812,13 @@ the Parser class for parsing.
             if compat == "incompatible":
                 if self._verbose:
                     print "Parsing.Spec: Pickle in \"%s\" is incompatible." % \
-                      file_
+                      file
                 return compat
 
             if self._verbose:
                 print \
                   "Parsing.Spec: Using %s pickle in \"%s\" (%s)..." \
-                  % (("fat", "skinny")[spec._skinny], file_, compat)
+                  % (("fat", "skinny")[spec._skinny], file, compat)
 
             if compat in ["compatible", "repickle"]:
                 # Copy spec's data structures.
@@ -2030,7 +2042,7 @@ the Parser class for parsing.
 
     # Check for unused prececence/token/nonterm/reduce specifications, then
     # throw a SpecError if any ambiguities exist in the grammar.
-    cdef void _validate(self, logFile):
+    cdef void _validate(self, logFile) except *:
         if self._verbose:
             print "Parsing.Spec: Validating grammar..."
 
@@ -2654,9 +2666,12 @@ class Gss(list):
 
         self._glr = glr
 
-class Gsse(object):
+cdef class Gsse:
+    cdef Gssn node
+    cdef Symbol value
+
     """Graph-structured stack edge."""
-    def __init__(self, below, above, value):
+    def __init__(self, Gssn below, Gssn above, Symbol value):
         self.node = below
         above._edges.append(self)
         self.value = value
@@ -2664,7 +2679,8 @@ class Gsse(object):
     def __repr__(self):
         return "{%r}" % self.value
 
-    def __eq__(self, other):
+    def __richcmp__(self, Gsse other, int op):
+        assert op == 2
         if self.node != other.node \
           or self.value != other.value:
             return False
@@ -2734,9 +2750,12 @@ cdef class _GssnPathsIterHelper:
                     path.pop(0)
         path.pop(0)
 
-class Gssn(object):
+cdef class Gssn:
+    cdef list _edges
+    cdef int nextState
+
     """Graph-structured stack node."""
-    def __init__(self, below, value, nextState):
+    def __init__(self, Gssn below, Symbol value, int nextState):
         assert isinstance(below, Gssn) or below == None
 
         self._edges = []
@@ -2902,7 +2921,8 @@ Signal end-of-input to the parser.
             if nReduces > 0:
                 self._printStack()
 
-    def _reduce(self, workQ, epsilons, path, production, symSpec):
+    cdef void _reduce(self, workQ, epsilons, path, production, symSpec) \
+      except *:
         assert len(path[1::2]) == len(production.rhs)
 
         # Build the list of RHS semantic values to pass to the reduction action.

@@ -7,6 +7,6 @@ import CTMatrix
 import DistMatrix
 import Exception
 import FastaParser
-import NewickParser
+import Newick
 import TaxonMap
 import Tree

@@ -2,14 +2,14 @@ cdef class Precedence:
     cdef readonly object name
     cdef readonly object assoc
     cdef readonly dict relationships
-    cdef public list equiv
-    cdef public list dominators
+    cdef readonly list equiv
+    cdef readonly list dominators
 
 cdef class SymbolSpec:
     cdef readonly object name
     cdef public object prec
-    cdef public list firstSet
-    cdef public list followSet
+    cdef readonly list firstSet
+    cdef readonly list followSet
     cdef readonly int seq
     cdef bint firstSetMerge(self, SymbolSpec sym)
     cdef bint followSetMerge(self, list set)
@@ -26,7 +26,7 @@ cdef class Symbol:
     cdef object __parser
 
 cdef class Nonterm(Symbol):
-    cdef merge(self, Nonterm other)
+    cpdef merge(self, Nonterm other)
 
 cdef class NontermSpec(SymbolSpec):
     cdef readonly object qualified
@@ -103,14 +103,14 @@ cdef class Spec:
     cdef int _nConflicts
     cdef int _nImpure
     cdef void _prepare(self, modules, pickleFile, pickleMode, logFile,
-      graphFile)
-    cdef void _introspect(self, modules)
-    cdef void _references(self, logFile, graphFile)
+      graphFile) except *
+    cdef void _introspect(self, modules) except *
+    cdef void _references(self, logFile, graphFile) except *
     cdef void _resolvePrec(self, graphFile)
     cdef void _pickle(self, file_, mode)
     cdef _unpickle(self, file_, mode)
     cdef _compatible(self, Spec other)
-    cdef void _validate(self, logFile)
+    cdef void _validate(self, logFile) except *
     cdef void _firstSets(self)
     cdef void _followSets(self)
     cdef void _items(self)
@@ -119,6 +119,12 @@ cdef class Spec:
     cdef void _disambiguate(self)
     cdef _resolve(self, sym, oldAct, newAct)
 
-cdef class Lr: pass
+cdef class Lr:
+    cdef readonly Spec _spec
+    cdef bint _verbose
+    cdef list _start
+    cdef readonly list _stack
 
-cdef class Glr(Lr): pass
+cdef class Glr(Lr):
+    cdef void _reduce(self, workQ, epsilons, path, production, symSpec) \
+      except *
