@@ -20,6 +20,7 @@ cdef class Nonterm(Parsing.Nonterm):
 cdef class Parser(Parsing.Lr):
     cdef readonly Token first, last
 
+    cdef Parsing.Spec _initSpec(self)
     cdef void _appendToken(self, Token token) except *
     cdef str expandInput(self, str input, int pos, int line, int col)
     cpdef parse(self, str input, int begPos=?, int line=?, int col=?, \

@@ -1,0 +1,90 @@
+Precedences:
+  [%fail none ={none} <{}]
+  [%split split ={split} <{}]
+Tokens:
+  <$> [%fail none ={none} <{}]
+    First set: [<$>]
+    Follow set: []
+  <e> [%fail none ={none} <{}]
+    First set: [<e>]
+    Follow set: []
+  c [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [<$>]
+Non-terminals:
+  A [%split split ={split} <{}]
+    First set: [c]
+    Follow set: [<$>]
+    Productions:
+      A ::= c. [split]
+  B [%split split ={split} <{}]
+    First set: [c]
+    Follow set: [<$>]
+    Productions:
+      B ::= c. [split]
+  S [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [<$>]
+    Productions:
+      S ::= A. [none]
+      S ::= B. [none]
+  <S> [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [<e>]
+    Productions:
+      <S> ::= S <$>. [none]
+Item sets:
+  0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[A ::= * c., <$>] [split], [S ::= * A., <$>] [none], [S ::= * B., <$>] [none], [B ::= * c., <$>] [split]')
+  1: ItemSet(kernel: [A ::= c *., <$>] [split], [B ::= c *., <$>] [split], added: '')
+  2: ItemSet(kernel: [S ::= A *., <$>] [none], added: '')
+  3: ItemSet(kernel: [<S> ::= S * <$>., <e>] [none], added: '')
+  4: ItemSet(kernel: [S ::= B *., <$>] [none], added: '')
+  5: ItemSet(kernel: [<S> ::= S <$> *., <e>] [none], added: '')
+Parsing.Spec: 2 tokens, 3 non-terminals, 4 productions, 6 states, 7 actions (2 split):
+Algorithm compatibility: GLR
+Parsing tables:
+  ==============================================================================
+  State 0: (start state)
+           A ::= * c. [split]
+           S ::= * A. [none]
+           S ::= * B. [none]
+           B ::= * c. [split]
+           <S> ::= * S <$>. [none]
+    Goto:
+                  A : 2
+                  B : 4
+                  S : 3
+    Action:
+                  c : shift  1 [none]
+  ==============================================================================
+  State 1:
+           A ::= c *. [split]
+           B ::= c *. [split]
+    Goto:
+    Action:
+                <$> : reduce B ::= c. [split]
+                <$> : reduce A ::= c. [split]
+  ==============================================================================
+  State 2:
+           S ::= A *. [none]
+    Goto:
+    Action:
+                <$> : reduce S ::= A. [none]
+  ==============================================================================
+  State 3:
+           <S> ::= S * <$>. [none]
+    Goto:
+    Action:
+                <$> : shift  5 [none]
+  ==============================================================================
+  State 4:
+           S ::= B *. [none]
+    Goto:
+    Action:
+                <$> : reduce S ::= B. [none]
+  ==============================================================================
+  State 5:
+           <S> ::= S <$> *. [none]
+    Goto:
+    Action:
+                <e> : reduce <S> ::= S <$>. [none]

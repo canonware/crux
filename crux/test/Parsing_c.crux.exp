@@ -1,0 +1,149 @@
+Precedences:
+  [%fail none ={none} <{}]
+  [%split split ={split} <{}]
+Tokens:
+  <$> [%fail none ={none} <{}]
+    First set: [<$>]
+    Follow set: []
+  <e> [%fail none ={none} <{}]
+    First set: [<e>]
+    Follow set: []
+  id [%fail none ={none} <{}]
+    First set: [id]
+    Follow set: [equal, <$>]
+  star [%fail none ={none} <{}]
+    First set: [star]
+    Follow set: [star, id]
+  equal [%fail none ={none} <{}]
+    First set: [equal]
+    Follow set: [star, id]
+Non-terminals:
+  L [%fail none ={none} <{}]
+    First set: [star, id]
+    Follow set: [equal, <$>]
+    Productions:
+      L ::= id. [none]
+      L ::= star R. [none]
+  S [%fail none ={none} <{}]
+    First set: [star, id]
+    Follow set: [<$>]
+    Productions:
+      S ::= L equal R. [none]
+      S ::= R. [none]
+  R [%fail none ={none} <{}]
+    First set: [star, id]
+    Follow set: [<$>, equal]
+    Productions:
+      R ::= L. [none]
+  <S> [%fail none ={none} <{}]
+    First set: [star, id]
+    Follow set: [<e>]
+    Productions:
+      <S> ::= S <$>. [none]
+Item sets:
+  0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[S ::= * L equal R., <$>] [none], [S ::= * R., <$>] [none], [R ::= * L., <$>] [none], [L ::= * star R., <$>/equal] [none], [L ::= * id., <$>/equal] [none]')
+  1: ItemSet(kernel: [L ::= star * R., <$>/equal] [none], added: '[R ::= * L., <$>/equal] [none], [L ::= * star R., <$>/equal] [none], [L ::= * id., <$>/equal] [none]')
+  2: ItemSet(kernel: [L ::= id *., <$>/equal] [none], added: '')
+  3: ItemSet(kernel: [<S> ::= S * <$>., <e>] [none], added: '')
+  4: ItemSet(kernel: [S ::= R *., <$>] [none], added: '')
+  5: ItemSet(kernel: [S ::= L * equal R., <$>] [none], [R ::= L *., <$>] [none], added: '')
+  6: ItemSet(kernel: [L ::= star R *., <$>/equal] [none], added: '')
+  7: ItemSet(kernel: [R ::= L *., <$>/equal] [none], added: '')
+  8: ItemSet(kernel: [<S> ::= S <$> *., <e>] [none], added: '')
+  9: ItemSet(kernel: [S ::= L equal * R., <$>] [none], added: '[R ::= * L., <$>] [none], [L ::= * star R., <$>] [none], [L ::= * id., <$>] [none]')
+  10: ItemSet(kernel: [S ::= L equal R *., <$>] [none], added: '')
+Parsing.Spec: 4 tokens, 3 non-terminals, 5 productions, 11 states, 18 actions (0 split):
+Algorithm compatibility: GLR, LR
+Parsing tables:
+  ==============================================================================
+  State 0: (start state)
+           S ::= * L equal R. [none]
+           S ::= * R. [none]
+           R ::= * L. [none]
+           L ::= * star R. [none]
+           L ::= * id. [none]
+           <S> ::= * S <$>. [none]
+    Goto:
+                  L : 5
+                  S : 3
+                  R : 4
+    Action:
+                 id : shift  2 [none]
+               star : shift  1 [none]
+  ==============================================================================
+  State 1:
+           R ::= * L. [none]
+           L ::= * star R. [none]
+           L ::= * id. [none]
+           L ::= star * R. [none]
+    Goto:
+                  L : 7
+                  R : 6
+    Action:
+                 id : shift  2 [none]
+               star : shift  1 [none]
+  ==============================================================================
+  State 2:
+           L ::= id *. [none]
+    Goto:
+    Action:
+                <$> : reduce L ::= id. [none]
+              equal : reduce L ::= id. [none]
+  ==============================================================================
+  State 3:
+           <S> ::= S * <$>. [none]
+    Goto:
+    Action:
+                <$> : shift  8 [none]
+  ==============================================================================
+  State 4:
+           S ::= R *. [none]
+    Goto:
+    Action:
+                <$> : reduce S ::= R. [none]
+  ==============================================================================
+  State 5:
+           S ::= L * equal R. [none]
+           R ::= L *. [none]
+    Goto:
+    Action:
+                <$> : reduce R ::= L. [none]
+              equal : shift  9 [none]
+  ==============================================================================
+  State 6:
+           L ::= star R *. [none]
+    Goto:
+    Action:
+                <$> : reduce L ::= star R. [none]
+              equal : reduce L ::= star R. [none]
+  ==============================================================================
+  State 7:
+           R ::= L *. [none]
+    Goto:
+    Action:
+                <$> : reduce R ::= L. [none]
+              equal : reduce R ::= L. [none]
+  ==============================================================================
+  State 8:
+           <S> ::= S <$> *. [none]
+    Goto:
+    Action:
+                <e> : reduce <S> ::= S <$>. [none]
+  ==============================================================================
+  State 9:
+           R ::= * L. [none]
+           L ::= * star R. [none]
+           L ::= * id. [none]
+           S ::= L equal * R. [none]
+    Goto:
+                  L : 7
+                  R : 10
+    Action:
+                 id : shift  2 [none]
+               star : shift  1 [none]
+  ==============================================================================
+  State 10:
+            S ::= L equal R *. [none]
+    Goto:
+    Action:
+                <$> : reduce S ::= L equal R. [none]

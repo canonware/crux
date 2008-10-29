@@ -1,0 +1,178 @@
+Precedences:
+  [%fail none ={none} <{}]
+  [%split split ={split} <{}]
+Tokens:
+  <$> [%fail none ={none} <{}]
+    First set: [<$>]
+    Follow set: []
+  <e> [%fail none ={none} <{}]
+    First set: [<e>]
+    Follow set: []
+  a [%fail none ={none} <{}]
+    First set: [a]
+    Follow set: [c]
+  c [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [e, d]
+  b [%fail none ={none} <{}]
+    First set: [b]
+    Follow set: [c]
+  e [%fail none ={none} <{}]
+    First set: [e]
+    Follow set: [<$>]
+  d [%fail none ={none} <{}]
+    First set: [d]
+    Follow set: [<$>]
+Non-terminals:
+  A [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [d, e]
+    Productions:
+      A ::= c. [none]
+  B [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [e, d]
+    Productions:
+      B ::= c. [none]
+  S [%fail none ={none} <{}]
+    First set: [a, b]
+    Follow set: [<$>]
+    Productions:
+      S ::= b A e. [none]
+      S ::= a A d. [none]
+      S ::= a B e. [none]
+      S ::= b B d. [none]
+  <S> [%fail none ={none} <{}]
+    First set: [a, b]
+    Follow set: [<e>]
+    Productions:
+      <S> ::= S <$>. [none]
+Item sets:
+  0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[S ::= * a A d., <$>] [none], [S ::= * a B e., <$>] [none], [S ::= * b B d., <$>] [none], [S ::= * b A e., <$>] [none]')
+  1: ItemSet(kernel: [S ::= a * A d., <$>] [none], [S ::= a * B e., <$>] [none], added: '[A ::= * c., d] [none], [B ::= * c., e] [none]')
+  2: ItemSet(kernel: [S ::= b * B d., <$>] [none], [S ::= b * A e., <$>] [none], added: '[A ::= * c., e] [none], [B ::= * c., d] [none]')
+  3: ItemSet(kernel: [<S> ::= S * <$>., <e>] [none], added: '')
+  4: ItemSet(kernel: [A ::= c *., d] [none], [B ::= c *., e] [none], added: '')
+  5: ItemSet(kernel: [S ::= a A * d., <$>] [none], added: '')
+  6: ItemSet(kernel: [S ::= a B * e., <$>] [none], added: '')
+  7: ItemSet(kernel: [A ::= c *., e] [none], [B ::= c *., d] [none], added: '')
+  8: ItemSet(kernel: [S ::= b A * e., <$>] [none], added: '')
+  9: ItemSet(kernel: [S ::= b B * d., <$>] [none], added: '')
+  10: ItemSet(kernel: [<S> ::= S <$> *., <e>] [none], added: '')
+  11: ItemSet(kernel: [S ::= a A d *., <$>] [none], added: '')
+  12: ItemSet(kernel: [S ::= a B e *., <$>] [none], added: '')
+  13: ItemSet(kernel: [S ::= b A e *., <$>] [none], added: '')
+  14: ItemSet(kernel: [S ::= b B d *., <$>] [none], added: '')
+Parsing.Spec: 6 tokens, 3 non-terminals, 6 productions, 15 states, 18 actions (0 split):
+Algorithm compatibility: GLR, LR
+Parsing tables:
+  ==============================================================================
+  State 0: (start state)
+           S ::= * a A d. [none]
+           S ::= * a B e. [none]
+           S ::= * b B d. [none]
+           S ::= * b A e. [none]
+           <S> ::= * S <$>. [none]
+    Goto:
+                  S : 3
+    Action:
+                  a : shift  1 [none]
+                  b : shift  2 [none]
+  ==============================================================================
+  State 1:
+           A ::= * c. [none]
+           B ::= * c. [none]
+           S ::= a * A d. [none]
+           S ::= a * B e. [none]
+    Goto:
+                  A : 5
+                  B : 6
+    Action:
+                  c : shift  4 [none]
+  ==============================================================================
+  State 2:
+           A ::= * c. [none]
+           B ::= * c. [none]
+           S ::= b * B d. [none]
+           S ::= b * A e. [none]
+    Goto:
+                  A : 8
+                  B : 9
+    Action:
+                  c : shift  7 [none]
+  ==============================================================================
+  State 3:
+           <S> ::= S * <$>. [none]
+    Goto:
+    Action:
+                <$> : shift  10 [none]
+  ==============================================================================
+  State 4:
+           A ::= c *. [none]
+           B ::= c *. [none]
+    Goto:
+    Action:
+                  e : reduce B ::= c. [none]
+                  d : reduce A ::= c. [none]
+  ==============================================================================
+  State 5:
+           S ::= a A * d. [none]
+    Goto:
+    Action:
+                  d : shift  11 [none]
+  ==============================================================================
+  State 6:
+           S ::= a B * e. [none]
+    Goto:
+    Action:
+                  e : shift  12 [none]
+  ==============================================================================
+  State 7:
+           A ::= c *. [none]
+           B ::= c *. [none]
+    Goto:
+    Action:
+                  e : reduce A ::= c. [none]
+                  d : reduce B ::= c. [none]
+  ==============================================================================
+  State 8:
+           S ::= b A * e. [none]
+    Goto:
+    Action:
+                  e : shift  13 [none]
+  ==============================================================================
+  State 9:
+           S ::= b B * d. [none]
+    Goto:
+    Action:
+                  d : shift  14 [none]
+  ==============================================================================
+  State 10:
+            <S> ::= S <$> *. [none]
+    Goto:
+    Action:
+                <e> : reduce <S> ::= S <$>. [none]
+  ==============================================================================
+  State 11:
+            S ::= a A d *. [none]
+    Goto:
+    Action:
+                <$> : reduce S ::= a A d. [none]
+  ==============================================================================
+  State 12:
+            S ::= a B e *. [none]
+    Goto:
+    Action:
+                <$> : reduce S ::= a B e. [none]
+  ==============================================================================
+  State 13:
+            S ::= b A e *. [none]
+    Goto:
+    Action:
+                <$> : reduce S ::= b A e. [none]
+  ==============================================================================
+  State 14:
+            S ::= b B d *. [none]
+    Goto:
+    Action:
+                <$> : reduce S ::= b B d. [none]

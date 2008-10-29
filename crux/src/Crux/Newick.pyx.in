@@ -233,10 +233,6 @@ cdef class Label(Nonterm):
 # End Nonterm.
 #===============================================================================
 
-cdef Parsing.Spec spec
-spec = Parsing.Spec(sys.modules[__name__], "Newick.pickle", \
-  verbose=True, skinny=False, logFile="Newick.log")
-
 # Regex used to recognize all tokens except complex comments.
 cdef _reMain
 _reMain = re.compile(r"""
@@ -266,11 +262,35 @@ _reComment = re.compile(r"""
   | ([^\[\]\n]+) # text
 """, re.X)
 
+cdef Parsing.Spec _spec
+
 cdef class Parser(Parsing.Lr):
-    def __init__(self):
+    def __init__(self, Parsing.Spec spec=None):
+        if spec is None:
+            spec = self._initSpec()
+
         Parsing.Lr.__init__(self, spec)
         self.first = None
         self.last = None
+
+    # Check whether spec has been initialized here, rather than doing
+    # initialization during module initialization.  Lazy initialization is
+    # necessary because Crux.Newick isn't defined until the Newick submodule
+    # has been fully initialized.
+    #
+    # Lazy initialization here has the serendipitous advantage of reducing
+    # Crux startup time and memory usage.  Indeed, under normal
+    # circumstances, Crux.Newick._spec is never even used, since the useful
+    # Newick parsers are subclasses of this one.
+    cdef Parsing.Spec _initSpec(self):
+        if _spec is None:
+            _spec = Parsing.Spec(sys.modules[__name__],
+              pickleFile=Crux.prefix +
+              "/share/Crux-@crux_version@/Newick.pickle",
+              verbose=(True if __debug__ else False),
+              skinny=(False if __debug__ else True),
+              logFile=Crux.prefix + "/share/Crux-@crux_version@/Newick.log")
+        return _spec
 
     cdef void _appendToken(self, Token token) except *:
         if self.first is None:
@@ -298,6 +318,7 @@ Called when end of input is reached.  By default a SyntaxError is raised.
 
         self.verbose = verbose
 
+        # Iteratively tokenize the input and feed the tokens to the parser.
         while True:
             tokLine = line
             tokCol = col

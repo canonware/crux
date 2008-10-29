@@ -1,0 +1,111 @@
+Precedences:
+  [%fail none ={none} <{}]
+  [%split split ={split} <{}]
+Tokens:
+  <$> [%fail none ={none} <{}]
+    First set: [<$>]
+    Follow set: []
+  <e> [%fail none ={none} <{}]
+    First set: [<e>]
+    Follow set: []
+  d [%fail none ={none} <{}]
+    First set: [d]
+    Follow set: [c, d, <$>]
+  c [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [c, d]
+Non-terminals:
+  C [%fail none ={none} <{}]
+    First set: [c, d]
+    Follow set: [c, d, <$>]
+    Productions:
+      C ::= c C. [none]
+      C ::= d. [none]
+  S [%fail none ={none} <{}]
+    First set: [c, d]
+    Follow set: [<$>]
+    Productions:
+      S ::= C C. [none]
+  <S> [%fail none ={none} <{}]
+    First set: [c, d]
+    Follow set: [<e>]
+    Productions:
+      <S> ::= S <$>. [none]
+Item sets:
+  0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[C ::= * c C., d/c] [none], [C ::= * d., d/c] [none], [S ::= * C C., <$>] [none]')
+  1: ItemSet(kernel: [C ::= c * C., <$>/d/c] [none], added: '[C ::= * c C., <$>/d/c] [none], [C ::= * d., <$>/d/c] [none]')
+  2: ItemSet(kernel: [C ::= d *., <$>/d/c] [none], added: '')
+  3: ItemSet(kernel: [S ::= C * C., <$>] [none], added: '[C ::= * c C., <$>] [none], [C ::= * d., <$>] [none]')
+  4: ItemSet(kernel: [<S> ::= S * <$>., <e>] [none], added: '')
+  5: ItemSet(kernel: [C ::= c C *., <$>/d/c] [none], added: '')
+  6: ItemSet(kernel: [S ::= C C *., <$>] [none], added: '')
+  7: ItemSet(kernel: [<S> ::= S <$> *., <e>] [none], added: '')
+Parsing.Spec: 3 tokens, 2 non-terminals, 3 productions, 8 states, 15 actions (0 split):
+Algorithm compatibility: GLR, LR
+Parsing tables:
+  ==============================================================================
+  State 0: (start state)
+           C ::= * c C. [none]
+           C ::= * d. [none]
+           S ::= * C C. [none]
+           <S> ::= * S <$>. [none]
+    Goto:
+                  C : 3
+                  S : 4
+    Action:
+                  d : shift  2 [none]
+                  c : shift  1 [none]
+  ==============================================================================
+  State 1:
+           C ::= * c C. [none]
+           C ::= * d. [none]
+           C ::= c * C. [none]
+    Goto:
+                  C : 5
+    Action:
+                  d : shift  2 [none]
+                  c : shift  1 [none]
+  ==============================================================================
+  State 2:
+           C ::= d *. [none]
+    Goto:
+    Action:
+                <$> : reduce C ::= d. [none]
+                  d : reduce C ::= d. [none]
+                  c : reduce C ::= d. [none]
+  ==============================================================================
+  State 3:
+           C ::= * c C. [none]
+           C ::= * d. [none]
+           S ::= C * C. [none]
+    Goto:
+                  C : 6
+    Action:
+                  d : shift  2 [none]
+                  c : shift  1 [none]
+  ==============================================================================
+  State 4:
+           <S> ::= S * <$>. [none]
+    Goto:
+    Action:
+                <$> : shift  7 [none]
+  ==============================================================================
+  State 5:
+           C ::= c C *. [none]
+    Goto:
+    Action:
+                <$> : reduce C ::= c C. [none]
+                  d : reduce C ::= c C. [none]
+                  c : reduce C ::= c C. [none]
+  ==============================================================================
+  State 6:
+           S ::= C C *. [none]
+    Goto:
+    Action:
+                <$> : reduce S ::= C C. [none]
+  ==============================================================================
+  State 7:
+           <S> ::= S <$> *. [none]
+    Goto:
+    Action:
+                <e> : reduce <S> ::= S <$>. [none]

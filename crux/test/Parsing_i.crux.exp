@@ -1,0 +1,7 @@
+SpecError: Parsing.Spec: 3 unresolvable conflicts
+Parsing.Spec: 5 unused definitions
+Parsing.Spec: Unused precedence: [%left foo ={foo} <{}]
+Parsing.Spec: Unused token: bar
+Parsing.Spec: Unused nonterm: Biz
+Parsing.Spec: Unused production: Biz ::= . [foo]
+Parsing.Spec: Unused production: Biz ::= bar. [none]

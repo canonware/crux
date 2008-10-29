@@ -10,4 +10,7 @@
 ^crux/setup\.py$
 ^crux/src/[A-Za-z0-9_]+.c$
 ^crux/src/Crux/[A-Za-z0-9_]+.c$
+^crux/src/Crux/Newick.pyx
 ^crux/test/[A-Za-z]*_[a-z]\.crux\.out$
+^crux/test/[A-Za-z]*_[a-z]\.log$
+^crux/test/[A-Za-z]*_[a-z]\.pickle$

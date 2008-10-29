@@ -1,0 +1,11 @@
+Parsing.Spec: 13 states, 37 actions (0 split)
+Input: id * id + id
+F ::= id
+T ::= F
+F ::= id
+T ::= T star F
+E ::= T
+F ::= id
+T ::= F
+E ::= E plus T
+Start: [E]
