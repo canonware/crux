@@ -28,8 +28,8 @@ Non-terminals:
     First set: [star, id]
     Follow set: [<$>]
     Productions:
-      S ::= L equal R. [none]
       S ::= R. [none]
+      S ::= L equal R. [none]
   R [%fail none ={none} <{}]
     First set: [star, id]
     Follow set: [<$>, equal]

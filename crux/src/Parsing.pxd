@@ -1,3 +1,25 @@
+# Forward declarations.
+cdef class Precedence
+cdef class SymbolSpec
+cdef class String
+cdef class Symbol
+cdef class Nonterm(Symbol)
+cdef class NontermSpec(SymbolSpec)
+cdef class Token(Symbol)
+cdef class TokenSpec(SymbolSpec)
+cdef class EndOfInput(Token)
+cdef class Epsilon(Token)
+cdef class Production
+cdef class Start(Production)
+cdef class Item
+cdef class ItemSet
+cdef class Action
+cdef class ShiftAction(Action)
+cdef class ReduceAction(Action)
+cdef class Spec
+cdef class Lr
+cdef class Glr(Lr)
+
 cdef class Precedence:
     cdef readonly str name
     cdef readonly str assoc
@@ -25,7 +47,7 @@ cdef class String:
 
 cdef class Symbol:
     cdef object __symSpec
-    cdef object __parser
+    cdef readonly Lr parser
 
 cdef class Nonterm(Symbol):
     cpdef merge(self, Nonterm other)
@@ -132,6 +154,13 @@ cdef class Lr:
     cdef list _start
     cdef readonly list _stack
 
+    cpdef reset(self)
+    cpdef token(self, token)
+    cpdef eoi(self)
+
 cdef class Glr(Lr):
+    cpdef reset(self)
+    cpdef token(self, token)
+    cpdef eoi(self)
     cdef void _reduce(self, workQ, epsilons, path, production, symSpec) \
       except *

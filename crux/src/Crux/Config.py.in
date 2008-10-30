@@ -1,0 +1,13 @@
+version = "@crux_version@"
+
+# prefix.
+try:
+    # NotInstalled is in sys.path if the top-level crux script had to munge
+    # sys.path in order to import the Crux module.  This allows us to determine
+    # here whether we are running pre- or post-installation.
+    from NotInstalled import prefix
+    assert prefix == "@abs_objroot@/build"
+except:
+    prefix = "@prefix@"
+
+debug = (True if @enable_debug@ else False)

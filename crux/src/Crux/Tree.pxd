@@ -13,7 +13,10 @@ cdef class Tree:
     cdef _renderTarget
     cdef int _sn # Incremented every time the tree is modified.
     cdef int _cacheSn, _cachedNtaxa, _cachedNedges
+    cdef public bint unrooted
 
+    cdef void _newickNew(self, str input, bint unrooted, bint newickAutoMap) \
+      except *
     cpdef dup(self)
     cpdef taxonMapGet(self)
     cpdef rf(self, Tree other)
@@ -23,6 +26,8 @@ cdef class Tree:
     cpdef nedgesGet(self)
     cpdef Node baseGet(self)
     cpdef baseSet(self, Node base)
+
+    cpdef deroot(self)
     cpdef canonize(self)
     cpdef collapse(self)
     cpdef tbr(self, Edge bisect, Edge reconnectA, Edge reconnectB)
@@ -39,8 +44,7 @@ cdef class Tree:
     cpdef tbrAllNeighborsMp(self, int maxHold=?)
     cpdef nHeldGet(self)
     cpdef heldGet(self, int i)
-    cpdef render(self, bint rooted=?, bint labels=?, bint lengths=?,
-      lengthFormat=?, outFile=?)
+    cpdef render(self, bint labels=?, bint lengths=?, lengthFormat=?, outFile=?)
 
 cdef class Node:
     cdef Tree _tree
@@ -52,8 +56,8 @@ cdef class Node:
     cpdef taxonNumSet(self, int taxonNum)
     cpdef Ring ring(self)
     cpdef int degree(self)
-    cpdef rrender(self, Node prev, TaxonMap taxonMap, bint labels,
-      bint lengths, lengthFormat, callback, bint twoTaxa=?)
+    cpdef rrender(self, Node prev, TaxonMap taxonMap, bint labels, bint lengths,
+      lengthFormat, callback, bint zeroLength=?, bint noLength=?)
     cpdef int separation(self, Node other)
 
 cdef class Edge:

@@ -27,7 +27,7 @@ teststrs = (
 for str in teststrs:
     print "\n=== %r ===" % str
     try:
-        t = Crux.Tree.Tree(str, newickAutoMap=True)
+        t = Crux.Tree.Tree(str, unrooted=True, newickAutoMap=True)
         t.canonize()
         print t.render(labels=True, lengths=True, lengthFormat="%.6f")
         t.render(labels=True, lengths=True, lengthFormat="%.6f",
@@ -35,5 +35,5 @@ for str in teststrs:
     except:
         error = sys.exc_info()
         print "Exception %s: %s" % (error[0], error[1])
-        
+
 print "Test end"

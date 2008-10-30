@@ -33,7 +33,8 @@ class TestParser(Parsing.Glr):
     def __init__(self, spec):
         Parsing.Glr.__init__(self, spec)
 
-spec = Parsing.Spec(sys.modules[__name__], skinny=False, logFile="Parsing_g.log")
+spec = Parsing.Spec(sys.modules[__name__], skinny=False,
+  logFile=Crux.opts.scriptargs[1] + "/test/Parsing_g.log")
 print spec
 parser = TestParser(spec)
 parser.verbose = True

@@ -65,8 +65,8 @@ class TestParser(Parsing.Glr):
         Parsing.Glr.__init__(self, spec)
 
 try:
-    spec = Parsing.Spec(sys.modules[__name__], logFile="Parsing_i.log",
-      skinny=False)
+    spec = Parsing.Spec(sys.modules[__name__],
+      logFile=Crux.opts.scriptargs[1] + "/test/Parsing_i.log", skinny=False)
 except:
     error = sys.exc_info()
     print "%s: %s" % (error[0].__name__, error[1])

@@ -38,9 +38,9 @@ Non-terminals:
     Follow set: [<$>]
     Productions:
       S ::= a B b. [none]
-      S ::= b A b. [none]
       S ::= a A a. [none]
       S ::= b B a. [none]
+      S ::= b A b. [none]
   <S> [%fail none ={none} <{}]
     First set: [b, a]
     Follow set: [<e>]

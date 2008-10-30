@@ -1,148 +1,324 @@
+from CTMatrix cimport CTMatrix
+cimport Newick
+from TaxonMap cimport TaxonMap
+cimport Parsing
+
+import Crux.Config
+import Crux.Exception
+
+class Exception(Crux.Exception.Exception):
+    pass
+
+import exceptions
+
+class Malformed(Exception, exceptions.SyntaxError):
+    def __init__(self, str):
+        self._str = str
+
+    def __str__(self):
+        return self._str
+
+import __builtin__
+import random
+import re
+import sys
+
+global __name__
+
 # Forward declarations.
+cdef class _NewickTree(Newick.Tree)
+cdef class _NewickDescendantList(Newick.DescendantList)
+cdef class _NewickSubtreeList(Newick.SubtreeList)
+cdef class _NewickSubtree(Newick.Subtree)
+cdef class _NewickLabel(Newick.Label)
+cdef class _NewickParser(Newick.Parser)
+cdef class _NewickParser(Newick.Parser)
 cdef class Tree
 cdef class Node
 cdef class Edge
 cdef class Ring
 
-from CTMatrix cimport CTMatrix
-cimport Newick
-from TaxonMap cimport TaxonMap
+#===============================================================================
+# Begin Newick tree construction support.
+#
 
-import __builtin__
+cdef class _NewickTree(Newick.Tree):
+    "%extend Tree"
 
-import random
-import re
+    cdef Node root
 
-class _NewickParser(Newick.Parser):
-    def __init__(self, tree, taxonMap, newickAutoMap=False):
+    def __init__(self, Parsing.Lr parser):
+        Newick.Tree.__init__(self, parser)
+
+        self.root = Node(self.parser._tree)
+
+    # (A,B)C:4.2;
+    #
+    #   .
+    #   |4.2
+    #   C
+    #  / \
+    # A   B
+    cpdef reduceDRB(self, Newick.DescendantList DescendantList,
+      Newick.Label Label, Newick.TokenColon colon,
+      Newick.TokenBranchLength branchLength, Newick.TokenSemicolon semicolon):
+        "%accept"
+        cdef Edge edge
+
+        self.parser._labelNode((<_NewickDescendantList>DescendantList).node,
+          <_NewickLabel>Label)
+        edge = Edge(self.parser._tree)
+        edge.lengthSet(float(branchLength.raw))
+        edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
+
+    # (A,B)C;
+    #
+    #   .
+    #   |
+    #   C
+    #  / \
+    # A   B
+    cpdef reduceDR(self, Newick.DescendantList DescendantList,
+      Newick.Label Label, Newick.TokenSemicolon semicolon):
+        "%accept"
+        cdef Edge edge
+
+        self.parser._labelNode((<_NewickDescendantList>DescendantList).node,
+          <_NewickLabel>Label)
+        edge = Edge(self.parser._tree)
+        edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
+
+    # (A,B):4.2;
+    #
+    #   .
+    #   |4.2
+    #   .
+    #  / \
+    # A   B
+    cpdef reduceDB(self, Newick.DescendantList DescendantList,
+      Newick.TokenColon colon, Newick.TokenBranchLength branchLength,
+      Newick.TokenSemicolon semicolon):
+        "%accept"
+        cdef Edge edge
+
+        edge = Edge(self.parser._tree)
+        edge.lengthSet(float(branchLength.raw))
+        edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
+
+    # A:4.2;
+    #
+    #   .
+    #   |4.2
+    #   A
+    cpdef reduceRB(self, Newick.Label Label, Newick.TokenColon colon,
+      Newick.TokenBranchLength branchLength, Newick.TokenSemicolon semicolon):
+        "%accept"
+        cdef Node node
+        cdef Edge edge
+
+        node = Node(self.parser._tree)
+        self.parser._labelNode(node, <_NewickLabel>Label)
+        edge = Edge(self.parser._tree)
+        edge.lengthSet(float(branchLength.raw))
+        edge.attach(self.root, node)
+
+    # (A,B);
+    #
+    #   .
+    #   |
+    #   .
+    #  / \
+    # A   B
+    cpdef reduceD(self, Newick.DescendantList DescendantList,
+      Newick.TokenSemicolon semicolon):
+        "%accept"
+        cdef Edge edge
+
+        edge = Edge(self.parser._tree)
+        edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
+
+    # A;
+    #
+    #   .
+    #   |
+    #   A
+    cpdef reduceR(self, Newick.Label Label, Newick.TokenSemicolon semicolon):
+        "%accept"
+        cdef Node node
+        cdef Edge edge
+
+        node = Node(self.parser._tree)
+        self.parser._labelNode(node, <_NewickLabel>Label)
+        edge = Edge(self.parser._tree)
+        edge.attach(self.root, node)
+
+    # :4.2;
+    #
+    #   .
+    #   |4.2
+    #   .
+    cpdef reduceB(self, Newick.TokenColon colon,
+      Newick.TokenBranchLength branchLength, Newick.TokenSemicolon semicolon):
+        "%accept"
+        cdef Node node
+        cdef Edge edge
+
+        node = Node(self.parser._tree)
+        edge = Edge(self.parser._tree)
+        edge.lengthSet(float(branchLength.raw))
+        edge.attach(self.root, node)
+
+    # ;
+    #
+    #  .
+    cpdef reduce(self, Newick.TokenSemicolon semicolon):
+        "%accept"
+
+cdef class _NewickDescendantList(Newick.DescendantList):
+    "%extend DescendantList"
+
+    cdef Node node
+
+    cpdef reduce(self, Newick.TokenLparen lparen,
+      Newick.SubtreeList SubtreeList, Newick.TokenRparen rparen):
+        "%accept"
+        cdef _NewickSubtree subtree
+        cdef Edge edge
+
+        self.node = Node(self.parser._tree)
+        for subtree in (<_NewickSubtreeList>SubtreeList).subtrees:
+            edge = Edge(self.parser._tree)
+            edge.lengthSet(subtree.len)
+            edge.attach(self.node, subtree.node)
+
+cdef class _NewickSubtreeList(Newick.SubtreeList):
+    "%extend SubtreeList"
+
+    cdef list subtrees
+
+    cpdef reduceOne(self, Newick.Subtree Subtree):
+        "%accept"
+        self.subtrees = [Subtree]
+
+    cpdef reduceExtend(self, Newick.SubtreeList SubtreeList,
+      Newick.TokenComma comma, Newick.Subtree Subtree):
+        "%accept"
+        self.subtrees = (<_NewickSubtreeList>SubtreeList).subtrees
+        self.subtrees.insert(0, Subtree)
+
+cdef class _NewickSubtree(Newick.Subtree):
+    "%extend Subtree"
+
+    cdef Node node
+    cdef float len
+
+    cpdef reduceDIB(self, Newick.DescendantList DescendantList,
+      Newick.Label Label, Newick.TokenColon colon,
+      Newick.TokenBranchLength branchLength):
+        "%accept"
+        self.node = (<_NewickDescendantList>DescendantList).node
+        self.parser._labelNode(self.node, <_NewickLabel>Label)
+        self.len = float(branchLength.raw)
+
+    cpdef reduceDI(self, Newick.DescendantList DescendantList,
+      Newick.Label Label):
+        "%accept"
+        self.node = (<_NewickDescendantList>DescendantList).node
+        self.parser._labelNode(self.node, <_NewickLabel>Label)
+        self.len = 0.0
+
+    cpdef reduceDB(self, Newick.DescendantList DescendantList,
+      Newick.TokenBranchLength branchLength):
+        "%accept"
+        self.node = (<_NewickDescendantList>DescendantList).node
+        self.len = float(branchLength.raw)
+
+    cpdef reduceLB(self, Newick.Label Label, Newick.TokenColon colon,
+      Newick.TokenBranchLength branchLength):
+        "%accept"
+        self.node = Node(self.parser._tree)
+        self.parser._labelNode(self.node, <_NewickLabel>Label)
+        self.len = float(branchLength.raw)
+
+    cpdef reduceL(self, Newick.Label Label):
+        "%accept"
+        self.node = Node(self.parser._tree)
+        self.parser._labelNode(self.node, <_NewickLabel>Label)
+        self.len = 0.0
+
+cdef class _NewickLabel(Newick.Label):
+    "%extend Label"
+
+    cdef str raw
+
+    cpdef reduceU(self, Newick.TokenUnquotedLabel unquotedLabel):
+        "%accept"
+        self.raw = unquotedLabel.raw
+
+    cpdef reduceQ(self, Newick.TokenQuotedLabel quotedLabel):
+        "%accept"
+        self.raw = quotedLabel.raw
+
+    cpdef reduceB(self, Newick.TokenBranchLength branchLength):
+        "%accept"
+        self.raw = branchLength.raw
+
+    cpdef reduceE(self):
+        "%accept"
+        self.raw = None
+
+cdef Parsing.Spec _NewickSpec
+
+cdef class _NewickParser(Newick.Parser):
+    cdef readonly Tree _tree
+    cdef TaxonMap _taxonMap
+    cdef bint _newickAutoMap
+
+    def __init__(self, Tree tree, TaxonMap taxonMap, bint newickAutoMap=False):
+        global _NewickSpec
+
+        if _NewickSpec is None:
+            _NewickSpec = self._initSpec()
+        Newick.Parser.__init__(self, _NewickSpec)
+
         self._tree = tree
         self._taxonMap = taxonMap
-        self._taxonStack = []
         self._newickAutoMap = newickAutoMap
 
-    # Overridden method.
-    def parse(self, str input):
-        if not Newick.Parser.parse(self, input):
-            if len(self._taxonStack) > 0:
-                self._tree.baseSet(self._taxonStack[0])
-            rVal = False
+    cdef Parsing.Spec _initSpec(self):
+        return Parsing.Spec([sys.modules[__name__], Crux.Newick],
+          startSym=Newick.Tree, pickleFile="%s/share/Crux-%s/Tree.pickle" %
+          (Crux.Config.prefix, Crux.Config.version),
+          verbose=(False if (not __debug__ or Crux.opts.quiet) else True),
+          skinny=(False if __debug__ else True),
+          logFile="%s/share/Crux-%s/Tree.log" %
+          (Crux.Config.prefix, Crux.Config.version))
+
+    cpdef _labelNode(self, Node node, _NewickLabel label):
+        cdef int ind
+
+        if label.raw is None:
+            return
+
+        if self._newickAutoMap:
+            ind = self._taxonMap.ntaxaGet()
+            self._taxonMap.map(label.raw, ind)
         else:
-            rVal = True
-
-        return rVal
-
-    # Overridden method.
-    def openParenAccept(self):
-        self._taxonStack.insert(0, None)
+            ind = self._taxonMap.indGet(label.raw)
+            if ind == -1:
+                raise Malformed("No TaxonMap entry for %r" % label.raw)
+        node.taxonNumSet(ind)
 
     # Overridden method.
-    def closeParenAccept(self):
-        # Create an internal node, and join the top nodes to it.
-        cnt = 0
-        for elm in self._taxonStack:
-            if elm == None:
-                break
-            elif type(elm) == Node:
-                cnt += 1
-        if cnt < 2:
-            # Not enough neighbors on stack to join nodes together.  Remove open
-            # paren (represented as None) from stack.
-            self._taxonStack.remove(None)
-        else:
-            # Create new node.
-            nnode = Node(self._tree)
+    cpdef parse(self, str input, int begPos=0, int line=1, int col=0,
+      bint verbose=False):
+        cdef ret = Newick.Parser.parse(self, input, begPos, line, col, verbose)
 
-            # Iteratively connect neighboring nodes to nnode.
-            for i in xrange(cnt):
-                if type(self._taxonStack[0]) == float:
-                    length = self._taxonStack.pop(0)
-                else:
-                    length = 0.0
+        return ret
 
-                n = self._taxonStack.pop(0)
-                e = Edge(self._tree)
-                e.attach(nnode, n)
-                e.lengthSet(length)
-
-            # Pop paren (None).
-            self._taxonStack.pop(0)
-
-            # Push nnode onto the stack.
-            self._taxonStack.insert(0, nnode)
-
-    # Helper method, called by {root,leaf}LabelAccept().
-    def _labelAccept(self):
-        if self._taxonMap.indGet(self.token()) != None:
-            # Taxon mapping defined.
-            val = self._taxonMap.indGet(self.token())
-        else:
-            # No taxon mapping defined; try to convert the label to an
-            # integer.
-            try:
-                val = int(self.token())
-                self._taxonMap.map(self.token(), val)
-            except __builtin__.ValueError:
-                if self._newickAutoMap:
-                    # Create a new mapping.
-                    val = self._taxonMap.ntaxaGet()
-                    self._taxonMap.map(self.token(), val)
-                else:
-                    # Failed conversion.
-                    raise Tree.ValueError, \
-                          "At offset %d: No mapping for '%s'" \
-                          % (self.offset(), self.token())
-
-        # Create a new node and push it onto the stack.
-        nnode = Node(self._tree)
-        nnode.taxonNumSet(val)
-        self._taxonStack.insert(0, nnode)
-
-    # Overridden method.
-    def rootLabelAccept(self):
-        if len(self.token()) > 0:
-            self._labelAccept()
-
-    # Overridden method.
-    def leafLabelAccept(self):
-        self._labelAccept()
-
-    # Overridden method.
-    def lengthAccept(self):
-        self._taxonStack.insert(0, float(self.token()))
-
-    # Overridden method.
-    def semicolonAccept(self):
-        # If there is an internal node with only two neighbors on the stack,
-        # splice it out of the tree.
-        if len(self._taxonStack) != 0:
-            if type(self._taxonStack[0]) == float:
-                length = self._taxonStack.pop(0)
-            else:
-                length = None
-
-            n = self._taxonStack[0]
-            if n.degree() == 2:
-                self._taxonStack.pop(0)
-                # Get rings.
-                ringA = n.ring()
-                ringB = ringA.next()
-                # Get neighboring nodes.
-                nodeA = ringA.other().node()
-                nodeB = ringB.other().node()
-                # Detach edges.
-                ringA.edge().detach()
-                ringB.edge().detach()
-                # Attach neighbors.
-                e = Edge(self._tree)
-                e.attach(nodeA, nodeB)
-                if length != None:
-                    e.lengthSet(length)
-                else:
-                    e.lengthSet(ringA.edge().lengthGet()
-                                + ringB.edge().lengthGet())
-
-                # Push a node back onto the stack.
-                self._taxonStack.insert(0, nodeA)
+#
+# End Newick tree construction support.
+#===============================================================================
 
 # Default branch length callback function for random tree construction.
 def _defaultRandomBranchCallback():
@@ -151,17 +327,19 @@ def _defaultRandomBranchCallback():
 # XXX Add some sort of taxon re-numbering method?
 cdef class Tree:
     def __init__(self, with_=None, TaxonMap taxonMap=None,
-      bint newickAutoMap=False, randomBranchCallback=None):
+      bint unrooted=True, bint newickAutoMap=False, randomBranchCallback=None):
         self._sn = 0
         self._cacheSn = -1
+        self.unrooted = unrooted
         if type(with_) == int:
             self._randomNew(with_, taxonMap, randomBranchCallback)
-        elif type(with_) == str or type(with_) == file:
+        elif type(with_) == str:
             if taxonMap == None:
                 taxonMap = TaxonMap()
             self._taxonMap = taxonMap
-            self._newickNew(with_, newickAutoMap)
+            self._newickNew(with_, unrooted, newickAutoMap)
         else:
+            assert with_ is None
             if taxonMap == None:
                 taxonMap = TaxonMap()
             self._taxonMap = taxonMap
@@ -220,14 +398,23 @@ cdef class Tree:
             edgeB.lengthSet(randomBranchCallback())
             edgeB.attach(nodeA, nodeC)
 
-    def _newickNew(self, input, newickAutoMap):
+    cdef void _newickNew(self, str input, bint unrooted, bint newickAutoMap) \
+      except *:
+        cdef _NewickParser parser
+        cdef _NewickTree tree
+
         parser = _NewickParser(self, self._taxonMap, newickAutoMap)
-        return parser.parse(input)
+        parser.parse(input)
+        tree = parser.start[0]
+        self.baseSet(tree.root)
+        if unrooted:
+            self.unrooted = False
+            self.deroot()
 
     def _dup(self, newTree, node, prevRing):
         newNode = Node(newTree)
-        taxonNum = node.taxonNumGet()
-        if taxonNum != None:
+        taxonNum = node._taxonNum
+        if taxonNum != -1:
             newNode.taxonNumSet(taxonNum)
 
         i = 0
@@ -271,6 +458,7 @@ cdef class Tree:
             self._cachedNedges += 1
             self._recacheRecurse(r.other())
 
+    # XXX Cache node degrees?
     cdef _recache(self):
         cdef Ring ring, r
 
@@ -306,6 +494,42 @@ cdef class Tree:
     cpdef baseSet(self, Node base):
         self._base = base
         self._sn += 1
+
+    cpdef deroot(self):
+        cdef Node node
+        cdef Edge edge
+        cdef Ring ring
+        cdef float removedLength
+
+        if self.unrooted:
+            return
+        self.unrooted = True
+
+        ring = self._base._ring
+        if ring is not None:
+            ring = ring.other()
+            node = ring._node
+            edge = ring._edge
+            edge.detach()
+            if node.degree() == 2:
+                ring = node._ring
+                self.baseSet(ring.other()._node)
+                edge = ring._edge
+                removedLength = edge._length
+                edge.detach()
+                ring = node._ring
+                edge = ring._edge
+                node = ring.other()._node
+                edge.detach()
+                # XXX Change ring header/order in order to disturb canonical
+                # order?
+                edge.attach(self._base, node)
+                edge.lengthSet(edge._length + removedLength)
+            else:
+                self.baseSet(node)
+        else:
+            # Only the root node exists, so discard the whole tree.
+            self.baseSet(None)
 
     cpdef canonize(self):
         pass # XXX
@@ -374,11 +598,12 @@ cdef class Tree:
     cpdef heldGet(self, int i):
         pass # XXX
 
-    cpdef render(self, bint rooted=False, bint labels=False, bint lengths=False,
+    cpdef render(self, bint labels=False, bint lengths=False,
       lengthFormat="%.5e", outFile=None):
         cdef ret
         cdef Node n, neighbor
         cdef Ring ring
+        cdef int degree
 
         # Set up for sending output to either a string or a file.
         if outFile == None:
@@ -391,39 +616,53 @@ cdef class Tree:
         # Render.
         n = self._base
         if n != None:
-            if n.taxonNumGet() != None:
-                # Leaf node.  If this node's neighbor is an internal node, start
-                # rendering with it, in order to unroot the tree.
-                ring = n.ring()
-                if ring != None:
-                    neighbor = ring.other().node()
-                    if neighbor.taxonNumGet() == None:
-                        if rooted:
-                            n.rrender(None, self._taxonMap, labels, lengths,
-                              lengthFormat, callback)
-                        else:
-                            # Start with the internal node.
-                            neighbor.rrender(None, self._taxonMap, labels,
-                              lengths, lengthFormat, callback)
-                        callback(";")
-                    else:
-                        # This tree only has two taxa; start with the tree base.
-                        callback("(")
-                        n.rrender(None, self._taxonMap, labels, lengths,
-                                  lengthFormat, callback, twoTaxa=True)
-                        callback(");")
-                else:
+            if self.unrooted:
+#                callback("[&u] ")
+                degree = n.degree()
+                if degree == 0:
                     # There is only one node in the tree.
                     n.rrender(None, self._taxonMap, labels, lengths,
-                              lengthFormat, callback)
-                    callback(";")
-            else:
-                # Internal node.
-                n.rrender(None, self._taxonMap, labels, lengths, lengthFormat,
-                          callback)
-                callback(";")
-        else:
-            callback(";")
+                      lengthFormat, callback)
+                elif degree == 1:
+                    # Leaf node.  If this node's neighbor is an internal node,
+                    # start rendering with it, in order to unroot the tree.
+                    ring = n.ring()
+                    assert ring != None
+                    neighbor = ring.other()._node
+                    if neighbor.degree() > 1:
+                        # Start with the internal node.
+                        neighbor.rrender(None, self._taxonMap, labels,
+                          lengths, lengthFormat, callback, noLength=True)
+                    else:
+                        # This tree only has two taxa; start with the tree
+                        # base.
+                        callback("(")
+                        n.rrender(neighbor, self._taxonMap, labels, lengths,
+                          lengthFormat, callback)
+                        callback(",")
+                        neighbor.rrender(n, self._taxonMap, labels, lengths,
+                          lengthFormat, callback, zeroLength=True)
+                        callback(")")
+                else:
+                    # Internal node.
+                    n.rrender(None, self._taxonMap, labels, lengths,
+                      lengthFormat, callback, noLength=True)
+            else: # Rooted tree.
+#                callback("[&r] ")
+                if n._taxonNum != -1:
+                    raise Malformed("Root is labeled")
+
+                degree = n.degree()
+                if degree > 1:
+                    raise Malformed("Root is an internal node")
+
+                if degree == 1:
+                    ring = n.ring()
+                    assert ring != None
+                    neighbor = ring.other()._node
+                    neighbor.rrender(n, self._taxonMap, labels, lengths,
+                      lengthFormat, callback)
+        callback(";")
 
         # Clean up and set ret according to where the output was sent.
         if outFile == None:
@@ -482,68 +721,61 @@ cdef class Node:
             ring = ring._next
         return ret
 
-    cpdef rrender(self, Node prev, TaxonMap taxonMap, bint labels,
-      bint lengths, lengthFormat, callback, bint twoTaxa=False):
-        cdef bint did_something = False
+    cpdef rrender(self, Node prev, TaxonMap taxonMap, bint labels, bint lengths,
+      lengthFormat, callback, bint zeroLength=False, bint noLength=False):
         cdef bint did_paren = False
         cdef object taxonLabel, m
-        cdef Ring ring
+        cdef Ring ring, r
         cdef Node neighbor
-
-        if self._taxonNum != -1:
-            # Leaf node.
-            if labels:
-                # Protect special characters, if necessary.
-                taxonLabel = taxonMap.labelGet(self._taxonNum)
-                m = re.compile("[^ ()[\]':;,]*[ ()[\]':;,]").match(taxonLabel)
-                if m:
-                    taxonLabel = re.compile("'").sub("''", taxonLabel)
-                    callback("'%s'" % taxonLabel)
-                else:
-                    callback("%s" % taxonLabel)
-            else:
-                callback("%d" % self.taxonNumGet())
-
-            if lengths:
-                ring = self._ring
-                if ring != None:
-                    if twoTaxa:
-                        # This tree only has two taxa; take care not to double
-                        # the branch length.
-                        callback((":" + lengthFormat) \
-                                 % (ring._edge._length / 2))
-                    else:
-                        callback((":" + lengthFormat) \
-                                 % (ring._edge._length))
-            did_something = True
+        cdef int degree
 
         # Iterate through neighbors.
         ring = self._ring
         if ring != None:
-            for i in xrange(self.degree()):
+            for r in ring:
                 # Get the node on the other end of the edge.  If it isn't prev,
                 # recurse.
-                neighbor = ring.other()._node
+                neighbor = r.other()._node
                 if neighbor != prev:
-                    if did_something:
+                    if did_paren:
                         callback(",")
                     elif not did_paren:
                         callback("(")
                         did_paren = True
-                        did_something = True
 
                     neighbor.rrender(self, taxonMap, labels, lengths,
-                                     lengthFormat, callback, twoTaxa)
-
-                    if lengths:
-                        if neighbor._taxonNum == -1:
-                            callback((":" + lengthFormat) \
-                                     % ring._edge._length)
-
-                ring = ring._next
+                      lengthFormat, callback)
 
             if did_paren:
                 callback(")")
+
+        # Render label.
+        if self._taxonNum != -1:
+            if labels:
+                # Protect special characters, if necessary.
+                taxonLabel = taxonMap.labelGet(self._taxonNum)
+                m = re.compile(r"[_()[\]':;,]").search(taxonLabel)
+                if m:
+                    taxonLabel = re.compile("'").sub("''", taxonLabel)
+                    callback("'%s'" % taxonLabel)
+                else:
+                    if taxonLabel.find(" ") != -1:
+                        taxonLabel = re.compile(" ").sub("_", taxonLabel)
+                    callback("%s" % taxonLabel)
+            else:
+                callback("%d" % self._taxonNum)
+
+        # Render branch length.
+        degree = self.degree()
+        if lengths and degree > 0:
+            ring = self._ring
+            assert ring != None
+            if zeroLength:
+                # This tree only has two taxa; take care not to double the
+                # branch length.
+                callback((":" + lengthFormat) % 0.0)
+            elif not noLength:
+                callback((":" + lengthFormat) % (ring._edge._length))
 
     """Compute the number of edges that separate self and other."""
     cpdef int separation(self, Node other):

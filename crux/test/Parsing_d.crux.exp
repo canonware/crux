@@ -24,9 +24,9 @@ Non-terminals:
     First set: [id]
     Follow set: [<$>, star, plus]
     Productions:
+      E ::= E plus E. [p1]
       E ::= E star E. [p2]
       E ::= id. [none]
-      E ::= E plus E. [p1]
   S [%fail none ={none} <{}]
     First set: [id]
     Follow set: [<$>]

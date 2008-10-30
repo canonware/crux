@@ -26,7 +26,6 @@ ext_modules = []
 if @enable_cython@:
     # Crux.*
     for (pkg, ext) in [x.split("/")[-1].split(".") for x in
-      glob("@srcroot@/src/Crux/[A-Z]*.py") +
       glob("@srcroot@/src/Crux/[A-Z]*.pyx")]:
         ext = Extension('Crux.%s' % pkg,
                         sources=["@srcroot@/src/Crux/%s.%s" % (pkg, ext)],
@@ -40,7 +39,6 @@ if @enable_cython@:
 else:
     # Crux.*
     for (pkg, ext) in [x.split("/")[-1].split(".") for x in
-      glob("@srcroot@/src/Crux/[A-Z]*.py") +
       glob("@srcroot@/src/Crux/[A-Z]*.c")]:
         ext = Extension('Crux.%s' % pkg,
                         sources=["@srcroot@/src/Crux/%s.%s" % (pkg, ext)],

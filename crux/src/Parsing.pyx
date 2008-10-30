@@ -442,16 +442,13 @@ cdef dict _getStringFirstSet(list rhs, int dotPos, SymbolSpec lookahead):
 cdef class Symbol:
     def __init__(self, symSpec, parser):
         self.__symSpec = symSpec
-        self.__parser = parser
+        self.parser = parser
 
     def __repr__(self):
         return "%r" % self.symSpec
 
     property symSpec:
         def __get__(self): return self.__symSpec
-
-    property parser:
-        def __get__(self): return self.__parser
 
 cdef class Nonterm(Symbol):
     """
@@ -637,7 +634,6 @@ then derive all actual token types from that class.
     def __init__(self, parser):
         assert isinstance(parser, Lr)
         Symbol.__init__(self, parser._spec._sym2spec[type(self)], parser)
-        self.__parser = parser
 
 # AKA terminal symbol.
 cdef class TokenSpec(SymbolSpec):
@@ -1241,6 +1237,12 @@ verbose : If true, print progress information while generating the
 
         assert pickleMode in ("rw", "r", "w")
         assert startSym is None or issubclass(startSym, Nonterm)
+
+        if startSym is not None and issubclass(startSym, Nonterm):
+            if type(startSym.__doc__) != str \
+              or startSym.__doc__.split(" ")[0] != "%start":
+                raise SpecError("Invalid start symbol %r: %r" % \
+                  (startSym, startSym.__doc__))
 
         self._skinny = skinny
         self._verbose = verbose
@@ -1924,6 +1926,9 @@ the Parser class for parsing.
     # method uses the same set of return values as does _compatible().
     cdef _unpickle(self, object file, mode):
         cdef Spec spec
+        cdef NontermSpec nontermSpec
+        cdef Production prodSpec
+        cdef TokenSpec tokenSpec
 
         if file != None and "r" in mode:
             if self._verbose:
@@ -2687,6 +2692,7 @@ eoi() method.
         self.reset()
         self._verbose = False
 
+    # XXX Make properties into cdef public attrs.
     def __getSpec(self): return self._spec
     def __setSpec(self, spec): return AttributeError
     spec = property(__getSpec, __setSpec)
@@ -2705,21 +2711,21 @@ list.
         self._verbose = verbose
     verbose = property(__getVerbose, __setVerbose)
 
-    def reset(self):
+    cpdef reset(self):
         """
 Reset the parser in preparation for parsing new input.
 """
         self._start = None
         self._stack = [(Epsilon(self), 0)]
 
-    def token(self, token):
+    cpdef token(self, token):
         """
 Feed a token to the parser.
 """
         tokenSpec = self._spec._sym2spec[type(token)]
         self._act(token, tokenSpec)
 
-    def eoi(self):
+    cpdef eoi(self):
         """
 Signal end-of-input to the parser.
 """
@@ -2960,7 +2966,7 @@ method.
     def __init__(self, spec):
         Lr.__init__(self, spec)
 
-    def reset(self):
+    cpdef reset(self):
         """
 Reset the parser in preparation for parsing new input.
 """
@@ -2973,7 +2979,7 @@ Reset the parser in preparation for parsing new input.
 
         self._paths = []
 
-    def token(self, token):
+    cpdef token(self, token):
         """
 Feed a token to the parser.
 """
@@ -2985,7 +2991,7 @@ Feed a token to the parser.
         if len(self._gss) == 0:
             raise SyntaxError("Unexpected token: %r" % token)
 
-    def eoi(self):
+    cpdef eoi(self):
         """
 Signal end-of-input to the parser.
 """

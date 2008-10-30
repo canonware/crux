@@ -29,20 +29,20 @@ Non-terminals:
     First set: [lparen, id]
     Follow set: [<$>, plus, rparen]
     Productions:
-      E ::= T. [none]
       E ::= E plus T. [none]
+      E ::= T. [none]
   F [%fail none ={none} <{}]
     First set: [lparen, id]
     Follow set: [<$>, plus, star, rparen]
     Productions:
-      F ::= id. [none]
       F ::= lparen E rparen. [none]
+      F ::= id. [none]
   T [%fail none ={none} <{}]
     First set: [lparen, id]
     Follow set: [<$>, plus, star, rparen]
     Productions:
-      T ::= F. [none]
       T ::= T star F. [none]
+      T ::= F. [none]
   <S> [%fail none ={none} <{}]
     First set: [lparen, id]
     Follow set: [<e>]

@@ -23,11 +23,6 @@
 # implementation allows "zero length strings of printing characters".
 #===============================================================================
 
-# Forward declarations.
-cdef class Token
-cdef class Nonterm
-cdef class Parser
-
 cimport Parsing
 
 import Crux.Exception
@@ -49,16 +44,45 @@ import sys
 
 global __name__
 
+# Forward declarations.
+cdef class pColon(Parsing.Precedence)
+cdef class pSemicolon(Parsing.Precedence)
+cdef class pSubtree(Parsing.Precedence)
+cdef class pLabel(Parsing.Precedence)
+
+cdef class Token(Parsing.Token)
+cdef class TokenLparen(Token)
+cdef class TokenRparen(Token)
+cdef class TokenComma(Token)
+cdef class TokenColon(Token)
+cdef class TokenSemicolon(Token)
+cdef class TokenBranchLength(Token)
+cdef class TokenUnquotedLabel(Token)
+cdef class TokenQuotedLabel(Token)
+cdef class TokenComment(Token)
+cdef class TokenWhitespace(Token)
+
+cdef class Nonterm(Parsing.Nonterm)
+cdef class Tree(Nonterm)
+cdef class DescendantList(Nonterm)
+cdef class SubtreeList(Nonterm)
+cdef class Subtree(Nonterm)
+cdef class Label(Nonterm)
+
+cdef class Parser(Parsing.Lr)
+
 #===============================================================================
 # Begin Precedence.
 #
 
-class pColon(Parsing.Precedence):
+cdef class pColon(Parsing.Precedence):
     "%fail"
-class pSemicolon(Parsing.Precedence):
+cdef class pSemicolon(Parsing.Precedence):
     "%fail"
-class pLabel(Parsing.Precedence):
-    "%fail <pColon <pSemicolon"
+cdef class pSubtree(Parsing.Precedence):
+    "%fail"
+cdef class pLabel(Parsing.Precedence):
+    "%fail <pColon <pSemicolon <pSubtree"
 
 #
 # End Precedence.
@@ -91,36 +115,39 @@ cdef class Token(Parsing.Token):
 
 cdef class TokenLparen(Token):
     "%token lparen"
-
 cdef class TokenRparen(Token):
     "%token rparen"
-
 cdef class TokenComma(Token):
     "%token comma"
-
 cdef class TokenColon(Token):
     "%token colon [pColon]"
-
 cdef class TokenSemicolon(Token):
     "%token semicolon [pSemicolon]"
-
 cdef class TokenBranchLength(Token):
     "%token branchLength"
-
 cdef class TokenUnquotedLabel(Token):
     "%token unquotedLabel"
-
     property raw:
         def __get__(self):
-            # Convert '_' to ' '.
-            return self._input[self.begPos:self.endPos].replace('_', ' ')
+            cdef str ret
 
+            ret = self._input[self.begPos:self.endPos]
+            # Convert '_' to ' '.
+            ret = ret.replace('_', ' ')
+            return ret
 cdef class TokenQuotedLabel(Token):
     "%token quotedLabel"
+    property raw:
+        def __get__(self):
+            cdef str ret
 
+            # Strip the enclosing '...'.
+            ret = self._input[self.begPos + 1:self.endPos - 1]
+            # Convert '' to '.
+            ret = ret.replace("''", "'")
+            return ret
 cdef class TokenComment(Token):
     "%token comment"
-
 cdef class TokenWhitespace(Token):
     "%token whitespace"
 
@@ -134,99 +161,93 @@ cdef class Nonterm(Parsing.Nonterm):
     def __init__(self, Parsing.Lr parser):
         Parsing.Nonterm.__init__(self, parser)
 
-        self.begPos = -1
-        self.endPos = -1
-        self.variant = None
-
 cdef class Tree(Nonterm):
     "%start Tree"
 
-    def reduceDRB(self, DescendantList, RootLabel, colon, branchLength,
-      semicolon):
-        "%reduce DescendantList RootLabel colon branchLength semicolon"
+    cpdef reduceDRB(self, DescendantList DescendantList, Label Label,
+      TokenColon colon, TokenBranchLength branchLength,
+      TokenSemicolon semicolon):
+        "%reduce DescendantList Label colon branchLength semicolon"
 
-    def reduceDR(self, DescendantList, RootLabel, semicolon):
-        "%reduce DescendantList RootLabel semicolon"
+    cpdef reduceDR(self, DescendantList DescendantList, Label Label,
+      TokenSemicolon semicolon):
+        "%reduce DescendantList Label semicolon"
 
-    def reduceDB(self, DescendantList, colon, branchLength, semicolon):
+    cpdef reduceDB(self, DescendantList DescendantList, TokenColon colon,
+      TokenBranchLength branchLength, TokenSemicolon semicolon):
         "%reduce DescendantList colon branchLength semicolon"
 
-    def reduceRB(self, RootLabel, colon, branchLength, semicolon):
-        "%reduce RootLabel colon branchLength semicolon"
+    cpdef reduceRB(self, Label Label, TokenColon colon,
+      TokenBranchLength branchLength, TokenSemicolon semicolon):
+        "%reduce Label colon branchLength semicolon"
 
-    def reduceD(self, DescendantList, semicolon):
+    cpdef reduceD(self, DescendantList DescendantList,
+      TokenSemicolon semicolon):
         "%reduce DescendantList semicolon"
 
-    def reduceR(self, RootLabel, semicolon):
-        "%reduce RootLabel semicolon"
+    cpdef reduceR(self, Label Label, TokenSemicolon semicolon):
+        "%reduce Label semicolon"
 
-    def reduceB(self, colon, branchLength, semicolon):
+    cpdef reduceB(self, TokenColon colon, TokenBranchLength branchLength,
+      TokenSemicolon semicolon):
         "%reduce colon branchLength semicolon"
 
-    def reduce(self, semicolon):
+    cpdef reduce(self, TokenSemicolon semicolon):
         "%reduce semicolon"
 
 cdef class DescendantList(Nonterm):
     "%nonterm"
 
-    def reduce(self, lparen, SubtreeList, rparen):
+    cpdef reduce(self, TokenLparen lparen, SubtreeList SubtreeList,
+      TokenRparen rparen):
         "%reduce lparen SubtreeList rparen"
 
 cdef class SubtreeList(Nonterm):
     "%nonterm"
 
-    def reduceOne(self, Subtree):
+    cpdef reduceOne(self, Subtree Subtree):
         "%reduce Subtree"
 
-    def reduceExtend(self, SubtreeList, comma, Subtree):
+    cpdef reduceExtend(self, SubtreeList SubtreeList, TokenComma comma,
+      Subtree Subtree):
         "%reduce SubtreeList comma Subtree"
 
 cdef class Subtree(Nonterm):
     "%nonterm"
 
-    def reduceDIB(self, DescendantList, InternalLabel, colon, branchLength):
-        "%reduce DescendantList InternalLabel colon branchLength"
+    cpdef reduceDIB(self, DescendantList DescendantList,
+      Label Label, TokenColon colon,
+      TokenBranchLength branchLength):
+        "%reduce DescendantList Label colon branchLength"
 
-    def reduceDI(self, DescendantList, InternalLabel):
-        "%reduce DescendantList InternalLabel"
+    cpdef reduceDI(self, DescendantList DescendantList,
+      Label Label):
+        "%reduce DescendantList Label"
 
-    def reduceDB(self, DescendantList, branchLength):
-        "%reduce DescendantList branchLength"
+    cpdef reduceDB(self, DescendantList DescendantList,
+      TokenBranchLength branchLength):
+        "%reduce DescendantList branchLength [pSubtree]"
 
-    def reduceLB(self, LeafLabel, colon, branchLength):
-        "%reduce LeafLabel colon branchLength"
+    cpdef reduceLB(self, Label Label, TokenColon colon,
+      TokenBranchLength branchLength):
+        "%reduce Label colon branchLength"
 
-    def reduceL(self, LeafLabel):
-        "%reduce LeafLabel"
-
-cdef class RootLabel(Nonterm):
-    "%nonterm"
-
-    def reduce(self, Label):
-        "%reduce Label"
-
-cdef class InternalLabel(Nonterm):
-    "%nonterm"
-
-    def reduce(self, Label):
-        "%reduce Label"
-
-cdef class LeafLabel(Nonterm):
-    "%nonterm"
-
-    def reduce(self, Label):
+    cpdef reduceL(self, Label Label):
         "%reduce Label"
 
 cdef class Label(Nonterm):
     "%nonterm"
 
-    def reduceU(self, unquotedLabel):
+    cpdef reduceU(self, TokenUnquotedLabel unquotedLabel):
         "%reduce unquotedLabel"
 
-    def reduceQ(self, quotedLabel):
+    cpdef reduceQ(self, TokenQuotedLabel quotedLabel):
         "%reduce quotedLabel"
 
-    def reduceE(self):
+    cpdef reduceB(self, TokenBranchLength branchLength):
+        "%reduce branchLength [pLabel]"
+
+    cpdef reduceE(self):
         "%reduce [pLabel]"
 
 #
@@ -246,9 +267,10 @@ _reMain = re.compile(r"""
   | (;)                    # ;
   | ([-+]?
      [0-9]+(?:[.][0-9]+)?
-     (?:[eE][-+]?[0-9]+)?) # branch length
+     (?:[eE][-+]?[0-9]+)?
+     (?!_))                # branch length
   | ([^ \t\r\n()[\]':;,]+) # unquoted label
-  | (''(?!'))              # quoted label
+  | ('(?:''|[^'])*'(?!'))  # quoted label
   | ([ \t\r]+)             # whitespace
   | ([\n])                 # whitespace (newline)
 """, re.X)
@@ -283,13 +305,16 @@ cdef class Parser(Parsing.Lr):
     # circumstances, Crux.Newick._spec is never even used, since the useful
     # Newick parsers are subclasses of this one.
     cdef Parsing.Spec _initSpec(self):
+        global _spec
+
         if _spec is None:
             _spec = Parsing.Spec(sys.modules[__name__],
-              pickleFile=Crux.prefix +
-              "/share/Crux-@crux_version@/Newick.pickle",
-              verbose=(True if __debug__ else False),
+              pickleFile="%s/share/Crux-%s/Newick.pickle" %
+              (Crux.Config.prefix, Crux.Config.version),
+              verbose=(False if (not __debug__ or Crux.opts.quiet) else True),
               skinny=(False if __debug__ else True),
-              logFile=Crux.prefix + "/share/Crux-@crux_version@/Newick.log")
+              logFile="%s/share/Crux-%s/Newick.log" %
+              (Crux.Config.prefix, Crux.Config.version))
         return _spec
 
     cdef void _appendToken(self, Token token) except *:

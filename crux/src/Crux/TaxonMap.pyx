@@ -26,7 +26,7 @@ cdef class TaxonMap:
     cpdef int ntaxaGet(self):
         return len(self._ind2label)
 
-    cpdef labelGet(self, int ind):
+    cpdef str labelGet(self, int ind):
         if self._ind2label.has_key(ind):
             rVal = self._ind2label[ind]
         else:
@@ -34,11 +34,11 @@ cdef class TaxonMap:
 
         return rVal
 
-    cpdef indGet(self, label):
+    cpdef int indGet(self, str label):
         if self._label2ind.has_key(label):
             rVal = self._label2ind[label]
         else:
-            rVal = None
+            rVal = -1
 
         return rVal
 
@@ -57,7 +57,7 @@ cdef class TaxonMap:
 
         return rVal
 
-    cpdef bint equal(self, other):
+    cpdef bint equal(self, TaxonMap other):
         if other is self:
             rVal = True
         elif self.ntaxaGet() != other.ntaxaGet():
@@ -76,7 +76,7 @@ cdef class TaxonMap:
     # Map a label to an index.  Typical usage is something like:
     #
     #   m.map('Label', m.ntaxaGet())
-    cpdef map(self, label, int ind, bint replace=False):
+    cpdef map(self, str label, int ind, bint replace=False):
         if replace == False:
             # Make sure that label hasn't already been mapped to an index.
             if self._label2ind.has_key(label):

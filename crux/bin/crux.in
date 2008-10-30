@@ -10,14 +10,13 @@ import optparse
 
 try:
     import Crux
-    Crux.prefix = "@prefix@"
 except:
     # Munge the module path in order to support running crux in the source tree.
     import glob
     for d in glob.glob("@abs_objroot@/build/lib*"):
         sys.path.append(d)
+    sys.path.append("@abs_objroot@/NotInstalled")
     import Crux
-    Crux.prefix = "@abs_objroot@/build"
 
 # Create a help formatter subclass for the command line parser.
 class CruxHelpFormatter(optparse.IndentedHelpFormatter):
