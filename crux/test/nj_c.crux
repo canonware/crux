@@ -23,6 +23,6 @@ D 12 14 11  0
 matrix = Crux.DistMatrix.DistMatrix(testMatrix)
 t = matrix.nj()
 t.canonize()
-t.render(labels=True, lengths=True, lengthFormat="%.6f", outFile=sys.stdout)
+print t.render(labels=True, lengths=True, lengthFormat="%.6f")
 
 print "Test end"

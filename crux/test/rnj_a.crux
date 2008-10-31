@@ -19,6 +19,5 @@ t = matrix.rnj()
 
 t.canonize()
 print t.render()
-t.render(outFile=sys.stdout)
 
 print "Test end"

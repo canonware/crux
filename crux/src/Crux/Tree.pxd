@@ -10,20 +10,20 @@ from TaxonMap cimport TaxonMap
 cdef class Tree:
     cdef TaxonMap _taxonMap
     cdef Node _base
-    cdef _renderTarget
+    cdef list _renderList
     cdef int _sn # Incremented every time the tree is modified.
-    cdef int _cacheSn, _cachedNtaxa, _cachedNedges
-    cdef public bint unrooted
+    cdef int _cacheSn, _cachedNtaxa, _cachedNnodes, _cachedNedges
+    cdef public bint rooted
 
-    cdef void _newickNew(self, str input, bint unrooted, bint newickAutoMap) \
-      except *
+    cdef void _newickNew(self, str input, bint newickAutoMap) except *
     cpdef dup(self)
     cpdef taxonMapGet(self)
     cpdef rf(self, Tree other)
-    cdef _recacheRecurse(self, Ring ring)
-    cdef _recache(self)
-    cpdef ntaxaGet(self)
-    cpdef nedgesGet(self)
+    cdef void _recacheRecurse(self, Ring ring)
+    cdef void _recache(self)
+    cpdef int ntaxaGet(self)
+    cpdef int nnodesGet(self)
+    cpdef int nedgesGet(self)
     cpdef Node baseGet(self)
     cpdef baseSet(self, Node base)
 
@@ -44,26 +44,27 @@ cdef class Tree:
     cpdef tbrAllNeighborsMp(self, int maxHold=?)
     cpdef nHeldGet(self)
     cpdef heldGet(self, int i)
-    cpdef render(self, bint labels=?, bint lengths=?, lengthFormat=?, outFile=?)
+    cpdef str render(self, bint labels=?, bint lengths=?, lengthFormat=?)
 
 cdef class Node:
     cdef Tree _tree
     cdef Ring _ring
     cdef int _taxonNum
+    cdef int _degree
 
     cpdef Tree tree(self)
     cpdef int taxonNumGet(self)
     cpdef taxonNumSet(self, int taxonNum)
     cpdef Ring ring(self)
-    cpdef int degree(self)
+    cpdef int degree(self, bint calculate=?) except -1
     cpdef rrender(self, Node prev, TaxonMap taxonMap, bint labels, bint lengths,
-      lengthFormat, callback, bint zeroLength=?, bint noLength=?)
+      lengthFormat, bint zeroLength=?, bint noLength=?)
     cpdef int separation(self, Node other)
 
 cdef class Edge:
     cdef Tree _tree
     cdef float _length
-    cdef Ring _ringA, _ringB
+    cdef Ring _ring
 
     cpdef Tree tree(self)
     cpdef rings(self)
@@ -75,6 +76,7 @@ cdef class Edge:
 cdef class Ring:
     cdef Node _node
     cdef Edge _edge
+    cdef Ring _other
     cdef Ring _next, _prev
 
     cpdef siblings(self) # Iterator.

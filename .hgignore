@@ -8,6 +8,7 @@
 ^crux/Makefile$
 ^crux/NotInstalled/NotInstalled\.py$
 ^crux/NotInstalled/NotInstalled\.pyc$
+^crux/NotInstalled/NotInstalled\.pyo$
 ^crux/pkg/Crux/__init__\.py$
 ^crux/setup\.py$
 ^crux/src/[A-Za-z0-9_]+.c$

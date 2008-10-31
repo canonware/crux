@@ -154,29 +154,29 @@ for s in teststrs:
     print "\n=== %r ===" % s
     try:
         print "Rooted:"
-        t = Crux.Tree.Tree(s, unrooted=False, newickAutoMap=True)
+        t = Crux.Tree.Tree(s, rooted=True, newickAutoMap=True)
         print "  %r" % t.taxonMapGet().taxaGet()
         r = t.render(labels=True)
         print "  %r" % r
-        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), unrooted=False)
+        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), rooted=True)
         print "  %r" % u.render(labels=True)
 
         r = t.render(labels=True, lengths=True, lengthFormat="%.6e")
         print "  %r" % r
-        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), unrooted=False)
+        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), rooted=True)
         print "  %r" % u.render(labels=True, lengths=True, lengthFormat="%.6e")
 
         print "Unrooted:"
-        t = Crux.Tree.Tree(s, unrooted=True, newickAutoMap=True)
+        t = Crux.Tree.Tree(s, rooted=False, newickAutoMap=True)
         print "  %r" % t.taxonMapGet().taxaGet()
         r = t.render(labels=True)
         print "  %r" % r
-        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), unrooted=True)
+        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), rooted=False)
         print "  %r" % u.render(labels=True)
 
         r = t.render(labels=True, lengths=True, lengthFormat="%.6e")
         print "  %r" % r
-        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), unrooted=True)
+        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), rooted=False)
         print "  %r" % u.render(labels=True, lengths=True, lengthFormat="%.6e")
 
     except:

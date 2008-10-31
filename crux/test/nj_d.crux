@@ -43,7 +43,7 @@ for testMatrix in testMatrices:
     t = matrix.nj()
     taxonMap = t.taxonMapGet()
     t.canonize()
-    t.render(labels=True, lengths=True, lengthFormat="%.0f", outFile=sys.stdout)
+    print t.render(labels=True, lengths=True, lengthFormat="%.0f")
 
     for i in xrange(10):
         matrix = Crux.DistMatrix.DistMatrix(testMatrix)
@@ -53,8 +53,7 @@ for testMatrix in testMatrices:
         treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
         t = Crux.Tree.Tree(treeStr, taxonMap=taxonMap)
         t.canonize()
-        t.render(labels=True, lengths=True, lengthFormat="%.0f",
-                 outFile=sys.stdout)
+        print t.render(labels=True, lengths=True, lengthFormat="%.0f")
 
     for i in xrange(10):
         matrix = Crux.DistMatrix.DistMatrix(testMatrix)
@@ -63,7 +62,6 @@ for testMatrix in testMatrices:
         treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
         t = Crux.Tree.Tree(treeStr, taxonMap=taxonMap)
         t.canonize()
-        t.render(labels=True, lengths=True, lengthFormat="%.0f",
-                 outFile=sys.stdout)
+        print t.render(labels=True, lengths=True, lengthFormat="%.0f")
 
 print "Test end"
