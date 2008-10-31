@@ -23,43 +23,41 @@ ext_modules = []
 #                                             "@objroot@/include"],
 #                               extra_compile_args=[@extra_compile_args@]),
 
+
 if @enable_cython@:
-    # Crux.*
-    for (pkg, ext) in [x.split("/")[-1].split(".") for x in
-      glob("@srcroot@/src/Crux/[A-Z]*.pyx")]:
-        ext = Extension('Crux.%s' % pkg,
-                        sources=["@srcroot@/src/Crux/%s.%s" % (pkg, ext)],
-                        include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"])
-        ext_modules.append(ext)
-    # Parsing
-    ext = Extension('Parsing',
-                    sources=["@srcroot@/src/Parsing.pyx"])
-    ext_modules.append(ext)
+    cy_suffix = "pyx"
     cmdclass = {'build_ext': build_ext}
 else:
-    # Crux.*
-    for (pkg, ext) in [x.split("/")[-1].split(".") for x in
-      glob("@srcroot@/src/Crux/[A-Z]*.c")]:
-        ext = Extension('Crux.%s' % pkg,
-                        sources=["@srcroot@/src/Crux/%s.%s" % (pkg, ext)],
-                        include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"])
-        ext_modules.append(ext)
-    # Parsing
-    ext = Extension('Parsing',
-                    sources=["@srcroot@/src/Parsing.c"])
-    ext_modules.append(ext)
+    cy_suffix = "c"
     cmdclass = {}
 
-setup(name = 'Crux',
-      version = '@crux_version@',
-      description = 'Pylogenetic inference program',
-      author = 'Jason Evans',
-      author_email = 'jasone@canonware.com',
-      url = 'http://www.canonware.com/cgi-bin/hg_crux',
-      download_url = 'http://www.canonware.com/cgi-bin/hg_crux',
-      package_dir = {'': '@srcroot@/src'},
-      packages = ['Crux'],
-      ext_modules = ext_modules,
-      scripts = ['@objroot@/bin/crux'],
-      cmdclass = cmdclass
+# Crux.*
+for path in glob("@srcroot@/src/Crux/[A-Z]*.%s" % cy_suffix):
+    fsplit = path.split("/")[-1].split(".")
+    ext = Extension(
+      ".".join(fsplit[:-1]),
+      sources=[path],
+      include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"]
       )
+    ext_modules.append(ext)
+# Parsing
+ext = Extension(
+  'Parsing',
+  sources=["@srcroot@/src/Parsing.%s" % cy_suffix]
+  )
+ext_modules.append(ext)
+
+setup(
+  name = 'Crux',
+  version = '@crux_version@',
+  description = 'Pylogenetic inference program',
+  author = 'Jason Evans',
+  author_email = 'jasone@canonware.com',
+  url = 'http://www.canonware.com/cgi-bin/hg_crux',
+  download_url = 'http://www.canonware.com/cgi-bin/hg_crux',
+  package_dir = {'': '@srcroot@/src'},
+  packages = ['Crux'],
+  ext_modules = ext_modules,
+  scripts = ['@objroot@/bin/crux'],
+  cmdclass = cmdclass
+  )

@@ -36,7 +36,7 @@ all:
 	@ECHO@ stamp > @objroot@/build.stamp
 
 pickles: all
-	@objroot@/bin/crux --batch --quiet --infile=@srcroot@/pickles.crux
+	@objroot@/bin/crux --batch --infile=@srcroot@/pickles.crux
 
 install: all pickles
 	install -d @prefix@/share/Crux-@crux_version@
