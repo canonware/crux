@@ -1,0 +1,1 @@
+cdef class Fasta: pass

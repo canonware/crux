@@ -7,7 +7,7 @@ import CTMatrix
 import Config
 import DistMatrix
 import Exception
-import FastaParser
+import Fasta
 import Newick
 import TaxonMap
 import Tree

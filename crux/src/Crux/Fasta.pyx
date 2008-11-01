@@ -18,7 +18,7 @@
 #
 ################################################################################
 
-cdef class FastaParser:
+cdef class Fasta:
     def __init__(self):
         pass
 

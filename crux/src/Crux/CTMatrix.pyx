@@ -13,10 +13,10 @@ class ValueError(Exception, exceptions.ValueError):
         return self._str
 
 from TaxonMap cimport TaxonMap
-from FastaParser cimport FastaParser
+from Fasta cimport Fasta
 from CharacterType cimport DnaCharacterType, ProteinCharacterType
 
-class _FastaParser(FastaParser):
+class _Fasta(Fasta):
     def __init__(self, matrix, taxonMap):
         self._matrix = matrix
         self._taxonMap = taxonMap
@@ -70,7 +70,7 @@ cdef class CTMatrix:
         return self._seq
 
     def fastaParse(self, input, chartype='DNA'):
-        parser = _FastaParser(self, self._taxonMap)
+        parser = _Fasta(self, self._taxonMap)
         parser.parse(input, chartype)
 
     def fastaPrint(self, outFile=None):
