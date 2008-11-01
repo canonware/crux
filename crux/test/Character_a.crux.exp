@@ -1,5 +1,5 @@
 Test begin
-=== CharacterType ===
+=== Character ===
 ==> stateCodeAdd('A')
 A --> 1
 A <-- 1
@@ -44,12 +44,12 @@ d --> 8
 D <-- 8
 Codes: ['A', 'B', 'C', 'D', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd']
 nstates: 4
-Exception <class 'Crux.CharacterType.ValueError'>: State already defined: 'A'
-Exception <class 'Crux.CharacterType.ValueError'>: State already defined: 'A'
-Exception <class 'Crux.CharacterType.ValueError'>: State already defined: 'A'
-Exception <class 'Crux.CharacterType.ValueError'>: State not defined: 'J'
-Exception <class 'Crux.CharacterType.ValueError'>: Value not defined: 42
-=== DnaCharacterType ===
+Exception <class 'Crux.Character.ValueError'>: State already defined: 'A'
+Exception <class 'Crux.Character.ValueError'>: State already defined: 'A'
+Exception <class 'Crux.Character.ValueError'>: State already defined: 'A'
+Exception <class 'Crux.Character.ValueError'>: State not defined: 'J'
+Exception <class 'Crux.Character.ValueError'>: Value not defined: 42
+=== Dna ===
 Codes: ['-', 'A', 'B', 'C', 'D', 'G', 'H', 'K', 'M', 'N', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'a', 'b', 'c', 'd', 'g', 'h', 'k', 'm', 'n', 'r', 's', 't', 'v', 'w', 'x', 'y']
 nstates: 4
 - --> 0xf --> -
@@ -85,7 +85,7 @@ v --> 0xe --> V
 w --> 0x9 --> W
 x --> 0xf --> -
 y --> 0x5 --> Y
-=== ProteinCharacterType ===
+=== Protein ===
 Codes: ['-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
 nstates: 24
 - --> 0x00ffffff --> -

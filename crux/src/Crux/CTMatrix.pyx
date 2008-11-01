@@ -14,7 +14,7 @@ class ValueError(Exception, exceptions.ValueError):
 
 from TaxonMap cimport TaxonMap
 from Fasta cimport Fasta
-from CharacterType cimport DnaCharacterType, ProteinCharacterType
+from Character cimport Dna, Protein
 
 class _Fasta(Fasta):
     def __init__(self, matrix, taxonMap):
@@ -31,10 +31,10 @@ class _Fasta(Fasta):
         # Set the character data type if it hasn't already been done.
         if len(self._matrix.charsGet()) == 0:
             if self.charType() == 'DNA':
-                self._matrix.charsAppend([DnaCharacterType()]
+                self._matrix.charsAppend([Dna()]
                   * len(self.token()))
             else: # Protein data.
-                self._matrix.charsAppend([ProteinCharacterType()]
+                self._matrix.charsAppend([Protein()]
                   * len(self.token()))
 
         if self._taxonMap.indGet(self._lastLabel) == None:
@@ -46,7 +46,7 @@ class _Fasta(Fasta):
 
 cdef class CTMatrix:
     def __init__(self, taxonMap=None):
-        # This is an array of CharacterType objects, and stores the character
+        # This is an array of Character objects, and stores the character
         # types for the columns in _taxonData.
         self._chars = []
 
@@ -103,7 +103,7 @@ cdef class CTMatrix:
             self._printOutFile = None
         return rVal
 
-    # Append CharacterType objects to _chars.
+    # Append Character objects to _chars.
     def charsAppend(self, chars):
         # XXX Only allow this to succeed if no character data have been set
         # yet.

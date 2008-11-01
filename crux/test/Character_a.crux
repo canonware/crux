@@ -12,11 +12,11 @@
 print "Test begin"
 
 #
-# Generic CharacterType tests.
+# Generic Character tests.
 #
 
-print "=== CharacterType ==="
-c = Crux.CharacterType.CharacterType()
+print "=== Character ==="
+c = Crux.Character.Character()
 
 for code in ['A', 'B', 'C', 'D']:
     print "==> stateCodeAdd(%r)" % code
@@ -108,11 +108,11 @@ except:
     print "Exception %s: %s" % (error[0], error[1])
 
 #
-# DnaCharacterType tests.
+# Dna tests.
 #
 
-print "=== DnaCharacterType ==="
-c = Crux.CharacterType.DnaCharacterType()
+print "=== Dna ==="
+c = Crux.Character.Dna()
 codes = c.codes()
 codes.sort()
 print "Codes: %r" % codes
@@ -122,10 +122,10 @@ for code in codes:
     print "%s --> 0x%x --> %s" % (code, val, c.val2code(val))
 
 #
-# ProteinCharacterType tests.
+# Protein tests.
 #
-print "=== ProteinCharacterType ==="
-c = Crux.CharacterType.ProteinCharacterType()
+print "=== Protein ==="
+c = Crux.Character.Protein()
 codes = c.codes()
 codes.sort()
 print "Codes: %r" % codes

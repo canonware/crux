@@ -1,11 +1,11 @@
 ################################################################################
 #
-# The CharacterType class encapsulates the functionality that is necessary to
+# The Character class encapsulates the functionality that is necessary to
 # map character codes to bit vectors (as well as the reverse mapping).  Under
-# normal circumstances, there are only a few CharacterType instances, though
+# normal circumstances, there are only a few Character instances, though
 # many characters may refer to them.
 #
-# The DnaCharacterType and ProteinCharacterType classes are pre-configured to
+# The Dna and Protein classes are pre-configured to
 # support the standard codes.
 #
 ################################################################################
@@ -26,20 +26,22 @@ class ValueError(Exception, exceptions.ValueError):
 
 cimport DistMatrix
 
-cdef class CharacterType:
+cdef class Character:
     def __init__(self):
         self._pStates = {} # Primary states.
         self._aStates = {} # All states (including primary states).
         self._vals = {} # Reverse lookup of states.
 
-    def nstates(self):
+    cpdef int nstates(self):
         return len(self._pStates)
 
-    def codes(self):
+    cpdef list codes(self):
         return self._aStates.keys()
 
     # Define state code.
-    def stateCodeAdd(self, code):
+    cpdef stateCodeAdd(self, str code):
+        cdef int pval, val
+
         if self._aStates.has_key(code):
             raise ValueError("State already defined: %r" % code)
 
@@ -53,7 +55,10 @@ cdef class CharacterType:
         # Create a reverse lookup (val --> code).
         self._vals[val] = code
 
-    def ambiguityCodeAdd(self, code, oStates=None):
+    cpdef ambiguityCodeAdd(self, str code, list oStates=None):
+        cdef int val
+        cdef str oState
+
         if self._aStates.has_key(code):
             raise ValueError("State already defined: %r" % code)
 
@@ -69,7 +74,9 @@ cdef class CharacterType:
         if not self._vals.has_key(val):
             self._vals[val] = code
 
-    def aliasCodeAdd(self, code, oState):
+    cpdef aliasCodeAdd(self, str code, str oState):
+        cdef int val
+
         if self._aStates.has_key(code):
             raise ValueError("State already defined: %r" % code)
         if not self._aStates.has_key(oState):
@@ -85,22 +92,22 @@ cdef class CharacterType:
             self._vals[val] = code
 
     # Given a state code, return the associated value.
-    def code2val(self, code):
+    cpdef int code2val(self, str code):
         if not self._aStates.has_key(code):
             raise ValueError("State not defined: %r" % code)
 
         return self._aStates[code]
 
     # Given an index value, return the primary associated state key.
-    def val2code(self, val):
+    cpdef str val2code(self, int val):
         if not self._vals.has_key(val):
             raise ValueError("Value not defined: %r" % val)
 
         return self._vals[val]
 
-cdef class DnaCharacterType(CharacterType):
+cdef class Dna(Character):
     def __init__(self):
-        CharacterType.__init__(self)
+        Character.__init__(self)
 
         states = ['T', 'G', 'C', 'A']
         for state in states:
@@ -141,9 +148,9 @@ cdef class DnaCharacterType(CharacterType):
         for alias in aliases:
             self.aliasCodeAdd(alias, aliases[alias])
 
-cdef class ProteinCharacterType(CharacterType):
+cdef class Protein(Character):
     def __init__(self):
-        CharacterType.__init__(self)
+        Character.__init__(self)
 
         states = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M',
                   'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']

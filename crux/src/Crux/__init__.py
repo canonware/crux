@@ -2,7 +2,7 @@
 Classes for phylogenetic inference.
 """
 
-import CharacterType
+import Character
 import CTMatrix
 import Config
 import DistMatrix
