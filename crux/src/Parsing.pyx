@@ -1,5 +1,5 @@
 #===============================================================================
-# C pyright (c) 2007 Jason Evans <jasone@canonware.com>
+# Copyright (c) 2007 Jason Evans <jasone@canonware.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -133,8 +133,32 @@ import types
 global __name__
 
 # Forward declarations.
+cdef class Precedence
+cdef class SymbolSpec
+cdef class String
+cdef class StringFirstSetCache
+cdef class Symbol
+cdef class Nonterm(Symbol)
+cdef class NontermSpec(SymbolSpec)
+cdef class Token(Symbol)
+cdef class TokenSpec(SymbolSpec)
+cdef class EndOfInput(Token)
+cdef class Epsilon(Token)
+cdef class Production
+cdef class Start(Production)
+cdef class Item
+cdef class ItemSet
+cdef class Action
+cdef class ShiftAction(Action)
+cdef class ReduceAction(Action)
+cdef class Spec
+cdef class Lr
 cdef class Gsse
+cdef class _GssnEdgesIterHelper
+cdef class _GssnNodesIterHelper
+cdef class _GssnPathsIterHelper
 cdef class Gssn
+cdef class Glr(Lr)
 
 #===============================================================================
 # Begin exceptions.
@@ -256,17 +280,14 @@ Following are some examples of how to specify precedence classes:
       "%left p4 =p3" # No whitespace is allowed between = and p3.
 """
     def __init__(self, str name=None, str assoc=None, dict relationships=None):
-        if name == None:
+        if name is None:
             return
 
-        assert assoc in ["fail", "nonassoc", "left", "right", "split"]
-
         self.name = name
-        self.assoc = assoc
-        self.relationships = relationships # Raw relationships specification.
+        self.assoc = None
 
-        self.equiv = [self] # Set.  Precedences that have equivalent precedence.
-        self.dominators = [] # Set.  Precedences that have higher precedence.
+        if assoc is not None:
+            self.specify(assoc, relationships)
 
     def __reduce__(self):
         return (type(self), (), self.__getstate__())
@@ -280,6 +301,9 @@ Following are some examples of how to specify precedence classes:
           self.dominators) = data
 
     def __repr__(self):
+        cdef list equiv, domin
+        cdef Precedence prec
+
         equiv = [prec.name for prec in self.equiv]
         equiv.sort()
         domin = [prec.name for prec in self.dominators]
@@ -288,18 +312,34 @@ Following are some examples of how to specify precedence classes:
           ",".join(equiv), ",".join(domin))
 
     # Important for pickling/unpickling.
-    def __richcmp__(self, Precedence other, int op):
+    def __richcmp__(Precedence self, Precedence other, int op):
         assert op == 2
         return self is other
+
+    cdef void specify(self, str assoc, dict relationships) except *:
+        # We potentially create Precedence instances before their specifications
+        # have been introspected, in which case only the name is known.
+        # Furthermore, after introspection is complete, we need a way to
+        # recognize instances that are referred to but never specified.  For
+        # such instances, (self.assoc is None).
+        assert self.assoc is None
+
+        assert assoc in ("fail", "nonassoc", "left", "right", "split")
+
+        self.assoc = assoc
+        self.relationships = relationships # Raw relationships specification.
+
+        self.equiv = [self] # Set.  Precedences that have equivalent precedence.
+        self.dominators = [] # Set.  Precedences that have higher precedence.
 
 cdef int _SymbolSpecSeq
 _SymbolSpecSeq = 0
 
 cdef class SymbolSpec:
-    def __init__(self, str name=None, prec=None):
+    def __init__(self, str name=None, Precedence prec=None):
         global _SymbolSpecSeq
 
-        if name == None:
+        if name is None:
             return
 
         self.name = name
@@ -323,7 +363,7 @@ cdef class SymbolSpec:
     def __repr__(self):
         return "%s" % self.name
 
-    def __richcmp__(self, SymbolSpec other, int op):
+    def __richcmp__(SymbolSpec self, SymbolSpec other, int op):
         cdef bint cmp
 
         cmp = self.seq == other.seq
@@ -342,11 +382,11 @@ cdef class SymbolSpec:
         self.firstSet.append(sym)
         return False
 
-    cdef bint followSetMerge(self, list set):
+    cdef bint followSetMerge(self, list set, TokenSpec epsilon):
         ret = True
         for 0 <= i < len(set):
             sym = set[i]
-            if sym != epsilon and sym not in self.followSet:
+            if sym is not epsilon and sym not in self.followSet:
                 self.followSet.append(sym)
                 ret = False
         return ret
@@ -407,37 +447,43 @@ cdef class String:
         ret = hash(((ret << 5) + ret) + self.lookahead.seq)
         return ret
 
-# Maintain a cache of String-->firstSet mappings, so that each followSet is
-# constructed only once.
-cdef dict _StringFirstSetCache
-_StringFirstSetCache = {}
-cdef dict _getStringFirstSet(list rhs, int dotPos, SymbolSpec lookahead):
-    global _StringFirstSetCache
+cdef class StringFirstSetCache:
+    def __init__(self, TokenSpec epsilon):
+        self._epsilon = epsilon
+        self._cache = {}
 
-    s = String(rhs, dotPos, lookahead)
-    if s in _StringFirstSetCache:
-        return _StringFirstSetCache[s]
-    else:
-        # Calculate the first set for the string encoded by the s vector.
-        firstSet = {} # Use dict rather than list during computation.
-        mergeEpsilon = True
-        for sym in s.syms:
-            hasEpsilon = False
-            for elm in sym.firstSet:
-                if elm == epsilon:
-                    hasEpsilon = True
-                else:
-                    firstSet[elm] = elm
-            if not hasEpsilon:
-                mergeEpsilon = False
-                break
-        # Merge epsilon if it was in the first set of every symbol.
-        if mergeEpsilon:
-            firstSet[epsilon] = epsilon
+    # Maintain a cache of String-->firstSet mappings, so that each followSet is
+    # constructed only once.
+    cdef dict getFirstSet(self, list rhs, int dotPos, SymbolSpec lookahead):
+        cdef String s
+        cdef dict firstSet
+        cdef bint mergeEpsilon, hasEpsilon
+        cdef SymbolSpec sym, elm
 
-        # Cache result.
-        _StringFirstSetCache[s] = firstSet
-        return firstSet
+        s = String(rhs, dotPos, lookahead)
+        if s in self._cache:
+            return <dict>self._cache[s]
+        else:
+            # Calculate the first set for the string encoded by the s vector.
+            firstSet = {} # Use dict rather than list during computation.
+            mergeEpsilon = True
+            for sym in s.syms:
+                hasEpsilon = False
+                for elm in sym.firstSet:
+                    if elm is self._epsilon:
+                        hasEpsilon = True
+                    else:
+                        firstSet[elm] = elm
+                if not hasEpsilon:
+                    mergeEpsilon = False
+                    break
+            # Merge epsilon if it was in the first set of every symbol.
+            if mergeEpsilon:
+                firstSet[self._epsilon] = self._epsilon
+
+            # Cache result.
+            self._cache[s] = firstSet
+            return firstSet
 
 cdef class Symbol:
     def __init__(self, symSpec, parser):
@@ -531,8 +577,7 @@ associated productions:
           "%suppress"
           # Do not use F.reduceC.
 """
-    def __init__(self, parser):
-        assert isinstance(parser, Lr)
+    def __init__(self, Lr parser):
         Symbol.__init__(self, parser._spec._sym2spec[type(self)], parser)
 
     cpdef merge(self, Nonterm other):
@@ -564,8 +609,8 @@ in merge().
 
 cdef class NontermSpec(SymbolSpec):
     def __init__(self, nontermType=None, name=None, qualified=None,
-      prec=None):
-        if nontermType == None:
+      Precedence prec=None):
+        if nontermType is None:
             return
 
         SymbolSpec.__init__(self, name, prec)
@@ -612,7 +657,7 @@ subclasses Parsing.Token and implement parser-specific machinery there,
 then derive all actual token types from that class.
 
   class Token(Parsing.Token):
-      def __init__(self, parser):
+      def __init__(self, Lr parser):
           Parsing.Token.__init__(self, parser)
           # ...
 
@@ -631,19 +676,17 @@ then derive all actual token types from that class.
   class id(Token):
       "%token"
 """
-    def __init__(self, parser):
-        assert isinstance(parser, Lr)
+    def __init__(self, Lr parser):
         Symbol.__init__(self, parser._spec._sym2spec[type(self)], parser)
 
 # AKA terminal symbol.
 cdef class TokenSpec(SymbolSpec):
-    def __init__(self, tokenType=None, name=None, qualified=None, prec=None):
-        if tokenType == None:
+    def __init__(self, type tokenType=None, str name=None, str qualified=None,
+      Precedence prec=None):
+        if tokenType is None:
             return
 
         assert issubclass(tokenType, Token)
-        assert type(name) == str
-        assert isinstance(prec, Precedence) or type(prec) == str
 
         SymbolSpec.__init__(self, name, prec)
 
@@ -657,6 +700,9 @@ cdef class TokenSpec(SymbolSpec):
         return (SymbolSpec.__getstate__(self), self.qualified)
 
     def __setstate__(self, data):
+        cdef SymbolSpec_data
+        cdef str qualified
+
         (SymbolSpec_data, qualified) = data
 
         SymbolSpec.__setstate__(self, SymbolSpec_data)
@@ -674,21 +720,19 @@ cdef class TokenSpec(SymbolSpec):
 
 # <$>.
 cdef class EndOfInput(Token): pass
-eoi = TokenSpec(EndOfInput, "<$>", "%s.EndOfInput" % __name__, "none")
 
 # <e>.
 cdef class Epsilon(Token): pass
-epsilon = TokenSpec(Epsilon, "<e>", "%s.Epsilon" % __name__, "none")
 
 cdef int _ProductionSeq
 _ProductionSeq = 0
 
 cdef class Production:
-    def __init__(self, method=None, qualified=None, prec=None, lhs=None,
-      rhs=None):
+    def __init__(self, method=None, qualified=None, Precedence prec=None,
+      lhs=None, rhs=None):
         global _ProductionSeq
 
-        if (method == None):
+        if (method is None):
             return
 
         if __debug__:
@@ -712,6 +756,12 @@ cdef class Production:
         return (self.qualified, self.prec, self.lhs, self.rhs, self.seq)
 
     def __setstate__(self, data):
+        cdef str qualified
+        cdef Precedence prec
+        cdef NontermSpec lhs
+        cdef list rhs
+        cdef int seq
+
         # Convert qualified name to a function reference.
         (qualified, prec, lhs, rhs, seq) = data
         elms = qualified.split(".")
@@ -728,6 +778,8 @@ cdef class Production:
         self.seq = seq
 
     def __repr__(self):
+        cdef SymbolSpec elm
+
         return "%r ::= %s. [%s]" % \
           (self.lhs, " ".join(["%r" % elm for elm in self.rhs]), self.prec.name)
 
@@ -737,7 +789,7 @@ cdef class Production:
     def reduce(self, lhs, *rhs): pass
 
 class NontermStart(Nonterm):
-    def reduce(self, userStartSym, eoi):
+    def reduce(self, Nonterm userStartSym, EndOfInput eoi):
         pass
 
 cdef class Start(Production):
@@ -747,7 +799,7 @@ cdef class Start(Production):
 cdef class Item:
     def __init__(self, Production production=None, int dotPos=0,
       dict lookahead=None):
-        if production == None:
+        if production is None:
             return
 
         assert dotPos >= 0
@@ -775,7 +827,7 @@ cdef class Item:
     def __hash__(self):
         return self.hash
 
-    def __richcmp__(self, Item other, int op):
+    def __richcmp__(Item self, Item other, int op):
         if op == 2: # ==
             return self.hash == other.hash
         else:
@@ -783,6 +835,10 @@ cdef class Item:
             return self.hash < other.hash
 
     def __repr__(self):
+        cdef list strs, syms
+        cdef int i
+        cdef SymbolSpec sym
+
         strs = []
         strs.append("[%r ::=" % self.production.lhs)
         assert self.dotPos <= len(self.production.rhs)
@@ -803,6 +859,9 @@ cdef class Item:
         return "".join(strs)
 
     cdef lr0__repr__(self):
+        cdef list strs
+        cdef int i
+
         strs = []
         strs.append("%r ::=" % self.production.lhs)
         assert self.dotPos <= len(self.production.rhs)
@@ -849,6 +908,8 @@ cdef class _ItemSetIterHelper:
     cdef int _index
 
     def __init__(self, dict items, dict added):
+        cdef Item item
+
         if __debug__:
             for item in items.iterkeys():
                 assert item.production.lhs.name == "<S>" or item.dotPos != 0
@@ -862,6 +923,8 @@ cdef class _ItemSetIterHelper:
         return self
 
     def __next__(self):
+        cdef Item ret
+
         if self._index >= len(self._items):
             raise StopIteration
         ret = self._items[self._index]
@@ -886,6 +949,8 @@ cdef class ItemSet:
         return len(self._items)
 
     def __repr__(self):
+        cdef list kernel, added
+
         kernel = [item for item in self._items.iterkeys()]
         kernel.sort()
         added = [item for item in self._added.iterkeys()]
@@ -895,6 +960,9 @@ cdef class ItemSet:
           ", ".join(["%r" % item for item in added]))
 
     def __hash__(self):
+        cdef int ret
+        cdef Item item
+
         # This works because addition is transitive.
         ret = 0
         for item in self._items.iterkeys():
@@ -902,7 +970,7 @@ cdef class ItemSet:
         ret = hash(ret)
         return ret
 
-    def __richcmp__(self, ItemSet other, int op):
+    def __richcmp__(ItemSet self, ItemSet other, int op):
         assert op == 2
 
         if len(self._items) != len(other._items):
@@ -924,7 +992,7 @@ cdef class ItemSet:
         assert item.production.lhs.name == "<S>" or item.dotPos != 0
 
         if item in self._items or item in self._added:
-            self._items[item].lookahead.update(item.lookahead)
+            (<Item>self._items[item]).lookahead.update(item.lookahead)
         else:
             tItem = Item(item.production, item.dotPos, item.lookahead)
             self._items[tItem] = tItem
@@ -938,7 +1006,7 @@ cdef class ItemSet:
         assert item.production.lhs.name != "<S>"
 
         if item in self._added:
-            lookahead = self._added[item].lookahead
+            lookahead = (<Item>self._added[item]).lookahead
             oldLen = len(lookahead)
             lookahead.update(item.lookahead)
             return (oldLen != len(lookahead))
@@ -948,11 +1016,12 @@ cdef class ItemSet:
 
     # Given a list of items, compute their closure and merge the results into
     # the set of added items.
-    cdef void _closeItems(self, list items):
+    cdef void _closeItems(self, list items, StringFirstSetCache cache):
         cdef int i, dotPos
         cdef list rhs
         cdef Item item, tItem
         cdef SymbolSpec lookahead
+        cdef NontermSpec lhs
         cdef dict firstSet
 
         # Iterate over the items until no more can be added to the closure.
@@ -964,7 +1033,7 @@ cdef class ItemSet:
             if dotPos < len(rhs) \
               and isinstance(rhs[dotPos], NontermSpec):
                 for lookahead in item.lookahead.keys():
-                    firstSet = _getStringFirstSet(rhs, dotPos, lookahead)
+                    firstSet = cache.getFirstSet(rhs, dotPos, lookahead)
                     lhs = rhs[dotPos]
                     for prod in lhs.productions:
                         tItem = Item(prod, 0, firstSet)
@@ -973,11 +1042,12 @@ cdef class ItemSet:
             i += 1
 
     # Calculate and merge the kernel's transitive closure.
-    cdef void closure(self):
+    cdef void closure(self, StringFirstSetCache cache):
         cdef list items, rhs
         cdef Item item, tItem
         cdef int dotPos
-        cdef SymbolSpec lookahead, lhs
+        cdef SymbolSpec lookahead
+        cdef NontermSpec lhs
         cdef dict firstSet
         cdef int i
 
@@ -987,19 +1057,19 @@ cdef class ItemSet:
             dotPos = item.dotPos
             if dotPos < len(rhs) and isinstance(rhs[dotPos], NontermSpec):
                 for lookahead in item.lookahead:
-                    firstSet = _getStringFirstSet(rhs, dotPos, lookahead)
+                    firstSet = cache.getFirstSet(rhs, dotPos, lookahead)
                     lhs = rhs[dotPos]
                     for 0 <= i < len(lhs.productions):
                         prod = lhs.productions[i]
                         tItem = Item(prod, 0, firstSet)
                         if self.addedAppend(tItem):
                             items.append(tItem)
-        self._closeItems(items)
+        self._closeItems(items, cache)
 
     # Calculate the kernel of the goto set, given a particular symbol.
     cdef ItemSet xgoto(self, SymbolSpec sym):
         cdef ItemSet ret
-        cdef Item item
+        cdef Item item, tItem
         cdef list items, rhs
         cdef Production production
         cdef int dotPos, i, iLim
@@ -1013,7 +1083,7 @@ cdef class ItemSet:
             production = item.production
             rhs = production.rhs
             dotPos = item.dotPos
-            if dotPos < len(rhs) and rhs[dotPos] == sym:
+            if dotPos < len(rhs) and <SymbolSpec>rhs[dotPos] == sym:
                 tItem = Item(item.production, dotPos + 1, item.lookahead)
                 ret.append(tItem)
         return ret
@@ -1021,7 +1091,7 @@ cdef class ItemSet:
     # Merge the kernel of other into this ItemSet, then update the closure.
     # It is not sufficient to copy other's added items, since other has not
     # computed its closure.
-    cdef bint merge(self, ItemSet other):
+    cdef bint merge(self, ItemSet other, StringFirstSetCache cache):
         cdef list items
         cdef Item item, tItem
         cdef dict lookahead, tLookahead
@@ -1030,7 +1100,7 @@ cdef class ItemSet:
         items = []
         for item in other._items.iterkeys():
             if item in self._items or item in self._added:
-                lookahead = self._items[item].lookahead
+                lookahead = (<Item>self._items[item]).lookahead
                 tLookahead = {}
                 for sym in item.lookahead.iterkeys():
                     if sym not in lookahead:
@@ -1045,7 +1115,7 @@ cdef class ItemSet:
                 items.append(tItem)
 
         if len(items) > 0:
-            self._closeItems(items)
+            self._closeItems(items, cache)
             return True
         else:
             return False
@@ -1120,6 +1190,9 @@ Shift action, with assocated nextState.
         return (Action.__getstate__(self), self.nextState)
 
     def __setstate__(self, data):
+        cdef Action_data
+        cdef int nextState
+
         (Action_data, nextState) = data
         Action.__setstate__(self, Action_data)
         self.nextState = nextState
@@ -1127,11 +1200,11 @@ Shift action, with assocated nextState.
     def __repr__(self):
         return "[shift %r]" % self.nextState
 
-    def __richcmp__(self, other, int op):
+    def __richcmp__(ShiftAction self, other, int op):
         cdef bint equal
 
         if not isinstance(other, ShiftAction) or \
-          self.nextState != other.nextState:
+          self.nextState != (<ShiftAction>other).nextState:
             equal = False
         else:
             equal = True
@@ -1160,6 +1233,9 @@ Reduce action, with associated production.
         return (Action.__getstate__(self), self.production)
 
     def __setstate__(self, data):
+        cdef Action_data
+        cdef Production production
+
         (Action_data, production) = data
         Action.__setstate__(self, Action_data)
         self.production = production
@@ -1167,11 +1243,11 @@ Reduce action, with associated production.
     def __repr__(self):
         return "[reduce %r]" % self.production
 
-    def __richcmp__(self, other, int op):
+    def __richcmp__(ReduceAction self, other, int op):
         cdef bint equal
 
         if not isinstance(other, ReduceAction) or \
-          self.production != other.production:
+          self.production != (<ReduceAction>other).production:
             equal = False
         else:
             equal = True
@@ -1232,7 +1308,7 @@ verbose : If true, print progress information while generating the
     def __init__(self, modules=None, type startSym=None,
       str pickleFile=None, str pickleMode="rw", bint skinny=True,
       str logFile=None, str graphFile=None, bint verbose=False):
-        if modules == None:
+        if modules is None:
             return
 
         assert pickleMode in ("rw", "r", "w")
@@ -1251,13 +1327,21 @@ verbose : If true, print progress information while generating the
         self._none = Precedence("none", "fail", {})
         self._split = Precedence("split", "split", {})
 
+        # Special tokens.
+        self._eoi = TokenSpec(EndOfInput, "<$>", "%s.EndOfInput" % __name__, \
+          self._none)
+        self._epsilon = TokenSpec(Epsilon, "<e>", "%s.Epsilon" % __name__, \
+          self._none)
+
         # Symbols are maintained as two separate sets so that non-terminals and
         # terminals (tokens) can be operated on separately where needed.
         self._precedences = {self._none.name: self._none,
                              self._split.name: self._split}
         self._nonterms = {}
-        self._tokens = {eoi.name: eoi, epsilon.name: epsilon}
-        self._sym2spec = {EndOfInput: eoi, Epsilon: epsilon}
+
+        self._tokens = {self._eoi.name: self._eoi, \
+          self._epsilon.name: self._epsilon}
+        self._sym2spec = {EndOfInput: self._eoi, Epsilon: self._epsilon}
         self._productions = []
 
         self._userStartSym = None
@@ -1293,19 +1377,19 @@ verbose : If true, print progress information while generating the
 
     def __getstate__(self):
         return (self._skinny, self._verbose, self._none, self._split,
-          self._precedences, self._nonterms, self._tokens, self._sym2spec,
-          self._productions, self._userStartSym, self._startSym,
-          self._startProd, self._itemSets, self._itemSetsHash, self._action,
-          self._goto, self._startState, self._nActions, self._nConflicts,
-          self._nImpure)
+          self._eoi, self._epsilon, self._precedences, self._nonterms,
+          self._tokens, self._sym2spec, self._productions, self._userStartSym,
+          self._startSym, self._startProd, self._itemSets, self._itemSetsHash,
+          self._action, self._goto, self._startState, self._nActions,
+          self._nConflicts, self._nImpure)
 
     def __setstate__(self, data):
-        (self._skinny, self._verbose, self._none, self._split,
-          self._precedences, self._nonterms, self._tokens, self._sym2spec,
-          self._productions, self._userStartSym, self._startSym,
-          self._startProd, self._itemSets, self._itemSetsHash, self._action,
-          self._goto, self._startState, self._nActions, self._nConflicts,
-          self._nImpure) = data
+        (self._skinny, self._verbose, self._none, self._split, self._eoi,
+          self._epsilon, self._precedences, self._nonterms, self._tokens,
+          self._sym2spec, self._productions, self._userStartSym,
+          self._startSym, self._startProd, self._itemSets, self._itemSetsHash,
+          self._action, self._goto, self._startState, self._nActions,
+          self._nConflicts, self._nImpure) = data
 
     property pureLR:
         def __get__(self): return (self._nConflicts + self._nImpure == 0)
@@ -1314,9 +1398,17 @@ verbose : If true, print progress information while generating the
         def __get__(self): return self._nConflicts
 
     def __repr__(self):
+        cdef str ret, conflict, resolve
+        cdef list lines, deco, deco2, items
+        cdef object elm, elm2
+        cdef Precedence prec
         cdef SymbolSpec sym
-        cdef Item item
+        cdef TokenSpec tokenSpec
+        cdef NontermSpec nontermSpec
+        cdef Production prod
         cdef int i, ntokens, nnonterms, nproductions, nstates
+        cdef Item item
+        cdef Action action, other
 
         if self._skinny:
             # Print a very reduced summary, since most info has been discarded.
@@ -1334,28 +1426,40 @@ verbose : If true, print progress information while generating the
             lines.append("  %r" % prec)
 
         lines.append("Tokens:")
-        syms = [sym for sym in self._tokens.itervalues()]
-        syms.sort()
-        for token in syms:
-            lines.append("  %r %r" % (token, token.prec))
-            lines.append("    First set: %r" % token.firstSet)
-            lines.append("    Follow set: %r" % token.followSet)
+        deco = [(sym.name, sym) for sym in self._tokens.itervalues()]
+        deco.sort()
+        for elm in deco:
+            tokenSpec = <TokenSpec>elm[1]
+            lines.append("  %r %r" % (tokenSpec, tokenSpec.prec))
+            deco2 = [(sym.name, sym) for sym in tokenSpec.firstSet]
+            deco2.sort()
+            lines.append("    First set: %r" % [elm2[1] for elm2 in deco2])
+            deco2 = [(sym.name, sym) for sym in tokenSpec.followSet]
+            deco2.sort()
+            lines.append("    Follow set: %r" % [elm2[1] for elm2 in deco2])
 
         lines.append("Non-terminals:")
-        syms = [sym for sym in self._nonterms.itervalues()]
-        syms.sort()
-        for sym in syms:
-            lines.append("  %r %r" % (sym, sym.prec))
-            lines.append("    First set: %r" % sym.firstSet)
-            lines.append("    Follow set: %r" % sym.followSet)
+        deco = [(sym.name, sym) for sym in self._nonterms.itervalues()]
+        deco.sort()
+        for elm in deco:
+            nontermSpec = <NontermSpec>elm[1]
+            lines.append("  %r %r" % (nontermSpec, nontermSpec.prec))
+            deco2 = [(sym.name, sym) for sym in nontermSpec.firstSet]
+            deco2.sort()
+            lines.append("    First set: %r" % [elm2[1] for elm2 in deco2])
+            deco2 = [(sym.name, sym) for sym in nontermSpec.followSet]
+            deco2.sort()
+            lines.append("    Follow set: %r" % [elm2[1] for elm2 in deco2])
             lines.append("    Productions:")
-            prods = sym.productions[:]
-            prods.sort()
-            for prod in prods:
+            deco2 = [([sym.name for sym in prod.rhs], prod) \
+              for prod in nontermSpec.productions]
+            deco2.sort()
+            for elm2 in deco2:
+                prod = elm2[1]
                 lines.append("      %r" % prod)
 
         lines.append("Item sets:")
-        for i in xrange(len(self._itemSets)):
+        for 0 <= i < len(self._itemSets):
             lines.append("  %d: %r" % (i, self._itemSets[i]))
         #=======================================================================
 
@@ -1378,7 +1482,7 @@ verbose : If true, print progress information while generating the
         else:
             lines.append("Algorithm compatibility: None, due to ambiguity")
         lines.append("Parsing tables:")
-        for i in xrange(len(self._action)):
+        for 0 <= i < len(self._action):
             lines.append("  %s" % ("=" * 78))
             lines.append("  State %d:%s" % \
               (i, ("", " (start state)")[self._startState == i]))
@@ -1388,14 +1492,16 @@ verbose : If true, print progress information while generating the
                 lines.append(" %s%s" % (" " * (len("%d" % i) + 9),
                   item.lr0__repr__()))
             lines.append("    Goto:")
-            syms = [sym for sym in self._goto[i]]
-            syms.sort()
-            for sym in syms:
+            deco = [(sym.name, sym) for sym in self._goto[i]]
+            deco.sort()
+            for elm in deco:
+                sym = elm[1]
                 lines.append("    %15r : %r" % (sym, self._goto[i][sym]))
             lines.append("    Action:")
-            syms = [sym for sym in self._action[i]]
-            syms.sort()
-            for sym in syms:
+            deco = [(sym.name, sym) for sym in self._action[i]]
+            deco.sort()
+            for elm in deco:
+                sym = elm[1]
                 for action in self._action[i][sym]:
                     conflict = "   "
                     for other in self._action[i][sym]:
@@ -1407,22 +1513,25 @@ verbose : If true, print progress information while generating the
 
                     if type(action) == ShiftAction:
                         lines.append("%s %15r : %-6s %d [%s]" % \
-                          (conflict, sym, "shift", action.nextState, \
-                          sym.prec.name))
+                          (conflict, sym, "shift", \
+                          (<ShiftAction>action).nextState, sym.prec.name))
                     else:
                         assert type(action) == ReduceAction
                         lines.append("%s %15r : %-6s %r" % \
-                          (conflict, sym, "reduce", action.production))
+                          (conflict, sym, "reduce", \
+                          (<ReduceAction>action).production))
 
         ret = "\n".join(lines)
         return ret
 
-    cdef void _prepare(self, modules, pickleFile, pickleMode, logFile,
-      graphFile) except *:
+    cdef void _prepare(self, list modules, str pickleFile, str pickleMode,
+      str logFile, str graphFile) except *:
         """
 Compile the specification into data structures that can be used by
 the Parser class for parsing.
 """
+        cdef str compat
+
         # Get the grammar specification.
         self._introspect(modules)
 
@@ -1432,14 +1541,14 @@ the Parser class for parsing.
         # Augment grammar with a special start symbol and production:
         #
         #   <S> ::= S <$>.
-        assert self._startSym == None
+        assert self._startSym is None
         assert isinstance(self._userStartSym, NontermSpec)
         self._startSym = NontermSpec(NontermStart, "<S>",
           "%s.NontermStart" % __name__, self._none)
         self._startProd = Production(NontermStart.reduce.im_func,
                                      "%s.NontermStart.reduce" % __name__,
                                      self._none, self._startSym, \
-                                     [self._userStartSym, eoi])
+                                     [self._userStartSym, self._eoi])
         self._startSym.productions.append(self._startProd)
         self._nonterms["<S>"] = self._startSym
         self._productions.append(self._startProd)
@@ -1493,24 +1602,31 @@ the Parser class for parsing.
     # Introspect modules and find special parser declarations.  In order to be
     # a special class, the class must both 1) be subclassed from Token or
     # Nonterm, and 2) contain the appropriate %foo docstring.
-    cdef void _introspect(self, modules) except *:
-        cdef NontermSpec nonterm, parent
+    cdef void _introspect(self, list modules) except *:
         cdef list deferred
+        cdef object module, d, v
+        cdef str k
+        cdef list dirtoks
+        cdef str name
+        cdef dict relationships
         cdef int i
+        cdef str tok
+        cdef object m
+        cdef Precedence prec
+        cdef str precName
+        cdef TokenSpec token
+        cdef NontermSpec nonterm, parent
 
         if self._verbose:
             print ("Parsing.Spec: Introspecting module%s to acquire formal" + \
             " grammar specification...") % ("s", "")[len(modules) == 1]
-
-        self._precedences["none"] = self._none
-        self._precedences["split"] = self._split
 
         deferred = []
         for module in modules:
             d = module.__dict__
             for k in d:
                 v = d[k]
-                if type(v) is types.TypeType and type(v.__doc__) == str:
+                if type(v) is types.TypeType and type(v.__doc__) is str:
                     dirtoks = v.__doc__.split(" ")
 
                     #===========================================================
@@ -1545,7 +1661,9 @@ the Parser class for parsing.
                                       v.__doc__)
                             i += 1
 
-                        if name in self._precedences:
+                        if name in self._precedences \
+                          and (<Precedence>self._precedences[name]).assoc \
+                          is not None:
                             raise SpecError("Duplicate precedence name: %s" % \
                               v.__doc__)
                         if name in self._tokens:
@@ -1554,14 +1672,19 @@ the Parser class for parsing.
                         if name in self._nonterms:
                             raise SpecError("Identical nonterm/precedence " \
                               "names: %s" % v.__doc__)
-                        prec = Precedence(name, dirtoks[0][1:], relationships)
-                        self._precedences[name] = prec
+                        if name not in self._precedences:
+                            prec = Precedence(name, dirtoks[0][1:],
+                              relationships)
+                            self._precedences[name] = prec
+                        else:
+                            prec = <Precedence>self._precedences[name]
+                            prec.specify(dirtoks[0][1:], relationships)
                     #===========================================================
                     # Token.
                     #
                     elif issubclass(v, Token) and dirtoks[0] in ["%token"]:
                         name = None
-                        prec = None
+                        precName = None
                         i = 1
                         while i < len(dirtoks):
                             tok = dirtoks[i]
@@ -1571,7 +1694,7 @@ the Parser class for parsing.
                                     raise SpecError("Precedence must come " \
                                       "last in token specification: %s" % \
                                       v.__doc__)
-                                prec = m.group(1)
+                                precName = m.group(1)
                             else:
                                 m = re.compile(r'([A-Za-z]\w*)').match(tok)
                                 if m:
@@ -1580,10 +1703,10 @@ the Parser class for parsing.
                                     raise SpecError("Invalid token " \
                                       "specification: %s" % v.__doc__)
                             i += 1
-                        if name == None:
+                        if name is None:
                             name = k
-                        if prec == None:
-                            prec = "none"
+                        if precName is None:
+                            precName = "none"
                         if name in self._precedences:
                             raise SpecError("Identical precedence/token " \
                               "names: %s" % v.__doc__)
@@ -1593,6 +1716,11 @@ the Parser class for parsing.
                         if name in self._nonterms:
                             raise SpecError("Identical nonterm/token names: " \
                               "%s" % v.__doc__)
+                        if precName not in self._precedences:
+                            prec = Precedence(precName)
+                            self._precedences[precName] = prec
+                        else:
+                            prec = self._precedences[precName]
                         token = TokenSpec(v, name,
                           "%s.%s" % (module.__name__, k), prec)
                         self._tokens[name] = token
@@ -1603,7 +1731,7 @@ the Parser class for parsing.
                     elif issubclass(v, Nonterm) and \
                       dirtoks[0] in ["%start", "%nonterm", "%extend"]:
                         name = None
-                        prec = None
+                        precName = None
                         i = 1
                         while i < len(dirtoks):
                             tok = dirtoks[i]
@@ -1613,7 +1741,7 @@ the Parser class for parsing.
                                     raise SpecError("Precedence must come " \
                                       "last in non-terminal specification: %s" \
                                       % v.__doc__)
-                                prec = m.group(1)
+                                precName = m.group(1)
                             else:
                                 m = re.compile(r'([A-Za-z]\w*)').match(tok)
                                 if m:
@@ -1622,16 +1750,21 @@ the Parser class for parsing.
                                     raise SpecError("Invalid non-terminal " \
                                       "specification: %s" % v.__doc__)
                             i += 1
-                        if name == None:
+                        if name is None:
                             name = k
-                        if prec == None:
-                            prec = "none"
+                        if precName is None:
+                            precName = "none"
                         if name in self._precedences:
                             raise SpecError("Identical precedence/nonterm " \
                               "names: %s" % v.__doc__)
                         if name in self._tokens:
                             raise SpecError( "Identical token/nonterm names: " \
                               "%s" % v.__doc__)
+                        if precName not in self._precedences:
+                            prec = Precedence(precName)
+                            self._precedences[precName] = prec
+                        else:
+                            prec = self._precedences[precName]
                         if dirtoks[0] == "%extend":
                             # Defer until all other introspection is complete.
                             nonterm = NontermSpec(v, name,
@@ -1693,7 +1826,8 @@ the Parser class for parsing.
         cdef object d # dictproxy.
         cdef object v
         cdef list dirtoks, rhs
-        cdef object prec # Precedence or str.
+        cdef str precName
+        cdef Precedence prec
         cdef object m
         cdef Production prod
         cdef int i
@@ -1702,13 +1836,20 @@ the Parser class for parsing.
         # Build the graph of Precedence relationships.
         self._resolvePrec(graphFile)
 
-        # Resolve Token-->Precedence references.
+        # Verify that Token-->Precedence references are valid.
         for token in self._tokens.itervalues():
-            if type(token.prec) == str:
-                token.prec = self._precedences[token.prec]
+            if token.prec.assoc is None:
+                raise SpecError("Unknown precedence in Token specification " \
+                  " for %r: %s" % (token.tokenType, token.tokenType.__doc__))
 
         # Resolve Nonterm-->{Nonterm,Token,Precedence} references.
         for nonterm in self._nonterms.itervalues():
+            # Verify that Nonterm-->Prececence references are valid.
+            if nonterm.prec.assoc is None:
+                raise SpecError("Unknown precedence in Nonterm " \
+                  "specification for %r: %s" % (nonterm.nontermType, \
+                  nonterm.nontermType.__doc__))
+
             # Update the start symbol if it is in this chain.
             if nonterm.chain[0] == self._userStartSym:
                 self._userStartSym = nonterm
@@ -1718,13 +1859,13 @@ the Parser class for parsing.
             # Iterate over the chain and merge productions into meth2prod.
             for link in nonterm.chain:
                 # Resolve Nonterm-->Precedence references.
-                if type(link.prec) == str:
+                if type(link.prec) is str:
                     link.prec = self._precedences[nonterm.prec]
 
                 d = link.nontermType.__dict__
                 for k in d:
                     v = d[k]
-                    if inspect.isroutine(v) and type(v.__doc__) == str:
+                    if inspect.isroutine(v) and type(v.__doc__) is str:
                         dirtoks = v.__doc__.split(" ")
                         if dirtoks[0] == "%reduce":
                             if k in meth2prod:
@@ -1763,13 +1904,14 @@ the Parser class for parsing.
                                               "come last in reduction " \
                                               "specification: %s" % \
                                               v.__doc__)
-                                        if m.group(1) not in self._precedences:
+                                        if (<Precedence>self._precedences[ \
+                                          m.group(1)]).assoc is None:
                                             raise SpecError("Unknown " \
                                               "precedence in reduction " \
                                               "specification: %s" % v.__doc__)
                                         prec = self._precedences[m.group(1)]
 
-                            if prec == None:
+                            if prec is None:
                                 # Inherit the non-terminal's precedence.
                                 prec = link.prec
 
@@ -1780,7 +1922,7 @@ the Parser class for parsing.
                         elif dirtoks[0] == "%accept":
                             # Everything but the associated method stays the
                             # same.
-                            meth2prod[k].method = v
+                            (<Production>meth2prod[k]).method = v
                         elif dirtoks[0] == "%suppress":
                             # White out existing entry, rather than removing it,
                             # so that it is possible to properly process
@@ -1795,6 +1937,13 @@ the Parser class for parsing.
                     nonterm.productions.append(prod)
                     self._productions.append(prod)
 
+        # Make sure all referenced Precedence names are defined.  All of the
+        # above validation should have already found all references to
+        # undefined Precedence names.
+        if __debug__:
+            for prec in self._precedences.itervalues():
+                assert prec.assoc is not None
+
         if self._verbose:
             ntokens = len(self._tokens) - 1
             nnonterms = len(self._nonterms) - 1
@@ -1806,7 +1955,13 @@ the Parser class for parsing.
               nproductions, ("s", "")[nproductions == 1])
 
     # Build the graph of Precedence relationships.
-    cdef void _resolvePrec(self, graphFile):
+    cdef void _resolvePrec(self, str graphFile) except *:
+        cdef Precedence precA, precB, precC, precD, prec
+        cdef str precBName, rel
+        cdef file f
+        cdef bint done
+        cdef list cycles
+
         # Resolve symbolic references and populate equiv/dominators.
         for precA in self._precedences.itervalues():
             for precBName in precA.relationships:
@@ -1852,7 +2007,7 @@ the Parser class for parsing.
 
         # Write graphviz precedence graph to graphFile, if graphFile was
         # specified.
-        if graphFile != None:
+        if graphFile is not None:
             f = open(graphFile, "w+")
             if self._verbose:
                 print \
@@ -1914,7 +2069,7 @@ the Parser class for parsing.
             self._itemSetsHash = {}
             #self._startState = ...
 
-        if file != None and "w" in mode:
+        if file is not None and "w" in mode:
             if self._verbose:
                 print "Parsing.Spec: Creating %s Spec pickle in %s..." % \
                   (("fat", "skinny")[self._skinny], file)
@@ -1930,7 +2085,7 @@ the Parser class for parsing.
         cdef Production prodSpec
         cdef TokenSpec tokenSpec
 
-        if file != None and "r" in mode:
+        if file is not None and "r" in mode:
             if self._verbose:
                 print \
                   "Parsing.Spec: Attempting to use pickle from file \"%s\"..." \
@@ -2130,8 +2285,9 @@ the Parser class for parsing.
                       and prodA.lhs.name == prodB.lhs.name \
                       and len(prodA.rhs) == len(prodB.rhs):
                         match = True
-                        for i in xrange(len(prodA.rhs)):
-                            if prodA.rhs[i].name != prodB.rhs[i].name:
+                        for 0 <= i < len(prodA.rhs):
+                            if (<SymbolSpec>prodA.rhs[i]).name != \
+                              (<SymbolSpec>prodB.rhs[i]).name:
                                 match = False
                                 if self._verbose:
                                     print \
@@ -2189,7 +2345,18 @@ the Parser class for parsing.
 
     # Check for unused prececence/token/nonterm/reduce specifications, then
     # throw a SpecError if any ambiguities exist in the grammar.
-    cdef void _validate(self, logFile) except *:
+    cdef void _validate(self, str logFile) except *:
+        cdef list lines, productions
+        cdef dict used
+        cdef ItemSet itemSet
+        cdef Item item
+        cdef int nUnused
+        cdef SymbolSpec sym
+        cdef TokenSpec token
+        cdef str name
+        cdef Production production
+        cdef int ntokens, nnonterms, nproductions
+
         if self._verbose:
             print "Parsing.Spec: Validating grammar..."
 
@@ -2217,28 +2384,28 @@ the Parser class for parsing.
         nUnused = 0
 
         # Precedences.
-        for prec in self._precedences:
-            if prec not in [self._none.name, self._split.name]:
-                if prec not in used:
+        for name in self._precedences:
+            if name not in (self._none.name, self._split.name):
+                if name not in used:
                     nUnused += 1
                     lines.append("Parsing.Spec: Unused precedence: %r" % \
-                      self._precedences[prec])
+                      self._precedences[name])
 
         # Tokens.
-        for token in self._tokens:
-            if token not in [eoi.name, epsilon.name]:
-                if token not in used:
+        for name in self._tokens:
+            if name not in (self._eoi.name, self._epsilon.name):
+                if name not in used:
                     nUnused += 1
                     lines.append("Parsing.Spec: Unused token: %s" % \
-                      self._tokens[token])
+                      self._tokens[name])
 
         # Nonterms.
-        for nonterm in self._nonterms:
-            if nonterm not in [self._startSym.name]:
-                if nonterm not in used:
+        for name in self._nonterms:
+            if name not in (self._startSym.name,):
+                if name not in used:
                     nUnused += 1
                     lines.append("Parsing.Spec: Unused nonterm: %s" % \
-                      self._nonterms[nonterm])
+                      self._nonterms[name])
 
         # Productions.
         for production in self._productions:
@@ -2252,7 +2419,7 @@ the Parser class for parsing.
               (nUnused, ("s", "")[nUnused == 1]))
 
         # Write to logFile, if one was specified.
-        if logFile != None:
+        if logFile is not None:
             f = open(logFile, "w+")
             if self._verbose:
                 print "Parsing.Spec: Writing log to '%s'..." % logFile
@@ -2279,14 +2446,16 @@ the Parser class for parsing.
 
     # Compute the first sets for all symbols.
     cdef void _firstSets(self):
-        cdef SymbolSpec sym, elm, elmSym
+        cdef SymbolSpec elm, elmSym
+        cdef TokenSpec tokenSpec
+        cdef NontermSpec nontermSpec
         cdef bint done, containsEpsilon
         cdef Production prod
 
         # Terminals.
         # first(X) is X for terminals.
-        for sym in self._tokens.itervalues():
-            sym.firstSetMerge(sym)
+        for tokenSpec in self._tokens.itervalues():
+            tokenSpec.firstSetMerge(tokenSpec)
 
         # Non-terminals.
         #
@@ -2296,11 +2465,11 @@ the Parser class for parsing.
         while not done:
             done = True
             for name in self._nonterms:
-                sym = self._nonterms[name]
-                for prod in sym.productions:
+                nontermSpec = self._nonterms[name]
+                for prod in nontermSpec.productions:
                     # Merge epsilon if there is an empty production.
                     if len(prod.rhs) == 0:
-                        if not sym.firstSetMerge(epsilon):
+                        if not nontermSpec.firstSetMerge(self._epsilon):
                             done = False
 
                     # Iterate through the RHS and merge the first sets into
@@ -2309,9 +2478,9 @@ the Parser class for parsing.
                     for elm in prod.rhs:
                         containsEpsilon = False
                         for elmSym in elm.firstSet:
-                            if not sym.firstSetMerge(elmSym):
+                            if not nontermSpec.firstSetMerge(elmSym):
                                 done = False
-                            if elmSym == epsilon:
+                            if elmSym is self._epsilon:
                                 containsEpsilon = True
                         if not containsEpsilon:
                             break
@@ -2321,10 +2490,11 @@ the Parser class for parsing.
         cdef int i, j
         cdef bint done
         cdef object name
-        cdef SymbolSpec sym, rhsSym
+        cdef SymbolSpec rhsSym
+        cdef NontermSpec nontermSpec
         cdef Production prod
 
-        self._startSym.followSet = [epsilon]
+        self._startSym.followSet = [self._epsilon]
 
         # Repeat the following loop until no more symbols can be added to any
         # follow set.
@@ -2332,28 +2502,33 @@ the Parser class for parsing.
         while not done:
             done = True
             for name in self._nonterms:
-                sym = self._nonterms[name]
-                for prod in sym.productions:
+                nontermSpec = self._nonterms[name]
+                for prod in nontermSpec.productions:
                     # For all A ::= aBb, merge first(b) into follow(B).
                     for 0 <= i < len(prod.rhs) - 1:
                         for i+1 <= j < len(prod.rhs):
                             rhsSym = prod.rhs[i]
-                            if not rhsSym.followSetMerge(prod.rhs[j].firstSet):
+                            if not rhsSym.followSetMerge( \
+                              (<SymbolSpec>prod.rhs[j]).firstSet, \
+                              self._epsilon):
                                 done = False
-                            if epsilon not in prod.rhs[j].firstSet:
+                            if self._epsilon not in \
+                              (<SymbolSpec>prod.rhs[j]).firstSet:
                                 break
 
                     # For A ::= ab, or A ::= aBb where first(b) contains <e>,
                     # merge follow(A) into follow(B).
                     for len(prod.rhs)-1 >= i > -1:
                         rhsSym = prod.rhs[i]
-                        if not rhsSym.followSetMerge(prod.lhs.followSet):
+                        if not rhsSym.followSetMerge(prod.lhs.followSet, \
+                          self._epsilon):
                             done = False
-                        if epsilon not in prod.rhs[i].firstSet:
+                        if self._epsilon not in \
+                          (<SymbolSpec>prod.rhs[i]).firstSet:
                             break
 
     # Compute the collection of sets of LR(1) items.
-    cdef void _items(self):
+    cdef void _items(self) except *: # XXX Remove except.
         cdef ItemSet tItemSet, itemSet, gotoSet, mergeSet
         cdef Item tItem
         cdef list worklist, syms
@@ -2361,12 +2536,15 @@ the Parser class for parsing.
         cdef int nwork, i, j, k
         cdef bint merged
         cdef SymbolSpec sym
+        cdef StringFirstSetCache cache
+
+        cache = StringFirstSetCache(self._epsilon)
 
         # Add {[S' ::= * S $., <e>]} to _itemSets.
         tItemSet = ItemSet()
-        tItem = Item(self._startProd, 0, {epsilon: epsilon})
+        tItem = Item(self._startProd, 0, {self._epsilon: self._epsilon})
         tItemSet.append(tItem)
-        tItemSet.closure()
+        tItemSet.closure(cache)
         self._itemSets.append(tItemSet)
 
         # List of state numbers that need to be processed.
@@ -2404,7 +2582,7 @@ the Parser class for parsing.
                             mergeSet = self._itemSets[k]
                             if mergeSet.weakCompat(gotoSet):
                                 merged = True
-                                if mergeSet.merge(gotoSet):
+                                if mergeSet.merge(gotoSet, cache):
                                     if k not in worklist:
                                         worklist.insert(0, k)
                                         if self._verbose:
@@ -2412,7 +2590,7 @@ the Parser class for parsing.
                                             sys.stdout.flush()
                                 break
                     if not merged:
-                        gotoSet.closure()
+                        gotoSet.closure(cache)
                         worklist.append(len(self._itemSets))
                         if gotoSet not in itemSetsHash:
                             itemSetsHash[gotoSet] = [len(self._itemSets)]
@@ -2517,6 +2695,8 @@ the Parser class for parsing.
 
     # Look for action ambiguities and resolve them if possible.
     cdef void _disambiguate(self):
+        # XXX Add cdefs.
+
         assert self._nActions == 0
         assert self._nConflicts == 0
         assert self._nImpure == 0
@@ -2525,7 +2705,7 @@ the Parser class for parsing.
             print "Parsing.Spec: Disambiguating LR(1) parsing tables... ",
             sys.stdout.flush()
 
-        for stateInd in xrange(len(self._action)):
+        for 0 <= stateInd < len(self._action):
             state = self._action[stateInd]
             if self._verbose:
                 vRes = "."
@@ -2605,20 +2785,21 @@ the Parser class for parsing.
     #      "both"    : Keep both.
     #      "new"     : Keep new.
     #      "err"     : Unresolvable conflict.
-    cdef _resolve(self, sym, oldAct, newAct):
+    cdef str _resolve(self, SymbolSpec sym, Action oldAct, Action newAct):
+        cdef str ret, assoc
+        cdef Precedence oldPrec, newPrec
+
         if type(oldAct) == ShiftAction:
             oldPrec = sym.prec
-        elif type(oldAct) == ReduceAction:
-            oldPrec = oldAct.production.prec
         else:
-            assert False
+            assert type(oldAct) == ReduceAction
+            oldPrec = (<ReduceAction>oldAct).production.prec
 
         if type(newAct) == ShiftAction:
             newPrec = sym.prec
-        elif type(newAct) == ReduceAction:
-            newPrec = newAct.production.prec
         else:
-            assert False
+            assert type(newAct) == ReduceAction
+            newPrec = (<ReduceAction>newAct).production.prec
 
         if oldPrec in newPrec.dominators:
             # Discard new action.
@@ -2683,7 +2864,7 @@ LR(1) parser.  The Lr class uses a Spec instance in order to parse
 input that is fed to it via the token() method, and terminated via the
 eoi() method.
 """
-    def __init__(self, spec):
+    def __init__(self, Spec spec):
         if __debug__:
             if type(self) == Lr:
                 assert spec.pureLR
@@ -2718,10 +2899,12 @@ Reset the parser in preparation for parsing new input.
         self._start = None
         self._stack = [(Epsilon(self), 0)]
 
-    cpdef token(self, token):
+    cpdef token(self, Token token):
         """
 Feed a token to the parser.
 """
+        cdef TokenSpec tokenSpec
+
         tokenSpec = self._spec._sym2spec[type(token)]
         self._act(token, tokenSpec)
 
@@ -2729,6 +2912,9 @@ Feed a token to the parser.
         """
 Signal end-of-input to the parser.
 """
+        cdef Token token
+        cdef object top
+
         token = EndOfInput(self)
         self.token(token)
 
@@ -2742,7 +2928,11 @@ Signal end-of-input to the parser.
         self._start = [self._stack[1][0]]
         assert self._start[0].symSpec == self._spec._userStartSym
 
-    def _act(self, sym, symSpec):
+    cdef void _act(self, Symbol sym, SymbolSpec symSpec) except *:
+        cdef object top
+        cdef list actions
+        cdef Action action
+
         if self._verbose:
             self._printStack()
             print "INPUT: %r" % sym
@@ -2759,27 +2949,34 @@ Signal end-of-input to the parser.
             if self._verbose:
                 print "   --> %r" % action
             if type(action) == ShiftAction:
-                self._stack.append((sym, action.nextState))
+                self._stack.append((sym, (<ShiftAction>action).nextState))
                 break
             else:
                 assert type(action) == ReduceAction
-                self._reduce(action.production)
+                self._reduce((<ReduceAction>action).production)
 
             if self._verbose:
                 self._printStack()
 
-    def _printStack(self):
-            print "STACK:",
-            for node in self._stack:
-                print "%r" % node[0],
-            print
-            print "      ",
-            for node in self._stack:
-                print "%r%s" % (node[1], \
-                  (" " * (len("%r" % node[0]) - len("%r" % node[1])))),
-            print
+    cdef void _printStack(self):
+        cdef object node
 
-    def _reduce(self, production):
+        print "STACK:",
+        for node in self._stack:
+            print "%r" % node[0],
+        print
+        print "      ",
+        for node in self._stack:
+            print "%r%s" % (node[1], \
+              (" " * (len("%r" % node[0]) - len("%r" % node[1])))),
+        print
+
+    cdef void _reduce(self, Production production) except *:
+        cdef int nRhs, i
+        cdef list rhs
+        cdef object r
+        cdef object top
+
         nRhs = len(production.rhs)
         rhs = []
         for i in xrange(len(self._stack) - nRhs, len(self._stack)):
@@ -2793,7 +2990,10 @@ Signal end-of-input to the parser.
         top = self._stack[-1]
         self._stack.append((r, self._spec._goto[top[1]][production.lhs]))
 
-    def _production(self, production, rhs):
+    cdef Symbol _production(self, Production production, list rhs):
+        cdef Symbol sym, r
+        cdef int nRhs
+
         sym = production.lhs.nontermType(self)
         nRhs = len(rhs)
         assert nRhs == len(production.rhs)
@@ -2801,7 +3001,7 @@ Signal end-of-input to the parser.
 
         # Python's method definition syntax makes returning self from %reduce
         # methods cumbersome, so translate None here.
-        if r == None:
+        if r is None:
             r = sym
 
         return r
@@ -2810,17 +3010,7 @@ Signal end-of-input to the parser.
 # Begin graph-structured stack (GSS) classes.
 #
 
-class Gss(list):
-    """Graph-structured stack."""
-    def __init__(self, glr):
-        list.__init__(self)
-
-        self._glr = glr
-
 cdef class Gsse:
-    cdef readonly Gssn node
-    cdef public Symbol value
-
     """Graph-structured stack edge."""
     def __init__(self, Gssn below, Gssn above, Symbol value):
         self.node = below
@@ -2830,7 +3020,7 @@ cdef class Gsse:
     def __repr__(self):
         return "{%r}" % self.value
 
-    def __richcmp__(self, Gsse other, int op):
+    def __richcmp__(Gsse self, Gsse other, int op):
         cdef bint cmp
 
         cmp = (self.node == other.node and self.value == other.value)
@@ -2845,7 +3035,7 @@ cdef class _GssnEdgesIterHelper:
     cdef list _edges
     cdef int _index
 
-    def __init__(self, gssn):
+    def __init__(self, Gssn gssn):
         self._edges = gssn._edges[:]
         self._index = 0
 
@@ -2853,6 +3043,8 @@ cdef class _GssnEdgesIterHelper:
         return self
 
     def __next__(self):
+        cdef Gsse ret
+
         if self._index >= len(self._edges):
             raise StopIteration
         ret = self._edges[self._index]
@@ -2863,7 +3055,7 @@ cdef class _GssnNodesIterHelper:
     cdef list _nodes
     cdef int _index
 
-    def __init__(self, gssn):
+    def __init__(self, Gssn gssn):
         self._nodes = [edge.node for edge in gssn._edges]
         self._index = 0
 
@@ -2871,6 +3063,8 @@ cdef class _GssnNodesIterHelper:
         return self
 
     def __next__(self):
+        cdef Gssn ret
+
         if self._index >= len(self._nodes):
             raise StopIteration
         ret = self._nodes[self._index]
@@ -2881,9 +3075,7 @@ cdef class _GssnPathsIterHelper:
     cdef list _paths
     cdef int _index
 
-    def __init__(self, gssn, pathLen):
-        assert ((type(pathLen) == int and pathLen >= 0) or pathLen == None)
-
+    def __init__(self, Gssn gssn, int pathLen):
         self._paths = []
         self._pathsRecurse(gssn, pathLen, [])
         self._index = 0
@@ -2892,17 +3084,21 @@ cdef class _GssnPathsIterHelper:
         return self
 
     def __next__(self):
+        cdef list ret
+
         if self._index >= len(self._paths):
             raise StopIteration
         ret = self._paths[self._index]
         self._index += 1
         return ret
 
-    def _pathsRecurse(self, gssn, pathLen, path):
+    cdef _pathsRecurse(self, Gssn gssn, int pathLen, list path):
+        cdef Gsse edge
+
         path.insert(0, gssn)
-        if pathLen == None and len(gssn._edges) == 0:
+        if pathLen == -1 and len(gssn._edges) == 0:
             self._paths.append(path[:])
-        elif pathLen != None and len(path) - 1 == pathLen * 2:
+        elif pathLen != -1 and len(path) - 1 == pathLen * 2:
             self._paths.append(path[:])
         else:
             for edge in gssn.edges():
@@ -2914,15 +3110,12 @@ cdef class _GssnPathsIterHelper:
         path.pop(0)
 
 cdef class Gssn:
-    cdef readonly list _edges
-    cdef readonly int nextState
-
     """Graph-structured stack node."""
     def __init__(self, Gssn below, Symbol value, int nextState):
-        assert isinstance(below, Gssn) or below == None
+        assert isinstance(below, Gssn) or below is None
 
         self._edges = []
-        if below != None:
+        if below is not None:
             Gsse(below, self, value)
         self.nextState = nextState
 
@@ -2950,7 +3143,7 @@ cdef class Gssn:
     #
     # <e>-grammars can cause cycles, which requires that we avoid infinite
     # recursion.
-    def paths(self, pathLen=None):
+    def paths(self, int pathLen=-1):
         return _GssnPathsIterHelper(self, pathLen)
 
 #
@@ -2970,19 +3163,23 @@ method.
         """
 Reset the parser in preparation for parsing new input.
 """
+        cdef Gssn top
+
         self._start = None
 
         # Initialize with a stack that is in the start state.
-        self._gss = Gss(self)
+        self._gss = []
         top = Gssn(None, None, 0)
         self._gss.append(top)
 
         self._paths = []
 
-    cpdef token(self, token):
+    cpdef token(self, Token token):
         """
 Feed a token to the parser.
 """
+        cdef TokenSpec tokenSpec
+
         if self._verbose:
             print "%s" % ("-" * 80)
             print "INPUT: %r" % token
@@ -2995,6 +3192,11 @@ Feed a token to the parser.
         """
 Signal end-of-input to the parser.
 """
+        cdef Token token
+        cdef Gssn top
+        cdef list path
+        cdef Gsse edge
+
         token = EndOfInput(self)
         self.token(token)
 
@@ -3017,11 +3219,19 @@ Signal end-of-input to the parser.
             print "Start: %r" % self._start
             print "%s" % ("-" * 80)
 
-    def _act(self, sym, symSpec):
+    cdef void _act(self, Symbol sym, SymbolSpec symSpec) except *:
         self._reductions(sym, symSpec)
         self._shifts(sym, symSpec)
 
-    def _reductions(self, sym, symSpec):
+    cdef void _reductions(self, Symbol sym, SymbolSpec symSpec) except *:
+        cdef dict epsilons
+        cdef int nReduces, i
+        cdef Gssn top
+        cdef list workQ, path
+        cdef Action action
+        cdef ReduceAction rAction
+        cdef Production production
+
         # epsilons is a dictionary that maps production-->[tops].  The purpose
         # is to avoid repeating the same epsilon production on a particular
         # stack top.  Ordinary productions do not require this care because we
@@ -3042,33 +3252,34 @@ Signal end-of-input to the parser.
             else:
                 for action in self._spec._action[top.nextState][symSpec]:
                     if type(action) == ReduceAction:
-                        if len(action.production.rhs) == 0:
-                            if action.production not in epsilons:
+                        rAction = <ReduceAction>action
+                        if len(rAction.production.rhs) == 0:
+                            if rAction.production not in epsilons:
                                 assert len([path for path in top.paths(0)]) == 1
                                 path = [p for p in top.paths(0)][0]
-                                epsilons[action.production] = [top]
-                                workQ.append((path, action.production))
+                                epsilons[rAction.production] = [top]
+                                workQ.append((path, rAction.production))
                                 if self._verbose:
                                     print "   --> enqueue(a) %r" % \
-                                      action.production
+                                      rAction.production
                                     print "                  %r" % path
-                            elif top not in epsilons[action.production]:
+                            elif top not in epsilons[rAction.production]:
                                 assert len([path for path in top.paths(0)]) == 1
                                 path = [p for p in top.paths(0)][0]
-                                epsilons[action.production].append(top)
-                                workQ.append((path, action.production))
+                                epsilons[rAction.production].append(top)
+                                workQ.append((path, rAction.production))
                                 if self._verbose:
                                     print "   --> enqueue(b) %r" % \
-                                      action.production
+                                      rAction.production
                                     print "                  %r" % path
                         else:
                             # Iterate over all reduction paths through stack and
                             # enqueue them.
-                            for path in top.paths(len(action.production.rhs)):
-                                workQ.append((path, action.production))
+                            for path in top.paths(len(rAction.production.rhs)):
+                                workQ.append((path, rAction.production))
                                 if self._verbose:
                                     print "   --> enqueue(c) %r" % \
-                                      action.production
+                                      rAction.production
                                     print "                  %r" % path
                 i += 1
 
@@ -3081,14 +3292,20 @@ Signal end-of-input to the parser.
                 print "              %r" % path
                 nReduces += 1
 
-            self._reduce(workQ, epsilons, path, production, symSpec)
+            self._reduceOne(workQ, epsilons, path, production, symSpec)
 
         if self._verbose:
             if nReduces > 0:
                 self._printStack()
 
-    cdef void _reduce(self, workQ, epsilons, path, production, symSpec) \
-      except *:
+    cdef void _reduceOne(self, list workQ, dict epsilons, object path, \
+      Production production, SymbolSpec symSpec) except *:
+        cdef list rhs
+        cdef Symbol r, value
+        cdef Gssn below, top
+        cdef bint done
+        cdef Gsse edge
+
         assert len(path[1::2]) == len(production.rhs)
 
         # Build the list of RHS semantic values to pass to the reduction action.
@@ -3145,48 +3362,62 @@ Signal end-of-input to the parser.
             self._enqueueLimitedReductions(workQ, epsilons, top.edge, symSpec)
 
     # Enqueue paths that incorporate edge.
-    def _enqueueLimitedReductions(self, workQ, epsilons, edge, symSpec):
+    cdef void _enqueueLimitedReductions(self, list workQ, dict epsilons, \
+      Gsse edge, SymbolSpec symSpec) except *:
+        cdef Gssn top
+        cdef Action action
+        cdef ReduceAction rAction
+        cdef list path
+
         for top in self._gss:
             if symSpec in self._spec._action[top.nextState]:
                 for action in self._spec._action[top.nextState][symSpec]:
                     if type(action) == ReduceAction:
-                        if len(action.production.rhs) == 0:
+                        rAction = <ReduceAction>action
+                        if len(rAction.production.rhs) == 0:
                             if self._spec._goto[top.nextState] \
-                              [action.production.lhs] == top.nextState:
+                              [rAction.production.lhs] == top.nextState:
                                 # Do nothing, since enqueueing a reduction
                                 # would result in performing the same reduction
                                 # twice.
                                 pass
-                            elif action.production not in epsilons:
+                            elif rAction.production not in epsilons:
                                 path = [top]
-                                epsilons[action.production] = [top]
-                                workQ.append((path, action.production))
+                                epsilons[rAction.production] = [top]
+                                workQ.append((path, rAction.production))
                                 if self._verbose:
                                     print "   --> enqueue(d) %r" % \
-                                      action.production
+                                      rAction.production
                                     print "                  %r" % path
-                            elif top not in epsilons[action.production]:
+                            elif top not in epsilons[rAction.production]:
                                 path = [top]
-                                epsilons[action.production].append(top)
-                                workQ.append((path, action.production))
+                                epsilons[rAction.production].append(top)
+                                workQ.append((path, rAction.production))
                                 if self._verbose:
                                     print "   --> enqueue(e) %r" % \
-                                      action.production
+                                      rAction.production
                                     print "                  %r" % path
                         else:
                             # Iterate over all reduction paths through stack and
                             # enqueue them if they incorporate edge.
-                            for path in top.paths(len(action.production.rhs)):
+                            for path in top.paths(len(rAction.production.rhs)):
                                 if edge in path[1::2]:
-                                    workQ.append((path, action.production))
+                                    workQ.append((path, rAction.production))
                                     if self._verbose:
                                         print "   --> enqueue(f) %r" % \
-                                          action.production
+                                          rAction.production
                                         print "                  %r" % path
 
-    def _shifts(self, sym, symSpec):
+    cdef void _shifts(self, Symbol sym, SymbolSpec symSpec) except *:
+        cdef list prevGss
+        cdef int nShifts
+        cdef Gssn topA, topB
+        cdef Action action
+        cdef ShiftAction sAction
+        cdef bint merged
+
         prevGss = self._gss
-        self._gss = Gss(self)
+        self._gss = []
 
         if self._verbose:
             nShifts = 0
@@ -3195,6 +3426,7 @@ Signal end-of-input to the parser.
             if symSpec in self._spec._action[topA.nextState]:
                 for action in self._spec._action[topA.nextState][symSpec]:
                     if type(action) == ShiftAction:
+                        sAction = <ShiftAction>action
                         merged = False
                         for topB in self._gss:
                             if topB.nextState == topA.nextState:
@@ -3202,16 +3434,20 @@ Signal end-of-input to the parser.
                                 merged = True
                                 break
                         if not merged:
-                            top = Gssn(topA, sym, action.nextState)
+                            top = Gssn(topA, sym, sAction.nextState)
                             self._gss.append(top)
                             if self._verbose:
-                                print "   --> shift(a) %d" % action.nextState
+                                print "   --> shift(a) %d" % sAction.nextState
                                 nShifts += 1
         if self._verbose:
             if nShifts > 0:
                 self._printStack()
 
-    def _printStack(self):
+    cdef void _printStack(self):
+        cdef int i
+        cdef Gssn top
+        cdef list path
+
         i = 0
         for top in self._gss:
             for path in top.paths():

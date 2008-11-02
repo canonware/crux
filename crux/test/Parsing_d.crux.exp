@@ -12,17 +12,22 @@ Tokens:
     Follow set: []
   id [%fail none ={none} <{}]
     First set: [id]
-    Follow set: [<$>, star, plus]
-  star [%left p2 ={p2} <{}]
-    First set: [star]
-    Follow set: [id]
+    Follow set: [<$>, plus, star]
   plus [%left p1 ={p1} <{p2}]
     First set: [plus]
     Follow set: [id]
+  star [%left p2 ={p2} <{}]
+    First set: [star]
+    Follow set: [id]
 Non-terminals:
+  <S> [%fail none ={none} <{}]
+    First set: [id]
+    Follow set: [<e>]
+    Productions:
+      <S> ::= S <$>. [none]
   E [%fail none ={none} <{}]
     First set: [id]
-    Follow set: [<$>, star, plus]
+    Follow set: [<$>, plus, star]
     Productions:
       E ::= E plus E. [p1]
       E ::= E star E. [p2]
@@ -32,11 +37,6 @@ Non-terminals:
     Follow set: [<$>]
     Productions:
       S ::= E. [none]
-  <S> [%fail none ={none} <{}]
-    First set: [id]
-    Follow set: [<e>]
-    Productions:
-      <S> ::= S <$>. [none]
 Item sets:
   0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[S ::= * E., <$>] [none], [E ::= * id., <$>/star/plus] [none], [E ::= * E plus E., <$>/star/plus] [p1], [E ::= * E star E., <$>/star/plus] [p2]')
   1: ItemSet(kernel: [E ::= id *., <$>/star/plus] [none], added: '')
@@ -68,8 +68,8 @@ Parsing tables:
     Goto:
     Action:
                 <$> : reduce E ::= id. [none]
-               star : reduce E ::= id. [none]
                plus : reduce E ::= id. [none]
+               star : reduce E ::= id. [none]
   ==============================================================================
   State 2:
            <S> ::= S * <$>. [none]
@@ -84,8 +84,8 @@ Parsing tables:
     Goto:
     Action:
                 <$> : reduce S ::= E. [none]
-               star : shift  6 [p2]
                plus : shift  5 [p1]
+               star : shift  6 [p2]
   ==============================================================================
   State 4:
            <S> ::= S <$> *. [none]
@@ -120,8 +120,8 @@ Parsing tables:
     Goto:
     Action:
                 <$> : reduce E ::= E plus E. [p1]
-               star : shift  6 [p2]
                plus : reduce E ::= E plus E. [p1]
+               star : shift  6 [p2]
   ==============================================================================
   State 8:
            E ::= E * plus E. [p1]
@@ -130,8 +130,8 @@ Parsing tables:
     Goto:
     Action:
                 <$> : reduce E ::= E star E. [p2]
-               star : reduce E ::= E star E. [p2]
                plus : reduce E ::= E star E. [p2]
+               star : reduce E ::= E star E. [p2]
 Input: id * id + id * id
 E ::= id
 E ::= id

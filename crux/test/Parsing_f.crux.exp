@@ -11,19 +11,24 @@ Tokens:
   a [%fail none ={none} <{}]
     First set: [a]
     Follow set: [c]
-  c [%fail none ={none} <{}]
-    First set: [c]
-    Follow set: [e, d]
   b [%fail none ={none} <{}]
     First set: [b]
     Follow set: [c]
-  e [%fail none ={none} <{}]
-    First set: [e]
-    Follow set: [<$>]
+  c [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [d, e]
   d [%fail none ={none} <{}]
     First set: [d]
     Follow set: [<$>]
+  e [%fail none ={none} <{}]
+    First set: [e]
+    Follow set: [<$>]
 Non-terminals:
+  <S> [%fail none ={none} <{}]
+    First set: [a, b]
+    Follow set: [<e>]
+    Productions:
+      <S> ::= S <$>. [none]
   A [%fail none ={none} <{}]
     First set: [c]
     Follow set: [d, e]
@@ -31,22 +36,17 @@ Non-terminals:
       A ::= c. [none]
   B [%fail none ={none} <{}]
     First set: [c]
-    Follow set: [e, d]
+    Follow set: [d, e]
     Productions:
       B ::= c. [none]
   S [%fail none ={none} <{}]
     First set: [a, b]
     Follow set: [<$>]
     Productions:
-      S ::= b A e. [none]
-      S ::= a B e. [none]
-      S ::= b B d. [none]
       S ::= a A d. [none]
-  <S> [%fail none ={none} <{}]
-    First set: [a, b]
-    Follow set: [<e>]
-    Productions:
-      <S> ::= S <$>. [none]
+      S ::= a B e. [none]
+      S ::= b A e. [none]
+      S ::= b B d. [none]
 Item sets:
   0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[S ::= * a A d., <$>] [none], [S ::= * a B e., <$>] [none], [S ::= * b B d., <$>] [none], [S ::= * b A e., <$>] [none]')
   1: ItemSet(kernel: [S ::= a * A d., <$>] [none], [S ::= a * B e., <$>] [none], added: '[A ::= * c., d] [none], [B ::= * c., e] [none]')
@@ -112,8 +112,8 @@ Parsing tables:
            B ::= c *. [none]
     Goto:
     Action:
-                  e : reduce B ::= c. [none]
                   d : reduce A ::= c. [none]
+                  e : reduce B ::= c. [none]
   ==============================================================================
   State 5:
            S ::= a A * d. [none]
@@ -132,8 +132,8 @@ Parsing tables:
            B ::= c *. [none]
     Goto:
     Action:
-                  e : reduce A ::= c. [none]
                   d : reduce B ::= c. [none]
+                  e : reduce A ::= c. [none]
   ==============================================================================
   State 8:
            S ::= b A * e. [none]

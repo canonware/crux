@@ -11,41 +11,41 @@ Tokens:
   a [%fail none ={none} <{}]
     First set: [a]
     Follow set: [<$>, c]
-  c [%fail none ={none} <{}]
-    First set: [c]
-    Follow set: [c, b, a]
   b [%fail none ={none} <{}]
     First set: [b]
-    Follow set: [c, <$>]
+    Follow set: [<$>, c]
+  c [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [a, b, c]
 Non-terminals:
+  <S> [%fail none ={none} <{}]
+    First set: [a, b]
+    Follow set: [<e>]
+    Productions:
+      <S> ::= S <$>. [none]
   A [%fail none ={none} <{}]
     First set: [c]
-    Follow set: [b, a]
+    Follow set: [a, b]
     Productions:
       A ::= c C. [none]
-  C [%fail none ={none} <{}]
-    First set: [c]
-    Follow set: [b, a]
-    Productions:
-      C ::= c. [none]
   B [%fail none ={none} <{}]
     First set: [c]
     Follow set: [a, b]
     Productions:
       B ::= c c. [none]
+  C [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [a, b]
+    Productions:
+      C ::= c. [none]
   S [%fail none ={none} <{}]
-    First set: [b, a]
+    First set: [a, b]
     Follow set: [<$>]
     Productions:
-      S ::= a B b. [none]
       S ::= a A a. [none]
-      S ::= b B a. [none]
+      S ::= a B b. [none]
       S ::= b A b. [none]
-  <S> [%fail none ={none} <{}]
-    First set: [b, a]
-    Follow set: [<e>]
-    Productions:
-      <S> ::= S <$>. [none]
+      S ::= b B a. [none]
 Item sets:
   0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[S ::= * a B b., <$>] [none], [S ::= * a A a., <$>] [none], [S ::= * b B a., <$>] [none], [S ::= * b A b., <$>] [none]')
   1: ItemSet(kernel: [S ::= a * B b., <$>] [none], [S ::= a * A a., <$>] [none], added: '[A ::= * c C., a] [none], [B ::= * c c., b] [none]')

@@ -10,43 +10,43 @@ Tokens:
     Follow set: []
   id [%fail none ={none} <{}]
     First set: [id]
-    Follow set: [<$>, plus, star, rparen]
+    Follow set: [<$>, plus, rparen, star]
   lparen [%fail none ={none} <{}]
     First set: [lparen]
-    Follow set: [lparen, id]
-  star [%fail none ={none} <{}]
-    First set: [star]
-    Follow set: [lparen, id]
-  rparen [%fail none ={none} <{}]
-    First set: [rparen]
-    Follow set: [<$>, plus, star, rparen]
+    Follow set: [id, lparen]
   plus [%fail none ={none} <{}]
     First set: [plus]
-    Follow set: [lparen, id]
+    Follow set: [id, lparen]
+  rparen [%fail none ={none} <{}]
+    First set: [rparen]
+    Follow set: [<$>, plus, rparen, star]
+  star [%fail none ={none} <{}]
+    First set: [star]
+    Follow set: [id, lparen]
 Non-terminals:
+  <S> [%fail none ={none} <{}]
+    First set: [id, lparen]
+    Follow set: [<e>]
+    Productions:
+      <S> ::= E <$>. [none]
   E [%fail none ={none} <{}]
-    First set: [lparen, id]
+    First set: [id, lparen]
     Follow set: [<$>, plus, rparen]
     Productions:
       E ::= E plus T. [none]
       E ::= T. [none]
   F [%fail none ={none} <{}]
-    First set: [lparen, id]
-    Follow set: [<$>, plus, star, rparen]
+    First set: [id, lparen]
+    Follow set: [<$>, plus, rparen, star]
     Productions:
-      F ::= lparen E rparen. [none]
       F ::= id. [none]
+      F ::= lparen E rparen. [none]
   T [%fail none ={none} <{}]
-    First set: [lparen, id]
-    Follow set: [<$>, plus, star, rparen]
+    First set: [id, lparen]
+    Follow set: [<$>, plus, rparen, star]
     Productions:
-      T ::= T star F. [none]
       T ::= F. [none]
-  <S> [%fail none ={none} <{}]
-    First set: [lparen, id]
-    Follow set: [<e>]
-    Productions:
-      <S> ::= E <$>. [none]
+      T ::= T star F. [none]
 Item sets:
   0: ItemSet(kernel: [<S> ::= * E <$>., <e>] [none], added: '[E ::= * E plus T., <$>/plus] [none], [E ::= * T., <$>/plus] [none], [T ::= * T star F., <$>/star/plus] [none], [T ::= * F., <$>/star/plus] [none], [F ::= * lparen E rparen., <$>/star/plus] [none], [F ::= * id., <$>/star/plus] [none]')
   1: ItemSet(kernel: [F ::= lparen * E rparen., <$>/star/rparen/plus] [none], added: '[E ::= * E plus T., rparen/plus] [none], [E ::= * T., rparen/plus] [none], [T ::= * T star F., star/rparen/plus] [none], [T ::= * F., star/rparen/plus] [none], [F ::= * lparen E rparen., star/rparen/plus] [none], [F ::= * id., star/rparen/plus] [none]')
@@ -102,9 +102,9 @@ Parsing tables:
     Goto:
     Action:
                 <$> : reduce F ::= id. [none]
-               star : reduce F ::= id. [none]
-             rparen : reduce F ::= id. [none]
                plus : reduce F ::= id. [none]
+             rparen : reduce F ::= id. [none]
+               star : reduce F ::= id. [none]
   ==============================================================================
   State 3:
            E ::= E * plus T. [none]
@@ -120,26 +120,26 @@ Parsing tables:
     Goto:
     Action:
                 <$> : reduce E ::= T. [none]
-               star : shift  9 [none]
-             rparen : reduce E ::= T. [none]
                plus : reduce E ::= T. [none]
+             rparen : reduce E ::= T. [none]
+               star : shift  9 [none]
   ==============================================================================
   State 5:
            T ::= F *. [none]
     Goto:
     Action:
                 <$> : reduce T ::= F. [none]
-               star : reduce T ::= F. [none]
-             rparen : reduce T ::= F. [none]
                plus : reduce T ::= F. [none]
+             rparen : reduce T ::= F. [none]
+               star : reduce T ::= F. [none]
   ==============================================================================
   State 6:
            E ::= E * plus T. [none]
            F ::= lparen E * rparen. [none]
     Goto:
     Action:
-             rparen : shift  10 [none]
                plus : shift  8 [none]
+             rparen : shift  10 [none]
   ==============================================================================
   State 7:
            <S> ::= E <$> *. [none]
@@ -175,9 +175,9 @@ Parsing tables:
     Goto:
     Action:
                 <$> : reduce F ::= lparen E rparen. [none]
-               star : reduce F ::= lparen E rparen. [none]
-             rparen : reduce F ::= lparen E rparen. [none]
                plus : reduce F ::= lparen E rparen. [none]
+             rparen : reduce F ::= lparen E rparen. [none]
+               star : reduce F ::= lparen E rparen. [none]
   ==============================================================================
   State 11:
             T ::= T * star F. [none]
@@ -185,18 +185,18 @@ Parsing tables:
     Goto:
     Action:
                 <$> : reduce E ::= E plus T. [none]
-               star : shift  9 [none]
-             rparen : reduce E ::= E plus T. [none]
                plus : reduce E ::= E plus T. [none]
+             rparen : reduce E ::= E plus T. [none]
+               star : shift  9 [none]
   ==============================================================================
   State 12:
             T ::= T star F *. [none]
     Goto:
     Action:
                 <$> : reduce T ::= T star F. [none]
-               star : reduce T ::= T star F. [none]
-             rparen : reduce T ::= T star F. [none]
                plus : reduce T ::= T star F. [none]
+             rparen : reduce T ::= T star F. [none]
+               star : reduce T ::= T star F. [none]
 Input: id * id + id
 --------------------------------------------------------------------------------
 INPUT: id

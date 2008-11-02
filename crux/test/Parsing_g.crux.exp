@@ -12,6 +12,11 @@ Tokens:
     First set: [c]
     Follow set: [<$>]
 Non-terminals:
+  <S> [%fail none ={none} <{}]
+    First set: [c]
+    Follow set: [<e>]
+    Productions:
+      <S> ::= S <$>. [none]
   A [%split split ={split} <{}]
     First set: [c]
     Follow set: [<$>]
@@ -28,11 +33,6 @@ Non-terminals:
     Productions:
       S ::= A. [none]
       S ::= B. [none]
-  <S> [%fail none ={none} <{}]
-    First set: [c]
-    Follow set: [<e>]
-    Productions:
-      <S> ::= S <$>. [none]
 Item sets:
   0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[A ::= * c., <$>] [split], [S ::= * A., <$>] [none], [S ::= * B., <$>] [none], [B ::= * c., <$>] [split]')
   1: ItemSet(kernel: [A ::= c *., <$>] [split], [B ::= c *., <$>] [split], added: '')

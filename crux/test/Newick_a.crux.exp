@@ -1186,7 +1186,7 @@ Exception <class 'Parsing.SyntaxError'>: Unexpected token: semicolon (';')
 
 === '(A,B) [error]' ===
 Rooted:
-Exception <class 'Crux.Newick.SyntaxError'>: 1:13: Invalid token or end of input reached
+Exception <class 'Newick.SyntaxError'>: 1:13: Invalid token or end of input reached
 
 === '(A,B:42.43.44); [error]' ===
 Rooted:

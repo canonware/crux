@@ -8,33 +8,33 @@ Tokens:
   <e> [%fail none ={none} <{}]
     First set: [<e>]
     Follow set: []
+  i [%fail none ={none} <{}]
+    First set: [i]
+    Follow set: [<$>, plus, star]
   plus [%split split ={split} <{}]
     First set: [plus]
     Follow set: [i]
-  i [%fail none ={none} <{}]
-    First set: [i]
-    Follow set: [<$>, star, plus]
   star [%split split ={split} <{}]
     First set: [star]
     Follow set: [i]
 Non-terminals:
-  E [%fail none ={none} <{}]
-    First set: [i]
-    Follow set: [<$>, star, plus]
-    Productions:
-      E ::= E star E. [split]
-      E ::= i. [none]
-      E ::= E plus E. [split]
-  S [%fail none ={none} <{}]
-    First set: [i]
-    Follow set: [<$>]
-    Productions:
-      S ::= E. [none]
   <S> [%fail none ={none} <{}]
     First set: [i]
     Follow set: [<e>]
     Productions:
       <S> ::= S <$>. [none]
+  E [%fail none ={none} <{}]
+    First set: [i]
+    Follow set: [<$>, plus, star]
+    Productions:
+      E ::= E plus E. [split]
+      E ::= E star E. [split]
+      E ::= i. [none]
+  S [%fail none ={none} <{}]
+    First set: [i]
+    Follow set: [<$>]
+    Productions:
+      S ::= E. [none]
 Item sets:
   0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[S ::= * E., <$>] [none], [E ::= * E star E., <$>/plus/star] [split], [E ::= * i., <$>/plus/star] [none], [E ::= * E plus E., <$>/plus/star] [split]')
   1: ItemSet(kernel: [E ::= i *., <$>/plus/star] [none], added: '')
