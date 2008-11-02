@@ -1956,7 +1956,7 @@ the Parser class for parsing.
 
     # Build the graph of Precedence relationships.
     cdef void _resolvePrec(self, str graphFile) except *:
-        cdef Precedence precA, precB, precC, precD, prec
+        cdef Precedence precA, precB, precC, precD, prec, p
         cdef str precBName, rel
         cdef file f
         cdef bint done
@@ -2027,7 +2027,8 @@ the Parser class for parsing.
                       for p in precA.equiv])))
                     for precB in precA.dominators:
                         f.write('    Precedence_%s -> Precedence_%s\n' % \
-                          (precB.equiv[0].name, precA.equiv[0].name))
+                          ((<Precedence>precB.equiv[0]).name, \
+                          (<Precedence>precA.equiv[0]).name))
             f.write('}\n')
             f.close()
 
