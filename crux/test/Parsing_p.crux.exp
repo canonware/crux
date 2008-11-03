@@ -1,12 +1,10 @@
 Parsing.Spec: Introspecting module to acquire formal grammar specification...
-Parsing.Spec: 6 tokens, 3 non-terminals, 5 productions
+Parsing.Spec: 6 tokens, 2 non-terminals, 5 productions
 Parsing.Spec: Generating LR(1) itemset collection... ++++++.+++++++
 Parsing.Spec: Generating LR(1) parsing tables (13 states)... .............
 Parsing.Spec: Disambiguating LR(1) parsing tables... .............
 Parsing.Spec: Validating grammar...
-Parsing.Spec: 1 unused definition
-Parsing.Spec: Unused nonterm: X
-Parsing.Spec: 6 tokens, 4 non-terminals, 6 productions
+Parsing.Spec: 6 tokens, 3 non-terminals, 6 productions
 Precedences:
   [%fail none ={none} <{}]
   [%left p1 ={p1} <{p2}]
@@ -58,10 +56,6 @@ Non-terminals:
     Productions:
       T ::= F. [none]
       T ::= T star F. [none]
-  X [%fail none ={none} <{}]
-    First set: []
-    Follow set: []
-    Productions:
 Item sets:
   0: ItemSet(kernel: [<S> ::= * E <$>., <e>] [none], added: '[E ::= * E plus T., <$>/plus] [p1], [E ::= * T., <$>/plus] [none], [T ::= * T star F., <$>/plus/star] [none], [T ::= * F., <$>/plus/star] [none], [F ::= * id., <$>/plus/star] [split], [F ::= * lparen E rparen., <$>/plus/star] [p2]')
   1: ItemSet(kernel: [F ::= lparen * E rparen., <$>/plus/rparen/star] [p2], added: '[E ::= * E plus T., plus/rparen] [p1], [E ::= * T., plus/rparen] [none], [T ::= * T star F., plus/rparen/star] [none], [T ::= * F., plus/rparen/star] [none], [F ::= * id., plus/rparen/star] [split], [F ::= * lparen E rparen., plus/rparen/star] [p2]')
@@ -76,7 +70,7 @@ Item sets:
   10: ItemSet(kernel: [F ::= lparen E rparen *., <$>/plus/rparen/star] [p2], added: '')
   11: ItemSet(kernel: [T ::= T * star F., <$>/plus/rparen/star] [none], [E ::= E plus T *., <$>/plus/rparen] [p1], added: '')
   12: ItemSet(kernel: [T ::= T star F *., <$>/plus/rparen/star] [none], added: '')
-Parsing.Spec: 6 tokens, 4 non-terminals, 6 productions, 13 states, 37 actions (0 split):
+Parsing.Spec: 6 tokens, 3 non-terminals, 6 productions, 13 states, 37 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:
   ==============================================================================
@@ -213,11 +207,14 @@ Parsing tables:
              rparen : reduce T ::= T star F. [none]
                star : reduce T ::= T star F. [none]
 Input: id * id + id
+TokenId2 constructor
 F ::= id
 T ::= F
+TokenId2 constructor
 F ::= id
 T ::= T star F
 accept E ::= T
+TokenId2 constructor
 F ::= id
 T ::= F
 E ::= E plus T

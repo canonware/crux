@@ -49,19 +49,19 @@ Non-terminals:
       T ::= F. [none]
       T ::= T star F. [none]
 Item sets:
-  0: ItemSet(kernel: [<S> ::= * E <$>., <e>] [none], added: '[E ::= * E plus T., <$>/plus] [none], [E ::= * T., <$>/plus] [none], [T ::= * T star F., <$>/star/plus] [none], [T ::= * F., <$>/star/plus] [none], [F ::= * lparen E rparen., <$>/star/plus] [none], [F ::= * id., <$>/star/plus] [none]')
-  1: ItemSet(kernel: [F ::= lparen * E rparen., <$>/star/rparen/plus] [none], added: '[E ::= * E plus T., rparen/plus] [none], [E ::= * T., rparen/plus] [none], [T ::= * T star F., star/rparen/plus] [none], [T ::= * F., star/rparen/plus] [none], [F ::= * lparen E rparen., star/rparen/plus] [none], [F ::= * id., star/rparen/plus] [none]')
-  2: ItemSet(kernel: [F ::= id *., <$>/star/rparen/plus] [none], added: '')
+  0: ItemSet(kernel: [<S> ::= * E <$>., <e>] [none], added: '[E ::= * E plus T., <$>/plus] [none], [E ::= * T., <$>/plus] [none], [T ::= * T star F., <$>/plus/star] [none], [T ::= * F., <$>/plus/star] [none], [F ::= * lparen E rparen., <$>/plus/star] [none], [F ::= * id., <$>/plus/star] [none]')
+  1: ItemSet(kernel: [F ::= lparen * E rparen., <$>/plus/rparen/star] [none], added: '[E ::= * E plus T., plus/rparen] [none], [E ::= * T., plus/rparen] [none], [T ::= * T star F., plus/rparen/star] [none], [T ::= * F., plus/rparen/star] [none], [F ::= * lparen E rparen., plus/rparen/star] [none], [F ::= * id., plus/rparen/star] [none]')
+  2: ItemSet(kernel: [F ::= id *., <$>/plus/rparen/star] [none], added: '')
   3: ItemSet(kernel: [E ::= E * plus T., <$>/plus] [none], [<S> ::= E * <$>., <e>] [none], added: '')
-  4: ItemSet(kernel: [E ::= T *., <$>/rparen/plus] [none], [T ::= T * star F., <$>/star/rparen/plus] [none], added: '')
-  5: ItemSet(kernel: [T ::= F *., <$>/star/rparen/plus] [none], added: '')
-  6: ItemSet(kernel: [E ::= E * plus T., rparen/plus] [none], [F ::= lparen E * rparen., <$>/star/rparen/plus] [none], added: '')
+  4: ItemSet(kernel: [E ::= T *., <$>/plus/rparen] [none], [T ::= T * star F., <$>/plus/rparen/star] [none], added: '')
+  5: ItemSet(kernel: [T ::= F *., <$>/plus/rparen/star] [none], added: '')
+  6: ItemSet(kernel: [E ::= E * plus T., plus/rparen] [none], [F ::= lparen E * rparen., <$>/plus/rparen/star] [none], added: '')
   7: ItemSet(kernel: [<S> ::= E <$> *., <e>] [none], added: '')
-  8: ItemSet(kernel: [E ::= E plus * T., <$>/rparen/plus] [none], added: '[T ::= * T star F., <$>/star/rparen/plus] [none], [T ::= * F., <$>/star/rparen/plus] [none], [F ::= * lparen E rparen., <$>/star/rparen/plus] [none], [F ::= * id., <$>/star/rparen/plus] [none]')
-  9: ItemSet(kernel: [T ::= T star * F., <$>/star/rparen/plus] [none], added: '[F ::= * lparen E rparen., <$>/star/rparen/plus] [none], [F ::= * id., <$>/star/rparen/plus] [none]')
-  10: ItemSet(kernel: [F ::= lparen E rparen *., <$>/star/rparen/plus] [none], added: '')
-  11: ItemSet(kernel: [T ::= T * star F., <$>/star/rparen/plus] [none], [E ::= E plus T *., <$>/rparen/plus] [none], added: '')
-  12: ItemSet(kernel: [T ::= T star F *., <$>/star/rparen/plus] [none], added: '')
+  8: ItemSet(kernel: [E ::= E plus * T., <$>/plus/rparen] [none], added: '[T ::= * T star F., <$>/plus/rparen/star] [none], [T ::= * F., <$>/plus/rparen/star] [none], [F ::= * lparen E rparen., <$>/plus/rparen/star] [none], [F ::= * id., <$>/plus/rparen/star] [none]')
+  9: ItemSet(kernel: [T ::= T star * F., <$>/plus/rparen/star] [none], added: '[F ::= * lparen E rparen., <$>/plus/rparen/star] [none], [F ::= * id., <$>/plus/rparen/star] [none]')
+  10: ItemSet(kernel: [F ::= lparen E rparen *., <$>/plus/rparen/star] [none], added: '')
+  11: ItemSet(kernel: [T ::= T * star F., <$>/plus/rparen/star] [none], [E ::= E plus T *., <$>/plus/rparen] [none], added: '')
+  12: ItemSet(kernel: [T ::= T star F *., <$>/plus/rparen/star] [none], added: '')
 Parsing.Spec: 6 tokens, 3 non-terminals, 6 productions, 13 states, 37 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:
@@ -338,18 +338,18 @@ Non-terminals:
       T ::= T star F. [none]
 Item sets:
   0: ItemSet(kernel: [<S> ::= * E <$>., <e>] [none], added: '[E ::= * E plus T., <$>/plus] [none], [E ::= * T., <$>/plus] [none], [T ::= * T star F., <$>/plus/star] [none], [T ::= * F., <$>/plus/star] [none], [F ::= * lparen E rparen., <$>/plus/star] [none], [F ::= * id., <$>/plus/star] [none]')
-  1: ItemSet(kernel: [F ::= lparen * E rparen., <$>/plus/star/rparen] [none], added: '[E ::= * E plus T., plus/rparen] [none], [E ::= * T., plus/rparen] [none], [T ::= * T star F., plus/star/rparen] [none], [T ::= * F., plus/star/rparen] [none], [F ::= * lparen E rparen., plus/star/rparen] [none], [F ::= * id., plus/star/rparen] [none]')
-  2: ItemSet(kernel: [F ::= id *., <$>/plus/star/rparen] [none], added: '')
+  1: ItemSet(kernel: [F ::= lparen * E rparen., <$>/plus/rparen/star] [none], added: '[E ::= * E plus T., plus/rparen] [none], [E ::= * T., plus/rparen] [none], [T ::= * T star F., plus/rparen/star] [none], [T ::= * F., plus/rparen/star] [none], [F ::= * lparen E rparen., plus/rparen/star] [none], [F ::= * id., plus/rparen/star] [none]')
+  2: ItemSet(kernel: [F ::= id *., <$>/plus/rparen/star] [none], added: '')
   3: ItemSet(kernel: [E ::= E * plus T., <$>/plus] [none], [<S> ::= E * <$>., <e>] [none], added: '')
-  4: ItemSet(kernel: [E ::= T *., <$>/plus/rparen] [none], [T ::= T * star F., <$>/plus/star/rparen] [none], added: '')
-  5: ItemSet(kernel: [T ::= F *., <$>/plus/star/rparen] [none], added: '')
-  6: ItemSet(kernel: [E ::= E * plus T., plus/rparen] [none], [F ::= lparen E * rparen., <$>/plus/star/rparen] [none], added: '')
+  4: ItemSet(kernel: [E ::= T *., <$>/plus/rparen] [none], [T ::= T * star F., <$>/plus/rparen/star] [none], added: '')
+  5: ItemSet(kernel: [T ::= F *., <$>/plus/rparen/star] [none], added: '')
+  6: ItemSet(kernel: [E ::= E * plus T., plus/rparen] [none], [F ::= lparen E * rparen., <$>/plus/rparen/star] [none], added: '')
   7: ItemSet(kernel: [<S> ::= E <$> *., <e>] [none], added: '')
-  8: ItemSet(kernel: [E ::= E plus * T., <$>/plus/rparen] [none], added: '[T ::= * T star F., <$>/plus/star/rparen] [none], [T ::= * F., <$>/plus/star/rparen] [none], [F ::= * lparen E rparen., <$>/plus/star/rparen] [none], [F ::= * id., <$>/plus/star/rparen] [none]')
-  9: ItemSet(kernel: [T ::= T star * F., <$>/plus/star/rparen] [none], added: '[F ::= * lparen E rparen., <$>/plus/star/rparen] [none], [F ::= * id., <$>/plus/star/rparen] [none]')
-  10: ItemSet(kernel: [F ::= lparen E rparen *., <$>/plus/star/rparen] [none], added: '')
-  11: ItemSet(kernel: [T ::= T * star F., <$>/plus/star/rparen] [none], [E ::= E plus T *., <$>/plus/rparen] [none], added: '')
-  12: ItemSet(kernel: [T ::= T star F *., <$>/plus/star/rparen] [none], added: '')
+  8: ItemSet(kernel: [E ::= E plus * T., <$>/plus/rparen] [none], added: '[T ::= * T star F., <$>/plus/rparen/star] [none], [T ::= * F., <$>/plus/rparen/star] [none], [F ::= * lparen E rparen., <$>/plus/rparen/star] [none], [F ::= * id., <$>/plus/rparen/star] [none]')
+  9: ItemSet(kernel: [T ::= T star * F., <$>/plus/rparen/star] [none], added: '[F ::= * lparen E rparen., <$>/plus/rparen/star] [none], [F ::= * id., <$>/plus/rparen/star] [none]')
+  10: ItemSet(kernel: [F ::= lparen E rparen *., <$>/plus/rparen/star] [none], added: '')
+  11: ItemSet(kernel: [T ::= T * star F., <$>/plus/rparen/star] [none], [E ::= E plus T *., <$>/plus/rparen] [none], added: '')
+  12: ItemSet(kernel: [T ::= T star F *., <$>/plus/rparen/star] [none], added: '')
 Parsing.Spec: 6 tokens, 3 non-terminals, 6 productions, 13 states, 37 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:

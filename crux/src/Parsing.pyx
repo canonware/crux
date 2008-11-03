@@ -94,7 +94,7 @@ Parser generator directives are embedded in docstrings, and must begin with
 a '%' character, followed immediately by one of several keywords:
 
     Precedence : %fail %nonassoc %left %right %split
-         Token : %token
+         Token : %token %extend
   Non-terminal : %start %nonterm %extend
     Production : %reduce %accept %amend %suppress
 
@@ -344,6 +344,7 @@ cdef class SymbolSpec:
 
         self.name = name
         self.prec = prec
+        self.chain = [self]
         self.firstSet = [] # Set.
         self.followSet = [] # Set.
 
@@ -355,10 +356,12 @@ cdef class SymbolSpec:
         return (type(self), (), self.__getstate__())
 
     def __getstate__(self):
-        return (self.name, self.prec, self.firstSet, self.followSet, self.seq)
+        return (self.name, self.prec, self.chain, self.firstSet,
+          self.followSet, self.seq)
 
     def __setstate__(self, data):
-        (self.name, self.prec, self.firstSet, self.followSet, self.seq) = data
+        (self.name, self.prec, self.chain, self.firstSet, self.followSet,
+          self.seq) = data
 
     def __repr__(self):
         return "%s" % self.name
@@ -617,23 +620,20 @@ cdef class NontermSpec(SymbolSpec):
 
         self.qualified = qualified
         self.nontermType = nontermType
-        self.chain = [self]
         self.productions = [] # Set.
 
     def __reduce__(self):
         return (type(self), (), self.__getstate__())
 
     def __getstate__(self):
-        return (SymbolSpec.__getstate__(self), self.qualified, self.chain,
-          self.productions)
+        return (SymbolSpec.__getstate__(self), self.qualified, self.productions)
 
     def __setstate__(self, data):
         cdef SymbolSpec_data
         cdef str qualified
-        cdef list chain
         cdef list productions
 
-        (SymbolSpec_data, qualified, chain, productions) = data
+        (SymbolSpec_data, qualified, productions) = data
 
         SymbolSpec.__setstate__(self, SymbolSpec_data)
 
@@ -643,8 +643,8 @@ cdef class NontermSpec(SymbolSpec):
         for elm in elms[1:]:
             nontermType = nontermType.__dict__[elm]
 
-        (self.qualified, self.nontermType, self.chain, self.productions) = \
-          (qualified, nontermType, chain, productions)
+        (self.qualified, self.nontermType, self.productions) = \
+          (qualified, nontermType, productions)
 
     def __hash__(self):
         return hash(self.qualified)
@@ -655,6 +655,14 @@ Tokens are terminal symbols.  The parser is fed Token instances, which
 is what drives parsing.  Typically, the user will define a class that
 subclasses Parsing.Token and implement parser-specific machinery there,
 then derive all actual token types from that class.
+
+The %extend directive can be used to modify existing tokens, in a
+similar fashion to how non-terminals can be modified.  The primary
+reason to extend a token is to add some behavior during token creation
+in an extended parser.  Note, however, that the extended token type
+must be used when feeding tokens to the parser, so the original
+tokenizer must either be replaced or somehow modified for extended
+tokens to work properly.
 
   class Token(Parsing.Token):
       def __init__(self, Lr parser):
@@ -835,7 +843,8 @@ cdef class Item:
             return self.hash < other.hash
 
     def __repr__(self):
-        cdef list strs, syms
+        cdef list strs, deco
+        cdef object elm
         cdef int i
         cdef SymbolSpec sym
 
@@ -850,10 +859,10 @@ cdef class Item:
         while i < len(self.production.rhs):
             strs.append(" %r" % self.production.rhs[i])
             i += 1
-        syms = [sym for sym in self.lookahead.iterkeys()]
-        syms.sort()
+        deco = [(sym.name, sym) for sym in self.lookahead.iterkeys()]
+        deco.sort()
         strs.append("., %s] [%s]" % \
-          ("/".join(["%r" % sym for sym in syms]), \
+          ("/".join(["%r" % elm[1] for elm in deco]), \
           self.production.prec.name))
 
         return "".join(strs)
@@ -950,6 +959,7 @@ cdef class ItemSet:
 
     def __repr__(self):
         cdef list kernel, added
+        cdef Item item
 
         kernel = [item for item in self._items.iterkeys()]
         kernel.sort()
@@ -1603,7 +1613,7 @@ the Parser class for parsing.
     # a special class, the class must both 1) be subclassed from Token or
     # Nonterm, and 2) contain the appropriate %foo docstring.
     cdef void _introspect(self, list modules) except *:
-        cdef list deferred
+        cdef list deferTokens, deferNonterms
         cdef object module, d, v
         cdef str k
         cdef list dirtoks
@@ -1614,14 +1624,15 @@ the Parser class for parsing.
         cdef object m
         cdef Precedence prec
         cdef str precName
-        cdef TokenSpec token
-        cdef NontermSpec nonterm, parent
+        cdef TokenSpec token, pToken
+        cdef NontermSpec nonterm, pNonterm
 
         if self._verbose:
             print ("Parsing.Spec: Introspecting module%s to acquire formal" + \
             " grammar specification...") % ("s", "")[len(modules) == 1]
 
-        deferred = []
+        deferTokens = []
+        deferNonterms = []
         for module in modules:
             d = module.__dict__
             for k in d:
@@ -1682,7 +1693,8 @@ the Parser class for parsing.
                     #===========================================================
                     # Token.
                     #
-                    elif issubclass(v, Token) and dirtoks[0] in ["%token"]:
+                    elif issubclass(v, Token) and \
+                      dirtoks[0] in ("%token", "%extend"):
                         name = None
                         precName = None
                         i = 1
@@ -1710,9 +1722,6 @@ the Parser class for parsing.
                         if name in self._precedences:
                             raise SpecError("Identical precedence/token " \
                               "names: %s" % v.__doc__)
-                        if name in self._tokens:
-                            raise SpecError("Duplicate token name: %s" % \
-                              v.__doc__)
                         if name in self._nonterms:
                             raise SpecError("Identical nonterm/token names: " \
                               "%s" % v.__doc__)
@@ -1721,6 +1730,15 @@ the Parser class for parsing.
                             self._precedences[precName] = prec
                         else:
                             prec = self._precedences[precName]
+                        if dirtoks[0] == "%extend":
+                            # Defer until all other introspection is complete.
+                            token = TokenSpec(v, name,
+                              "%s.%s" % (module.__name__, k), prec)
+                            deferTokens.append(token)
+                            continue
+                        if name in self._tokens:
+                            raise SpecError("Duplicate token name: %s" % \
+                              v.__doc__)
                         token = TokenSpec(v, name,
                           "%s.%s" % (module.__name__, k), prec)
                         self._tokens[name] = token
@@ -1729,7 +1747,7 @@ the Parser class for parsing.
                     # Nonterm.
                     #
                     elif issubclass(v, Nonterm) and \
-                      dirtoks[0] in ["%start", "%nonterm", "%extend"]:
+                      dirtoks[0] in ("%start", "%nonterm", "%extend"):
                         name = None
                         precName = None
                         i = 1
@@ -1769,7 +1787,7 @@ the Parser class for parsing.
                             # Defer until all other introspection is complete.
                             nonterm = NontermSpec(v, name,
                               "%s.%s" % (module.__name__, k), prec)
-                            deferred.append(nonterm)
+                            deferNonterms.append(nonterm)
                             continue
                         if name in self._nonterms:
                             raise SpecError("Duplicate nonterm name: %s" % \
@@ -1791,24 +1809,47 @@ the Parser class for parsing.
                     #===========================================================
 
         # Link deferred %extend directives together with their parents.
-        while len(deferred) > 0:
+        while len(deferTokens) > 0:
             i = 0
-            while i < len(deferred):
-                nonterm = deferred[i]
+            while i < len(deferTokens):
+                token = <TokenSpec>deferTokens[i]
+                if token.name not in self._tokens:
+                    raise SpecError("Missing parent for extended " \
+                      "token: %s" % token.tokenType)
+                pToken = <TokenSpec>self._tokens[token.name]
+                if token.tokenType.__base__ is pToken.tokenType:
+                    deferTokens.pop(i)
+                    token.chain = pToken.chain
+                    token.chain.append(token)
+                    # Replace parent's entries in _tokens and _sym2spec.
+                    self._tokens[token.name] = token
+                    self._sym2spec.pop(pToken.tokenType)
+                    self._sym2spec[token.tokenType] = token
+                else:
+                    if not issubclass(token.tokenType, pToken.tokenType):
+                        raise SpecError("Extended token fork: %r: %r" % \
+                          (token.tokenType, token.tokenType.__doc__))
+                    i += 1
+
+        while len(deferNonterms) > 0:
+            i = 0
+            while i < len(deferNonterms):
+                nonterm = <NontermSpec>deferNonterms[i]
                 if nonterm.name not in self._nonterms:
                     raise SpecError("Missing parent for extended " \
                       "non-terminal: %s" % nonterm.nontermType)
-                parent = self._nonterms[nonterm.name]
-                if nonterm.nontermType.__base__ is parent.nontermType:
-                    deferred.pop(i)
-                    nonterm.chain = parent.chain
+                pNonterm = <NontermSpec>self._nonterms[nonterm.name]
+                if nonterm.nontermType.__base__ is pNonterm.nontermType:
+                    deferNonterms.pop(i)
+                    nonterm.chain = pNonterm.chain
                     nonterm.chain.append(nonterm)
                     # Replace parent's entries in _nonterms and _sym2spec.
                     self._nonterms[nonterm.name] = nonterm
-                    self._sym2spec.pop(parent.nontermType)
+                    self._sym2spec.pop(pNonterm.nontermType)
                     self._sym2spec[nonterm.nontermType] = nonterm
                 else:
-                    if not issubclass(nonterm.nontermType, parent.nontermType):
+                    if not issubclass(nonterm.nontermType, \
+                      pNonterm.nontermType):
                         raise SpecError("Extended non-nonterminal fork: %r: " \
                           "%r" % (nonterm.nontermType, \
                           nonterm.nontermType.__doc__))

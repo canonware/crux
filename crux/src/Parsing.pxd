@@ -35,6 +35,7 @@ cdef class Precedence:
 cdef class SymbolSpec:
     cdef str name
     cdef Precedence prec
+    cdef list chain # [%nonterm/%token, %extend, ..., %extend]
     cdef list firstSet
     cdef list followSet
     cdef int seq
@@ -66,7 +67,6 @@ cdef class Nonterm(Symbol):
 cdef class NontermSpec(SymbolSpec):
     cdef str qualified
     cdef type nontermType
-    cdef list chain # [%nonterm, %extends, ..., %extends]
     cdef list productions
 
 cdef class Token(Symbol): pass

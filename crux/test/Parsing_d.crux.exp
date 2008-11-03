@@ -38,15 +38,15 @@ Non-terminals:
     Productions:
       S ::= E. [none]
 Item sets:
-  0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[S ::= * E., <$>] [none], [E ::= * id., <$>/star/plus] [none], [E ::= * E plus E., <$>/star/plus] [p1], [E ::= * E star E., <$>/star/plus] [p2]')
-  1: ItemSet(kernel: [E ::= id *., <$>/star/plus] [none], added: '')
+  0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[S ::= * E., <$>] [none], [E ::= * id., <$>/plus/star] [none], [E ::= * E plus E., <$>/plus/star] [p1], [E ::= * E star E., <$>/plus/star] [p2]')
+  1: ItemSet(kernel: [E ::= id *., <$>/plus/star] [none], added: '')
   2: ItemSet(kernel: [<S> ::= S * <$>., <e>] [none], added: '')
-  3: ItemSet(kernel: [S ::= E *., <$>] [none], [E ::= E * plus E., <$>/star/plus] [p1], [E ::= E * star E., <$>/star/plus] [p2], added: '')
+  3: ItemSet(kernel: [S ::= E *., <$>] [none], [E ::= E * plus E., <$>/plus/star] [p1], [E ::= E * star E., <$>/plus/star] [p2], added: '')
   4: ItemSet(kernel: [<S> ::= S <$> *., <e>] [none], added: '')
-  5: ItemSet(kernel: [E ::= E plus * E., <$>/star/plus] [p1], added: '[E ::= * id., <$>/star/plus] [none], [E ::= * E plus E., <$>/star/plus] [p1], [E ::= * E star E., <$>/star/plus] [p2]')
-  6: ItemSet(kernel: [E ::= E star * E., <$>/star/plus] [p2], added: '[E ::= * id., <$>/star/plus] [none], [E ::= * E plus E., <$>/star/plus] [p1], [E ::= * E star E., <$>/star/plus] [p2]')
-  7: ItemSet(kernel: [E ::= E * plus E., <$>/star/plus] [p1], [E ::= E * star E., <$>/star/plus] [p2], [E ::= E plus E *., <$>/star/plus] [p1], added: '')
-  8: ItemSet(kernel: [E ::= E * plus E., <$>/star/plus] [p1], [E ::= E * star E., <$>/star/plus] [p2], [E ::= E star E *., <$>/star/plus] [p2], added: '')
+  5: ItemSet(kernel: [E ::= E plus * E., <$>/plus/star] [p1], added: '[E ::= * id., <$>/plus/star] [none], [E ::= * E plus E., <$>/plus/star] [p1], [E ::= * E star E., <$>/plus/star] [p2]')
+  6: ItemSet(kernel: [E ::= E star * E., <$>/plus/star] [p2], added: '[E ::= * id., <$>/plus/star] [none], [E ::= * E plus E., <$>/plus/star] [p1], [E ::= * E star E., <$>/plus/star] [p2]')
+  7: ItemSet(kernel: [E ::= E * plus E., <$>/plus/star] [p1], [E ::= E * star E., <$>/plus/star] [p2], [E ::= E plus E *., <$>/plus/star] [p1], added: '')
+  8: ItemSet(kernel: [E ::= E * plus E., <$>/plus/star] [p1], [E ::= E * star E., <$>/plus/star] [p2], [E ::= E star E *., <$>/plus/star] [p2], added: '')
 Parsing.Spec: 4 tokens, 2 non-terminals, 4 productions, 9 states, 17 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:

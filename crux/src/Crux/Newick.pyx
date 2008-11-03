@@ -333,6 +333,46 @@ Called when end of input is reached.  By default a SyntaxError is raised.
         raise SyntaxError("%d:%d: Invalid token or end of input reached" \
           % (line, col))
 
+    cdef Parsing.Token newTokenComment(self, str input, int start, int end,
+      int tokLine, int tokCol):
+        return TokenComment(self, input, start, end, tokLine, tokCol)
+
+    cdef Parsing.Token newTokenLparen(self, str input, int start, int end,
+      int tokLine, int tokCol):
+        return TokenLparen(self, input, start, end, tokLine, tokCol)
+
+    cdef Parsing.Token newTokenRparen(self, str input, int start, int end,
+      int tokLine, int tokCol):
+        return TokenRparen(self, input, start, end, tokLine, tokCol)
+
+    cdef Parsing.Token newTokenComma(self, str input, int start, int end,
+      int tokLine, int tokCol):
+        return TokenComma(self, input, start, end, tokLine, tokCol)
+
+    cdef Parsing.Token newTokenColon(self, str input, int start, int end,
+      int tokLine, int tokCol):
+        return TokenColon(self, input, start, end, tokLine, tokCol)
+
+    cdef Parsing.Token newTokenSemicolon(self, str input, int start, int end,
+      int tokLine, int tokCol):
+        return TokenSemicolon(self, input, start, end, tokLine, tokCol)
+
+    cdef Parsing.Token newTokenBranchLength(self, str input, int start, int end,
+      int tokLine, int tokCol):
+        return TokenBranchLength(self, input, start, end, tokLine, tokCol)
+
+    cdef Parsing.Token newTokenUnquotedLabel(self, str input, int start,
+      int end, int tokLine, int tokCol):
+        return TokenUnquotedLabel(self, input, start, end, tokLine, tokCol)
+
+    cdef Parsing.Token newTokenQuotedLabel(self, str input, int start, int end,
+      int tokLine, int tokCol):
+        return TokenQuotedLabel(self, input, start, end, tokLine, tokCol)
+
+    cdef Parsing.Token newTokenWhitespace(self, str input, int start, int end,
+      int tokLine, int tokCol):
+        return TokenWhitespace(self, input, start, end, tokLine, tokCol)
+
     cpdef parse(self, str input, int begPos=0, int line=1, int col=0,
       bint verbose=False):
         cdef int pos = begPos
@@ -357,8 +397,7 @@ Called when end of input is reached.  By default a SyntaxError is raised.
             end = m.end(idx)
             col += end - start
             if idx == 1:    # simple comment
-                token = TokenComment(self, input, start,
-                  end, tokLine, tokCol)
+                token = self.newTokenComment(input, start, end, tokLine, tokCol)
             elif idx == 2 or idx == 3:  # complex comment prefix
                 nesting = (2 if idx == 2 else 1)
                 tokPos = pos
@@ -385,21 +424,23 @@ Called when end of input is reached.  By default a SyntaxError is raised.
                     else:
                         assert False
                     pos += end - start
-                token = TokenComment(self, input, tokPos, end, tokLine, tokCol)
+                token = self.newTokenComment(input, tokPos, end, tokLine,
+                  tokCol)
             elif idx == 4:  # (
-                token = TokenLparen(self, input, start, end, tokLine, tokCol)
+                token = self.newTokenLparen(input, start, end, tokLine, tokCol)
                 self.token(token)
             elif idx == 5:  # )
-                token = TokenRparen(self, input, start, end, tokLine, tokCol)
+                token = self.newTokenRparen(input, start, end, tokLine, tokCol)
                 self.token(token)
             elif idx == 6:  # ,
-                token = TokenComma(self, input, start, end, tokLine, tokCol)
+                token = self.newTokenComma(input, start, end, tokLine, tokCol)
                 self.token(token)
             elif idx == 7:  # :
-                token = TokenColon(self, input, start, end, tokLine, tokCol)
+                token = self.newTokenColon(input, start, end, tokLine, tokCol)
                 self.token(token)
             elif idx == 8:  # ;
-                token = TokenSemicolon(self, input, start, end, tokLine, tokCol)
+                token = self.newTokenSemicolon(input, start, end, tokLine,
+                  tokCol)
                 self.token(token)
 
                 # Finish.
@@ -407,22 +448,22 @@ Called when end of input is reached.  By default a SyntaxError is raised.
                 self.eoi()
                 return (pos, line, col)
             elif idx == 9:  # branch length
-                token = TokenBranchLength(self, input, start, end, tokLine,
+                token = self.newTokenBranchLength(input, start, end, tokLine,
                   tokCol)
                 self.token(token)
             elif idx == 10:  # unquoted label
-                token = TokenUnquotedLabel(self, input, start, end, tokLine,
+                token = self.newTokenUnquotedLabel(input, start, end, tokLine,
                   tokCol)
                 self.token(token)
             elif idx == 11: # quoted label
-                token = TokenQuotedLabel(self, input, start, end, tokLine,
+                token = self.newTokenQuotedLabel(input, start, end, tokLine,
                   tokCol)
                 self.token(token)
             elif idx == 12: # whitespace
-                token = TokenWhitespace(self, input, start, end, tokLine,
+                token = self.newTokenWhitespace(input, start, end, tokLine,
                   tokCol)
             elif idx == 13: # whitespace (newline)
-                token = TokenWhitespace(self, input, start, end, tokLine,
+                token = self.newTokenWhitespace(input, start, end, tokLine,
                   tokCol)
                 line += 1
                 col = 0

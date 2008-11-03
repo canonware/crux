@@ -183,5 +183,27 @@ cdef class Parser(Parsing.Lr):
     cdef Parsing.Spec _initSpec(self)
     cdef void _appendToken(self, Token token) except *
     cdef str expandInput(self, str input, int pos, int line, int col)
+
+    cdef Parsing.Token newTokenComment(self, str input, int start, int end,
+      int tokLine, int tokCol)
+    cdef Parsing.Token newTokenLparen(self, str input, int start, int end,
+      int tokLine, int tokCol)
+    cdef Parsing.Token newTokenRparen(self, str input, int start, int end,
+      int tokLine, int tokCol)
+    cdef Parsing.Token newTokenComma(self, str input, int start, int end,
+      int tokLine, int tokCol)
+    cdef Parsing.Token newTokenColon(self, str input, int start, int end,
+      int tokLine, int tokCol)
+    cdef Parsing.Token newTokenSemicolon(self, str input, int start, int end,
+      int tokLine, int tokCol)
+    cdef Parsing.Token newTokenBranchLength(self, str input, int start, int end,
+      int tokLine, int tokCol)
+    cdef Parsing.Token newTokenUnquotedLabel(self, str input, int start,
+      int end, int tokLine, int tokCol)
+    cdef Parsing.Token newTokenQuotedLabel(self, str input, int start, int end,
+      int tokLine, int tokCol)
+    cdef Parsing.Token newTokenWhitespace(self, str input, int start, int end,
+      int tokLine, int tokCol)
+
     cpdef parse(self, str input, int begPos=?, int line=?, int col=?, \
       bint verbose=?)
