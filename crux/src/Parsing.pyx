@@ -2955,23 +2955,21 @@ Feed a token to the parser.
 Signal end-of-input to the parser.
 """
         cdef Token token
-        cdef object top
 
         token = EndOfInput(self)
         self.token(token)
 
-        assert self._stack[-1][0] == token # <$>.
+        assert (<Symbol>self._stack[-1][0]) == token # <$>.
         if self._verbose:
             self._printStack()
             print "   --> accept"
         self._stack.pop()
 
-        top = self._stack[-1]
-        self._start = [self._stack[1][0]]
+        self._start = [<Symbol>self._stack[1][0]]
         assert self._start[0].symSpec == self._spec._userStartSym
 
     cdef void _act(self, Symbol sym, SymbolSpec symSpec) except *:
-        cdef object top
+        cdef int topState
         cdef list actions
         cdef Action action
 
@@ -2980,13 +2978,13 @@ Signal end-of-input to the parser.
             print "INPUT: %r" % sym
 
         while True:
-            top = self._stack[-1]
-            if symSpec not in self._spec._action[top[1]]:
+            topState = <int>self._stack[-1][1]
+            if symSpec not in self._spec._action[topState]:
                 raise SyntaxError("Unexpected token: %r" % sym)
 
-            actions = self._spec._action[top[1]][symSpec]
+            actions = self._spec._action[topState][symSpec]
             assert len(actions) == 1
-            action = actions[0]
+            action = <Action>actions[0]
 
             if self._verbose:
                 print "   --> %r" % action
@@ -3002,35 +3000,38 @@ Signal end-of-input to the parser.
 
     cdef void _printStack(self):
         cdef object node
+        cdef Symbol sym
+        cdef int state
 
         print "STACK:",
         for node in self._stack:
-            print "%r" % node[0],
+            sym = <Symbol>node[0]
+            print "%r" % sym,
         print
         print "      ",
         for node in self._stack:
-            print "%r%s" % (node[1], \
-              (" " * (len("%r" % node[0]) - len("%r" % node[1])))),
+            sym = <Symbol>node[0]
+            state = <int>node[1]
+            print "%r%s" % (state, (" " * (len("%r" % sym) - len("%r" % sym)))),
         print
 
     cdef void _reduce(self, Production production) except *:
-        cdef int nRhs, i
+        cdef int nRhs, i, topState
         cdef list rhs
         cdef object r
-        cdef object top
 
         nRhs = len(production.rhs)
         rhs = []
-        for i in xrange(len(self._stack) - nRhs, len(self._stack)):
+        for len(self._stack) - nRhs <= i < len(self._stack):
             rhs.append(self._stack[i][0])
 
         r = self._production(production, rhs)
 
-        for i in xrange(nRhs):
+        for 0 <= i < nRhs:
             self._stack.pop()
 
-        top = self._stack[-1]
-        self._stack.append((r, self._spec._goto[top[1]][production.lhs]))
+        topState = <int>self._stack[-1][1]
+        self._stack.append((r, self._spec._goto[topState][production.lhs]))
 
     cdef Symbol _production(self, Production production, list rhs):
         cdef Symbol sym, r
