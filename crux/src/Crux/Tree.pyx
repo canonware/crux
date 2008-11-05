@@ -18,7 +18,6 @@ class Malformed(Exception, exceptions.SyntaxError):
     def __str__(self):
         return self._str
 
-import __builtin__
 import random
 import re
 import sys
@@ -308,13 +307,6 @@ cdef class _NewickParser(Newick.Parser):
             if ind == -1:
                 raise Malformed("No TaxonMap entry for %r" % label.raw)
         node.taxonNumSet(ind)
-
-    # Overridden method.
-    cpdef parse(self, str input, int begPos=0, int line=1, int col=0,
-      bint verbose=False):
-        cdef ret = Newick.Parser.parse(self, input, begPos, line, col, verbose)
-
-        return ret
 
 #
 # End Newick tree construction support.

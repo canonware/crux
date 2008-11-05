@@ -11,36 +11,19 @@
 
 print "Test begin"
 
-dnaChar = Crux.CharacterType.DnaCharacterType()
+dnaChar = Crux.Character.Dna()
 map = Crux.TaxonMap.TaxonMap(['Taxon_A', 'Taxon_B', 'Taxon_C'])
-matrix = Crux.CTMatrix.CTMatrix(map)
+matrix = Crux.CTMatrix.CTMatrix(taxonMap=map)
 
-matrix.charsAppend([dnaChar] * 5)
-#print matrix.charsGet()
-print "Character 0 (0..%d) type: %r" \
-      % (len(matrix.charsGet()) - 1, type(matrix.charsGet()[0]))
-
-print "Taxon map: %r" % matrix.taxonMapGet().taxaGet()
+print "Taxon map: %r" % matrix.taxonMap.taxaGet()
 
 matrix.dataSet("Taxon_B", "CCCCC")
 print "Taxon_B data: %r" % matrix.dataGet("Taxon_B")
 
 matrix.dataSet("Taxon_A", "AAAAA")
+matrix.dataSet("Taxon_C", "GGGG")
+matrix.dataSet("Taxon_D", "TTTTT")
 
-try:
-    matrix.dataSet("Taxon_C", "GGGG")
-except:
-    import sys
-
-    error = sys.exc_info()
-    print "Exception %s: %s" % (error[0], error[1])
-
-try:
-    matrix.dataSet("Taxon_D", "TTTTT")
-except:
-    import sys
-
-    error = sys.exc_info()
-    print "Exception %s: %s" % (error[0], error[1])
+print matrix.fastaPrint()
 
 print "Test end"

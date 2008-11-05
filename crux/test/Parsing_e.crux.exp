@@ -40,7 +40,7 @@ Item sets:
   5: ItemSet(kernel: [C ::= c C *., <$>/c/d] [none], added: '')
   6: ItemSet(kernel: [S ::= C C *., <$>] [none], added: '')
   7: ItemSet(kernel: [<S> ::= S <$> *., <e>] [none], added: '')
-Parsing.Spec: 3 tokens, 2 non-terminals, 3 productions, 8 states, 15 actions (0 split):
+Parsing.Spec: 2 tokens, 2 non-terminals, 3 productions, 8 states, 15 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:
   ==============================================================================

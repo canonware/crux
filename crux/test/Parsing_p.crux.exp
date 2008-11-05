@@ -1,10 +1,10 @@
 Parsing.Spec: Introspecting module to acquire formal grammar specification...
-Parsing.Spec: 6 tokens, 2 non-terminals, 5 productions
+Parsing.Spec: 5 tokens, 3 non-terminals, 6 productions
 Parsing.Spec: Generating LR(1) itemset collection... ++++++.+++++++
 Parsing.Spec: Generating LR(1) parsing tables (13 states)... .............
 Parsing.Spec: Disambiguating LR(1) parsing tables... .............
 Parsing.Spec: Validating grammar...
-Parsing.Spec: 6 tokens, 3 non-terminals, 6 productions
+Parsing.Spec: 5 tokens, 3 non-terminals, 6 productions
 Precedences:
   [%fail none ={none} <{}]
   [%left p1 ={p1} <{p2}]
@@ -70,7 +70,7 @@ Item sets:
   10: ItemSet(kernel: [F ::= lparen E rparen *., <$>/plus/rparen/star] [p2], added: '')
   11: ItemSet(kernel: [T ::= T * star F., <$>/plus/rparen/star] [none], [E ::= E plus T *., <$>/plus/rparen] [p1], added: '')
   12: ItemSet(kernel: [T ::= T star F *., <$>/plus/rparen/star] [none], added: '')
-Parsing.Spec: 6 tokens, 3 non-terminals, 6 productions, 13 states, 37 actions (0 split):
+Parsing.Spec: 5 tokens, 3 non-terminals, 6 productions, 13 states, 37 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:
   ==============================================================================

@@ -62,7 +62,7 @@ Item sets:
   10: ItemSet(kernel: [F ::= lparen E rparen *., <$>/plus/rparen/star] [none], added: '')
   11: ItemSet(kernel: [T ::= T * star F., <$>/plus/rparen/star] [none], [E ::= E plus T *., <$>/plus/rparen] [none], added: '')
   12: ItemSet(kernel: [T ::= T star F *., <$>/plus/rparen/star] [none], added: '')
-Parsing.Spec: 6 tokens, 3 non-terminals, 6 productions, 13 states, 37 actions (0 split):
+Parsing.Spec: 5 tokens, 3 non-terminals, 6 productions, 13 states, 37 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:
   ==============================================================================
@@ -350,7 +350,7 @@ Item sets:
   10: ItemSet(kernel: [F ::= lparen E rparen *., <$>/plus/rparen/star] [none], added: '')
   11: ItemSet(kernel: [T ::= T * star F., <$>/plus/rparen/star] [none], [E ::= E plus T *., <$>/plus/rparen] [none], added: '')
   12: ItemSet(kernel: [T ::= T star F *., <$>/plus/rparen/star] [none], added: '')
-Parsing.Spec: 6 tokens, 3 non-terminals, 6 productions, 13 states, 37 actions (0 split):
+Parsing.Spec: 5 tokens, 3 non-terminals, 6 productions, 13 states, 37 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:
   ==============================================================================

@@ -1,132 +1,39 @@
 Test begin
-
 === '>Label\nNXVHMDRWABSYCKGT-\n' ===
---label--: 'Label'
---chars--: 'NXVHMDRWABSYCKGT-'
-
+>Label
+NXVHMDRWABSYCKGT-
 === '>Label\nA C\nGT' ===
---label--: 'Label'
---chars--: 'ACGT'
-
-=== '\n>Taxon_A\nACGT-\n>Taxon_B\nACG-T\n' ===
---label--: 'Taxon_A'
---chars--: 'ACGT-'
---label--: 'Taxon_B'
---chars--: 'ACG-T'
-
-=== '\n>Taxon_A This is a comment.\nACGT-\n>Taxon_B\tThis is another comment.\nACG-T\n' ===
---label--: 'Taxon_A'
---comment--: 'This is a comment.'
---chars--: 'ACGT-'
---label--: 'Taxon_B'
---comment--: 'This is another comment.'
---chars--: 'ACG-T'
-
-=== '\n>\n' ===
-Exception <class 'C_FastaParser.SyntaxError'>: At 2:1 (token '', char '
-'): Empty label
-
-=== '\n> Comment\n' ===
-Exception <class 'C_FastaParser.SyntaxError'>: At 2:1 (token '', char ' '): Empty label
-
-=== '\n>Label\n' ===
---label--: 'Label'
-Exception <class 'C_FastaParser.SyntaxError'>: At 2:6 (token '', char '
-'): Missing character data
-
-=== '\n>Label\nACGTZ\n' ===
---label--: 'Label'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:4 (token 'ACGT', char 'Z'): Invalid DNA character data
-
-=== '\n>Taxon_A\n>Taxon_B\nACGT\n' ===
---label--: 'Taxon_A'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:0 (token '', char '>'): Missing character data
-
-=== '\n>Taxon_A\nACGT>Taxon_B\nACGT\n' ===
---label--: 'Taxon_A'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:4 (token 'ACGT', char '>'): Invalid DNA character data
-
-=== '\n>Taxon_A\nACGT\n>Taxon_B\n' ===
---label--: 'Taxon_A'
---chars--: 'ACGT'
---label--: 'Taxon_B'
-Exception <class 'C_FastaParser.SyntaxError'>: At 4:8 (token '', char '
-'): Missing character data
-
-=== '>Label\nNXVHMDRWABSYCKGT-\n' ===
---label--: 'Label'
---chars--: 'NXVHMDRWABSYCKGT-'
-
-=== '>Label\nA C\nGT' ===
---label--: 'Label'
---chars--: 'ACGT'
-
-=== '\n>Taxon_A\nACGT-\n>Taxon_B\nACG-T\n' ===
---label--: 'Taxon_A'
---chars--: 'ACGT-'
---label--: 'Taxon_B'
---chars--: 'ACG-T'
-
-=== '\n>Taxon_A This is a comment.\nACGT-\n>Taxon_B\tThis is another comment.\nACG-T\n' ===
---label--: 'Taxon_A'
---comment--: 'This is a comment.'
---chars--: 'ACGT-'
---label--: 'Taxon_B'
---comment--: 'This is another comment.'
---chars--: 'ACG-T'
-
-=== '\n>\n' ===
-Exception <class 'C_FastaParser.SyntaxError'>: At 2:1 (token '', char '
-'): Empty label
-
-=== '\n> Comment\n' ===
-Exception <class 'C_FastaParser.SyntaxError'>: At 2:1 (token '', char ' '): Empty label
-
-=== '\n>Label\n' ===
---label--: 'Label'
-Exception <class 'C_FastaParser.SyntaxError'>: At 2:6 (token '', char '
-'): Missing character data
-
-=== '\n>Label\nACGTZ\n' ===
---label--: 'Label'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:4 (token 'ACGT', char 'Z'): Invalid DNA character data
-
-=== '\n>Taxon_A\n>Taxon_B\nACGT\n' ===
---label--: 'Taxon_A'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:0 (token '', char '>'): Missing character data
-
-=== '\n>Taxon_A\nACGT>Taxon_B\nACGT\n' ===
---label--: 'Taxon_A'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:4 (token 'ACGT', char '>'): Invalid DNA character data
-
-=== '\n>Taxon_A\nACGT\n>Taxon_B\n' ===
---label--: 'Taxon_A'
---chars--: 'ACGT'
---label--: 'Taxon_B'
-Exception <class 'C_FastaParser.SyntaxError'>: At 4:8 (token '', char '
-'): Missing character data
-
+>Label
+ACGT
+=== '>Taxon_A\nACGT-\n>Taxon_B\nACG-T\n' ===
+>Taxon_A
+ACGT-
+>Taxon_B
+ACG-T
+=== '>Taxon_A This is a comment.\nACGT-\n>Taxon_B\tThis is another comment.\nACG-T\n' ===
+>Taxon_A
+ACGT-
+>Taxon_B
+ACG-T
+=== '>\n' ===
+Exception <class 'Fasta.SyntaxError'>: Line 1: Invalid token
+=== '> Comment\n' ===
+Exception <class 'Fasta.SyntaxError'>: Line 1: Invalid token
+=== '>Label\n' ===
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: <$>
+=== '>Label\nACGTZ\n' ===
+Exception <class 'Fasta.SyntaxError'>: Line 2: Invalid token
+=== '>Taxon_A\n>Taxon_B\nACGT\n' ===
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: descr ('>Taxon_B')
+=== '>Taxon_A\nACGT>Taxon_B\nACGT\n' ===
+Exception <class 'Fasta.SyntaxError'>: Line 2: Invalid token
+=== '>Taxon_A\nACGT\n>Taxon_B\n' ===
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: <$>
 === '>Label\nABCDEFGHIKLMNPQRSTUVWXYZ-\n' ===
---label--: 'Label'
---chars--: 'ABCDEFGHIKLMNPQRSTUVWXYZ-'
-
-=== '\n>Label\nABCDEFGHIJKLMN\n' ===
---label--: 'Label'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:9 (token 'ABCDEFGHI', char 'J'): Invalid protein character data
-
-=== '\n>Label\nABCDE789FGHIK\n' ===
---label--: 'Label'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:5 (token 'ABCDE', char '7'): Invalid protein character data
-
-=== '>Label\nABCDEFGHIKLMNPQRSTUVWXYZ-\n' ===
---label--: 'Label'
---chars--: 'ABCDEFGHIKLMNPQRSTUVWXYZ-'
-
-=== '\n>Label\nABCDEFGHIJKLMN\n' ===
---label--: 'Label'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:9 (token 'ABCDEFGHI', char 'J'): Invalid protein character data
-
-=== '\n>Label\nABCDE789FGHIK\n' ===
---label--: 'Label'
-Exception <class 'C_FastaParser.SyntaxError'>: At 3:5 (token 'ABCDE', char '7'): Invalid protein character data
+>Label
+ABCDEFGHIKLMNPQRSTUVWXYZ-
+=== '>Label\nABCDEFGHIJKLMN\n' ===
+Exception <class 'Fasta.SyntaxError'>: Line 2: Invalid token
+=== '>Label\nABCDE789FGHIK\n' ===
+Exception <class 'Fasta.SyntaxError'>: Line 2: Invalid token
 Test end

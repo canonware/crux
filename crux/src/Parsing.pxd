@@ -155,7 +155,7 @@ cdef class Spec:
     cdef void _validate(self, str logFile) except *
     cdef void _firstSets(self)
     cdef void _followSets(self)
-    cdef void _items(self) except *
+    cdef void _items(self)
     cdef void _lr(self)
     cdef void _actionAppend(self, state, sym, action)
     cdef void _disambiguate(self)

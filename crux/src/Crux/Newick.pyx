@@ -33,11 +33,13 @@ class Exception(Crux.Exception.Exception):
 import exceptions
 
 class SyntaxError(Exception, exceptions.SyntaxError):
-    def __init__(self, str):
-        self._str = str
+    def __init__(self, line, col, str):
+        self.line = line
+        self.col = col
+        self.str = str
 
     def __str__(self):
-        return self._str
+        return "%d:%d: %s" % (self.line, self.col, self.str)
 
 import re
 import sys
@@ -256,44 +258,26 @@ cdef class Label(Nonterm):
 
 # Regex used to recognize all tokens except complex comments.
 cdef _reMain
-_reMain = re.compile(r"""
-    (\[[^[\]\n]*\])        # simple comment (non-nested, single line)
-  | (\[[^[\]\n]*\[)        # complex comment prefix: [...[
-  | (\[[^[\]\n]*\n)        # complex comment prefix: [...\n
-  | ([(])                  # (
-  | ([)])                  # )
-  | (,)                    # ,
-  | (:)                    # :
-  | (;)                    # ;
-  | ([-+]?
-     [0-9]+(?:[.][0-9]+)?
-     (?:[eE][-+]?[0-9]+)?
-     (?!_))                # branch length
-  | ([^ \t\r\n()[\]':;,]+) # unquoted label
-  | ('(?:''|[^'])*'(?!'))  # quoted label
-  | ([ \t\r]+)             # whitespace
-  | ([\n])                 # whitespace (newline)
-""", re.X)
-
 # Regex used to process complex comments.
 cdef _reComment
-_reComment = re.compile(r"""
-    (\[)         # start comment
-  | (\])         # end comment
-  | (\n)         # newline
-  | ([^\[\]\n]+) # text
-""", re.X)
 
 cdef Parsing.Spec _spec
 
 cdef class Parser(Parsing.Lr):
     def __init__(self, Parsing.Spec spec=None):
+        global _reMain, _reComment
+
         if spec is None:
             spec = self._initSpec()
 
         Parsing.Lr.__init__(self, spec)
         self.first = None
         self.last = None
+
+        if _reMain is None:
+            _reMain = self._initReMain()
+        if _reComment is None:
+            _reComment = self._initReComment()
 
     # Check whether spec has been initialized here, rather than doing
     # initialization during module initialization.  Lazy initialization is
@@ -317,6 +301,34 @@ cdef class Parser(Parsing.Lr):
               (Crux.Config.prefix, Crux.Config.version))
         return _spec
 
+    cdef _initReMain(self):
+        return re.compile(r"""
+    (\[[^[\]\n]*\])        # simple comment (non-nested, single line)
+  | (\[[^[\]\n]*\[)        # complex comment prefix: [...[
+  | (\[[^[\]\n]*\n)        # complex comment prefix: [...\n
+  | ([(])                  # (
+  | ([)])                  # )
+  | (,)                    # ,
+  | (:)                    # :
+  | (;)                    # ;
+  | ([-+]?
+     [0-9]+(?:[.][0-9]+)?
+     (?:[eE][-+]?[0-9]+)?
+     (?!_))                # branch length
+  | ([^ \t\r\n()[\]':;,]+) # unquoted label
+  | ('(?:''|[^'])*'(?!'))  # quoted label
+  | ([ \t\r\f\v]+)         # whitespace
+  | ([\n])                 # whitespace (newline)
+""", re.X)
+
+    cdef _initReComment(self):
+        return re.compile(r"""
+    (\[)         # start comment
+  | (\])         # end comment
+  | (\n)         # newline
+  | ([^\[\]\n]+) # text
+""", re.X)
+
     cdef void _appendToken(self, Token token) except *:
         if self.first is None:
             self.first = token
@@ -330,8 +342,7 @@ cdef class Parser(Parsing.Lr):
         """
 Called when end of input is reached.  By default a SyntaxError is raised.
 """
-        raise SyntaxError("%d:%d: Invalid token or end of input reached" \
-          % (line, col))
+        raise SyntaxError(line, col, "Invalid token or end of input reached")
 
     cdef Parsing.Token newTokenComment(self, str input, int start, int end,
       int tokLine, int tokCol):

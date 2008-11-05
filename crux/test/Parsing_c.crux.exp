@@ -52,7 +52,7 @@ Item sets:
   8: ItemSet(kernel: [<S> ::= S <$> *., <e>] [none], added: '')
   9: ItemSet(kernel: [S ::= L equal * R., <$>] [none], added: '[R ::= * L., <$>] [none], [L ::= * star R., <$>] [none], [L ::= * id., <$>] [none]')
   10: ItemSet(kernel: [S ::= L equal R *., <$>] [none], added: '')
-Parsing.Spec: 4 tokens, 3 non-terminals, 5 productions, 11 states, 18 actions (0 split):
+Parsing.Spec: 3 tokens, 3 non-terminals, 5 productions, 11 states, 18 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:
   ==============================================================================

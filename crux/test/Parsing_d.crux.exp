@@ -47,7 +47,7 @@ Item sets:
   6: ItemSet(kernel: [E ::= E star * E., <$>/plus/star] [p2], added: '[E ::= * id., <$>/plus/star] [none], [E ::= * E plus E., <$>/plus/star] [p1], [E ::= * E star E., <$>/plus/star] [p2]')
   7: ItemSet(kernel: [E ::= E * plus E., <$>/plus/star] [p1], [E ::= E * star E., <$>/plus/star] [p2], [E ::= E plus E *., <$>/plus/star] [p1], added: '')
   8: ItemSet(kernel: [E ::= E * plus E., <$>/plus/star] [p1], [E ::= E * star E., <$>/plus/star] [p2], [E ::= E star E *., <$>/plus/star] [p2], added: '')
-Parsing.Spec: 4 tokens, 2 non-terminals, 4 productions, 9 states, 17 actions (0 split):
+Parsing.Spec: 3 tokens, 2 non-terminals, 4 productions, 9 states, 17 actions (0 split):
 Algorithm compatibility: GLR, LR
 Parsing tables:
   ==============================================================================

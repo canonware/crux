@@ -1473,7 +1473,7 @@ verbose : If true, print progress information while generating the
             lines.append("  %d: %r" % (i, self._itemSets[i]))
         #=======================================================================
 
-        ntokens = len(self._tokens) - 1
+        ntokens = len(self._tokens) - 2
         nnonterms = len(self._nonterms) - 1
         nproductions = len(self._productions) - 1
         nstates = len(self._action)
@@ -1540,6 +1540,7 @@ verbose : If true, print progress information while generating the
 Compile the specification into data structures that can be used by
 the Parser class for parsing.
 """
+        cdef int ntokens, nnonterms, nproductions
         cdef str compat
 
         # Get the grammar specification.
@@ -1562,6 +1563,16 @@ the Parser class for parsing.
         self._startSym.productions.append(self._startProd)
         self._nonterms["<S>"] = self._startSym
         self._productions.append(self._startProd)
+
+        if self._verbose:
+            ntokens = len(self._tokens) - 2
+            nnonterms = len(self._nonterms) - 1
+            nproductions = len(self._productions) - 1
+            print \
+              "Parsing.Spec: %d token%s, %d non-terminal%s, %d production%s" % \
+              (ntokens, ("s", "")[ntokens == 1], \
+              nnonterms, ("s", "")[nnonterms == 1], \
+              nproductions, ("s", "")[nproductions == 1])
 
         # Check for a compatible pickle.
         compat = self._unpickle(pickleFile, pickleMode)
@@ -1984,16 +1995,6 @@ the Parser class for parsing.
         if __debug__:
             for prec in self._precedences.itervalues():
                 assert prec.assoc is not None
-
-        if self._verbose:
-            ntokens = len(self._tokens) - 1
-            nnonterms = len(self._nonterms) - 1
-            nproductions = len(self._productions) - 1
-            print \
-              "Parsing.Spec: %d token%s, %d non-terminal%s, %d production%s" % \
-              (ntokens, ("s", "")[ntokens == 1], \
-              nnonterms, ("s", "")[nnonterms == 1], \
-              nproductions, ("s", "")[nproductions == 1])
 
     # Build the graph of Precedence relationships.
     cdef void _resolvePrec(self, str graphFile) except *:
@@ -2476,7 +2477,7 @@ the Parser class for parsing.
         # enabled, and there weren't any conflicts to cause notification via an
         # exception.
         if self._verbose:
-            ntokens = len(self._tokens) - 1
+            ntokens = len(self._tokens) - 2
             nnonterms = len(self._nonterms) - 1
             nproductions = len(self._productions) - 1
             lines.append(
@@ -2570,7 +2571,7 @@ the Parser class for parsing.
                             break
 
     # Compute the collection of sets of LR(1) items.
-    cdef void _items(self) except *: # XXX Remove except.
+    cdef void _items(self):
         cdef ItemSet tItemSet, itemSet, gotoSet, mergeSet
         cdef Item tItem
         cdef list worklist, syms
