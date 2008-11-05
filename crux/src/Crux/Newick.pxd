@@ -66,10 +66,10 @@ cdef class TokenBranchLength(Token):
     "%token branchLength"
 cdef class TokenUnquotedLabel(Token):
     "%token unquotedLabel"
-    # property raw
+    # property label
 cdef class TokenQuotedLabel(Token):
     "%token quotedLabel"
-    # property raw
+    # property label
 cdef class TokenComment(Token):
     "%token comment"
 cdef class TokenWhitespace(Token):

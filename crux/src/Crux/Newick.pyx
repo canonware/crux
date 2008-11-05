@@ -129,7 +129,7 @@ cdef class TokenBranchLength(Token):
     "%token branchLength"
 cdef class TokenUnquotedLabel(Token):
     "%token unquotedLabel"
-    property raw:
+    property label:
         def __get__(self):
             cdef str ret
 
@@ -139,7 +139,7 @@ cdef class TokenUnquotedLabel(Token):
             return ret
 cdef class TokenQuotedLabel(Token):
     "%token quotedLabel"
-    property raw:
+    property label:
         def __get__(self):
             cdef str ret
 

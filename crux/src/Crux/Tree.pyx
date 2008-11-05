@@ -248,23 +248,23 @@ cdef class _NewickSubtree(Newick.Subtree):
 cdef class _NewickLabel(Newick.Label):
     "%extend Label"
 
-    cdef str raw
+    cdef str label
 
     cpdef reduceU(self, Newick.TokenUnquotedLabel unquotedLabel):
         "%accept"
-        self.raw = unquotedLabel.raw
+        self.label = unquotedLabel.label
 
     cpdef reduceQ(self, Newick.TokenQuotedLabel quotedLabel):
         "%accept"
-        self.raw = quotedLabel.raw
+        self.label = quotedLabel.label
 
     cpdef reduceB(self, Newick.TokenBranchLength branchLength):
         "%accept"
-        self.raw = branchLength.raw
+        self.label = branchLength.raw
 
     cpdef reduceE(self):
         "%accept"
-        self.raw = None
+        self.label = None
 
 cdef Parsing.Spec _NewickSpec
 
@@ -296,16 +296,16 @@ cdef class _NewickParser(Newick.Parser):
     cpdef _labelNode(self, Node node, _NewickLabel label):
         cdef int ind
 
-        if label.raw is None:
+        if label.label is None:
             return
 
         if self._newickAutoMap:
             ind = self._taxonMap.ntaxaGet()
-            self._taxonMap.map(label.raw, ind)
+            self._taxonMap.map(label.label, ind)
         else:
-            ind = self._taxonMap.indGet(label.raw)
+            ind = self._taxonMap.indGet(label.label)
             if ind == -1:
-                raise Malformed("No TaxonMap entry for %r" % label.raw)
+                raise Malformed("No TaxonMap entry for %r" % label.label)
         node.taxonNumSet(ind)
 
 #

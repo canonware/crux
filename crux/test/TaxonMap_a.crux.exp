@@ -18,7 +18,7 @@ map: []
 ntaxa: 0
 map: ['A', 'B']
 ntaxa: 2
-map: Exception <class 'Crux.TaxonMap.ValueError'>: Taxon indices must be contiguous
+map: Exception <class 'TaxonMap.ValueError'>: Taxon indices must be contiguous
 ntaxa: 3
 map: ['A', 'B', 'C', 'D']
 ntaxa: 4
