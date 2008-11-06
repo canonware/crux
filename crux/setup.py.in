@@ -31,19 +31,27 @@ else:
     cy_suffix = "c"
     cmdclass = {}
 
+
+if @enable_debug@:
+    extra_compile_args = []
+else:
+    extra_compile_args = ['-DPYREX_WITHOUT_ASSERTIONS']
+
 # Crux.*
 for path in glob("@srcroot@/src/Crux/[A-Z]*.%s" % cy_suffix):
     fsplit = path.split("/")[-1].split(".")
     ext = Extension(
       ".".join(fsplit[:-1]),
       sources=[path],
-      include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"]
+      include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"],
+      extra_compile_args=extra_compile_args
       )
     ext_modules.append(ext)
 # Parsing
 ext = Extension(
   'Parsing',
-  sources=["@srcroot@/src/Parsing.%s" % cy_suffix]
+  sources=["@srcroot@/src/Parsing.%s" % cy_suffix],
+  extra_compile_args=extra_compile_args
   )
 ext_modules.append(ext)
 

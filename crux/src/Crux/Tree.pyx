@@ -185,31 +185,35 @@ cdef class _NewickDescendantList(Newick.DescendantList):
         cdef Edge edge
 
         self.node = Node(self.parser._tree)
-        for subtree in (<_NewickSubtreeList>SubtreeList).subtrees:
+        subtree = (<_NewickSubtreeList>SubtreeList).last
+        while subtree is not None:
             edge = Edge(self.parser._tree)
             edge.lengthSet(subtree.len)
             edge.attach(self.node, subtree.node)
+            subtree = subtree.prev
 
 cdef class _NewickSubtreeList(Newick.SubtreeList):
     "%extend SubtreeList"
 
-    cdef list subtrees
+    cdef _NewickSubtree last
 
     cpdef reduceOne(self, Newick.Subtree Subtree):
         "%accept"
-        self.subtrees = [Subtree]
+        (<_NewickSubtree>Subtree).prev = None
+        self.last = <_NewickSubtree>Subtree
 
     cpdef reduceExtend(self, Newick.SubtreeList SubtreeList,
       Newick.TokenComma comma, Newick.Subtree Subtree):
         "%accept"
-        self.subtrees = (<_NewickSubtreeList>SubtreeList).subtrees
-        self.subtrees.insert(0, Subtree)
+        (<_NewickSubtree>Subtree).prev = (<_NewickSubtreeList>SubtreeList).last
+        self.last = <_NewickSubtree>Subtree
 
 cdef class _NewickSubtree(Newick.Subtree):
     "%extend Subtree"
 
     cdef Node node
     cdef float len
+    cdef _NewickSubtree prev
 
     cpdef reduceDIB(self, Newick.DescendantList DescendantList,
       Newick.Label Label, Newick.TokenColon colon,
@@ -362,7 +366,6 @@ cdef class Tree:
         # Use random sequential addition to attach the remaning taxa.
         for 1 <= i < ntaxa:
             # Pick an edge to bisect and add this taxon to.
-            assert (i - 1) * 2 == len(edges) - 1
             edgeA = <Edge>(edges[random.randint(0, (i - 1) * 2)])
 
             # Attach a new taxon node to a new internal node.
@@ -530,10 +533,11 @@ cdef class Tree:
                 edge = ring._edge
                 node = ring._other._node
                 edge.detach()
-                # XXX Change ring header/order in order to disturb canonical
-                # order?
                 edge.attach(self._base, node)
                 edge.lengthSet(edge._length + removedLength)
+                # Change ring header/order in order to avoid disturbing
+                # canonical order.
+                self._base._ring = self._base._ring._next
             else:
                 self.baseSet(node)
         else:

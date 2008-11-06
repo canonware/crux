@@ -430,10 +430,10 @@ Called when end of input is reached.  By default a SyntaxError is raised.
                     elif idx == 3: # newline
                         line += 1
                         col = 0
-                    elif idx == 4: # text
-                        pass
-                    else:
-                        assert False
+#                    elif idx == 4: # text
+#                        pass
+#                    else:
+#                        assert False
                     pos += end - start
                 token = self.newTokenComment(input, tokPos, end, tokLine,
                   tokCol)
@@ -478,7 +478,7 @@ Called when end of input is reached.  By default a SyntaxError is raised.
                   tokCol)
                 line += 1
                 col = 0
-            else:
-                assert False
+#            else:
+#                assert False
 
             pos = end

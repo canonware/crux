@@ -3017,38 +3017,31 @@ Signal end-of-input to the parser.
         print
 
     cdef void _reduce(self, Production production) except *:
-        cdef int nRhs, i, topState
+        cdef int nRhs, i, sLen, topState
         cdef list rhs
-        cdef object r
+        cdef Symbol r
 
         nRhs = len(production.rhs)
         rhs = []
-        for len(self._stack) - nRhs <= i < len(self._stack):
+        sLen = len(self._stack)
+        for sLen - nRhs <= i < sLen:
             rhs.append(self._stack[i][0])
-
-        r = self._production(production, rhs)
 
         for 0 <= i < nRhs:
             self._stack.pop()
+
+        r = self._production(production, rhs)
 
         topState = <int>self._stack[-1][1]
         self._stack.append((r, self._spec._goto[topState][production.lhs]))
 
     cdef Symbol _production(self, Production production, list rhs):
-        cdef Symbol sym, r
-        cdef int nRhs
+        cdef Symbol sym
 
         sym = production.lhs.nontermType(self)
-        nRhs = len(rhs)
-        assert nRhs == len(production.rhs)
-        r = production.method(sym, *rhs)
+        production.method(sym, *rhs)
 
-        # Python's method definition syntax makes returning self from %reduce
-        # methods cumbersome, so translate None here.
-        if r is None:
-            r = sym
-
-        return r
+        return sym
 
 #===============================================================================
 # Begin graph-structured stack (GSS) classes.
