@@ -12,8 +12,10 @@ taxonMap = Crux.TaxonMap.TaxonMap(["T%d" % i for i in xrange(100)])
 for i in xrange(21):
     print "Taxa: %d" % i
     t = Crux.Tree.Tree(i, taxonMap=taxonMap, rooted=True)
+    t.canonize()
     print "  [&r] %s" % t.render(labels=True)
     t = Crux.Tree.Tree(i, taxonMap=taxonMap, rooted=False)
+    t.canonize()
     print "  [&u] %s" % t.render(labels=True)
 
 print "Test end"

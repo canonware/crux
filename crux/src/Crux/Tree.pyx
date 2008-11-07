@@ -545,8 +545,34 @@ cdef class Tree:
             self.baseSet(None)
 
     cpdef canonize(self):
-        pass # XXX
-        self._sn += 1
+        cdef Node base, node
+        cdef Ring ring
+
+        if self.rooted:
+            base = self._base
+            assert base is not None
+            assert base.degree() <= 1
+        else:
+            # Find the minimum taxon before canonizing, and set it as the tree
+            # base.  This is critical to correct results, since starting from
+            # any other location in the tree will cause per-subtree minimum
+            # taxa to be determined from the wrong perspective.
+            node = self._base
+            if node is None:
+                return
+            ring = node._ring
+            if ring is None:
+                return
+            base = ring._minTaxon()
+            node = ring._other._minTaxon()
+            if base._taxonNum == -1 or node._taxonNum < base._taxonNum:
+                base = node
+            self.baseSet(base)
+
+        ring = base._ring
+        if ring is None:
+            return
+        ring._other._canonize()
 
     cpdef collapse(self):
         pass # XXX
@@ -709,7 +735,7 @@ cdef class Node:
     cpdef Ring ring(self):
         return self._ring
 
-    # XXX Make a property.
+    # XXX Make a property, and make the calculate=True case a separate method.
     cpdef int degree(self, bint calculate=False) except -1:
         """
 Return the number of attached edges.  If the node is reachable via the tree
@@ -932,6 +958,61 @@ cdef class Ring:
     """Iterate over "sibling" ring, excluding self."""
     cpdef siblings(self):
         return _RingIterHelper(self, False)
+
+    cdef Node _minTaxon(self):
+        cdef Node ret, minTaxon
+        cdef Ring r
+
+        ret = self._node
+        for r in self.siblings():
+            minTaxon = r._other._minTaxon()
+            if ret._taxonNum == -1 or minTaxon._taxonNum < ret._taxonNum:
+                ret = minTaxon
+
+        return ret
+
+    cdef Node _canonize(self):
+        cdef Node ret, minTaxon, node, nodeOther
+        cdef int degree
+        cdef list rings
+        cdef Ring r
+        cdef Edge edge
+
+        node = self._node
+        ret = node
+
+        degree = node.degree()
+        if degree > 1:
+            rings = []
+
+            # Iteratively canonize subtrees, keeping track of the minimum
+            # taxon seen overall, as well as for each subtree.
+            for r in self.siblings():
+                minTaxon = r._other._canonize()
+                if ret._taxonNum == -1 or minTaxon._taxonNum < ret._taxonNum:
+                    ret = minTaxon
+                rings.append((minTaxon._taxonNum, r))
+
+            # Sort according to per-subtree minimum taxa.
+            rings.sort()
+
+            # Detach and re-attach all edges, in reverse order.  This code
+            # assumes that attaching inserts the edge at the head of the ring.
+            for len(rings) > i >= 0:
+                r = <Ring>rings[i][1]
+                nodeOther = r._other._node
+                edge = r._edge
+                edge.detach()
+                edge.attach(node, nodeOther)
+
+            # Set the beginning of the ring to self.  This makes it easier for
+            # external code to traverse a tree in canonical order.
+            #
+            # Note that there is no need to increment the tree sequence number,
+            # since the edge detach/attach operations already do so.
+            node._ring = self
+
+        return ret
 
     cpdef Tree tree(self):
         return self._edge._tree

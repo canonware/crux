@@ -81,6 +81,8 @@ cdef class Ring:
 
     cpdef siblings(self) # Iterator.
 
+    cdef Node _minTaxon(self)
+    cdef Node _canonize(self)
     cpdef Tree tree(self)
     cpdef Node node(self)
     cpdef Edge edge(self)
