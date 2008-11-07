@@ -229,8 +229,8 @@ cdef class Parser(Parsing.Lr):
             elif idx == 3:
                 TokenWhitespace(self, input, start, end, line)
                 line += input.count('\n', start, end)
-#            else:
-#                assert False
+            else:
+                assert False
 
             pos = end
 

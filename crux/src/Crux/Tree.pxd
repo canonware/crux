@@ -15,7 +15,9 @@ cdef class Tree:
     cdef int _cacheSn, _cachedNtaxa, _cachedNnodes, _cachedNedges
     cdef public bint rooted
 
+    cdef void _randomNew(self, int ntaxa, TaxonMap taxonMap) except *
     cdef void _newickNew(self, str input, bint newickAutoMap) except *
+
     cpdef dup(self)
     cpdef taxonMapGet(self)
     cpdef rf(self, Tree other)
@@ -29,7 +31,7 @@ cdef class Tree:
 
     cpdef deroot(self)
     cpdef canonize(self)
-    cpdef collapse(self)
+    cpdef int collapse(self) except -1
     cpdef tbr(self, Edge bisect, Edge reconnectA, Edge reconnectB)
     cpdef int tbrNNeigbhorsGet(self)
     cpdef tbrNeighborGet(self, int neighbor)
@@ -83,6 +85,9 @@ cdef class Ring:
 
     cdef Node _minTaxon(self)
     cdef Node _canonize(self)
+    cdef void _collapsable(self, list collapsable) except *
+    cdef void _collapse(self)
+
     cpdef Tree tree(self)
     cpdef Node node(self)
     cpdef Edge edge(self)

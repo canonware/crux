@@ -336,7 +336,7 @@ cdef class Tree:
                 taxonMap = TaxonMap()
             self._taxonMap = taxonMap
 
-    def _randomNew(self, int ntaxa, TaxonMap taxonMap):
+    cdef void _randomNew(self, int ntaxa, TaxonMap taxonMap) except *:
         cdef Node nodeA, nodeB, nodeC
         cdef Edge edge, edgeA, edgeB
         cdef Ring ringA, ringB
@@ -574,9 +574,28 @@ cdef class Tree:
             return
         ring._other._canonize()
 
-    cpdef collapse(self):
-        pass # XXX
-        self._sn += 1
+    cpdef int collapse(self) except -1:
+        cdef list collapsable
+        cdef Ring ring, r
+
+        if self._base is None:
+            return 0
+
+        # Generate a list of collapsable edges (but actually store rings in the
+        # list, in order to be able to tell which end of the edge is closer to
+        # the tree base).
+        ring = self._base._ring
+        if ring is None:
+            return 0
+        collapsable = []
+        for r in ring:
+            r._other._collapsable(collapsable)
+
+        # Collapse edges.
+        for r in collapsable:
+            r._collapse()
+
+        return len(collapsable)
 
     cpdef tbr(self, Edge bisect, Edge reconnectA, Edge reconnectB):
         pass # XXX
@@ -1013,6 +1032,63 @@ cdef class Ring:
             node._ring = self
 
         return ret
+
+    cdef void _collapsable(self, list collapsable) except *:
+        cdef Ring ring
+        cdef Edge edge
+
+        for ring in self.siblings():
+            ring._other._collapsable(collapsable)
+
+        edge = self._edge
+        if edge._length <= 0.0:
+            if self._node.degree() > 1 and self._other._node.degree() > 1:
+                collapsable.append(self)
+            else:
+                # Leaf node.  Clamp length.
+                edge.lengthSet(0.0)
+
+    cdef void _collapse(self):
+        cdef Ring rOther, rTemp
+        cdef Edge edge, eTemp
+        cdef Node node, nOther, nTemp
+
+        # Collapse the edge that self is a part of.  At the end of this method,
+        # self, edge, rOther, and nOther will have been removed from the tree.
+        # Following is a diagram of how variables are related just before
+        # detaching an eTemp.
+        #
+        #                       nTemp
+        #                         |
+        #                         |
+        #                       [ring]
+        #                         |
+        #                         |
+        #                       eTemp
+        #                         |
+        #                         |
+        #                       rTemp
+        #                      /
+        #                     /
+        # node--self--edge--rOther--nOther
+        #       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+        #                Remove
+        node = self._node
+        edge = self._edge
+        rOther = self._other
+        nOther = rOther._node
+        assert nOther.degree(calculate=True) > 1
+
+        rTemp = rOther._next
+        while rTemp != rOther:
+            eTemp = rTemp._edge
+            nTemp = rTemp._other._node
+            eTemp.detach()
+            eTemp.attach(node, nTemp)
+            rTemp = rOther._next
+
+        assert nOther.degree(calculate=True) == 1
+        edge.detach()
 
     cpdef Tree tree(self):
         return self._edge._tree

@@ -45,6 +45,7 @@ trees = [';',
 for tree in trees:
     print "========================================================="
     t = Crux.Tree.Tree(tree, newickAutoMap=True)
+    t.deroot()
     t.canonize()
     print t.render(labels=True, lengths=True, lengthFormat="%.0f")
     nCollapsed = t.collapse()
