@@ -11,8 +11,8 @@
 
 print "Test begin"
 
-taxonMap = Crux.TaxonMap.TaxonMap(['A', 'B', 'C', 'D', 'E',
-                                   'F', 'G', 'H', 'I', 'J'])
+taxonMap = Crux.Taxa.Map([Crux.Taxa.taxon(label) for label in
+  ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J')])
 
 trees = ["(A,B);",
 

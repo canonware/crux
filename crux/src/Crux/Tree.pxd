@@ -5,21 +5,25 @@ cdef class Edge
 cdef class Ring
 
 from CTMatrix cimport CTMatrix
-from TaxonMap cimport TaxonMap
+from Taxa cimport Taxon
+cimport Taxa
 
 cdef class Tree:
-    cdef TaxonMap _taxonMap
     cdef Node _base
+    cdef _taxa, _nodes, _edges
     cdef list _renderList
     cdef int _sn # Incremented every time the tree is modified.
     cdef int _cacheSn, _cachedNtaxa, _cachedNnodes, _cachedNedges
     cdef public bint rooted
 
-    cdef void _randomNew(self, int ntaxa, TaxonMap taxonMap) except *
-    cdef void _newickNew(self, str input, bint newickAutoMap) except *
+    cdef void _randomNew(self, int ntaxa, Taxa.Map taxaMap) except *
+    cdef void _newickNew(self, str input, Taxa.Map taxaMap) except *
 
-    cpdef dup(self)
-    cpdef taxonMapGet(self)
+    cdef Node _dup(self, Tree newTree, Node node, Ring prevRing)
+    cpdef Tree dup(self)
+    # property taxa
+    # property nodes
+    # property edges
     cpdef rf(self, Tree other)
     cdef void _recacheRecurse(self, Ring ring)
     cdef void _recache(self)
@@ -30,7 +34,7 @@ cdef class Tree:
     cpdef baseSet(self, Node base)
 
     cpdef deroot(self)
-    cpdef canonize(self)
+    cpdef canonize(self, Taxa.Map taxaMap)
     cpdef int collapse(self) except -1
     cpdef tbr(self, Edge bisect, Edge reconnectA, Edge reconnectB)
     cpdef int tbrNNeigbhorsGet(self)
@@ -46,24 +50,25 @@ cdef class Tree:
     cpdef tbrAllNeighborsMp(self, int maxHold=?)
     cpdef nHeldGet(self)
     cpdef heldGet(self, int i)
-    cpdef str render(self, bint labels=?, bint lengths=?, lengthFormat=?)
+    cpdef str render(self, bint lengths=?, lengthFormat=?, Taxa.Map taxaMap=?)
 
 cdef class Node:
+    cdef object __weakref__
     cdef Tree _tree
     cdef Ring _ring
-    cdef int _taxonNum
+    cdef Taxon _taxon
     cdef int _degree
 
     cpdef Tree tree(self)
-    cpdef int taxonNumGet(self)
-    cpdef taxonNumSet(self, int taxonNum)
+    # property taxon
     cpdef Ring ring(self)
     cpdef int degree(self, bint calculate=?) except -1
-    cpdef rrender(self, Node prev, TaxonMap taxonMap, bint labels, bint lengths,
-      lengthFormat, bint zeroLength=?, bint noLength=?)
+    cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
+      bint zeroLength=?, bint noLength=?)
     cpdef int separation(self, Node other)
 
 cdef class Edge:
+    cdef object __weakref__
     cdef Tree _tree
     cdef float _length
     cdef Ring _ring
@@ -83,8 +88,8 @@ cdef class Ring:
 
     cpdef siblings(self) # Iterator.
 
-    cdef Node _minTaxon(self)
-    cdef Node _canonize(self)
+    cdef Node _minTaxon(self, Taxa.Map taxaMap)
+    cdef Node _canonize(self, Taxa.Map taxaMap)
     cdef void _collapsable(self, list collapsable) except *
     cdef void _collapse(self)
 

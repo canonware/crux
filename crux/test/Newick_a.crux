@@ -154,30 +154,34 @@ for s in teststrs:
     print "\n=== %r ===" % s
     try:
         print "Rooted:"
-        t = Crux.Tree.Tree(s, rooted=True, newickAutoMap=True)
-        print "  %r" % t.taxonMapGet().taxaGet()
-        r = t.render(labels=True)
+        t = Crux.Tree.Tree(s, rooted=True)
+        taxa = [taxon.label for taxon in t.taxa]
+        taxa.sort()
+        print "  %r" % taxa
+        r = t.render()
         print "  %r" % r
-        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), rooted=True)
-        print "  %r" % u.render(labels=True)
+        u = Crux.Tree.Tree(r, rooted=True)
+        print "  %r" % u.render()
 
-        r = t.render(labels=True, lengths=True, lengthFormat="%.6e")
+        r = t.render(lengths=True, lengthFormat="%.6e")
         print "  %r" % r
-        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), rooted=True)
-        print "  %r" % u.render(labels=True, lengths=True, lengthFormat="%.6e")
+        u = Crux.Tree.Tree(r, rooted=True)
+        print "  %r" % u.render(lengths=True, lengthFormat="%.6e")
 
         print "Unrooted:"
-        t = Crux.Tree.Tree(s, rooted=False, newickAutoMap=True)
-        print "  %r" % t.taxonMapGet().taxaGet()
-        r = t.render(labels=True)
+        t = Crux.Tree.Tree(s, rooted=False)
+        taxa = [taxon.label for taxon in t.taxa]
+        taxa.sort()
+        print "  %r" % taxa
+        r = t.render()
         print "  %r" % r
-        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), rooted=False)
-        print "  %r" % u.render(labels=True)
+        u = Crux.Tree.Tree(r, rooted=False)
+        print "  %r" % u.render()
 
-        r = t.render(labels=True, lengths=True, lengthFormat="%.6e")
+        r = t.render(lengths=True, lengthFormat="%.6e")
         print "  %r" % r
-        u = Crux.Tree.Tree(r, taxonMap=t.taxonMapGet(), rooted=False)
-        print "  %r" % u.render(labels=True, lengths=True, lengthFormat="%.6e")
+        u = Crux.Tree.Tree(r, rooted=False)
+        print "  %r" % u.render(lengths=True, lengthFormat="%.6e")
 
     except:
 #        import traceback

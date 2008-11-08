@@ -55,7 +55,7 @@ class ValueError(Exception, exceptions.ValueError):
     def __str__(self):
         return self._str
 
-from TaxonMap cimport TaxonMap
+cimport Taxa
 from Tree cimport Tree
 
 import random
@@ -67,8 +67,8 @@ cdef class DistMatrix:
     #
     #   file : Parse the file as a distance matrix.
     #
-    #   TaxonMap : Create an uninitialized distance matrix of the appropriate
-    #              size, given the number of taxa in the TaxonMap.
+    #   Taxa.Map : Create an uninitialized distance matrix of the appropriate
+    #               size, given the number of taxa in the Taxa.Map.
     #
     #   DistMatrix : Duplicate or sample from the input DistMatrix, depending
     #                on the value of the 'sample' parameter.
@@ -77,14 +77,14 @@ cdef class DistMatrix:
         # aware of a simple way to check the type of a Python-created class
         # in C code, which is why the check is done here.
         #
-        # Also, make sure to pass in a TaxonMap.
+        # Also, make sure to pass in a Taxa.Map.
         if type(input) == file or type(input) == str:
-            self._parse(input, TaxonMap(), symmetric)
-        elif type(input) == TaxonMap:
+            self._parse(input, Taxa.Map(), symmetric)
+        elif type(input) == Taxa.Map:
             self._parse(None, input, symmetric)
         elif type(input) == DistMatrix:
             if sample == None:
-                taxonMap = TaxonMap(input.taxonMapGet().taxaGet())
+                taxonMap = Taxa.Map(input.taxonMapGet().taxaGet())
                 self._dup(input, taxonMap)
             else:
                 if sample < 2 or sample > input.ntaxaGet():
@@ -98,16 +98,16 @@ cdef class DistMatrix:
 
                 # Construct a TaxoMap for the new DistMatrix.
                 inputMap = input.taxonMapGet()
-                taxonMap = TaxonMap()
+                taxonMap = Taxa.Map()
                 for row in rows:
                     taxonMap.map(inputMap.labelGet(row), taxonMap.ntaxaGet())
 
                 self._sample(input, taxonMap, rows)
         else:
             raise ValueError(
-                "input: File, string, TaxonMap, or DistMatrix expected")
+                "input: File, string, Taxa.Map, or DistMatrix expected")
 
-    cdef void _parse(self, input, TaxonMap taxonMap, bint symmetric):
+    cdef void _parse(self, input, Taxa.Map taxonMap, bint symmetric):
         pass # XXX
 
     # XXX Make a property.
@@ -118,14 +118,14 @@ cdef class DistMatrix:
     cdef bint isSymmetric(self):
         pass # XXX
 
-    cdef DistMatrix _dup(self, input, TaxonMap taxonMap):
+    cdef DistMatrix _dup(self, input, Taxa.Map taxonMap):
         pass # XXX
 
-    cdef DistMatrix _sample(self, input, TaxonMap taxonMap, list rows):
+    cdef DistMatrix _sample(self, input, Taxa.Map taxonMap, list rows):
         pass # XXX
 
     # XXX Make a property.
-    cdef TaxonMap taxonMapGet(self):
+    cdef Taxa.Map taxonMapGet(self):
         pass # XXX
 
     # XXX Make a property.
@@ -149,7 +149,7 @@ cdef class DistMatrix:
         pass # XXX
 
     # Randomly shuffle the order of rows/columns in the distance matrix, and
-    # make corresponding changes to the TaxonMap.
+    # make corresponding changes to the Taxa.Map.
     def shuffle(self):
         # Create a random shuffle order.
         order = random.sample(range(self.ntaxaGet()), self.ntaxaGet())
@@ -157,7 +157,7 @@ cdef class DistMatrix:
         # Shuffle the matrix.
         self._matrixShuffle(order)
 
-        # Shuffle the TaxonMap.
+        # Shuffle the Taxa.Map.
         taxonMap = self.taxonMapGet()
         labels = taxonMap.taxaGet()
         for i in xrange(self.ntaxaGet()):

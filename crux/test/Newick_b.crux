@@ -13,9 +13,8 @@ import sys
 
 print "Test begin"
 
-t = Crux.Tree.Tree("(A,'B B','C''C');",
-                   Crux.TaxonMap.TaxonMap(['A', 'B B', "C'C"]))
-t.canonize()
-print t.render(labels=True)
+t = Crux.Tree.Tree("(A,'B B','C''C');")
+t.canonize(Crux.Taxa.Map(t.taxa))
+print t.render()
 
 print "Test end"

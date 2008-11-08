@@ -13,7 +13,8 @@ class ValueError(Exception, exceptions.ValueError):
         return self._str
 
 cimport Parsing
-from TaxonMap cimport TaxonMap
+from Taxa cimport Taxon
+cimport Taxa
 cimport Fasta
 from Character cimport Dna, Protein
 
@@ -34,15 +35,15 @@ cdef class Row(Fasta.Row):
     "%extend Row"
     cpdef reduce(self, Fasta.TokenDescr descr, Fasta.TokenChars chars):
         "%accept"
-        self.parser._addTaxon(descr.label, chars.chars)
+        self.parser._addTaxon(Taxa.get(descr.label), chars.chars)
 
 cdef Parsing.Spec _FastaSpec
 
 cdef class _FastaParser(Fasta.Parser):
     cdef CTMatrix matrix
-    cdef TaxonMap taxonMap
+    cdef Taxa.Map taxaMap
 
-    def __init__(self, CTMatrix matrix, TaxonMap taxonMap):
+    def __init__(self, CTMatrix matrix, Taxa.Map taxaMap):
         global _FastaSpec
 
         if _FastaSpec is None:
@@ -50,7 +51,7 @@ cdef class _FastaParser(Fasta.Parser):
         Fasta.Parser.__init__(self, _FastaSpec)
 
         self.matrix = matrix
-        self.taxonMap = taxonMap
+        self.taxaMap = taxaMap
 
     cdef Parsing.Spec _initSpec(self):
         return Parsing.Spec([sys.modules[__name__], Crux.Fasta],
@@ -61,34 +62,34 @@ cdef class _FastaParser(Fasta.Parser):
           logFile="%s/share/Crux-%s/CTMatrix.log" %
           (Crux.Config.prefix, Crux.Config.version))
 
-    cpdef _addTaxon(self, str label, str chars):
-        if self.taxonMap.indGet(label) == -1:
+    cpdef _addTaxon(self, Taxon taxon, str chars):
+        if self.taxaMap.indGet(taxon) == -1:
             # Define a taxon mapping for this label.
-            self.taxonMap.map(label, self.taxonMap.ntaxaGet())
+            self.taxaMap.map(taxon, self.taxaMap.ntaxaGet())
 
         # Set the character data for this taxon.
-        self.matrix.dataSet(label, chars)
+        self.matrix.dataSet(taxon, chars)
 
 #
 # Begin FASTA construction support.
 #===============================================================================
 
 cdef class CTMatrix:
-    def __init__(self, str input=None, type charType=Dna, taxonMap=None):
+    def __init__(self, str input=None, type charType=Dna, taxaMap=None):
         self.charType = charType
 
         # This is used to manage the rows of the data matrix (_taxonData).
-        if taxonMap == None:
-            taxonMap = TaxonMap()
-        self.taxonMap = taxonMap
+        if taxaMap == None:
+            taxaMap = Taxa.Map()
+        self.taxaMap = taxaMap
 
         # Initialize sequence number.  0 is skipped here so that it can be used
         # as a special value by users of CTMatrix.
         self.seq = 1
 
         # Row-major character data.  Each element in _taxonData is a string of
-        # characters that belong to the corresponding taxon in taxonMap.  The
-        # keys are the integer indices, as reported by self.taxonMap.indGet().
+        # characters that belong to the corresponding taxon in taxaMap.  The
+        # keys are the integer indices, as reported by self.taxaMap.indGet().
         self._taxonData = {}
 
         if input is not None:
@@ -97,21 +98,22 @@ cdef class CTMatrix:
     cpdef _fastaNew(self, str input, type charType):
         cdef _FastaParser parser
 
-        parser = _FastaParser(self, self.taxonMap)
+        parser = _FastaParser(self, self.taxaMap)
         parser.parse(input, charType)
 
     cpdef str fastaPrint(self):
-        cdef list lines
+        cdef list lines, taxa
+        cdef Taxon taxon
         cdef str taxonData
         cdef int i
 
         lines = []
 
         # Print.
-        taxa = self.taxonMap.taxaGet()
+        taxa = self.taxaMap.taxaGet()
         for taxon in taxa:
             if self.dataGet(taxon) != None:
-                lines.append(">%s" % taxon.replace(' ', '_'))
+                lines.append(">%s" % taxon.label.replace(' ', '_'))
                 # Break into lines of length 75.
                 taxonData = self.dataGet(taxon)
                 for 0 <= i < len(taxonData) by 75:
@@ -123,19 +125,19 @@ cdef class CTMatrix:
         return "\n".join(lines)
 
     # Return the character data for a taxon.
-    cpdef str dataGet(self, str taxon):
-        if not self._taxonData.has_key(self.taxonMap.indGet(taxon)):
+    cpdef str dataGet(self, Taxon taxon):
+        if not self._taxonData.has_key(self.taxaMap.indGet(taxon)):
             rVal = None
         else:
-            rVal = self._taxonData[self.taxonMap.indGet(taxon)]
+            rVal = self._taxonData[self.taxaMap.indGet(taxon)]
 
         return rVal
 
     # Set the character data for a taxon.
-    cpdef dataSet(self, str taxon, str data):
-        if (self.taxonMap.indGet(taxon) == None):
-            raise ValueError("Taxon %r not in taxon map" % taxon)
+    cpdef dataSet(self, Taxon taxon, str data):
+        if (self.taxaMap.indGet(taxon) == None):
+            raise ValueError("Taxon %r not in taxa map" % taxon.label)
 
-        self._taxonData[self.taxonMap.indGet(taxon)] = data
+        self._taxonData[self.taxaMap.indGet(taxon)] = data
 
         self.seq += 1

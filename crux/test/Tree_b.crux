@@ -9,13 +9,14 @@ print "Test begin"
 
 for i in xrange(10):
     for j in xrange(4):
-        t = Crux.Tree.Tree(i)
+        taxaMap = Crux.Taxa.Map([Crux.Taxa.get("T%d" % k) for k in xrange(i)])
+        t = Crux.Tree.Tree(i, taxaMap=taxaMap)
         print "==="
-        print "Original: %s" % t.render()
-        t.canonize()
-        print "Rooted:   %s" % t.render()
+        print "Original: %s" % t.render(taxaMap=taxaMap)
+        t.canonize(taxaMap)
+        print "Rooted:   %s" % t.render(taxaMap=taxaMap)
         t.deroot()
-        t.canonize()
-        print "Unrooted: %s" % t.render()
+        t.canonize(taxaMap)
+        print "Unrooted: %s" % t.render(taxaMap=taxaMap)
 
 print "Test end"

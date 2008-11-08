@@ -1,0 +1,25 @@
+Test begin
+
+map: []
+ntaxa: 0
+
+map: [Crux.Taxon.taxon('A')]
+ntaxa: 1
+taxon 'Crux.Taxon.taxon('A')' 'Crux.Taxon.taxon('A')' at index 0 0
+
+map: [Crux.Taxon.taxon('A'), Crux.Taxon.taxon('B'), Crux.Taxon.taxon('C'), Crux.Taxon.taxon('D')]
+ntaxa: 4
+taxon 'Crux.Taxon.taxon('A')' 'Crux.Taxon.taxon('A')' at index 0 0
+taxon 'Crux.Taxon.taxon('B')' 'Crux.Taxon.taxon('B')' at index 1 1
+taxon 'Crux.Taxon.taxon('C')' 'Crux.Taxon.taxon('C')' at index 2 2
+taxon 'Crux.Taxon.taxon('D')' 'Crux.Taxon.taxon('D')' at index 3 3
+
+map: []
+ntaxa: 0
+map: [Crux.Taxon.taxon('A'), Crux.Taxon.taxon('B')]
+ntaxa: 2
+map: Exception <class 'Taxa.ValueError'>: Map indices must be contiguous
+ntaxa: 3
+map: [Crux.Taxon.taxon('A'), Crux.Taxon.taxon('B'), Crux.Taxon.taxon('C'), Crux.Taxon.taxon('D')]
+ntaxa: 4
+Test end

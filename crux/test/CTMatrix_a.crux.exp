@@ -1,5 +1,5 @@
 Test begin
-Taxon map: ['Taxon_A', 'Taxon_B', 'Taxon_C']
+Taxa map: ['Taxon_A', 'Taxon_B', 'Taxon_C']
 Taxon_B data: 'CCCCC'
 >Taxon_A
 AAAAA

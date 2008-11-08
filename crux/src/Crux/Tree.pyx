@@ -1,6 +1,7 @@
 from CTMatrix cimport CTMatrix
 cimport Newick
-from TaxonMap cimport TaxonMap
+from Taxa cimport Taxon
+cimport Taxa # Taxa.Map
 cimport Parsing
 
 import Crux.Config
@@ -21,6 +22,7 @@ class Malformed(Exception, exceptions.SyntaxError):
 import random
 import re
 import sys
+import weakref
 
 global __name__
 
@@ -274,10 +276,9 @@ cdef Parsing.Spec _NewickSpec
 
 cdef class _NewickParser(Newick.Parser):
     cdef readonly Tree _tree
-    cdef TaxonMap _taxonMap
-    cdef bint _newickAutoMap
+    cdef Taxa.Map _taxaMap
 
-    def __init__(self, Tree tree, TaxonMap taxonMap, bint newickAutoMap=False):
+    def __init__(self, Tree tree, Taxa.Map taxaMap):
         global _NewickSpec
 
         if _NewickSpec is None:
@@ -285,8 +286,7 @@ cdef class _NewickParser(Newick.Parser):
         Newick.Parser.__init__(self, _NewickSpec)
 
         self._tree = tree
-        self._taxonMap = taxonMap
-        self._newickAutoMap = newickAutoMap
+        self._taxaMap = taxaMap
 
     cdef Parsing.Spec _initSpec(self):
         return Parsing.Spec([sys.modules[__name__], Crux.Newick],
@@ -303,52 +303,46 @@ cdef class _NewickParser(Newick.Parser):
         if label.label is None:
             return
 
-        if self._newickAutoMap:
-            ind = self._taxonMap.ntaxaGet()
-            self._taxonMap.map(label.label, ind)
+        if self._taxaMap is not None:
+            try:
+                taxon = self._ind2taxon(int(label.label))
+            except:
+                raise Malformed("No Taxa.Map index entry for %r" % label.label)
         else:
-            ind = self._taxonMap.indGet(label.label)
-            if ind == -1:
-                raise Malformed("No TaxonMap entry for %r" % label.label)
-        node.taxonNumSet(ind)
+            taxon = Taxa.get(label.label)
+
+        node.taxon = taxon
 
 #
 # End Newick tree construction support.
 #===============================================================================
 
-# XXX Add some sort of taxon re-numbering method?
 cdef class Tree:
-    def __init__(self, with_=None, TaxonMap taxonMap=None,
-      bint rooted=True, bint newickAutoMap=False):
+    def __init__(self, with_=None, Taxa.Map taxaMap=None, bint rooted=True):
+        self._taxa = weakref.WeakValueDictionary()
+        self._nodes = weakref.WeakKeyDictionary()
+        self._edges = weakref.WeakKeyDictionary()
         self._sn = 0
         self._cacheSn = -1
         self.rooted = rooted
         if type(with_) == int:
-            self._randomNew(with_, taxonMap)
+            self._randomNew(with_, taxaMap)
         elif type(with_) == str:
-            if taxonMap == None:
-                taxonMap = TaxonMap()
-            self._taxonMap = taxonMap
-            self._newickNew(with_, newickAutoMap)
+            self._newickNew(with_, taxaMap)
         else:
             assert with_ is None
-            if taxonMap == None:
-                taxonMap = TaxonMap()
-            self._taxonMap = taxonMap
 
-    cdef void _randomNew(self, int ntaxa, TaxonMap taxonMap) except *:
+    cdef void _randomNew(self, int ntaxa, Taxa.Map taxaMap) except *:
         cdef Node nodeA, nodeB, nodeC
         cdef Edge edge, edgeA, edgeB
         cdef Ring ringA, ringB
         cdef list edges
         cdef int i
 
-        if taxonMap == None:
-            self._taxonMap = TaxonMap()
+        if taxaMap is None:
+            taxaMap = Taxa.Map()
             for 0 <= i < ntaxa:
-                self._taxonMap.map("T%d" % i, i)
-        else:
-            self._taxonMap = taxonMap
+                taxaMap.map(Taxa.get("T%d" % i), i)
 
         # Create the root.
         nodeA = Node(self)
@@ -358,7 +352,7 @@ cdef class Tree:
 
         # Attach the first taxon.
         nodeB = Node(self)
-        nodeB.taxonNumSet(0)
+        nodeB.taxon = taxaMap.taxonGet(0)
         edge = Edge(self)
         edges = [edge]
         edge.attach(nodeA, nodeB)
@@ -371,7 +365,7 @@ cdef class Tree:
             # Attach a new taxon node to a new internal node.
             nodeA = Node(self)
             nodeB = Node(self)
-            nodeB.taxonNumSet(i)
+            nodeB.taxon = taxaMap.taxonGet(i)
             edgeB = Edge(self)
             edges.append(edgeB)
             edgeB.attach(nodeA, nodeB)
@@ -391,11 +385,11 @@ cdef class Tree:
             self.rooted = True
             self.deroot()
 
-    cdef void _newickNew(self, str input, bint newickAutoMap) except *:
+    cdef void _newickNew(self, str input, Taxa.Map taxaMap) except *:
         cdef _NewickParser parser
         cdef _NewickTree tree
 
-        parser = _NewickParser(self, self._taxonMap, newickAutoMap)
+        parser = _NewickParser(self, taxaMap)
         parser.parse(input)
         tree = parser.start[0]
         self.baseSet(tree.root)
@@ -405,19 +399,25 @@ cdef class Tree:
             self.rooted = True
             self.deroot()
 
-    def _dup(self, newTree, node, prevRing):
+    cdef Node _dup(self, Tree newTree, Node node, Ring prevRing):
+        cdef Node newNode, newOtherNode
+        cdef Taxon taxon
+        cdef int i, degree
+        cdef Ring ring, otherRing
+        cdef Edge newEdge
+
         newNode = Node(newTree)
-        taxonNum = node._taxonNum
-        if taxonNum != -1:
-            newNode.taxonNumSet(taxonNum)
+        taxon = node._taxon
+        if taxon is not None:
+            newNode.taxon = taxon
 
         i = 0
         degree = node.degree()
         ring = node.ring()
-        while (i < degree):
-            if ring != prevRing:
+        while i < degree:
+            if ring is not prevRing:
                 otherRing = ring._other
-                newOtherNode = self._dup(newTree, otherRing.node(), otherRing)
+                newOtherNode = self._dup(newTree, otherRing._node, otherRing)
 
                 newEdge = Edge(newTree)
                 newEdge.attach(newNode, newOtherNode)
@@ -427,14 +427,47 @@ cdef class Tree:
 
         return newNode
 
-    cpdef dup(self):
-        newTree = Tree()
-        newNode = self._dup(newTree, self.baseGet(), None)
-        newTree.baseSet(newNode)
+    cpdef Tree dup(self):
+        cdef Tree newTree
+        cdef Node newBase
 
-    # XXX Make a property.
-    cpdef taxonMapGet(self):
-        return self._taxonMap
+        newTree = Tree()
+        newBase = self._dup(newTree, self._base, None)
+        newTree.baseSet(newBase)
+        newTree.rooted = self.rooted
+
+        return newTree
+
+    property taxa:
+        """
+Alphabetized list of taxa.  If taxa are removed, this property may not be
+immediately updated.
+"""
+        def __get__(self):
+            cdef list ret
+            ret = self._taxa.keys()
+            ret.sort()
+            return ret
+
+    property nodes:
+        """
+List of nodes.  If nodes are removed, this property may not be immediately
+updated.
+"""
+        def __get__(self):
+            cdef list ret
+            ret = self._nodes.keys()
+            return ret
+
+    property edges:
+        """
+List of edges.  If edges are removed, this property may not be immediately
+updated.
+"""
+        def __get__(self):
+            cdef list ret
+            ret = self._edges.keys()
+            return ret
 
     cpdef rf(self, Tree other):
         if type(other) == Tree:
@@ -447,7 +480,7 @@ cdef class Tree:
         cdef Node node
 
         node = ring._node
-        if node._taxonNum != -1:
+        if node._taxon is not None:
             self._cachedNtaxa += 1
         self._cachedNnodes += 1
 
@@ -467,7 +500,7 @@ cdef class Tree:
 
         if self._base != None:
             node = self._base
-            if node._taxonNum != -1:
+            if node._taxon is not None:
                 self._cachedNtaxa += 1
             self._cachedNnodes += 1
             node._degree = 0
@@ -544,7 +577,7 @@ cdef class Tree:
             # Only the root node exists, so discard the whole tree.
             self.baseSet(None)
 
-    cpdef canonize(self):
+    cpdef canonize(self, Taxa.Map taxaMap):
         cdef Node base, node
         cdef Ring ring
 
@@ -563,16 +596,17 @@ cdef class Tree:
             ring = node._ring
             if ring is None:
                 return
-            base = ring._minTaxon()
-            node = ring._other._minTaxon()
-            if base._taxonNum == -1 or node._taxonNum < base._taxonNum:
+            base = ring._minTaxon(taxaMap)
+            node = ring._other._minTaxon(taxaMap)
+            if base._taxon is None or \
+              taxaMap.indGet(node._taxon) < taxaMap.indGet(base._taxon):
                 base = node
             self.baseSet(base)
 
         ring = base._ring
         if ring is None:
             return
-        ring._other._canonize()
+        ring._other._canonize(taxaMap)
 
     cpdef int collapse(self) except -1:
         cdef list collapsable
@@ -624,10 +658,17 @@ cdef class Tree:
     # XXX Rename mp* methods to reflect that these implement *Fitch* parsimony
     # *scoring*.  *Maximum* parsimony is a different concept.
     cpdef mpPrepare(self, CTMatrix cTMatrix, bint elimUninformative=True):
-        # Make sure that taxon maps are identical.
-        if not self._taxonMap.equal(cTMatrix.taxonMapGet()):
+        cdef Taxon taxon
+
+        # Make sure that cTMatrix.taxaMap is compatible.
+        if cTMatrix.taxaMap.ntaxaGet() != len(self._taxa):
             raise Tree.ValueError(
-                "TaxonMaps for Tree and CTMatrix must be equal")
+                "Taxa.Map for Tree and CTMatrix must be equal")
+        for taxon in self._taxa:
+            if cTMatrix.taxaMap.indGet(taxon) == -1:
+                raise Tree.ValueError(
+                  "Taxa.Map for CTMatrix does not contain taxon: %s" %
+                  taxon.label)
 
         self._mpPrepare(cTMatrix, elimUninformative)
 
@@ -656,8 +697,8 @@ cdef class Tree:
     cpdef heldGet(self, int i):
         pass # XXX
 
-    cpdef str render(self, bint labels=False, bint lengths=False,
-      lengthFormat="%.5e"):
+    cpdef str render(self, bint lengths=False, lengthFormat="%.5e",
+      Taxa.Map taxaMap=None):
         cdef str ret
         cdef Node n, neighbor
         cdef Ring ring
@@ -670,7 +711,7 @@ cdef class Tree:
         if n != None:
             if self.rooted:
 #                self._renderList.append("[&r] ")
-                if n._taxonNum != -1:
+                if n._taxon is not None:
                     raise Malformed("Root is labeled")
 
                 degree = n.degree()
@@ -681,15 +722,13 @@ cdef class Tree:
                     ring = n.ring()
                     assert ring != None
                     neighbor = ring._other._node
-                    neighbor.rrender(n, self._taxonMap, labels, lengths,
-                      lengthFormat)
+                    neighbor.rrender(n, lengths, lengthFormat, taxaMap)
             else: # Unrooted tree.
 #                self._renderList.append("[&u] ")
                 degree = n.degree()
                 if degree == 0:
                     # There is only one node in the tree.
-                    n.rrender(None, self._taxonMap, labels, lengths,
-                      lengthFormat)
+                    n.rrender(None, lengths, lengthFormat, taxaMap)
                 elif degree == 1:
                     # Leaf node.  If this node's neighbor is an internal node,
                     # start rendering with it, in order to unroot the tree.
@@ -698,22 +737,21 @@ cdef class Tree:
                     neighbor = ring._other._node
                     if neighbor.degree() > 1:
                         # Start with the internal node.
-                        neighbor.rrender(None, self._taxonMap, labels,
-                          lengths, lengthFormat, noLength=True)
+                        neighbor.rrender(None, lengths, lengthFormat, taxaMap,
+                          noLength=True)
                     else:
                         # This tree only has two taxa; start with the tree
                         # base.
                         self._renderList.append("(")
-                        n.rrender(neighbor, self._taxonMap, labels, lengths,
-                          lengthFormat)
+                        n.rrender(neighbor, lengths, lengthFormat, taxaMap)
                         self._renderList.append(",")
-                        neighbor.rrender(n, self._taxonMap, labels, lengths,
-                          lengthFormat, zeroLength=True)
+                        neighbor.rrender(n, lengths, lengthFormat, taxaMap,
+                          zeroLength=True)
                         self._renderList.append(")")
                 else:
                     # Internal node.
-                    n.rrender(None, self._taxonMap, labels, lengths,
-                      lengthFormat, noLength=True)
+                    n.rrender(None, lengths, lengthFormat, taxaMap,
+                      noLength=True)
 
         self._renderList.append(";")
 
@@ -737,18 +775,30 @@ cdef class Node:
     def __init__(self, Tree tree):
         self._tree = tree
         self._ring = None
-        self._taxonNum = -1
+        self._taxon = None
+
+        tree._nodes[self] = None
 
     # XXX Make a property.
     cpdef Tree tree(self):
         return self._tree
 
-    # XXX Make a property.
-    cpdef int taxonNumGet(self):
-        return self._taxonNum
-    cpdef taxonNumSet(self, int taxonNum):
-        self._taxonNum = taxonNum
-        self._tree._sn += 1
+    property taxon:
+        def __get__(self):
+            return self._taxon
+        def __set__(self, Taxon taxon):
+            if __debug__:
+                if taxon is not self._taxon and taxon in self._tree._taxa \
+                  and self._tree._base is not None:
+                    node = self._tree._taxa[taxon]
+                    if node.separation(self._tree._base) != -1:
+                        raise Malformed("Taxon already in use: %r" % \
+                          taxon.label)
+
+            if self._taxon is not None:
+                self._tree._taxa.pop(self._taxon)
+            self._tree._taxa[taxon] = self
+            self._taxon = taxon
 
     # XXX Make a property.
     cpdef Ring ring(self):
@@ -780,10 +830,11 @@ cache, set calculate to True.
                     ret += 1
             return ret
 
-    cpdef rrender(self, Node prev, TaxonMap taxonMap, bint labels, bint lengths,
-      lengthFormat, bint zeroLength=False, bint noLength=False):
+    cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
+      bint zeroLength=False, bint noLength=False):
         cdef bint did_paren = False
-        cdef object taxonLabel, m
+        cdef str label
+        cdef object m
         cdef Ring ring, r
         cdef Node neighbor
         cdef int degree
@@ -802,27 +853,27 @@ cache, set calculate to True.
                         self._tree._renderList.append("(")
                         did_paren = True
 
-                    neighbor.rrender(self, taxonMap, labels, lengths,
-                      lengthFormat)
+                    neighbor.rrender(self, lengths, lengthFormat, taxaMap)
 
             if did_paren:
                 self._tree._renderList.append(")")
 
         # Render label.
-        if self._taxonNum != -1:
-            if labels:
-                # Protect special characters, if necessary.
-                taxonLabel = taxonMap.labelGet(self._taxonNum)
-                m = re.compile(r"[_()[\]':;,]").search(taxonLabel)
-                if m:
-                    taxonLabel = re.compile("'").sub("''", taxonLabel)
-                    self._tree._renderList.append("'%s'" % taxonLabel)
-                else:
-                    if taxonLabel.find(" ") != -1:
-                        taxonLabel = re.compile(" ").sub("_", taxonLabel)
-                    self._tree._renderList.append("%s" % taxonLabel)
+        if self._taxon is not None:
+            if taxaMap is not None:
+                self._tree._renderList.append("%d" %
+                  taxaMap.indGet(self._taxon))
             else:
-                self._tree._renderList.append("%d" % self._taxonNum)
+                # Protect special characters, if necessary.
+                label = self._taxon.label
+                m = re.compile(r"[_()[\]':;,]").search(label)
+                if m:
+                    label = re.compile("'").sub("''", label)
+                    self._tree._renderList.append("'%s'" % label)
+                else:
+                    if label.find(" ") != -1:
+                        label = re.compile(" ").sub("_", label)
+                    self._tree._renderList.append("%s" % label)
 
         # Render branch length.
         degree = self.degree()
@@ -863,6 +914,8 @@ cdef class Edge:
         self._ring = Ring(self, None)
         other = Ring(self, self._ring)
         self._ring._other = other
+
+        tree._edges[self] = None
 
     cpdef Tree tree(self):
         return self._tree
@@ -978,19 +1031,20 @@ cdef class Ring:
     cpdef siblings(self):
         return _RingIterHelper(self, False)
 
-    cdef Node _minTaxon(self):
+    cdef Node _minTaxon(self, Taxa.Map taxaMap):
         cdef Node ret, minTaxon
         cdef Ring r
 
         ret = self._node
         for r in self.siblings():
-            minTaxon = r._other._minTaxon()
-            if ret._taxonNum == -1 or minTaxon._taxonNum < ret._taxonNum:
+            minTaxon = r._other._minTaxon(taxaMap)
+            if ret._taxon is None or \
+              taxaMap.indGet(minTaxon._taxon) < taxaMap.indGet(ret._taxon):
                 ret = minTaxon
 
         return ret
 
-    cdef Node _canonize(self):
+    cdef Node _canonize(self, Taxa.Map taxaMap):
         cdef Node ret, minTaxon, node, nodeOther
         cdef int degree
         cdef list rings
@@ -1007,10 +1061,11 @@ cdef class Ring:
             # Iteratively canonize subtrees, keeping track of the minimum
             # taxon seen overall, as well as for each subtree.
             for r in self.siblings():
-                minTaxon = r._other._canonize()
-                if ret._taxonNum == -1 or minTaxon._taxonNum < ret._taxonNum:
+                minTaxon = r._other._canonize(taxaMap)
+                if ret._taxon is None or \
+                  taxaMap.indGet(minTaxon._taxon) < taxaMap.indGet(ret._taxon):
                     ret = minTaxon
-                rings.append((minTaxon._taxonNum, r))
+                rings.append((taxaMap.indGet(minTaxon._taxon), r))
 
             # Sort according to per-subtree minimum taxa.
             rings.sort()

@@ -15,34 +15,34 @@ print "Test begin"
 
 maps = [
     [],
-    ['A'],
-    ['A', 'B', 'C', 'D']
+    [Crux.Taxa.get(label) for label in ('A')],
+    [Crux.Taxa.get(label) for label in ('A', 'B', 'C', 'D')]
     ]
 
 for map in maps:
-    m = Crux.TaxonMap.TaxonMap(map)
+    m = Crux.Taxa.Map(map)
     print
     print "map:", m.taxaGet()
     print "ntaxa: %d" % m.ntaxaGet()
 
     i = 0
-    for label in m.taxaGet():
-        print "label '%s' '%s' at index %d %d" \
-              % (label, m.labelGet(i), m.indGet(label), i)
+    for taxon in m.taxaGet():
+        print "taxon '%s' '%s' at index %d %d" \
+              % (taxon, m.taxonGet(i), m.indGet(taxon), i)
 
         i += 1
 
-m = Crux.TaxonMap.TaxonMap()
+m = Crux.Taxa.Map()
 print
 print "map:", m.taxaGet()
 print "ntaxa: %d" % m.ntaxaGet()
 
-m.map('B', 1)
-m.map('A', 0)
+m.map(Crux.Taxa.get('B'), 1)
+m.map(Crux.Taxa.get('A'), 0)
 print "map:", m.taxaGet()
 print "ntaxa: %d" % m.ntaxaGet()
 
-m.map('D', 3)
+m.map(Crux.Taxa.get('D'), 3)
 try:
     print "map:", m.taxaGet()
 except:
@@ -52,7 +52,7 @@ except:
     print "Exception %s: %s" % (error[0], error[1])
 print "ntaxa: %d" % m.ntaxaGet()
 
-m.map('C', 2)
+m.map(Crux.Taxa.get('C'), 2)
 print "map:", m.taxaGet()
 print "ntaxa: %d" % m.ntaxaGet()
 

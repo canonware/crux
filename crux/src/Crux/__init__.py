@@ -9,5 +9,5 @@ import DistMatrix
 import Exception
 import Fasta
 import Newick
-import TaxonMap
+import Taxa
 import Tree

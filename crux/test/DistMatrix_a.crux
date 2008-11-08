@@ -304,7 +304,8 @@ for matrix in matrices:
 
 try:
     print "==="
-    taxonMap = Crux.TaxonMap.TaxonMap(['A', 'B', 'C'])
+    taxonMap = Crux.Taxa.Map([Crux.Taxa.taxon(label) for label in
+      ('A', 'B', 'C')])
     distMatrix = Crux.DistMatrix.DistMatrix(taxonMap)
     print distMatrix.render('full', '%.5f')
 except:

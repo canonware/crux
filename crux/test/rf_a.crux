@@ -11,19 +11,20 @@
 
 print "Test begin"
 
-taxonMap = Crux.TaxonMap.TaxonMap(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'])
+taxaMap = Crux.Taxa.Map([Crux.Taxa.taxon(label) for l in
+  ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H')])
 
 ###
-a = Crux.Tree.Tree('(A,(B,C),D);', taxonMap=taxonMap)
+a = Crux.Tree.Tree('(A,(B,C),D);', taxaMap=taxaMap)
 print "%.2f" % a.rf(a)
 
-b = Crux.Tree.Tree('(A,(B,C),D);', taxonMap=taxonMap)
+b = Crux.Tree.Tree('(A,(B,C),D);', taxaMap=taxaMap)
 print "%.2f" % a.rf(b)
 
-c = Crux.Tree.Tree('(A,B,(C,D));', taxonMap=taxonMap)
+c = Crux.Tree.Tree('(A,B,(C,D));', taxaMap=taxaMap)
 print "%.2f" % a.rf(c)
 
-d = Crux.Tree.Tree('(A,B,C,D);', taxonMap=taxonMap)
+d = Crux.Tree.Tree('(A,B,C,D);', taxaMap=taxaMap)
 print "%.2f" % a.rf(d)
 
 print "("
@@ -33,19 +34,19 @@ for distance in r:
 print ")"
 
 ###
-a = Crux.Tree.Tree('((A,B),(C,D),(E,F));', taxonMap=taxonMap)
+a = Crux.Tree.Tree('((A,B),(C,D),(E,F));', taxaMap=taxaMap)
 print "%.2f" % a.rf(a)
 
-b = Crux.Tree.Tree('(((A,B),C),D,(E,F));', taxonMap=taxonMap)
+b = Crux.Tree.Tree('(((A,B),C),D,(E,F));', taxaMap=taxaMap)
 print "%.2f" % a.rf(b)
 
-c = Crux.Tree.Tree('(((C,D),A),B,(E,F));', taxonMap=taxonMap)
+c = Crux.Tree.Tree('(((C,D),A),B,(E,F));', taxaMap=taxaMap)
 print "%.2f" % a.rf(c)
 
-d = Crux.Tree.Tree('(((A,C),E),F,(B,D));', taxonMap=taxonMap)
+d = Crux.Tree.Tree('(((A,C),E),F,(B,D));', taxaMap=taxaMap)
 print "%.2f" % a.rf(d)
 
-e = Crux.Tree.Tree('(A,B,C,D,E,F);', taxonMap=taxonMap)
+e = Crux.Tree.Tree('(A,B,C,D,E,F);', taxaMap=taxaMap)
 print "%.2f" % a.rf(e)
 
 print "("
@@ -61,24 +62,24 @@ for distance in r:
 print ")"
 
 ###
-a = Crux.Tree.Tree(';', taxonMap=taxonMap)
-b = Crux.Tree.Tree(';', taxonMap=taxonMap)
+a = Crux.Tree.Tree(';', taxaMap=taxaMap)
+b = Crux.Tree.Tree(';', taxaMap=taxaMap)
 print "%.2f" % a.rf(b)
 
 ###
-a = Crux.Tree.Tree('A;', taxonMap=taxonMap)
-b = Crux.Tree.Tree('A;', taxonMap=taxonMap)
+a = Crux.Tree.Tree('A;', taxaMap=taxaMap)
+b = Crux.Tree.Tree('A;', taxaMap=taxaMap)
 print "%.2f" % a.rf(b)
 
 ###
-a = Crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
-b = Crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
+a = Crux.Tree.Tree('(A,B);', taxaMap=taxaMap)
+b = Crux.Tree.Tree('(A,B);', taxaMap=taxaMap)
 print "%.2f" % a.rf(b)
 
 ###
 try:
-    a = Crux.Tree.Tree('A;', taxonMap=taxonMap)
-    b = Crux.Tree.Tree('(A,B);', taxonMap=taxonMap)
+    a = Crux.Tree.Tree('A;', taxaMap=taxaMap)
+    b = Crux.Tree.Tree('(A,B);', taxaMap=taxaMap)
     print "%.2f" % a.rf(b)
 except:
     import sys

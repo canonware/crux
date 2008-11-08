@@ -12,17 +12,18 @@
 print "Test begin"
 
 dnaChar = Crux.Character.Dna()
-map = Crux.TaxonMap.TaxonMap(['Taxon_A', 'Taxon_B', 'Taxon_C'])
-matrix = Crux.CTMatrix.CTMatrix(taxonMap=map)
+map = Crux.Taxa.Map([Crux.Taxa.get(label) for label in
+  ('Taxon_A', 'Taxon_B', 'Taxon_C')])
+matrix = Crux.CTMatrix.CTMatrix(taxaMap=map)
 
-print "Taxon map: %r" % matrix.taxonMap.taxaGet()
+print "Taxa map: %r" % ([taxon.label for taxon in matrix.taxaMap.taxaGet()])
 
-matrix.dataSet("Taxon_B", "CCCCC")
-print "Taxon_B data: %r" % matrix.dataGet("Taxon_B")
+matrix.dataSet(Crux.Taxa.get("Taxon_B"), "CCCCC")
+print "Taxon_B data: %r" % matrix.dataGet(Crux.Taxa.get("Taxon_B"))
 
-matrix.dataSet("Taxon_A", "AAAAA")
-matrix.dataSet("Taxon_C", "GGGG")
-matrix.dataSet("Taxon_D", "TTTTT")
+matrix.dataSet(Crux.Taxa.get("Taxon_A"), "AAAAA")
+matrix.dataSet(Crux.Taxa.get("Taxon_C"), "GGGG")
+matrix.dataSet(Crux.Taxa.get("Taxon_D"), "TTTTT")
 
 print matrix.fastaPrint()
 

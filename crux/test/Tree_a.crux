@@ -7,15 +7,15 @@ print "Test begin"
 # Re-seed the PRNG so that test results are repeatable.
 random.seed(42)
 
-taxonMap = Crux.TaxonMap.TaxonMap(["T%d" % i for i in xrange(100)])
+taxaMap = Crux.Taxa.Map([Crux.Taxa.get("T%d" % i) for i in xrange(100)])
 
 for i in xrange(21):
     print "Taxa: %d" % i
-    t = Crux.Tree.Tree(i, taxonMap=taxonMap, rooted=True)
-    t.canonize()
-    print "  [&r] %s" % t.render(labels=True)
-    t = Crux.Tree.Tree(i, taxonMap=taxonMap, rooted=False)
-    t.canonize()
-    print "  [&u] %s" % t.render(labels=True)
+    t = Crux.Tree.Tree(i, taxaMap=taxaMap, rooted=True)
+    t.canonize(taxaMap)
+    print "  [&r] %s" % t.render()
+    t = Crux.Tree.Tree(i, taxaMap=taxaMap, rooted=False)
+    t.canonize(taxaMap)
+    print "  [&u] %s" % t.render()
 
 print "Test end"
