@@ -27,11 +27,10 @@ cdef class Tree:
     cpdef rf(self, Tree other)
     cdef void _recacheRecurse(self, Ring ring)
     cdef void _recache(self)
-    cpdef int ntaxaGet(self)
-    cpdef int nnodesGet(self)
-    cpdef int nedgesGet(self)
-    cpdef Node baseGet(self)
-    cpdef baseSet(self, Node base)
+    # property ntaxa
+    # property nnodes
+    # property nedges
+    # property base
 
     cpdef deroot(self)
     cpdef canonize(self, Taxa.Map taxaMap)
@@ -59,10 +58,11 @@ cdef class Node:
     cdef Taxon _taxon
     cdef int _degree
 
-    cpdef Tree tree(self)
+    # property tree
     # property taxon
-    cpdef Ring ring(self)
-    cpdef int degree(self, bint calculate=?) except -1
+    # property ring
+    cpdef int _degreeGet(self, bint calculate=?) except -1
+    # property degree
     cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
       bint zeroLength=?, bint noLength=?)
     cpdef int separation(self, Node other)
@@ -73,10 +73,9 @@ cdef class Edge:
     cdef float _length
     cdef Ring _ring
 
-    cpdef Tree tree(self)
-    cpdef rings(self)
-    cpdef float lengthGet(self)
-    cpdef lengthSet(self, float length)
+    # property tree
+    # property ring
+    # property length
     cpdef attach(self, Node nodeA, Node nodeB)
     cpdef detach(self)
 
@@ -92,11 +91,11 @@ cdef class Ring:
     cdef Node _canonize(self, Taxa.Map taxaMap)
     cdef void _collapsable(self, list collapsable) except *
     cdef void _collapse(self)
-
-    cpdef Tree tree(self)
-    cpdef Node node(self)
-    cpdef Edge edge(self)
-    cpdef Ring other(self)
-    cpdef Ring next(self)
-    cpdef Ring prev(self)
     cdef int _separation(self, Node other, int sep)
+
+    # property tree
+    # property node
+    # property edge
+    # property other
+    # property next
+    # property prev

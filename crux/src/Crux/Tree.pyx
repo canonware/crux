@@ -69,7 +69,7 @@ cdef class _NewickTree(Newick.Tree):
         self.parser._labelNode((<_NewickDescendantList>DescendantList).node,
           <_NewickLabel>Label)
         edge = Edge(self.parser._tree)
-        edge.lengthSet(float(branchLength.raw))
+        edge.length = float(branchLength.raw)
         edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
 
     # (A,B)C;
@@ -103,7 +103,7 @@ cdef class _NewickTree(Newick.Tree):
         cdef Edge edge
 
         edge = Edge(self.parser._tree)
-        edge.lengthSet(float(branchLength.raw))
+        edge.length = float(branchLength.raw)
         edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
 
     # A:4.2;
@@ -120,7 +120,7 @@ cdef class _NewickTree(Newick.Tree):
         node = Node(self.parser._tree)
         self.parser._labelNode(node, <_NewickLabel>Label)
         edge = Edge(self.parser._tree)
-        edge.lengthSet(float(branchLength.raw))
+        edge.length = float(branchLength.raw)
         edge.attach(self.root, node)
 
     # (A,B);
@@ -166,7 +166,7 @@ cdef class _NewickTree(Newick.Tree):
 
         node = Node(self.parser._tree)
         edge = Edge(self.parser._tree)
-        edge.lengthSet(float(branchLength.raw))
+        edge.length = float(branchLength.raw)
         edge.attach(self.root, node)
 
     # ;
@@ -190,7 +190,7 @@ cdef class _NewickDescendantList(Newick.DescendantList):
         subtree = (<_NewickSubtreeList>SubtreeList).last
         while subtree is not None:
             edge = Edge(self.parser._tree)
-            edge.lengthSet(subtree.len)
+            edge.length = subtree.len
             edge.attach(self.node, subtree.node)
             subtree = subtree.prev
 
@@ -346,7 +346,7 @@ cdef class Tree:
 
         # Create the root.
         nodeA = Node(self)
-        self.baseSet(nodeA)
+        self.base = nodeA
         if ntaxa == 0:
             return
 
@@ -370,7 +370,8 @@ cdef class Tree:
             edges.append(edgeB)
             edgeB.attach(nodeA, nodeB)
 
-            (ringA, ringB) = edgeA.rings()
+            ringA = edgeA._ring
+            ringB = ringA._other
             nodeB = ringA._node
             nodeC = ringB._node
             edgeA.detach()
@@ -392,7 +393,7 @@ cdef class Tree:
         parser = _NewickParser(self, taxaMap)
         parser.parse(input)
         tree = parser.start[0]
-        self.baseSet(tree.root)
+        self.base = tree.root
 
         # Convert to unrooted if necessary.
         if not self.rooted:
@@ -412,8 +413,8 @@ cdef class Tree:
             newNode.taxon = taxon
 
         i = 0
-        degree = node.degree()
-        ring = node.ring()
+        degree = node._degreeGet()
+        ring = node._ring
         while i < degree:
             if ring is not prevRing:
                 otherRing = ring._other
@@ -422,7 +423,7 @@ cdef class Tree:
                 newEdge = Edge(newTree)
                 newEdge.attach(newNode, newOtherNode)
 
-            ring = ring.next()
+            ring = ring._next
             i += 1
 
         return newNode
@@ -433,7 +434,7 @@ cdef class Tree:
 
         newTree = Tree()
         newBase = self._dup(newTree, self._base, None)
-        newTree.baseSet(newBase)
+        newTree.base = newBase
         newTree.rooted = self.rooted
 
         return newTree
@@ -513,30 +514,30 @@ updated.
 
         self._cacheSn = self._sn
 
-    # XXX Make a property.
-    cpdef int ntaxaGet(self):
-        if self._cacheSn != self._sn:
-            self._recache()
-        return self._cachedNtaxa
+    property ntaxa:
+        def __get__(self):
+            if self._cacheSn != self._sn:
+                self._recache()
+            return self._cachedNtaxa
 
-    # XXX Make a property.
-    cpdef int nnodesGet(self):
-        if self._cacheSn != self._sn:
-            self._recache()
-        return self._cachedNnodes
+    property nnodes:
+        def __get__(self):
+            if self._cacheSn != self._sn:
+                self._recache()
+            return self._cachedNnodes
 
-    # XXX Make a property.
-    cpdef int nedgesGet(self):
-        if self._cacheSn != self._sn:
-            self._recache()
-        return self._cachedNedges
+    property nedges:
+        def __get__(self):
+            if self._cacheSn != self._sn:
+                self._recache()
+            return self._cachedNedges
 
-    # XXX Make a property.
-    cpdef Node baseGet(self):
-        return self._base
-    cpdef baseSet(self, Node base):
-        self._base = base
-        self._sn += 1
+    property base:
+        def __get__(self):
+            return self._base
+        def __set__(self, Node base):
+            self._base = base
+            self._sn += 1
 
     cpdef deroot(self):
         cdef Node node
@@ -554,11 +555,11 @@ updated.
             node = ring._node
             edge = ring._edge
             edge.detach()
-            if node.degree(calculate=True) == 2:
+            if node._degreeGet(calculate=True) == 2:
                 # Detaching the root left an internal node with two edges.
                 # Splice the node out.
                 ring = node._ring
-                self.baseSet(ring._other._node)
+                self.base = ring._other._node
                 edge = ring._edge
                 removedLength = edge._length
                 edge.detach()
@@ -567,15 +568,15 @@ updated.
                 node = ring._other._node
                 edge.detach()
                 edge.attach(self._base, node)
-                edge.lengthSet(edge._length + removedLength)
+                edge.length = edge._length + removedLength
                 # Change ring header/order in order to avoid disturbing
                 # canonical order.
                 self._base._ring = self._base._ring._next
             else:
-                self.baseSet(node)
+                self.base = node
         else:
             # Only the root node exists, so discard the whole tree.
-            self.baseSet(None)
+            self.base = None
 
     cpdef canonize(self, Taxa.Map taxaMap):
         cdef Node base, node
@@ -584,7 +585,7 @@ updated.
         if self.rooted:
             base = self._base
             assert base is not None
-            assert base.degree() <= 1
+            assert base._degreeGet() <= 1
         else:
             # Find the minimum taxon before canonizing, and set it as the tree
             # base.  This is critical to correct results, since starting from
@@ -601,7 +602,7 @@ updated.
             if base._taxon is None or \
               taxaMap.indGet(node._taxon) < taxaMap.indGet(base._taxon):
                 base = node
-            self.baseSet(base)
+            self.base = base
 
         ring = base._ring
         if ring is None:
@@ -661,7 +662,7 @@ updated.
         cdef Taxon taxon
 
         # Make sure that cTMatrix.taxaMap is compatible.
-        if cTMatrix.taxaMap.ntaxaGet() != len(self._taxa):
+        if cTMatrix.taxaMap.ntaxa != len(self._taxa):
             raise Tree.ValueError(
                 "Taxa.Map for Tree and CTMatrix must be equal")
         for taxon in self._taxa:
@@ -714,28 +715,28 @@ updated.
                 if n._taxon is not None:
                     raise Malformed("Root is labeled")
 
-                degree = n.degree()
+                degree = n._degreeGet()
                 if degree > 1:
                     raise Malformed("Root is an internal node")
 
                 if degree == 1:
-                    ring = n.ring()
+                    ring = n._ring
                     assert ring != None
                     neighbor = ring._other._node
                     neighbor.rrender(n, lengths, lengthFormat, taxaMap)
             else: # Unrooted tree.
 #                self._renderList.append("[&u] ")
-                degree = n.degree()
+                degree = n._degreeGet()
                 if degree == 0:
                     # There is only one node in the tree.
                     n.rrender(None, lengths, lengthFormat, taxaMap)
                 elif degree == 1:
                     # Leaf node.  If this node's neighbor is an internal node,
                     # start rendering with it, in order to unroot the tree.
-                    ring = n.ring()
+                    ring = n._ring
                     assert ring != None
                     neighbor = ring._other._node
-                    if neighbor.degree() > 1:
+                    if neighbor._degreeGet() > 1:
                         # Start with the internal node.
                         neighbor.rrender(None, lengths, lengthFormat, taxaMap,
                           noLength=True)
@@ -779,9 +780,9 @@ cdef class Node:
 
         tree._nodes[self] = None
 
-    # XXX Make a property.
-    cpdef Tree tree(self):
-        return self._tree
+    property tree:
+        def __get__(self):
+            return self._tree
 
     property taxon:
         def __get__(self):
@@ -800,15 +801,14 @@ cdef class Node:
             self._tree._taxa[taxon] = self
             self._taxon = taxon
 
-    # XXX Make a property.
-    cpdef Ring ring(self):
-        return self._ring
+    property ring:
+        def __get__(self):
+            return self._ring
 
-    # XXX Make a property, and make the calculate=True case a separate method.
-    cpdef int degree(self, bint calculate=False) except -1:
+    cpdef int _degreeGet(self, bint calculate=False) except -1:
         """
 Return the number of attached edges.  If the node is reachable via the tree
-base (self.separation(self.tree().baseGet()) != -1), it is possible to use a
+base (self.separation(self.tree.base) != -1), it is possible to use a
 cached value.  For an unreachable node, or in order to avoid computing the
 cache, set calculate to True.
 """
@@ -829,6 +829,10 @@ cache, set calculate to True.
                 for ring in self._ring:
                     ret += 1
             return ret
+
+    property degree:
+        def __get__(self):
+            return self._degreeGet(calculate=False)
 
     cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
       bint zeroLength=False, bint noLength=False):
@@ -876,7 +880,7 @@ cache, set calculate to True.
                     self._tree._renderList.append("%s" % label)
 
         # Render branch length.
-        degree = self.degree()
+        degree = self._degreeGet()
         if lengths and degree > 0:
             ring = self._ring
             assert ring != None
@@ -904,7 +908,6 @@ cache, set calculate to True.
                     return ret
         return -1
 
-# XXX Make methods into properties.
 cdef class Edge:
     def __init__(self, Tree tree):
         cdef Ring other
@@ -917,19 +920,20 @@ cdef class Edge:
 
         tree._edges[self] = None
 
-    cpdef Tree tree(self):
-        return self._tree
+    property tree:
+        def __get__(self):
+            return self._tree
 
-    # XXX Directly expose both rings as attributes to avoid tuple creation.
-    cpdef rings(self):
-        return (self._ring, self._ring._other)
+    property ring:
+        def __get__(self):
+            return self._ring
 
-    cpdef float lengthGet(self):
-        return self._length
-
-    cpdef lengthSet(self, float length):
-        self._length = length
-        self._tree._sn += 1
+    property length:
+        def __get__(self):
+            return self._length
+        def __set__(self, float length):
+            self._length = length
+            self._tree._sn += 1
 
     cpdef attach(self, Node nodeA, Node nodeB):
         cdef Ring ring, nRing, pRing
@@ -1014,7 +1018,6 @@ cdef class _RingIterHelper:
             self._next = ret._next
         return ret
 
-# XXX Make methods into properties.
 cdef class Ring:
     def __init__(self, Edge edge, Ring other):
         self._node = None
@@ -1054,7 +1057,7 @@ cdef class Ring:
         node = self._node
         ret = node
 
-        degree = node.degree()
+        degree = node._degreeGet()
         if degree > 1:
             rings = []
 
@@ -1097,11 +1100,12 @@ cdef class Ring:
 
         edge = self._edge
         if edge._length <= 0.0:
-            if self._node.degree() > 1 and self._other._node.degree() > 1:
+            if self._node._degreeGet() > 1 and \
+              self._other._node._degreeGet() > 1:
                 collapsable.append(self)
             else:
                 # Leaf node.  Clamp length.
-                edge.lengthSet(0.0)
+                edge.length = 0.0
 
     cdef void _collapse(self):
         cdef Ring rOther, rTemp
@@ -1132,7 +1136,7 @@ cdef class Ring:
         edge = self._edge
         rOther = self._other
         nOther = rOther._node
-        assert nOther.degree(calculate=True) > 1
+        assert nOther._degreeGet(calculate=True) > 1
 
         rTemp = rOther._next
         while rTemp != rOther:
@@ -1142,26 +1146,8 @@ cdef class Ring:
             eTemp.attach(node, nTemp)
             rTemp = rOther._next
 
-        assert nOther.degree(calculate=True) == 1
+        assert nOther._degreeGet(calculate=True) == 1
         edge.detach()
-
-    cpdef Tree tree(self):
-        return self._edge._tree
-
-    cpdef Node node(self):
-        return self._node
-
-    cpdef Edge edge(self):
-        return self._edge
-
-    cpdef Ring other(self):
-        return self._other
-
-    cpdef Ring next(self):
-        return self._next
-
-    cpdef Ring prev(self):
-        return self._prev
 
     cdef int _separation(self, Node other, int sep):
         cdef int ret
@@ -1176,3 +1162,27 @@ cdef class Ring:
                 return ret
 
         return -1
+
+    property tree:
+        def __get__(self):
+            return self._edge._tree
+
+    property node:
+        def __get__(self):
+            return self._node
+
+    property edge:
+        def __get__(self):
+            return self._edge
+
+    property other:
+        def __get__(self):
+            return self._other
+
+    property next:
+        def __get__(self):
+            return self._next
+
+    property prev:
+        def __get__(self):
+            return self._prev

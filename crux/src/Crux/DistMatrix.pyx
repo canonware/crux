@@ -87,20 +87,20 @@ cdef class DistMatrix:
                 taxonMap = Taxa.Map(input.taxonMapGet().taxaGet())
                 self._dup(input, taxonMap)
             else:
-                if sample < 2 or sample > input.ntaxaGet():
+                if sample < 2 or sample > input.ntaxa:
                     raise ValueError("sample: Out of range (%d not in 2..%d)" \
-                                      % (sample, input.ntaxaGet()))
+                                      % (sample, input.ntaxa))
                 if symmetric:
                     raise ValueError("symmetric: Automatic for sampling")
 
                 # Create a sample of rows.
-                rows = random.sample(range(input.ntaxaGet()), sample)
+                rows = random.sample(range(input.ntaxa), sample)
 
                 # Construct a TaxoMap for the new DistMatrix.
                 inputMap = input.taxonMapGet()
                 taxonMap = Taxa.Map()
                 for row in rows:
-                    taxonMap.map(inputMap.labelGet(row), taxonMap.ntaxaGet())
+                    taxonMap.map(inputMap.labelGet(row), taxonMap.ntaxa)
 
                 self._sample(input, taxonMap, rows)
         else:
@@ -110,13 +110,17 @@ cdef class DistMatrix:
     cdef void _parse(self, input, Taxa.Map taxonMap, bint symmetric):
         pass # XXX
 
-    # XXX Make a property.
-    cdef int ntaxaGet(self):
-        pass # XXX
+    property ntaxa:
+        def __get__(self):
+            pass # XXX
 
-    # XXX Make a property.
-    cdef bint isSymmetric(self):
-        pass # XXX
+    property symmetric:
+        def __get__(self):
+            pass # XXX
+
+    property taxaMap:
+        def __get__(self):
+            pass # XXX
 
     cdef DistMatrix _dup(self, input, Taxa.Map taxonMap):
         pass # XXX
@@ -124,11 +128,6 @@ cdef class DistMatrix:
     cdef DistMatrix _sample(self, input, Taxa.Map taxonMap, list rows):
         pass # XXX
 
-    # XXX Make a property.
-    cdef Taxa.Map taxonMapGet(self):
-        pass # XXX
-
-    # XXX Make a property.
     cdef float distanceGet(self, int x, int y):
         pass # XXX
     cdef void distanceSet(self, int x, int y, float distance):
@@ -152,7 +151,7 @@ cdef class DistMatrix:
     # make corresponding changes to the Taxa.Map.
     def shuffle(self):
         # Create a random shuffle order.
-        order = random.sample(range(self.ntaxaGet()), self.ntaxaGet())
+        order = random.sample(range(self.ntaxa), self.ntaxa)
 
         # Shuffle the matrix.
         self._matrixShuffle(order)
@@ -160,7 +159,7 @@ cdef class DistMatrix:
         # Shuffle the Taxa.Map.
         taxonMap = self.taxonMapGet()
         labels = taxonMap.taxaGet()
-        for i in xrange(self.ntaxaGet()):
+        for i in xrange(self.ntaxa):
             taxonMap.map(labels[order[i]], i, replace=True)
 
     # Construct a neighbor joining (NJ) tree from the distance matrix.

@@ -162,9 +162,9 @@ cdef class Spec:
     cdef str _resolve(self, SymbolSpec sym, Action oldAct, Action newAct)
 
 cdef class Lr:
-    cdef Spec _spec
-    cdef bint _verbose
-    cdef list _start
+    cdef readonly Spec spec
+    cdef public bint verbose
+    cdef readonly list start
     cdef list _stack
 
     cpdef reset(self)

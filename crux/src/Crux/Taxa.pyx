@@ -55,8 +55,9 @@ cdef class Map:
                 self._taxon2ind[taxon] = i
                 self._ind2taxon[i] = taxon
 
-    cpdef int ntaxaGet(self):
-        return len(self._ind2taxon)
+    property ntaxa:
+        def __get__(self):
+            return len(self._ind2taxon)
 
     cpdef Taxon taxonGet(self, int ind):
         try:
@@ -86,11 +87,11 @@ cdef class Map:
     cpdef bint equal(self, Map other):
         if other is self:
             return True
-        elif self.ntaxaGet() != other.ntaxaGet():
+        elif self.ntaxa != other.ntaxa:
             return False
         else:
             try:
-                for 0 <= i < self.ntaxaGet():
+                for 0 <= i < self.ntaxa:
                     if self.taxonGet(i) is not self.taxonGet(i):
                         return False
                 return True
@@ -99,7 +100,7 @@ cdef class Map:
 
     # Map a taxon to an index.  Typical usage is something like:
     #
-    #   m.map(taxon, m.ntaxaGet())
+    #   m.map(taxon, m.ntaxa)
     cpdef map(self, Taxon taxon, int ind, bint replace=False):
         if replace == False:
             # Make sure that taxon hasn't already been mapped to an index.

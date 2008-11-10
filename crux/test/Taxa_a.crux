@@ -23,7 +23,7 @@ for map in maps:
     m = Crux.Taxa.Map(map)
     print
     print "map:", m.taxaGet()
-    print "ntaxa: %d" % m.ntaxaGet()
+    print "ntaxa: %d" % m.ntaxa
 
     i = 0
     for taxon in m.taxaGet():
@@ -35,12 +35,12 @@ for map in maps:
 m = Crux.Taxa.Map()
 print
 print "map:", m.taxaGet()
-print "ntaxa: %d" % m.ntaxaGet()
+print "ntaxa: %d" % m.ntaxa
 
 m.map(Crux.Taxa.get('B'), 1)
 m.map(Crux.Taxa.get('A'), 0)
 print "map:", m.taxaGet()
-print "ntaxa: %d" % m.ntaxaGet()
+print "ntaxa: %d" % m.ntaxa
 
 m.map(Crux.Taxa.get('D'), 3)
 try:
@@ -50,10 +50,10 @@ except:
 
     error = sys.exc_info()
     print "Exception %s: %s" % (error[0], error[1])
-print "ntaxa: %d" % m.ntaxaGet()
+print "ntaxa: %d" % m.ntaxa
 
 m.map(Crux.Taxa.get('C'), 2)
 print "map:", m.taxaGet()
-print "ntaxa: %d" % m.ntaxaGet()
+print "ntaxa: %d" % m.ntaxa
 
 print "Test end"

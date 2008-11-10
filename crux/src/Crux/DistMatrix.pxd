@@ -3,11 +3,11 @@ cimport Taxa
 
 cdef class DistMatrix:
     cdef void _parse(self, input, Taxa.Map taxonMap, bint symmetric)
-    cdef int ntaxaGet(self)
-    cdef bint isSymmetric(self)
+    # property ntaxa
+    # property symmetric
+    # property taxaMap
     cdef DistMatrix _dup(self, input, Taxa.Map taxonMap)
     cdef DistMatrix _sample(self, input, Taxa.Map taxonMap, list rows)
-    cdef Taxa.Map taxonMapGet(self)
     cdef float distanceGet(self, int x, int y)
     cdef void distanceSet(self, int x, int y, float distance)
     cdef void _matrixShuffle(self, list order)

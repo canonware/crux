@@ -65,7 +65,7 @@ cdef class _FastaParser(Fasta.Parser):
     cpdef _addTaxon(self, Taxon taxon, str chars):
         if self.taxaMap.indGet(taxon) == -1:
             # Define a taxon mapping for this label.
-            self.taxaMap.map(taxon, self.taxaMap.ntaxaGet())
+            self.taxaMap.map(taxon, self.taxaMap.ntaxa)
 
         # Set the character data for this taxon.
         self.matrix.dataSet(taxon, chars)
