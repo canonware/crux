@@ -196,5 +196,5 @@ cdef class Parser(Parsing.Lr):
     cdef void _labelNode(self, Node node, Label label) except *
     cdef str expandInput(self, str input, int pos, int line, int col)
 
-    cpdef parse(self, str input, int begPos=?, int line=?, int col=?, \
-      bint verbose=?)
+    cpdef parse(self, str input, int begPos=*, int line=*, int col=*, \
+      bint verbose=*)

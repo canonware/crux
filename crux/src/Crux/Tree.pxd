@@ -41,15 +41,15 @@ cdef class Tree:
     cpdef nni(self, Edge edge, Edge reconnectA, Edge reconnectB)
     cpdef nniNNeigbhorsGet(self)
     cpdef nniNeighborGet(self, int neighbor)
-    cpdef mpPrepare(self, CTMatrix cTMatrix, bint elimUninformative=?)
+    cpdef mpPrepare(self, CTMatrix cTMatrix, bint elimUninformative=*)
     cpdef mpFinish(self)
     cpdef mp(self)
-    cpdef tbrBestNeighbhorsMp(self, int maxHold=?)
-    cpdef tbrBetterNeighborsMp(self, int maxHold=?)
-    cpdef tbrAllNeighborsMp(self, int maxHold=?)
+    cpdef tbrBestNeighbhorsMp(self, int maxHold=*)
+    cpdef tbrBetterNeighborsMp(self, int maxHold=*)
+    cpdef tbrAllNeighborsMp(self, int maxHold=*)
     cpdef nHeldGet(self)
     cpdef heldGet(self, int i)
-    cpdef str render(self, bint lengths=?, lengthFormat=?, Taxa.Map taxaMap=?)
+    cpdef str render(self, bint lengths=*, lengthFormat=*, Taxa.Map taxaMap=*)
 
 cdef class Node:
     cdef object __weakref__
@@ -61,10 +61,10 @@ cdef class Node:
     # property tree
     # property taxon
     # property ring
-    cpdef int _degreeGet(self, bint calculate=?) except -1
+    cpdef int _degreeGet(self, bint calculate=*) except -1
     # property degree
     cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
-      bint zeroLength=?, bint noLength=?)
+      bint zeroLength=*, bint noLength=*)
     cpdef int separation(self, Node other)
 
 cdef class Edge:
