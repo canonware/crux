@@ -1,10 +1,3 @@
-from CTMatrix cimport CTMatrix
-cimport Newick
-from Taxa cimport Taxon
-cimport Taxa # Taxa.Map
-cimport Parsing
-
-import Crux.Config
 import Crux.Exception
 
 class Exception(Crux.Exception.Exception):
@@ -24,298 +17,21 @@ import re
 import sys
 import weakref
 
+from CTMatrix cimport CTMatrix
+cimport Newick
+from Taxa cimport Taxon
+cimport Taxa # Taxa.Map
+cimport Parsing
+
+import Crux.Config
+
 global __name__
 
 # Forward declarations.
-cdef class _NewickTree(Newick.Tree)
-cdef class _NewickDescendantList(Newick.DescendantList)
-cdef class _NewickSubtreeList(Newick.SubtreeList)
-cdef class _NewickSubtree(Newick.Subtree)
-cdef class _NewickLabel(Newick.Label)
-cdef class _NewickParser(Newick.Parser)
-cdef class _NewickParser(Newick.Parser)
 cdef class Tree
 cdef class Node
 cdef class Edge
 cdef class Ring
-
-#===============================================================================
-# Begin Newick tree construction support.
-#
-
-cdef class _NewickTree(Newick.Tree):
-    "%extend Tree"
-
-    cdef Node root
-
-    def __init__(self, Parsing.Lr parser):
-        Newick.Tree.__init__(self, parser)
-
-        self.root = Node(self.parser._tree)
-
-    # (A,B)C:4.2;
-    #
-    #   .
-    #   |4.2
-    #   C
-    #  / \
-    # A   B
-    cpdef reduceDRB(self, Newick.DescendantList DescendantList,
-      Newick.Label Label, Newick.TokenColon colon,
-      Newick.TokenBranchLength branchLength, Newick.TokenSemicolon semicolon):
-        "%accept"
-        cdef Edge edge
-
-        self.parser._labelNode((<_NewickDescendantList>DescendantList).node,
-          <_NewickLabel>Label)
-        edge = Edge(self.parser._tree)
-        edge.length = float(branchLength.raw)
-        edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
-
-    # (A,B)C;
-    #
-    #   .
-    #   |
-    #   C
-    #  / \
-    # A   B
-    cpdef reduceDR(self, Newick.DescendantList DescendantList,
-      Newick.Label Label, Newick.TokenSemicolon semicolon):
-        "%accept"
-        cdef Edge edge
-
-        self.parser._labelNode((<_NewickDescendantList>DescendantList).node,
-          <_NewickLabel>Label)
-        edge = Edge(self.parser._tree)
-        edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
-
-    # (A,B):4.2;
-    #
-    #   .
-    #   |4.2
-    #   .
-    #  / \
-    # A   B
-    cpdef reduceDB(self, Newick.DescendantList DescendantList,
-      Newick.TokenColon colon, Newick.TokenBranchLength branchLength,
-      Newick.TokenSemicolon semicolon):
-        "%accept"
-        cdef Edge edge
-
-        edge = Edge(self.parser._tree)
-        edge.length = float(branchLength.raw)
-        edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
-
-    # A:4.2;
-    #
-    #   .
-    #   |4.2
-    #   A
-    cpdef reduceRB(self, Newick.Label Label, Newick.TokenColon colon,
-      Newick.TokenBranchLength branchLength, Newick.TokenSemicolon semicolon):
-        "%accept"
-        cdef Node node
-        cdef Edge edge
-
-        node = Node(self.parser._tree)
-        self.parser._labelNode(node, <_NewickLabel>Label)
-        edge = Edge(self.parser._tree)
-        edge.length = float(branchLength.raw)
-        edge.attach(self.root, node)
-
-    # (A,B);
-    #
-    #   .
-    #   |
-    #   .
-    #  / \
-    # A   B
-    cpdef reduceD(self, Newick.DescendantList DescendantList,
-      Newick.TokenSemicolon semicolon):
-        "%accept"
-        cdef Edge edge
-
-        edge = Edge(self.parser._tree)
-        edge.attach(self.root, (<_NewickDescendantList>DescendantList).node)
-
-    # A;
-    #
-    #   .
-    #   |
-    #   A
-    cpdef reduceR(self, Newick.Label Label, Newick.TokenSemicolon semicolon):
-        "%accept"
-        cdef Node node
-        cdef Edge edge
-
-        node = Node(self.parser._tree)
-        self.parser._labelNode(node, <_NewickLabel>Label)
-        edge = Edge(self.parser._tree)
-        edge.attach(self.root, node)
-
-    # :4.2;
-    #
-    #   .
-    #   |4.2
-    #   .
-    cpdef reduceB(self, Newick.TokenColon colon,
-      Newick.TokenBranchLength branchLength, Newick.TokenSemicolon semicolon):
-        "%accept"
-        cdef Node node
-        cdef Edge edge
-
-        node = Node(self.parser._tree)
-        edge = Edge(self.parser._tree)
-        edge.length = float(branchLength.raw)
-        edge.attach(self.root, node)
-
-    # ;
-    #
-    #  .
-    cpdef reduce(self, Newick.TokenSemicolon semicolon):
-        "%accept"
-
-cdef class _NewickDescendantList(Newick.DescendantList):
-    "%extend DescendantList"
-
-    cdef Node node
-
-    cpdef reduce(self, Newick.TokenLparen lparen,
-      Newick.SubtreeList SubtreeList, Newick.TokenRparen rparen):
-        "%accept"
-        cdef _NewickSubtree subtree
-        cdef Edge edge
-
-        self.node = Node(self.parser._tree)
-        subtree = (<_NewickSubtreeList>SubtreeList).last
-        while subtree is not None:
-            edge = Edge(self.parser._tree)
-            edge.length = subtree.len
-            edge.attach(self.node, subtree.node)
-            subtree = subtree.prev
-
-cdef class _NewickSubtreeList(Newick.SubtreeList):
-    "%extend SubtreeList"
-
-    cdef _NewickSubtree last
-
-    cpdef reduceOne(self, Newick.Subtree Subtree):
-        "%accept"
-        (<_NewickSubtree>Subtree).prev = None
-        self.last = <_NewickSubtree>Subtree
-
-    cpdef reduceExtend(self, Newick.SubtreeList SubtreeList,
-      Newick.TokenComma comma, Newick.Subtree Subtree):
-        "%accept"
-        (<_NewickSubtree>Subtree).prev = (<_NewickSubtreeList>SubtreeList).last
-        self.last = <_NewickSubtree>Subtree
-
-cdef class _NewickSubtree(Newick.Subtree):
-    "%extend Subtree"
-
-    cdef Node node
-    cdef float len
-    cdef _NewickSubtree prev
-
-    cpdef reduceDIB(self, Newick.DescendantList DescendantList,
-      Newick.Label Label, Newick.TokenColon colon,
-      Newick.TokenBranchLength branchLength):
-        "%accept"
-        self.node = (<_NewickDescendantList>DescendantList).node
-        self.parser._labelNode(self.node, <_NewickLabel>Label)
-        self.len = float(branchLength.raw)
-
-    cpdef reduceDI(self, Newick.DescendantList DescendantList,
-      Newick.Label Label):
-        "%accept"
-        self.node = (<_NewickDescendantList>DescendantList).node
-        self.parser._labelNode(self.node, <_NewickLabel>Label)
-        self.len = 0.0
-
-    cpdef reduceDB(self, Newick.DescendantList DescendantList,
-      Newick.TokenBranchLength branchLength):
-        "%accept"
-        self.node = (<_NewickDescendantList>DescendantList).node
-        self.len = float(branchLength.raw)
-
-    cpdef reduceLB(self, Newick.Label Label, Newick.TokenColon colon,
-      Newick.TokenBranchLength branchLength):
-        "%accept"
-        self.node = Node(self.parser._tree)
-        self.parser._labelNode(self.node, <_NewickLabel>Label)
-        self.len = float(branchLength.raw)
-
-    cpdef reduceL(self, Newick.Label Label):
-        "%accept"
-        self.node = Node(self.parser._tree)
-        self.parser._labelNode(self.node, <_NewickLabel>Label)
-        self.len = 0.0
-
-cdef class _NewickLabel(Newick.Label):
-    "%extend Label"
-
-    cdef str label
-
-    cpdef reduceU(self, Newick.TokenUnquotedLabel unquotedLabel):
-        "%accept"
-        self.label = unquotedLabel.label
-
-    cpdef reduceQ(self, Newick.TokenQuotedLabel quotedLabel):
-        "%accept"
-        self.label = quotedLabel.label
-
-    cpdef reduceB(self, Newick.TokenBranchLength branchLength):
-        "%accept"
-        self.label = branchLength.raw
-
-    cpdef reduceE(self):
-        "%accept"
-        self.label = None
-
-cdef Parsing.Spec _NewickSpec
-
-cdef class _NewickParser(Newick.Parser):
-    cdef readonly Tree _tree
-    cdef Taxa.Map _taxaMap
-
-    def __init__(self, Tree tree, Taxa.Map taxaMap):
-        global _NewickSpec
-
-        if _NewickSpec is None:
-            _NewickSpec = self._initSpec()
-        Newick.Parser.__init__(self, _NewickSpec)
-
-        self._tree = tree
-        self._taxaMap = taxaMap
-
-    cdef Parsing.Spec _initSpec(self):
-        return Parsing.Spec([sys.modules[__name__], Crux.Newick],
-          startSym=Newick.Tree, pickleFile="%s/share/Crux-%s/Tree.pickle" %
-          (Crux.Config.prefix, Crux.Config.version),
-          verbose=(False if (not __debug__ or Crux.opts.quiet) else True),
-          skinny=(False if __debug__ else True),
-          logFile="%s/share/Crux-%s/Tree.log" %
-          (Crux.Config.prefix, Crux.Config.version))
-
-    cpdef _labelNode(self, Node node, _NewickLabel label):
-        cdef int ind
-
-        if label.label is None:
-            return
-
-        if self._taxaMap is not None:
-            try:
-                taxon = self._ind2taxon(int(label.label))
-            except:
-                raise Malformed("No Taxa.Map index entry for %r" % label.label)
-        else:
-            taxon = Taxa.get(label.label)
-
-        node.taxon = taxon
-
-#
-# End Newick tree construction support.
-#===============================================================================
 
 cdef class Tree:
     def __init__(self, with_=None, Taxa.Map taxaMap=None, bint rooted=True):
@@ -387,13 +103,10 @@ cdef class Tree:
             self.deroot()
 
     cdef void _newickNew(self, str input, Taxa.Map taxaMap) except *:
-        cdef _NewickParser parser
-        cdef _NewickTree tree
+        cdef Newick.Parser parser
 
-        parser = _NewickParser(self, taxaMap)
+        parser = Newick.Parser(self, taxaMap)
         parser.parse(input)
-        tree = parser.start[0]
-        self.base = tree.root
 
         # Convert to unrooted if necessary.
         if not self.rooted:

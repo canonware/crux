@@ -1,5 +1,4 @@
 # Cause Parsing pickles/logs to be created.
 Crux.CTMatrix.CTMatrix(">A\nA")
-Crux.Newick.Parser()
+Crux.Newick.Parser(Crux.Tree.Tree())
 Crux.Fasta.Parser()
-Crux.Tree.Tree(";")

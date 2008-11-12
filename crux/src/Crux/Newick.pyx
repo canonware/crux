@@ -23,8 +23,6 @@
 # implementation allows "zero length strings of printing characters".
 #===============================================================================
 
-cimport Parsing
-
 import Crux.Exception
 
 class Exception(Crux.Exception.Exception):
@@ -41,8 +39,19 @@ class SyntaxError(Exception, exceptions.SyntaxError):
     def __str__(self):
         return "%d:%d: %s" % (self.line, self.col, self.str)
 
+class Malformed(Exception, exceptions.SyntaxError):
+    def __init__(self, str):
+        self._str = str
+
+    def __str__(self):
+        return self._str
+
 import re
 import sys
+
+cimport Parsing
+from Tree cimport Tree, Node, Edge
+cimport Taxa
 
 global __name__
 
@@ -65,7 +74,7 @@ cdef class TokenComment(Token)
 cdef class TokenWhitespace(Token)
 
 cdef class Nonterm(Parsing.Nonterm)
-cdef class Tree(Nonterm)
+cdef class NewickTree(Nonterm)
 cdef class DescendantList(Nonterm)
 cdef class SubtreeList(Nonterm)
 cdef class Subtree(Nonterm)
@@ -163,39 +172,157 @@ cdef class Nonterm(Parsing.Nonterm):
     def __init__(self, Parsing.Lr parser):
         Parsing.Nonterm.__init__(self, parser)
 
-cdef class Tree(Nonterm):
+cdef class NewickTree(Nonterm):
     "%start Tree"
 
+    def __init__(self, Parsing.Lr parser):
+        Nonterm.__init__(self, parser)
+
+        self.root = Node((<Parser>self.parser)._tree)
+
+    # (A,B)C:4.2;
+    #
+    #   .
+    #   |4.2
+    #   C
+    #  / \
+    # A   B
     cpdef reduceDRB(self, DescendantList DescendantList, Label Label,
       TokenColon colon, TokenBranchLength branchLength,
       TokenSemicolon semicolon):
         "%reduce DescendantList Label colon branchLength semicolon"
+        cdef Tree tree
+        cdef Edge edge
 
+        tree = (<Parser>self.parser)._tree
+        (<Parser>self.parser)._labelNode(DescendantList.node, Label)
+        edge = Edge(tree)
+        edge.length = float(branchLength.raw)
+        edge.attach(self.root, DescendantList.node)
+        tree.base = self.root
+
+    # (A,B)C;
+    #
+    #   .
+    #   |
+    #   C
+    #  / \
+    # A   B
     cpdef reduceDR(self, DescendantList DescendantList, Label Label,
       TokenSemicolon semicolon):
         "%reduce DescendantList Label semicolon"
+        cdef Tree tree
+        cdef Edge edge
 
+        tree = (<Parser>self.parser)._tree
+        (<Parser>self.parser)._labelNode(DescendantList.node, Label)
+        edge = Edge(tree)
+        edge.attach(self.root, DescendantList.node)
+        tree.base = self.root
+
+    # (A,B):4.2;
+    #
+    #   .
+    #   |4.2
+    #   .
+    #  / \
+    # A   B
     cpdef reduceDB(self, DescendantList DescendantList, TokenColon colon,
       TokenBranchLength branchLength, TokenSemicolon semicolon):
         "%reduce DescendantList colon branchLength semicolon"
+        cdef Tree tree
+        cdef Edge edge
 
+        tree = (<Parser>self.parser)._tree
+        edge = Edge(tree)
+        edge.length = float(branchLength.raw)
+        edge.attach(self.root, DescendantList.node)
+        tree.base = self.root
+
+    # A:4.2;
+    #
+    #   .
+    #   |4.2
+    #   A
     cpdef reduceRB(self, Label Label, TokenColon colon,
       TokenBranchLength branchLength, TokenSemicolon semicolon):
         "%reduce Label colon branchLength semicolon"
+        cdef Tree tree
+        cdef Node node
+        cdef Edge edge
 
+        tree = (<Parser>self.parser)._tree
+        node = Node(tree)
+        (<Parser>self.parser)._labelNode(node, Label)
+        edge = Edge(tree)
+        edge.length = float(branchLength.raw)
+        edge.attach(self.root, node)
+        tree.base = self.root
+
+    # (A,B);
+    #
+    #   .
+    #   |
+    #   .
+    #  / \
+    # A   B
     cpdef reduceD(self, DescendantList DescendantList,
       TokenSemicolon semicolon):
         "%reduce DescendantList semicolon"
+        cdef Tree tree
+        cdef Edge edge
 
+        tree = (<Parser>self.parser)._tree
+        edge = Edge(tree)
+        edge.attach(self.root, DescendantList.node)
+        tree.base = self.root
+
+    # A;
+    #
+    #   .
+    #   |
+    #   A
     cpdef reduceR(self, Label Label, TokenSemicolon semicolon):
         "%reduce Label semicolon"
+        cdef Tree tree
+        cdef Node node
+        cdef Edge edge
 
+        tree = (<Parser>self.parser)._tree
+        node = Node(tree)
+        (<Parser>self.parser)._labelNode(node, Label)
+        edge = Edge(tree)
+        edge.attach(self.root, node)
+        tree.base = self.root
+
+    # :4.2;
+    #
+    #   .
+    #   |4.2
+    #   .
     cpdef reduceB(self, TokenColon colon, TokenBranchLength branchLength,
       TokenSemicolon semicolon):
         "%reduce colon branchLength semicolon"
+        cdef Tree tree
+        cdef Node node
+        cdef Edge edge
 
+        tree = (<Parser>self.parser)._tree
+        node = Node(tree)
+        edge = Edge(tree)
+        edge.length = float(branchLength.raw)
+        edge.attach(self.root, node)
+        tree.base = self.root
+
+    # ;
+    #
+    #  .
     cpdef reduce(self, TokenSemicolon semicolon):
         "%reduce semicolon"
+        cdef Tree tree
+
+        tree = (<Parser>self.parser)._tree
+        tree.base = self.root
 
 cdef class DescendantList(Nonterm):
     "%nonterm"
@@ -203,16 +330,30 @@ cdef class DescendantList(Nonterm):
     cpdef reduce(self, TokenLparen lparen, SubtreeList SubtreeList,
       TokenRparen rparen):
         "%reduce lparen SubtreeList rparen"
+        cdef Subtree subtree
+        cdef Edge edge
+
+        self.node = Node((<Parser>self.parser)._tree)
+        subtree = SubtreeList.last
+        while subtree is not None:
+            edge = Edge((<Parser>self.parser)._tree)
+            edge.length = subtree.len
+            edge.attach(self.node, subtree.node)
+            subtree = subtree.prev
 
 cdef class SubtreeList(Nonterm):
     "%nonterm"
 
     cpdef reduceOne(self, Subtree Subtree):
         "%reduce Subtree"
+        Subtree.prev = None
+        self.last = Subtree
 
     cpdef reduceExtend(self, SubtreeList SubtreeList, TokenComma comma,
       Subtree Subtree):
         "%reduce SubtreeList comma Subtree"
+        Subtree.prev = SubtreeList.last
+        self.last = Subtree
 
 cdef class Subtree(Nonterm):
     "%nonterm"
@@ -221,36 +362,53 @@ cdef class Subtree(Nonterm):
       Label Label, TokenColon colon,
       TokenBranchLength branchLength):
         "%reduce DescendantList Label colon branchLength"
+        self.node = DescendantList.node
+        (<Parser>self.parser)._labelNode(self.node, Label)
+        self.len = float(branchLength.raw)
 
-    cpdef reduceDI(self, DescendantList DescendantList,
-      Label Label):
+    cpdef reduceDI(self, DescendantList DescendantList, Label Label):
         "%reduce DescendantList Label"
+        self.node = DescendantList.node
+        (<Parser>self.parser)._labelNode(self.node, Label)
+        self.len = 0.0
 
     cpdef reduceDB(self, DescendantList DescendantList,
       TokenBranchLength branchLength):
         "%reduce DescendantList branchLength [pSubtree]"
+        self.node = DescendantList.node
+        self.len = float(branchLength.raw)
 
     cpdef reduceLB(self, Label Label, TokenColon colon,
       TokenBranchLength branchLength):
         "%reduce Label colon branchLength"
+        self.node = Node((<Parser>self.parser)._tree)
+        (<Parser>self.parser)._labelNode(self.node, Label)
+        self.len = float(branchLength.raw)
 
     cpdef reduceL(self, Label Label):
         "%reduce Label"
+        self.node = Node((<Parser>self.parser)._tree)
+        (<Parser>self.parser)._labelNode(self.node, Label)
+        self.len = 0.0
 
 cdef class Label(Nonterm):
     "%nonterm"
 
     cpdef reduceU(self, TokenUnquotedLabel unquotedLabel):
         "%reduce unquotedLabel"
+        self.label = unquotedLabel.label
 
     cpdef reduceQ(self, TokenQuotedLabel quotedLabel):
         "%reduce quotedLabel"
+        self.label = quotedLabel.label
 
     cpdef reduceB(self, TokenBranchLength branchLength):
         "%reduce branchLength [pLabel]"
+        self.label = branchLength.raw
 
     cpdef reduceE(self):
         "%reduce [pLabel]"
+        self.label = None
 
 #
 # End Nonterm.
@@ -264,7 +422,8 @@ cdef _reComment
 cdef Parsing.Spec _spec
 
 cdef class Parser(Parsing.Lr):
-    def __init__(self, Parsing.Spec spec=None):
+    def __init__(self, Tree tree, Taxa.Map taxaMap=None,
+      Parsing.Spec spec=None):
         global _reMain, _reComment
 
         if spec is None:
@@ -273,6 +432,8 @@ cdef class Parser(Parsing.Lr):
         Parsing.Lr.__init__(self, spec)
         self.first = None
         self.last = None
+        self._tree = tree
+        self._taxaMap = taxaMap
 
         if _reMain is None:
             _reMain = self._initReMain()
@@ -338,51 +499,27 @@ cdef class Parser(Parsing.Lr):
             token.prev = self.last
             self.last = token
 
+    cdef void _labelNode(self, Node node, Label label) except *:
+        cdef int ind
+
+        if label.label is None:
+            return
+
+        if self._taxaMap is not None:
+            try:
+                taxon = self._ind2taxon(int(label.label))
+            except:
+                raise Malformed("No Taxa.Map index entry for %r" % label.label)
+        else:
+            taxon = Taxa.get(label.label)
+
+        node.taxon = taxon
+
     cdef str expandInput(self, str input, int pos, int line, int col):
         """
 Called when end of input is reached.  By default a SyntaxError is raised.
 """
         raise SyntaxError(line, col, "Invalid token or end of input reached")
-
-    cdef Parsing.Token newTokenComment(self, str input, int start, int end,
-      int tokLine, int tokCol):
-        return TokenComment(self, input, start, end, tokLine, tokCol)
-
-    cdef Parsing.Token newTokenLparen(self, str input, int start, int end,
-      int tokLine, int tokCol):
-        return TokenLparen(self, input, start, end, tokLine, tokCol)
-
-    cdef Parsing.Token newTokenRparen(self, str input, int start, int end,
-      int tokLine, int tokCol):
-        return TokenRparen(self, input, start, end, tokLine, tokCol)
-
-    cdef Parsing.Token newTokenComma(self, str input, int start, int end,
-      int tokLine, int tokCol):
-        return TokenComma(self, input, start, end, tokLine, tokCol)
-
-    cdef Parsing.Token newTokenColon(self, str input, int start, int end,
-      int tokLine, int tokCol):
-        return TokenColon(self, input, start, end, tokLine, tokCol)
-
-    cdef Parsing.Token newTokenSemicolon(self, str input, int start, int end,
-      int tokLine, int tokCol):
-        return TokenSemicolon(self, input, start, end, tokLine, tokCol)
-
-    cdef Parsing.Token newTokenBranchLength(self, str input, int start, int end,
-      int tokLine, int tokCol):
-        return TokenBranchLength(self, input, start, end, tokLine, tokCol)
-
-    cdef Parsing.Token newTokenUnquotedLabel(self, str input, int start,
-      int end, int tokLine, int tokCol):
-        return TokenUnquotedLabel(self, input, start, end, tokLine, tokCol)
-
-    cdef Parsing.Token newTokenQuotedLabel(self, str input, int start, int end,
-      int tokLine, int tokCol):
-        return TokenQuotedLabel(self, input, start, end, tokLine, tokCol)
-
-    cdef Parsing.Token newTokenWhitespace(self, str input, int start, int end,
-      int tokLine, int tokCol):
-        return TokenWhitespace(self, input, start, end, tokLine, tokCol)
 
     cpdef parse(self, str input, int begPos=0, int line=1, int col=0,
       bint verbose=False):
@@ -390,7 +527,7 @@ Called when end of input is reached.  By default a SyntaxError is raised.
         cdef object m
         cdef int idx, start, end
         cdef Token token
-        cdef int nesting, tokPos
+        cdef int tokLine, tokCol, nesting, tokPos
 
         self.verbose = verbose
 
@@ -408,7 +545,7 @@ Called when end of input is reached.  By default a SyntaxError is raised.
             end = m.end(idx)
             col += end - start
             if idx == 1:    # simple comment
-                token = self.newTokenComment(input, start, end, tokLine, tokCol)
+                token = TokenComment(self, input, start, end, tokLine, tokCol)
             elif idx == 2 or idx == 3:  # complex comment prefix
                 nesting = (2 if idx == 2 else 1)
                 tokPos = pos
@@ -435,22 +572,22 @@ Called when end of input is reached.  By default a SyntaxError is raised.
                     else:
                         assert False
                     pos += end - start
-                token = self.newTokenComment(input, tokPos, end, tokLine,
+                token = TokenComment(self, input, tokPos, end, tokLine,
                   tokCol)
             elif idx == 4:  # (
-                token = self.newTokenLparen(input, start, end, tokLine, tokCol)
+                token = TokenLparen(self, input, start, end, tokLine, tokCol)
                 self.token(token)
             elif idx == 5:  # )
-                token = self.newTokenRparen(input, start, end, tokLine, tokCol)
+                token = TokenRparen(self, input, start, end, tokLine, tokCol)
                 self.token(token)
             elif idx == 6:  # ,
-                token = self.newTokenComma(input, start, end, tokLine, tokCol)
+                token = TokenComma(self, input, start, end, tokLine, tokCol)
                 self.token(token)
             elif idx == 7:  # :
-                token = self.newTokenColon(input, start, end, tokLine, tokCol)
+                token = TokenColon(self, input, start, end, tokLine, tokCol)
                 self.token(token)
             elif idx == 8:  # ;
-                token = self.newTokenSemicolon(input, start, end, tokLine,
+                token = TokenSemicolon(self, input, start, end, tokLine,
                   tokCol)
                 self.token(token)
 
@@ -459,22 +596,22 @@ Called when end of input is reached.  By default a SyntaxError is raised.
                 self.eoi()
                 return (pos, line, col)
             elif idx == 9:  # branch length
-                token = self.newTokenBranchLength(input, start, end, tokLine,
+                token = TokenBranchLength(self, input, start, end, tokLine,
                   tokCol)
                 self.token(token)
             elif idx == 10:  # unquoted label
-                token = self.newTokenUnquotedLabel(input, start, end, tokLine,
+                token = TokenUnquotedLabel(self, input, start, end, tokLine,
                   tokCol)
                 self.token(token)
             elif idx == 11: # quoted label
-                token = self.newTokenQuotedLabel(input, start, end, tokLine,
+                token = TokenQuotedLabel(self, input, start, end, tokLine,
                   tokCol)
                 self.token(token)
             elif idx == 12: # whitespace
-                token = self.newTokenWhitespace(input, start, end, tokLine,
+                token = TokenWhitespace(self, input, start, end, tokLine,
                   tokCol)
             elif idx == 13: # whitespace (newline)
-                token = self.newTokenWhitespace(input, start, end, tokLine,
+                token = TokenWhitespace(self, input, start, end, tokLine,
                   tokCol)
                 line += 1
                 col = 0

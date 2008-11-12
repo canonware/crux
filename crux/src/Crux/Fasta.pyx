@@ -18,9 +18,6 @@
 #
 ################################################################################
 
-cimport Parsing
-from Character cimport Dna, Protein
-
 import Crux.Exception
 
 class Exception(Crux.Exception.Exception):
@@ -39,6 +36,11 @@ class SyntaxError(Exception, exceptions.SyntaxError):
 import re
 import sys
 
+cimport Parsing
+from Character cimport Dna, Protein
+from Taxa cimport Taxon
+cimport Taxa
+
 global __name__
 
 # Forward declarations.
@@ -49,6 +51,7 @@ cdef class Nonterm(Parsing.Nonterm)
 cdef class Matrix(Nonterm)
 cdef class RowList(Nonterm)
 cdef class Row(Nonterm)
+cdef class Chars(Nonterm)
 cdef class Parser(Parsing.Lr)
 
 #===============================================================================
@@ -56,57 +59,39 @@ cdef class Parser(Parsing.Lr)
 #
 
 cdef class Token(Parsing.Token):
-    def __init__(self, Parser parser, str input, int begPos, int endPos,
-      int line):
+    def __init__(self, Parser parser, str raw):
         Parsing.Token.__init__(self, parser)
 
-        self.prev = None
-        self.next = None
-
-        self._input = input
-        self.begPos = begPos
-        self.endPos = endPos
-        self.line = line
-
-        parser._appendToken(self)
+        self.raw = raw
 
     def __repr__(self):
         return Parsing.Token.__repr__(self) + (" (%r)" % self.raw)
 
-    property raw:
-        def __get__(self):
-            return self._input[self.begPos:self.endPos]
-
 cdef class TokenDescr(Token):
     "%token descr"
+    def __init__(self, Parser parser, str raw):
+        cdef object m
 
-    property label:
-        def __get__(self):
-            cdef str ret
+        Token.__init__(self, parser, raw)
 
-            # Strip the leading '>' and discard comments.
-            ret = re.match(r">(\S+)", self.raw).group(1)
-            # Convert '_' to ' '.
-            ret = ret.replace('_', ' ')
-            return ret
+        # Strip the leading '>' and discard comments.
+        self.label = re.match(r">(\S+)", raw).group(1)
+        # Convert '_' to ' '.
+        self.label = self.label.replace('_', ' ')
 
-    property comment:
-        def __get__(self):
-            return re.match(r">\S+\s+(.*)$", self.raw).group(1)
+        m = re.match(r">\S+\s+(.*)$", raw)
+        if m is not None:
+            self.comment = m.group(1)
+        else:
+            self.comment = None
 
 cdef class TokenChars(Token):
     "%token chars"
+    def __init__(self, Parser parser, str raw):
+        Token.__init__(self, parser, raw)
 
-    property chars:
-        def __get__(self):
-            cdef str ret
-
-            # Discard whitespace.
-            ret = re.sub(r'[ \t\r\n]+', r'', self.raw)
-            return ret
-
-cdef class TokenWhitespace(Token):
-    "%token whitespace"
+        # Discard whitespace.
+        self.chars = re.sub(r'[ \t\r\n]+', r'', raw)
 
 #
 # End Token.
@@ -133,8 +118,21 @@ cdef class RowList(Nonterm):
 
 cdef class Row(Nonterm):
     "%nonterm"
-    cpdef reduce(self, TokenDescr descr, TokenChars chars):
-        "%reduce descr chars"
+    cpdef reduce(self, TokenDescr descr, Chars Chars):
+        "%reduce descr Chars"
+        (<Parser>self.parser)._addTaxon(Taxa.get(descr.label),
+          "".join(Chars.chars))
+
+cdef class Chars(Nonterm):
+    "%nonterm"
+    cpdef reduceOne(self, TokenChars chars):
+        "%reduce chars"
+        self.chars = [chars.chars]
+
+    cpdef reduceExtend(self, Chars Chars, TokenChars chars):
+        "%reduce Chars chars"
+        self.chars = Chars.chars
+        self.chars.append(chars.chars)
 
 #
 # End Nonterm.
@@ -147,7 +145,8 @@ cdef _reProtein
 cdef Parsing.Spec _spec
 
 cdef class Parser(Parsing.Lr):
-    def __init__(self, Parsing.Spec spec=None):
+    def __init__(self, CTMatrix matrix, Taxa.Map taxaMap=None,
+      Parsing.Spec spec=None):
         global _spec
 
         if spec is None:
@@ -155,8 +154,9 @@ cdef class Parser(Parsing.Lr):
                 _spec = self._initSpec()
             spec = _spec
         Parsing.Lr.__init__(self, spec)
-        self.first = None
-        self.last = None
+
+        self.matrix = matrix
+        self.taxaMap = taxaMap
 
     cdef Parsing.Spec _initSpec(self):
         return Parsing.Spec([sys.modules[__name__]],
@@ -169,37 +169,37 @@ cdef class Parser(Parsing.Lr):
 
     cdef _initReDna(self):
         return re.compile(r"""
-    (^>\S+.*$)                         # description
-  | ([ABCDGHKMRSTVWY\-NX]
-     [ABCDGHKMRSTVWY\-NX \t\n\r\f\v]*) # characters
-  | ([ \t\n\r\f\v]+)                   # whitespace
+    (^>\S+.*$)                          # description
+  | (^[ \t\n\r\f\v]*
+     [ABCDGHKMRSTVWY\-NX]
+     [ABCDGHKMRSTVWY\-NX \t\n\r\f\v]*$) # characters
+  | (^[ \t\n\r\f\v]*$)                  # whitespace
 
-""", re.I | re.M | re.X)
+""", re.I | re.X)
 
     cdef _initReProtein(self):
         return re.compile(r"""
-    (^>\S+.*$)                                  # description
-  | ([ABCDEFGHIKLMNPQRSTUVWXYZ*\-]
-     [ABCDEFGHIKLMNPQRSTUVWXYZ*\- \t\n\r\f\v]*) # characters
-  | ([ \t\n\r\f\v]+)                            # whitespace
-""", re.I | re.M | re.X)
+    (^>\S+.*$)                                   # description
+  | (^[ \t\n\r\f\v]*
+     [ABCDEFGHIKLMNPQRSTUVWXYZ*\-]
+     [ABCDEFGHIKLMNPQRSTUVWXYZ*\- \t\n\r\f\v]*$) # characters
+  | (^[ \t\n\r\f\v]*$)                           # whitespace
+""", re.I | re.X)
 
-    cdef void _appendToken(self, Token token) except *:
-        if self.first is None:
-            self.first = token
-            self.last = token
-        else:
-            self.last.next = token
-            token.prev = self.last
-            self.last = token
+    cdef void _addTaxon(self, Taxon taxon, str chars) except *:
+        if self.taxaMap.indGet(taxon) == -1:
+            # Define a taxon mapping for this label.
+            self.taxaMap.map(taxon, self.taxaMap.ntaxa)
 
-    cpdef parse(self, str input, type charType=Dna, int begPos=0, int line=1,
-      bint verbose=False):
-        cdef int pos = begPos
+        # Set the character data for this taxon.
+        self.matrix.dataSet(taxon, chars)
+
+    cpdef parse(self, lines, type charType=Dna, int line=1, bint verbose=False):
         cdef object regex, m
         cdef int idx, start, end
-        cdef Token token
-        cdef int nesting
+        cdef str l
+
+        assert getattr3(lines, '__iter__', None) is not None
 
         self.verbose = verbose
 
@@ -214,24 +214,22 @@ cdef class Parser(Parsing.Lr):
             regex = _reProtein
 
         # Iteratively tokenize the input and feed the tokens to the parser.
-        while pos < len(input):
-            m = regex.match(input, pos)
+        for l in lines:
+            m = regex.match(l)
             if m is None:
                 raise SyntaxError(line, "Invalid token")
             idx = m.lastindex
             start = m.start(idx)
             end = m.end(idx)
             if idx == 1:
-                self.token(TokenDescr(self, input, start, end, line))
+                self.token(TokenDescr(self, l))
             elif idx == 2:
-                self.token(TokenChars(self, input, start, end, line))
-                line += input.count('\n', start, end)
+                self.token(TokenChars(self, l))
             elif idx == 3:
-                TokenWhitespace(self, input, start, end, line)
-                line += input.count('\n', start, end)
+                # Whitespace.
+                pass
             else:
                 assert False
-
-            pos = end
+            line += 1
 
         self.eoi()

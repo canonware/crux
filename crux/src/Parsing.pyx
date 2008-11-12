@@ -2994,7 +2994,8 @@ Signal end-of-input to the parser.
         for node in self._stack:
             sym = <Symbol>node[0]
             state = <int>node[1]
-            print "%r%s" % (state, (" " * (len("%r" % sym) - len("%r" % sym)))),
+            print "%r%s" % (state,
+              (" " * (len("%r" % sym) - len("%r" % state)))),
         print
 
     cdef void _reduce(self, Production production) except *:

@@ -1,4 +1,6 @@
 cimport Parsing
+cimport Taxa
+from Tree cimport Tree, Node
 
 # Forward declarations.
 cdef class pColon(Parsing.Precedence)
@@ -19,7 +21,7 @@ cdef class TokenComment(Token)
 cdef class TokenWhitespace(Token)
 
 cdef class Nonterm(Parsing.Nonterm)
-cdef class Tree(Nonterm)
+cdef class NewickTree(Nonterm)
 cdef class DescendantList(Nonterm)
 cdef class SubtreeList(Nonterm)
 cdef class Subtree(Nonterm)
@@ -84,8 +86,9 @@ cdef class TokenWhitespace(Token):
 cdef class Nonterm(Parsing.Nonterm):
     cdef readonly int begPos, endPos
 
-cdef class Tree(Nonterm):
+cdef class NewickTree(Nonterm):
     "%start Tree"
+    cdef Node root
 
     cpdef reduceDRB(self, DescendantList DescendantList, Label Label,
       TokenColon colon, TokenBranchLength branchLength,
@@ -119,6 +122,7 @@ cdef class Tree(Nonterm):
 
 cdef class DescendantList(Nonterm):
     "%nonterm"
+    cdef Node node
 
     cpdef reduce(self, TokenLparen lparen, SubtreeList SubtreeList,
       TokenRparen rparen)
@@ -126,6 +130,7 @@ cdef class DescendantList(Nonterm):
 
 cdef class SubtreeList(Nonterm):
     "%nonterm"
+    cdef Subtree last
 
     cpdef reduceOne(self, Subtree Subtree)
     #   "%reduce Subtree"
@@ -136,14 +141,16 @@ cdef class SubtreeList(Nonterm):
 
 cdef class Subtree(Nonterm):
     "%nonterm"
+    cdef Node node
+    cdef float len
+    cdef Subtree prev
 
     cpdef reduceDIB(self, DescendantList DescendantList,
       Label Label, TokenColon colon,
       TokenBranchLength branchLength)
     #   "%reduce DescendantList Label colon branchLength"
 
-    cpdef reduceDI(self, DescendantList DescendantList,
-      Label Label)
+    cpdef reduceDI(self, DescendantList DescendantList, Label Label)
     #   "%reduce DescendantList Label"
 
     cpdef reduceDB(self, DescendantList DescendantList,
@@ -159,6 +166,7 @@ cdef class Subtree(Nonterm):
 
 cdef class Label(Nonterm):
     "%nonterm"
+    cdef str label
 
     cpdef reduceU(self, TokenUnquotedLabel unquotedLabel)
     #   "%reduce unquotedLabel"
@@ -177,34 +185,16 @@ cdef class Label(Nonterm):
 #===============================================================================
 
 cdef class Parser(Parsing.Lr):
-    cdef readonly Token first, last
+    cdef Token first, last
+    cdef Tree _tree
+    cdef Taxa.Map _taxaMap
 
     cdef Parsing.Spec _initSpec(self)
     cdef _initReMain(self)
     cdef _initReComment(self)
     cdef void _appendToken(self, Token token) except *
+    cdef void _labelNode(self, Node node, Label label) except *
     cdef str expandInput(self, str input, int pos, int line, int col)
-
-    cdef Parsing.Token newTokenComment(self, str input, int start, int end,
-      int tokLine, int tokCol)
-    cdef Parsing.Token newTokenLparen(self, str input, int start, int end,
-      int tokLine, int tokCol)
-    cdef Parsing.Token newTokenRparen(self, str input, int start, int end,
-      int tokLine, int tokCol)
-    cdef Parsing.Token newTokenComma(self, str input, int start, int end,
-      int tokLine, int tokCol)
-    cdef Parsing.Token newTokenColon(self, str input, int start, int end,
-      int tokLine, int tokCol)
-    cdef Parsing.Token newTokenSemicolon(self, str input, int start, int end,
-      int tokLine, int tokCol)
-    cdef Parsing.Token newTokenBranchLength(self, str input, int start, int end,
-      int tokLine, int tokCol)
-    cdef Parsing.Token newTokenUnquotedLabel(self, str input, int start,
-      int end, int tokLine, int tokCol)
-    cdef Parsing.Token newTokenQuotedLabel(self, str input, int start, int end,
-      int tokLine, int tokCol)
-    cdef Parsing.Token newTokenWhitespace(self, str input, int start, int end,
-      int tokLine, int tokCol)
 
     cpdef parse(self, str input, int begPos=?, int line=?, int col=?, \
       bint verbose=?)

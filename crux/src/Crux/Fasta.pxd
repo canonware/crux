@@ -1,4 +1,7 @@
+from CTMatrix cimport CTMatrix
 cimport Parsing
+from Taxa cimport Taxon
+cimport Taxa
 
 # Forward declarations.
 cdef class Token(Parsing.Token)
@@ -8,29 +11,24 @@ cdef class Nonterm(Parsing.Nonterm)
 cdef class Matrix(Nonterm)
 cdef class RowList(Nonterm)
 cdef class Row(Nonterm)
+cdef class Chars(Nonterm)
 cdef class Parser(Parsing.Lr)
 
 #===============================================================================
 # Begin Token.
 #
+
 cdef class Token(Parsing.Token):
-    cdef readonly Token prev, next
-    cdef str _input
-    cdef readonly int begPos, endPos
-    cdef readonly int line
-    # property raw
+    cdef str raw
 
 cdef class TokenDescr(Token):
     "%token descr"
-    # property label
-    # property comment
+    cdef str label
+    cdef str comment
 
 cdef class TokenChars(Token):
     "%token chars"
-    # property chars
-
-cdef class TokenWhitespace(Token):
-    "%token whitespace"
+    cdef str chars
 
 #
 # End Token.
@@ -38,8 +36,7 @@ cdef class TokenWhitespace(Token):
 # Begin Nonterm.
 #
 
-cdef class Nonterm(Parsing.Nonterm):
-    cdef readonly int begPos, endPos
+cdef class Nonterm(Parsing.Nonterm): pass
 
 cdef class Matrix(Nonterm):
     "%start"
@@ -56,19 +53,29 @@ cdef class RowList(Nonterm):
 
 cdef class Row(Nonterm):
     "%nonterm"
-    cpdef reduce(self, TokenDescr descr, TokenChars chars)
+    cpdef reduce(self, TokenDescr descr, Chars Chars)
     #   "%reduce descr chars"
+
+cdef class Chars(Nonterm):
+    "%nonterm"
+    cdef list chars
+
+    cpdef reduceOne(self, TokenChars chars)
+    #   "%reduce chars"
+
+    cpdef reduceExtend(self, Chars Chars, TokenChars chars)
+    #   "%reduce Chars chars"
 
 #
 # End Nonterm.
 #===============================================================================
 
 cdef class Parser(Parsing.Lr):
-    cdef readonly Token first, last
+    cdef CTMatrix matrix
+    cdef Taxa.Map taxaMap
 
     cdef Parsing.Spec _initSpec(self)
     cdef _initReDna(self)
     cdef _initReProtein(self)
-    cdef void _appendToken(self, Token token) except *
-    cpdef parse(self, str input, type charType=?, int begPos=?, int line=?,
-      bint verbose=?)
+    cdef void _addTaxon(self, Taxon taxon, str chars) except *
+    cpdef parse(self, lines, type charType=*, int line=*, bint verbose=*)

@@ -85,7 +85,10 @@ print "Test begin"
 for s in dnaTestStrs:
     try:
         print "=== %r ===" % s
-        matrix = Crux.CTMatrix.CTMatrix(s, Crux.Character.Dna)
+        lines = s.split("\n")
+        for i in xrange(len(lines)):
+            lines[i] += "\n"
+        matrix = Crux.CTMatrix.CTMatrix(lines, Crux.Character.Dna)
         print matrix.fastaPrint()
     except:
 #        import traceback
@@ -97,7 +100,10 @@ for s in dnaTestStrs:
 for s in proteinTestStrs:
     try:
         print "=== %r ===" % s
-        matrix = Crux.CTMatrix.CTMatrix(s, Crux.Character.Protein)
+        lines = s.split("\n")
+        for i in xrange(len(lines)):
+            lines[i] += "\n"
+        matrix = Crux.CTMatrix.CTMatrix(lines, Crux.Character.Protein)
         print matrix.fastaPrint()
     except:
 #        import traceback

@@ -15,8 +15,8 @@ import Character
 
 print "Test begin"
 
-s = "".join(open(Crux.opts.scriptargs[1] + "/test/treezilla.fasta"))
-matrix = Crux.CTMatrix.CTMatrix(s, Character.Dna)
+f = open(Crux.opts.scriptargs[1] + "/test/treezilla.fasta")
+matrix = Crux.CTMatrix.CTMatrix(f, Character.Dna)
 print matrix.fastaPrint()
 
 print "Test end"
