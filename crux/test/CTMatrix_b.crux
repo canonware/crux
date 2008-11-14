@@ -11,7 +11,7 @@
 
 import sys
 
-import Character
+from Crux import Character
 
 print "Test begin"
 

@@ -18,7 +18,7 @@ map: []
 ntaxa: 0
 map: [Crux.Taxon.taxon('A'), Crux.Taxon.taxon('B')]
 ntaxa: 2
-map: Exception <class 'Taxa.ValueError'>: Map indices must be contiguous
+map: Exception <class 'Crux.Taxa.ValueError'>: Map indices must be contiguous
 ntaxa: 3
 map: [Crux.Taxon.taxon('A'), Crux.Taxon.taxon('B'), Crux.Taxon.taxon('C'), Crux.Taxon.taxon('D')]
 ntaxa: 4

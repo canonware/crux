@@ -11,6 +11,7 @@
 ################################################################################
 
 from glob import glob
+import re
 
 from distutils.core import setup, Extension
 if @enable_cython@:
@@ -31,7 +32,6 @@ else:
     cy_suffix = "c"
     cmdclass = {}
 
-
 if @enable_debug@:
     extra_compile_args = []
 else:
@@ -39,7 +39,9 @@ else:
 
 # Crux.*
 for path in glob("@srcroot@/src/Crux/[A-Z]*.%s" % cy_suffix):
-    fsplit = path.split("/")[-1].split(".")
+    subpath = re.match(r"@srcroot@/src/(.*)", path).group(1)
+    fsplit = re.split(r"[/.]", subpath)
+    module = ".".join(fsplit[:-1])
     ext = Extension(
       ".".join(fsplit[:-1]),
       sources=[path],
