@@ -1,3 +1,6 @@
+import random
+import time
+
 version = "@crux_version@"
 
 # prefix.
@@ -11,3 +14,11 @@ except:
     prefix = "@prefix@"
 
 debug = (True if @enable_debug@ else False)
+
+# Defaults for command line settings.
+batch = False
+quiet = False
+seed = int(time.time())
+random.seed(seed)
+infile = None
+scriptargs = []

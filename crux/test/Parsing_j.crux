@@ -90,7 +90,7 @@ print "Start: %r" % parser.start
 print "===> Disk Pickle"
 
 spec3 = Parsing.Spec(sys.modules[__name__],
-  pickleFile=Crux.opts.scriptargs[1] + "/test/Parsing_j.pickle")
+  pickleFile=Crux.Config.scriptargs[1] + "/test/Parsing_j.pickle")
 print spec3
 
 parser = TestParser(spec3)

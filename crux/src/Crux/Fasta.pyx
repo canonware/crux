@@ -162,7 +162,7 @@ cdef class Parser(Parsing.Lr):
         return Parsing.Spec([sys.modules[__name__]],
           pickleFile="%s/share/Crux-%s/Fasta.pickle" %
           (Crux.Config.prefix, Crux.Config.version),
-          verbose=(False if (not __debug__ or Crux.opts.quiet) else True),
+          verbose=(False if (not __debug__ or Crux.Config.quiet) else True),
           skinny=(False if __debug__ else True),
           logFile="%s/share/Crux-%s/Fasta.log" %
           (Crux.Config.prefix, Crux.Config.version))
