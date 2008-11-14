@@ -1,13 +1,2 @@
-"""
-Classes for phylogenetic inference.
-"""
-
-import Character
-import CTMatrix
-import Config
-import DistMatrix
-import Exception
-import Fasta
-import Newick
-import Taxa
-import Tree
+# This file must exist in order for the Python runtime to load the __init__.so
+# that results from compiling __init__.pyx.

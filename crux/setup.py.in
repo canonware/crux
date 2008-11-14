@@ -38,7 +38,7 @@ else:
     extra_compile_args = ['-DPYREX_WITHOUT_ASSERTIONS']
 
 # Crux.*
-for path in glob("@srcroot@/src/Crux/[A-Z]*.%s" % cy_suffix):
+for path in glob("@srcroot@/src/Crux/[A-Z_]*.%s" % cy_suffix):
     subpath = re.match(r"@srcroot@/src/(.*)", path).group(1)
     fsplit = re.split(r"[/.]", subpath)
     module = ".".join(fsplit[:-1])
