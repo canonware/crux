@@ -464,22 +464,22 @@ cdef class Parser(Parsing.Lr):
 
     cdef _initReMain(self):
         return re.compile(r"""
-    (\[[^[\]\n]*\])        # simple comment (non-nested, single line)
-  | (\[[^[\]\n]*\[)        # complex comment prefix: [...[
-  | (\[[^[\]\n]*\n)        # complex comment prefix: [...\n
-  | ([(])                  # (
-  | ([)])                  # )
-  | (,)                    # ,
-  | (:)                    # :
-  | (;)                    # ;
+    (\[[^[\]\n]*\])            # simple comment (non-nested, single line)
+  | (\[[^[\]\n]*\[)            # complex comment prefix: [...[
+  | (\[[^[\]\n]*\n)            # complex comment prefix: [...\n
+  | ([(])                      # (
+  | ([)])                      # )
+  | (,)                        # ,
+  | (:)                        # :
+  | (;)                        # ;
   | ([-+]?
      [0-9]+(?:[.][0-9]+)?
      (?:[eE][-+]?[0-9]+)?
-     (?!_))                # branch length
-  | ([^ \t\r\n()[\]':;,]+) # unquoted label
-  | ('(?:''|[^'])*'(?!'))  # quoted label
-  | ([ \t\r\f\v]+)         # whitespace
-  | ([\n])                 # whitespace (newline)
+     (?!_))                    # branch length
+  | ([^ \t\n\r\f\v()[\]':;,]+) # unquoted label
+  | ('(?:''|[^'])*'(?!'))      # quoted label
+  | ([ \t\r\f\v]+)             # whitespace
+  | ([\n])                     # whitespace (newline)
 """, re.X)
 
     cdef _initReComment(self):

@@ -276,15 +276,21 @@ for matrix in matrices:
     try:
         print "==="
         print matrix
-        distMatrix = Crux.DistMatrix.DistMatrix(matrix)
+        lines = matrix.split("\n")
+        for i in xrange(len(lines)):
+            lines[i] += "\n"
+        distMatrix = Crux.DistMatrix.DistMatrix(lines)
         print distMatrix.render('full', '%.5f')
         print distMatrix.render('upper', '%.5f')
         print distMatrix.render('lower', '%.5f')
     except:
         import sys
+        import traceback
 
         error = sys.exc_info()
         print "Exception %s: %s" % (error[0], error[1])
+        for l in traceback.format_exception(*error):
+            print l,
 
 for matrix in matrices:
     try:
@@ -298,9 +304,12 @@ for matrix in matrices:
         print distMatrix.render(distFormat='%.5f')
     except:
         import sys
+        import traceback
 
         error = sys.exc_info()
         print "Exception %s: %s" % (error[0], error[1])
+        for l in traceback.format_exception(*error):
+            print l,
 
 try:
     print "==="
@@ -310,8 +319,11 @@ try:
     print distMatrix.render('full', '%.5f')
 except:
     import sys
+    import traceback
 
     error = sys.exc_info()
     print "Exception %s: %s" % (error[0], error[1])
+    for l in traceback.format_exception(*error):
+        print l,
 
 print "Test end"

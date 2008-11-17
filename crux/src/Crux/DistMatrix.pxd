@@ -2,12 +2,14 @@ from Tree cimport Tree
 cimport Taxa
 
 cdef class DistMatrix:
-    cdef void _parse(self, input, Taxa.Map taxonMap, bint symmetric)
+    cdef readonly Taxa.Map taxaMap
+    cdef float *dists
+
+
+    cdef void _parse(self, input) except *
     # property ntaxa
-    # property symmetric
     # property taxaMap
-    cdef DistMatrix _dup(self, input, Taxa.Map taxonMap)
-    cdef DistMatrix _sample(self, input, Taxa.Map taxonMap, list rows)
+    cdef void _dup(self, DistMatrix other, int sampleSize) except *
     cdef float distanceGet(self, int x, int y)
     cdef void distanceSet(self, int x, int y, float distance)
     cdef void _matrixShuffle(self, list order)

@@ -2124,9 +2124,9 @@ the Parser class for parsing.
     # method uses the same set of return values as does _compatible().
     cdef _unpickle(self, object file, mode):
         cdef Spec spec
-        cdef NontermSpec nontermSpec
-        cdef Production prodSpec
-        cdef TokenSpec tokenSpec
+        cdef NontermSpec nontermSpec, nontermSelf
+        cdef Production prodSpec, prodSelf
+        cdef TokenSpec tokenSpec, tokenSelf
 
         if file is not None and "r" in mode:
             if self._verbose:

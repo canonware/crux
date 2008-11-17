@@ -71,6 +71,7 @@ cdef class Map:
         except:
             return -1
 
+    # XXX Make a property.
     cpdef list taxaGet(self):
         cdef list ret
         cdef int i
