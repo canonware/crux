@@ -17,13 +17,8 @@ from distutils.core import setup, Extension
 if @enable_cython@:
     from Cython.Distutils import build_ext
 
+libraries = []
 ext_modules = []
-#Extension('Crux._crux',
-#                               sources=glob("@srcroot@/src/Crux/*.c"),
-#                               include_dirs=["@srcroot@/include",
-#                                             "@objroot@/include"],
-#                               extra_compile_args=[@extra_compile_args@]),
-
 
 if @enable_cython@:
     cy_suffix = "pyx"
@@ -37,8 +32,22 @@ if @enable_debug@:
 else:
     extra_compile_args = ['-DPYREX_WITHOUT_ASSERTIONS']
 
+# libCx
+sources = glob("@srcroot@/src/Crux/Cx*.c")
+library = ("Cx", {
+  "sources": sources,
+  "include_dirs": ["@srcroot@/src/Crux", "@objroot@/src/Crux"],
+  "extra_compile_args": (extra_compile_args + [@extra_compile_args@])
+})
+libraries.append(library)
+
 # Crux.*
-for path in glob("@srcroot@/src/Crux/[A-Z_]*.%s" % cy_suffix):
+# Always glob .pyx files in order to exclude the Cx*.c files, but if directly
+# using Cython-generated .c files, convert the file suffix to .c inside the
+# loop.
+for path in glob("@srcroot@/src/Crux/[A-Z_]*.pyx"):
+    if cy_suffix == "c":
+        path = re.sub(r"\.pyx$", r"\.c", path)
     subpath = re.match(r"@srcroot@/src/(.*)", path).group(1)
     fsplit = re.split(r"[/.]", subpath)
     module = ".".join(fsplit[:-1])
@@ -46,7 +55,7 @@ for path in glob("@srcroot@/src/Crux/[A-Z_]*.%s" % cy_suffix):
       ".".join(fsplit[:-1]),
       sources=[path],
       include_dirs=["@srcroot@/src", "@srcroot@/src/Crux"],
-      extra_compile_args=extra_compile_args
+      extra_compile_args=extra_compile_args,
       )
     ext_modules.append(ext)
 # Parsing
@@ -68,6 +77,7 @@ setup(
   package_dir = {'': '@srcroot@/src'},
   packages = ['Crux'],
   ext_modules = ext_modules,
+  libraries = libraries,
   scripts = ['@objroot@/bin/crux'],
   cmdclass = cmdclass
   )

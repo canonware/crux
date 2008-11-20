@@ -1,20 +1,13 @@
-//==============================================================================
-//
-// <Copyright = jasone>
-// <License>
-//
-//==============================================================================
-//
-// Version: Crux <Version = crux>
-//
-//==============================================================================
+#ifndef Cx_h
+#define Cx_h
 
+// XXX Remove Python header includes?
 // Python headers.
-#include <Python.h>
-#include <compile.h>
-#include <eval.h>
+//#include <Python.h>
+//#include <compile.h>
+//#include <eval.h>
 
-#include "_cruxmodule_defs.h"
+#include "Cx_defs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,12 +29,6 @@ typedef unsigned char bool;
 #include <string.h>
 #include <strings.h>
 #include <sys/types.h>
-#include <setjmp.h>
-
-#define CxmXepOOM 2
-#define CxmXepValueError 3
-
-extern PyObject *CxgException;
 
 // assert()-alike.  It's a bit prettier and cleaner, but the same idea.
 #define CxmError(a)							\
@@ -112,39 +99,11 @@ extern PyObject *CxgException;
 #define CxmOffsetOf(aType, aField)					\
     ((size_t) &(((aType *)NULL)->aField))
 
-#include "CxMt.h"
-#include "CxRi.h"
-#include "CxQr.h"
-#include "CxMem.h"
-#include "CxXep.h"
-
-#include "CxQri.h"
-#include "CxQli.h"
-#include "CxTr.h"
-
-#ifdef CxmCpuIa32
 #include "CxIa32.h"
-#elif (defined(CxmCpuAmd64))
 #include "CxAmd64.h"
-#elif (defined(CxmCpuPpc))
 #include "CxPpc.h"
-#endif
-
-#include "CxTree.h"
-#include "CxTreeCanonize.h"
-#include "CxTreeCollapse.h"
-#include "CxTreeMp.h"
-#include "CxTreeRf.h"
-#include "CxTreeTbr.h"
-#include "CxTreeNni.h"
-#include "CxFastaParser.h"
-#include "CxNewickParser.h"
-#include "CxNexusParser.h"
-#include "CxDistMatrix.h"
-#include "CxDistMatrixNj.h"
 
 void
-init_crux(void);
+CxInit(void);
 
-void
-CxError(PyObject *exception, const char *format, ...);
+#endif // Cx_h

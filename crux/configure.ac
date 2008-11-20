@@ -45,7 +45,7 @@ MANDIR=`eval echo $MANDIR`
 AC_SUBST([MANDIR])
 
 cfgoutputs="Makefile setup.py NotInstalled/NotInstalled.py"
-cfghdrs="config.stamp include/Crux/_cruxmodule_defs.h"
+cfghdrs="src/Crux/Cx_defs.h"
 bins=
 mods=
 
@@ -219,9 +219,10 @@ AC_SUBST([crux_version])
 
 dnl Manual file dependencies (force rebuild if these change).
 manual_deps=""
-for h in `find ${srcroot}/include -type f |grep "\.h$" |sort` \
+for h in `find ${srcroot}/src -type f |grep "\.h$" |sort` \
+         `find ${srcroot}/src -type f |grep "Cx[[A-Za-z0-9]]*\.c$" |sort` \
          `find ${srcroot}/src -type f |grep "\.pxd$" |sort` \
-         $objroot/Crux/_cruxmodule_defs.h.in ${srcroot}/src/Crux/asprintf_c ; do
+         "$objroot/src/Crux/Cx_defs.h.in" ; do
   manual_deps="${manual_deps} ${h}"
 done
 AC_SUBST([manual_deps])
@@ -262,10 +263,10 @@ AC_CHECK_FUNCS([asprintf])
 
 dnl Process .in files.
 AC_SUBST([cfghdrs])
-AC_CONFIG_HEADER([$cfghdrs])
+AC_CONFIG_HEADER([$cfghdrs ${objroot}/cfghdrs.stamp])
 
 dnl crux is handled separately, since it must be executable.
-AC_CONFIG_FILES([$cfgoutputs])
+AC_CONFIG_FILES([$cfgoutputs cfgoutputs.stamp])
 AC_CONFIG_FILES([bin/crux], [chmod +x bin/crux])
 cfgoutputs="$cfgoutputs bin/crux"
 AC_SUBST([cfgoutputs])

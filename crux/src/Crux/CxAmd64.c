@@ -1,15 +1,4 @@
-//==============================================================================
-//
-// <Copyright = jasone>
-// <License>
-//
-//==============================================================================
-//
-// Version: Crux <Version = crux>
-//
-//==============================================================================
-
-#include "Crux/_cruxmodule.h"
+#include "CxAmd64.h"
 
 #ifdef CxmCpuAmd64
 
@@ -31,7 +20,7 @@ CxpAmd64Cpuid(unsigned aEax, unsigned *rAbcd)
 void
 CxAmd64CpuInit(void)
 {
-    int abcd[4];
+    unsigned abcd[4];
 
     // If the cpuid instruction is supported, and the SSE2 feature flag is set,
     // enable the use of SSE2.

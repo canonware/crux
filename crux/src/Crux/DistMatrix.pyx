@@ -20,9 +20,18 @@ class ValueError(Exception, exceptions.ValueError):
     def __str__(self):
         return self._str
 
+class MemoryError(Exception, exceptions.MemoryError):
+    def __init__(self, str):
+        self._str = str
+
+    def __str__(self):
+        return self._str
+
 cimport Parsing
 cimport Taxa
 from Tree cimport Tree
+
+from CxDistMatrix cimport *
 
 import random
 import re
@@ -118,7 +127,7 @@ cdef class Token(Parsing.Token):
 
 cdef class TokenInt(Token):
     "%token int [pInt]"
-    cdef int i
+    cdef CxtDMSize i
 
     def __init__(self, Parser parser, str raw):
         Token.__init__(self, parser, raw)
@@ -127,7 +136,7 @@ cdef class TokenInt(Token):
 
 cdef class TokenNum(Token):
     "%token num [pNum]"
-    cdef float n
+    cdef CxtDMDist n
 
     def __init__(self, Parser parser, str raw):
         Token.__init__(self, parser, raw)
@@ -162,6 +171,7 @@ cdef class Ntaxa(Nonterm):
     "%nonterm"
     cpdef reduce(self, TokenInt int_):
         "%reduce int"
+        (<Parser>self.parser).matrix._allocDists(int_.i)
 
 cdef class Rows(Nonterm):
     "%nonterm"
@@ -281,7 +291,8 @@ cdef class DistMatrix:
 
     def __dealloc__(self):
         if self.dists != NULL:
-            pass # XXX
+            CxDistMatrixDelete(self.dists)
+            self.dists = NULL
 
     # Construct a symmetric DistMatrix from one of the following inputs:
     #
@@ -302,6 +313,14 @@ cdef class DistMatrix:
             self._dup(input, sampleSize)
         else:
             raise ValueError("Iterable lines, Taxa.Map, or DistMatrix expected")
+
+    cdef void _allocDists(self, CxtDMSize ntaxa) except *:
+        assert self.dists == NULL
+        self.dists = CxDistMatrixNew(ntaxa)
+        if self.dists == NULL:
+            raise MemoryError("Failed to allocate %d-taxon distance matrix" %
+              <int>ntaxa)
+        self._ntaxa = ntaxa
 
     cdef void _dup(self, DistMatrix other, int sampleSize) except *:
         cdef Taxa.Map taxaMap, otherMap
@@ -333,7 +352,7 @@ cdef class DistMatrix:
 
     property ntaxa:
         def __get__(self):
-            pass # XXX
+            return <int>self._ntaxa
 
     property taxaMap:
         def __get__(self):

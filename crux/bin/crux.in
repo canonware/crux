@@ -133,7 +133,7 @@ if not Crux.Config.quiet:
 if Crux.Config.infile != None:
     execfile(Crux.Config.infile)
 elif Crux.Config.batch:
-    exec(os.stdin)
+    exec(sys.stdin)
 
 # Print various info, unless in quiet mode.
 if not Crux.Config.quiet:

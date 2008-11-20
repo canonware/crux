@@ -1,14 +1,17 @@
 from Tree cimport Tree
 cimport Taxa
 
+from CxDistMatrix cimport *
+
 cdef class DistMatrix:
     cdef readonly Taxa.Map taxaMap
-    cdef float *dists
-
+    cdef CxtDMDist *dists
+    cdef CxtDMSize _ntaxa
 
     cdef void _parse(self, input) except *
     # property ntaxa
     # property taxaMap
+    cdef void _allocDists(self, CxtDMSize ntaxa) except *
     cdef void _dup(self, DistMatrix other, int sampleSize) except *
     cdef float distanceGet(self, int x, int y)
     cdef void distanceSet(self, int x, int y, float distance)

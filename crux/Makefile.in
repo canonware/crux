@@ -94,7 +94,9 @@ relclean: distclean cyclean
 	rm -rf @objroot@/autom4te.cache
 	rm -f @objroot@/configure
 
+#
 # Re-configuration rules.
+#
 ifeq (@enable_autogen@, 1)
 @srcroot@/configure : @srcroot@/configure.ac
 	cd @srcroot@ && @AUTOCONF@
@@ -102,18 +104,23 @@ ifeq (@enable_autogen@, 1)
 @objroot@/config.status : @srcroot@/configure
 	@objroot@/config.status --recheck
 
-@srcroot@/config.stamp.in : @srcroot@/configure.ac
-	cd @srcroot@ && @AUTOHEADER@
-	@ECHO@ stamp > @srcroot@/config.stamp.in
+# cfghdrs rules.
+@srcroot@/cfghdrs.stamp.in : @srcroot@/configure.ac
+	@ECHO@ stamp > @srcroot@/cfghdrs.stamp.in
 
-$(patsubst %, @srcroot@/%.in, @cfghdrs@) : @srcroot@/config.stamp.in
+@objroot@/cfghdrs.stamp : $(patsubst %, @srcroot@/%.in, @cfghdrs@) \
+			 @srcroot@/configure
+	./@objroot@/config.status
 
-@objroot@/config.stamp : $(patsubst %, @srcroot@/%.in, @cfghdrs@) \
-			 @objroot@/config.status
-	@objroot@/config.status
+@cfghdrs@ : @objroot@/cfghdrs.stamp
 
-$(patsubst %, @objroot@/%, @cfgoutputs@) : \
-		$(patsubst %, @srcroot@/%.in, @cfgoutputs@) \
-		@objroot@/config.status
-	@objroot@/config.status
+# cfgoutputs rules.
+@srcroot@/cfgoutputs.stamp.in : @srcroot@/configure.ac
+	@ECHO@ stamp > @srcroot@/cfgoutputs.stamp.in
+
+@objroot@/cfgoutputs.stamp : $(patsubst %, @srcroot@/%.in, @cfgoutputs@) \
+			    @srcroot@/configure
+	./@objroot@/config.status
+
+@cfgoutputs@ : @objroot@/cfgoutputs.stamp
 endif
