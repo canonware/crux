@@ -16,4 +16,4 @@ cdef class DistMatrix:
     cdef void _matrixShuffle(self, list order)
     cdef Tree _nj(self, bint random)
     cdef Tree _rnj(self, bint random, bint additive)
-    cpdef render(self, str format=?, str distFormat=?, file outFile=?)
+    cpdef render(self, str format=*, str distFormat=*, file outFile=*)
