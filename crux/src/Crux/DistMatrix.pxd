@@ -6,16 +6,14 @@ from CxDistMatrix cimport *
 cdef class DistMatrix:
     cdef readonly Taxa.Map taxaMap
     cdef CxtDMDist *dists
-    cdef CxtDMSize _ntaxa
+    cdef readonly CxtDMSize ntaxa
 
     cdef void _parse(self, input) except *
-    # property ntaxa
-    # property taxaMap
     cdef void _allocDists(self, CxtDMSize ntaxa) except *
     cdef void _dup(self, DistMatrix other, int sampleSize) except *
-    cdef float distanceGet(self, int x, int y)
-    cdef void distanceSet(self, int x, int y, float distance)
+    cdef CxtDMDist distanceGet(self, CxtDMSize x, CxtDMSize y)
+    cdef void distanceSet(self, CxtDMSize x, CxtDMSize y, CxtDMDist distance)
     cdef void _matrixShuffle(self, list order)
     cdef Tree _nj(self, bint random)
     cdef Tree _rnj(self, bint random, bint additive)
-    cdef _render(self, format, distFormat, file file_=?)
+    cpdef render(self, str format=?, str distFormat=?, file outFile=?)

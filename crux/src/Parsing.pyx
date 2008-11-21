@@ -981,6 +981,8 @@ cdef class ItemSet:
         return ret
 
     def __richcmp__(ItemSet self, ItemSet other, int op):
+        cdef Item sItem
+
         assert op == 2
 
         if len(self._items) != len(other._items):

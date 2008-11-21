@@ -4,14 +4,14 @@ Test begin
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
 5
 Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
 Beta       1.00000 0.00000 2.00000 3.00000 3.00000
 Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
-Delta      3.00000 3.00000 0.00000 0.00000 1.00000
+Delta      3.00000 3.00000 3.00000 0.00000 1.00000
 Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
 
 5
@@ -19,13 +19,13 @@ Alpha              1.00000 2.00000 3.00000 3.00000
 Beta                       2.00000 3.00000 3.00000
 Gamma                              3.00000 3.00000
 Delta                                      1.00000
-Epsilon                                           
+Epsilon
 
 5
-Alpha     
+Alpha
 Beta       1.00000
 Gamma      2.00000 2.00000
-Delta      3.00000 3.00000 0.00000
+Delta      3.00000 3.00000 3.00000
 Epsilon    3.00000 3.00000 3.00000 1.00000
 
 ===
@@ -33,13 +33,13 @@ Epsilon    3.00000 3.00000 3.00000 1.00000
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 5
 Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
 Beta       1.00000 0.00000 2.00000 3.00000 3.00000
 Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
-Delta      3.00000 3.00000 0.00000 0.00000 1.00000
+Delta      3.00000 3.00000 3.00000 0.00000 1.00000
 Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
 
 5
@@ -47,13 +47,13 @@ Alpha              1.00000 2.00000 3.00000 3.00000
 Beta                       2.00000 3.00000 3.00000
 Gamma                              3.00000 3.00000
 Delta                                      1.00000
-Epsilon                                           
+Epsilon
 
 5
-Alpha     
+Alpha
 Beta       1.00000
 Gamma      2.00000 2.00000
-Delta      3.00000 3.00000 0.00000
+Delta      3.00000 3.00000 3.00000
 Epsilon    3.00000 3.00000 3.00000 1.00000
 
 ===
@@ -76,10 +76,10 @@ Taxon_A            1.00000 2.00000 3.00000 4.00000
 Taxon_B                    1.50000 2.50000 3.50000
 Taxon_C                            2.20000 3.20000
 Taxon_D                                    3.10000
-Taxon_E                                           
+Taxon_E
 
 5
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 1.50000
 Taxon_D    3.00000 2.50000 2.20000
@@ -105,10 +105,10 @@ Taxon_A            1.00000 2.00000 3.00000 4.00000
 Taxon_B                    1.50000 2.50000 3.50000
 Taxon_C                            2.20000 3.20000
 Taxon_D                                    3.10000
-Taxon_E                                           
+Taxon_E
 
 5
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 1.50000
 Taxon_D    3.00000 2.50000 2.20000
@@ -133,10 +133,10 @@ Taxon_A            1.00000 2.00000 3.00000 4.00000
 Taxon_B                    1.50000 2.50000 3.50000
 Taxon_C                            2.20000 3.20000
 Taxon_D                                    3.10000
-Taxon_E                                           
+Taxon_E
 
 5
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 1.50000
 Taxon_D    3.00000 2.50000 2.20000
@@ -162,10 +162,10 @@ Taxon_A            1.00000 2.00000 3.00000 4.00000
 Taxon_B                    1.50000 2.50000 3.50000
 Taxon_C                            2.20000 3.20000
 Taxon_D                                    3.10000
-Taxon_E                                           
+Taxon_E
 
 5
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 1.50000
 Taxon_D    3.00000 2.50000 2.20000
@@ -190,10 +190,10 @@ Taxon_A            1.00000 2.00000 3.00000 4.00000
 Taxon_B                    1.50000 2.50000 3.50000
 Taxon_C                            2.20000 3.20000
 Taxon_D                                    3.10000
-Taxon_E                                           
+Taxon_E
 
 5
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 1.50000
 Taxon_D    3.00000 2.50000 2.20000
@@ -210,10 +210,10 @@ Taxon_B    1.00000 0.00000
 
 2
 Taxon_A            1.00000
-Taxon_B                   
+Taxon_B
 
 2
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 
 ===
@@ -227,10 +227,10 @@ Taxon_B    1.00000 0.00000
 
 2
 Taxon_A            1.00000
-Taxon_B                   
+Taxon_B
 
 2
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 
 ===
@@ -244,10 +244,10 @@ Taxon_B    1.00000 0.00000
 
 2
 Taxon_A            1.00000
-Taxon_B                   
+Taxon_B
 
 2
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 
 ===
@@ -264,10 +264,10 @@ Taxon_C    2.00000 3.00000 0.00000
 3
 Taxon_A            1.00000 2.00000
 Taxon_B                    3.00000
-Taxon_C                           
+Taxon_C
 
 3
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 3.00000
 
@@ -285,10 +285,10 @@ Taxon_C    2.00000 3.00000 0.00000
 3
 Taxon_A            1.00000 2.00000
 Taxon_B                    3.00000
-Taxon_C                           
+Taxon_C
 
 3
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 3.00000
 
@@ -306,34 +306,61 @@ Taxon_C    2.00000 3.00000 0.00000
 3
 Taxon_A            1.00000 2.00000
 Taxon_B                    3.00000
-Taxon_C                           
+Taxon_C
 
 3
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 3.00000
 
 ===
 3
-Taxon_A 1.0e4 +1.0e4 -1.0e4
-Taxon_B 1e4   +1e4   -1e4
-Taxon_C 1e+4  1e-4   1E4
+Taxon_A 0.0e4 +1.0e4 -1.0e4
+Taxon_B 1e4   +0e4   -1e-4
+Taxon_C -1e+4 -1e-4   0E4
 
 3
-Taxon_A    10000.00000 10000.00000 -10000.00000
-Taxon_B    10000.00000 10000.00000 -10000.00000
-Taxon_C    10000.00000 0.00010 10000.00000
+Taxon_A    0.00000 10000.00000 -10000.00000
+Taxon_B    10000.00000 0.00000 -0.00010
+Taxon_C    -10000.00000 -0.00010 0.00000
 
 3
 Taxon_A            10000.00000 -10000.00000
-Taxon_B                    -10000.00000
-Taxon_C                           
+Taxon_B                        -0.00010
+Taxon_C
 
 3
-Taxon_A   
+Taxon_A
 Taxon_B    10000.00000
-Taxon_C    10000.00000 0.00010
+Taxon_C    -10000.00000 -0.00010
 
+===
+5
+Taxon_A 1.0 1.0 2.0 3.0 4.0
+Taxon_B 1.0 0.0 1.5 2.5 3.5
+Taxon_C 2.0 1.5 0.0 2.2 3.2
+Taxon_D 3.0 2.5 2.2 0.0 3.1
+Taxon_E 4.0 3.5 3.2 3.1 0.0
+
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 2: Non-zero distance on diagonal
+===
+5
+Taxon_A 0.0 1.0 2.0 3.0 4.0
+Taxon_B 1.0 1.0 1.5 2.5 3.5
+Taxon_C 2.0 1.5 0.0 2.2 3.2
+Taxon_D 3.0 2.5 2.2 0.0 3.1
+Taxon_E 4.0 3.5 3.2 3.1 0.0
+
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Non-zero distance on diagonal
+===
+5
+Taxon_A 0.0 2.0 2.0 3.0 4.0
+Taxon_B 1.0 0.0 1.5 2.5 3.5
+Taxon_C 2.0 1.5 0.0 2.2 3.2
+Taxon_D 3.0 2.5 2.2 0.0 3.1
+Taxon_E 4.0 3.5 3.2 3.1 0.0
+
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Non-symmetric distance for 'Taxon_A' <--> 'Taxon_B'
 ===
 
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -342,7 +369,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.ValueError'>: At 2:0: Unspecified number of taxa
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: label ('Alpha')
 ===
 5
            0.000 1.000 2.000 3.000 3.000
@@ -351,7 +378,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 2:11 (unknown matrix format): Missing taxon label
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: num ('0.000')
 ===
 5
 Alpha            1.000 2.000 3.000 3.000
@@ -360,7 +387,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 3:29 (upper matrix format): Missing taxon label
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Too many distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000
@@ -369,7 +396,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 3:29 (upper matrix format): Missing taxon label
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Too many distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -378,7 +405,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 3:11 (full matrix format): Missing taxon label
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Too many distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -387,7 +414,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 4:0 (full matrix format): Missing distance (1, 4)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Non-symmetric distance for 'Alpha' <--> 'Beta'
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -396,7 +423,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 4:0 (full matrix format): Missing distance (1, 4)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Incorrect number of distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -406,66 +433,66 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 5:0 (full matrix format): Missing distance (1, 4)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Incorrect number of distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
            3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:11 (full matrix format): Missing taxon label
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Too many distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Gamma      3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Crux.TaxonMap.ValueError'>: Label 'Gamma' already mapped
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Duplicate taxon label: 'Gamma'
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 7:0 (full matrix format): End of input reached while reading distance (4, 4)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 7:0 (full matrix format): End of input reached while reading distance (4, 3)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:28 (full matrix format): End of input reached while reading distance (4, 3)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:0 (full matrix format): End of input reached while reading label 4
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Insufficient taxa
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
-Exception <class 'C_DistMatrix.SyntaxError'>: At 5:40 (full matrix format): End of input reached while reading label 4
+Delta      3.000 3.000 3.000 0.000 1.000
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
 ===
 5
 Taxon_A     1.0 2.0 3.0 4.0
@@ -473,21 +500,21 @@ Taxon_B         1.5 2.5 3.5
 Taxon_C             2.2 3.2
 Taxon_D                 3.1
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:0 (upper matrix format): End of input reached while reading label 4
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Insufficient taxa
 ===
 5
 Taxon_A     1.0 2.0 3.0 4.0
 Taxon_B         1.5 2.5 3.5
 Taxon_C             2.2 3.2
 Taxon_D                 3.1
-Exception <class 'C_DistMatrix.SyntaxError'>: At 5:27 (upper matrix format): End of input reached while reading label 4
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
 ===
 5
 Taxon_A     1.0 2.0 3.0 4.0
 Taxon_B         1.5 2.5 3.5
 Taxon_C             2.2 3.2
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 5:0 (upper matrix format): End of input reached while reading label 3
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
 ===
 5
 Taxon_A
@@ -496,7 +523,7 @@ Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 7:0 (lower matrix format): End of input reached while reading distance (4, 3)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
 5
 Taxon_A
@@ -504,7 +531,7 @@ Taxon_B 1.0
 Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:19 (lower matrix format): End of input reached while reading distance (4, 3)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
 5
 Taxon_A
@@ -512,49 +539,49 @@ Taxon_B 1.0
 Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:0 (lower matrix format): End of input reached while reading label 4
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Insufficient taxa
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
 5
 Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
 Beta       1.00000 0.00000 2.00000 3.00000 3.00000
 Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
-Delta      3.00000 3.00000 0.00000 0.00000 1.00000
+Delta      3.00000 3.00000 3.00000 0.00000 1.00000
 Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
 
 5
-Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
-Beta       1.00000 0.00000 2.00000 3.00000 3.00000
-Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
-Delta      3.00000 3.00000 0.00000 0.00000 1.00000
-Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
+Alpha
+Beta       1.00000
+Gamma      2.00000 2.00000
+Delta      3.00000 3.00000 3.00000
+Epsilon    3.00000 3.00000 3.00000 1.00000
 
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 5
 Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
 Beta       1.00000 0.00000 2.00000 3.00000 3.00000
 Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
-Delta      3.00000 3.00000 0.00000 0.00000 1.00000
+Delta      3.00000 3.00000 3.00000 0.00000 1.00000
 Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
 
 5
-Alpha      0.00000 1.00000 2.00000 3.00000 3.00000
-Beta       1.00000 0.00000 2.00000 3.00000 3.00000
-Gamma      2.00000 2.00000 0.00000 3.00000 3.00000
-Delta      3.00000 3.00000 0.00000 0.00000 1.00000
-Epsilon    3.00000 3.00000 3.00000 1.00000 0.00000
+Alpha
+Beta       1.00000
+Gamma      2.00000 2.00000
+Delta      3.00000 3.00000 3.00000
+Epsilon    3.00000 3.00000 3.00000 1.00000
 
 ===
 5
@@ -572,11 +599,11 @@ Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
 Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
 
 5
-Taxon_A    0.00000 1.00000 2.00000 3.00000 4.00000
-Taxon_B    1.00000 0.00000 1.50000 2.50000 3.50000
-Taxon_C    2.00000 1.50000 0.00000 2.20000 3.20000
-Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
-Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
+Taxon_A
+Taxon_B    1.00000
+Taxon_C    2.00000 1.50000
+Taxon_D    3.00000 2.50000 2.20000
+Taxon_E    4.00000 3.50000 3.20000 3.10000
 
 ===
 5
@@ -594,7 +621,7 @@ Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
 Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
 
 5
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 1.50000
 Taxon_D    3.00000 2.50000 2.20000
@@ -615,7 +642,7 @@ Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
 Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
 
 5
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 1.50000
 Taxon_D    3.00000 2.50000 2.20000
@@ -637,7 +664,7 @@ Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
 Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
 
 5
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 1.50000
 Taxon_D    3.00000 2.50000 2.20000
@@ -658,7 +685,7 @@ Taxon_D    3.00000 2.50000 2.20000 0.00000 3.10000
 Taxon_E    4.00000 3.50000 3.20000 3.10000 0.00000
 
 5
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 1.50000
 Taxon_D    3.00000 2.50000 2.20000
@@ -674,8 +701,8 @@ Taxon_A    0.00000 1.00000
 Taxon_B    1.00000 0.00000
 
 2
-Taxon_A    0.00000 1.00000
-Taxon_B    1.00000 0.00000
+Taxon_A
+Taxon_B    1.00000
 
 ===
 2
@@ -687,7 +714,7 @@ Taxon_A    0.00000 1.00000
 Taxon_B    1.00000 0.00000
 
 2
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 
 ===
@@ -700,7 +727,7 @@ Taxon_A    0.00000 1.00000
 Taxon_B    1.00000 0.00000
 
 2
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 
 ===
@@ -715,9 +742,9 @@ Taxon_B    1.00000 0.00000 3.00000
 Taxon_C    2.00000 3.00000 0.00000
 
 3
-Taxon_A    0.00000 1.00000 2.00000
-Taxon_B    1.00000 0.00000 3.00000
-Taxon_C    2.00000 3.00000 0.00000
+Taxon_A
+Taxon_B    1.00000
+Taxon_C    2.00000 3.00000
 
 ===
 3
@@ -731,7 +758,7 @@ Taxon_B    1.00000 0.00000 3.00000
 Taxon_C    2.00000 3.00000 0.00000
 
 3
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 3.00000
 
@@ -747,26 +774,53 @@ Taxon_B    1.00000 0.00000 3.00000
 Taxon_C    2.00000 3.00000 0.00000
 
 3
-Taxon_A   
+Taxon_A
 Taxon_B    1.00000
 Taxon_C    2.00000 3.00000
 
 ===
 3
-Taxon_A 1.0e4 +1.0e4 -1.0e4
-Taxon_B 1e4   +1e4   -1e4
-Taxon_C 1e+4  1e-4   1E4
+Taxon_A 0.0e4 +1.0e4 -1.0e4
+Taxon_B 1e4   +0e4   -1e-4
+Taxon_C -1e+4 -1e-4   0E4
 
 3
-Taxon_A    10000.00000 10000.00000 -10000.00000
-Taxon_B    10000.00000 10000.00000 -10000.00000
-Taxon_C    10000.00000 0.00010 10000.00000
+Taxon_A    0.00000 10000.00000 -10000.00000
+Taxon_B    10000.00000 0.00000 -0.00010
+Taxon_C    -10000.00000 -0.00010 0.00000
 
 3
-Taxon_A    10000.00000 10000.00000 -10000.00000
-Taxon_B    10000.00000 10000.00000 -10000.00000
-Taxon_C    10000.00000 0.00010 10000.00000
+Taxon_A
+Taxon_B    10000.00000
+Taxon_C    -10000.00000 -0.00010
 
+===
+5
+Taxon_A 1.0 1.0 2.0 3.0 4.0
+Taxon_B 1.0 0.0 1.5 2.5 3.5
+Taxon_C 2.0 1.5 0.0 2.2 3.2
+Taxon_D 3.0 2.5 2.2 0.0 3.1
+Taxon_E 4.0 3.5 3.2 3.1 0.0
+
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 2: Non-zero distance on diagonal
+===
+5
+Taxon_A 0.0 1.0 2.0 3.0 4.0
+Taxon_B 1.0 1.0 1.5 2.5 3.5
+Taxon_C 2.0 1.5 0.0 2.2 3.2
+Taxon_D 3.0 2.5 2.2 0.0 3.1
+Taxon_E 4.0 3.5 3.2 3.1 0.0
+
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Non-zero distance on diagonal
+===
+5
+Taxon_A 0.0 2.0 2.0 3.0 4.0
+Taxon_B 1.0 0.0 1.5 2.5 3.5
+Taxon_C 2.0 1.5 0.0 2.2 3.2
+Taxon_D 3.0 2.5 2.2 0.0 3.1
+Taxon_E 4.0 3.5 3.2 3.1 0.0
+
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Non-symmetric distance for 'Taxon_A' <--> 'Taxon_B'
 ===
 
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -775,7 +829,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.ValueError'>: At 2:0: Unspecified number of taxa
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: label ('Alpha')
 ===
 5
            0.000 1.000 2.000 3.000 3.000
@@ -784,7 +838,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 2:11 (unknown matrix format): Missing taxon label
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: num ('0.000')
 ===
 5
 Alpha            1.000 2.000 3.000 3.000
@@ -793,7 +847,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 3:29 (upper matrix format): Missing taxon label
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Too many distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000
@@ -802,7 +856,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 3:29 (upper matrix format): Missing taxon label
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Too many distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -811,7 +865,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 3:11 (full matrix format): Missing taxon label
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Too many distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -820,7 +874,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 4:0 (full matrix format): Missing distance (1, 4)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Non-symmetric distance for 'Alpha' <--> 'Beta'
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -829,7 +883,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 4:0 (full matrix format): Missing distance (1, 4)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Incorrect number of distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -839,66 +893,66 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 5:0 (full matrix format): Missing distance (1, 4)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Incorrect number of distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
            3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:11 (full matrix format): Missing taxon label
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Too many distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Gamma      3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Crux.TaxonMap.ValueError'>: Label 'Gamma' already mapped
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Duplicate taxon label: 'Gamma'
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 7:0 (full matrix format): End of input reached while reading distance (4, 4)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 7:0 (full matrix format): End of input reached while reading distance (4, 3)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:28 (full matrix format): End of input reached while reading distance (4, 3)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:0 (full matrix format): End of input reached while reading label 4
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
-Exception <class 'C_DistMatrix.SyntaxError'>: At 5:40 (full matrix format): End of input reached while reading label 4
+Delta      3.000 3.000 3.000 0.000 1.000
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 5: Insufficient taxa
 ===
 5
 Taxon_A     1.0 2.0 3.0 4.0
@@ -906,21 +960,21 @@ Taxon_B         1.5 2.5 3.5
 Taxon_C             2.2 3.2
 Taxon_D                 3.1
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:0 (upper matrix format): End of input reached while reading label 4
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
 ===
 5
 Taxon_A     1.0 2.0 3.0 4.0
 Taxon_B         1.5 2.5 3.5
 Taxon_C             2.2 3.2
 Taxon_D                 3.1
-Exception <class 'C_DistMatrix.SyntaxError'>: At 5:27 (upper matrix format): End of input reached while reading label 4
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 5: Insufficient taxa
 ===
 5
 Taxon_A     1.0 2.0 3.0 4.0
 Taxon_B         1.5 2.5 3.5
 Taxon_C             2.2 3.2
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 5:0 (upper matrix format): End of input reached while reading label 3
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 5: Insufficient taxa
 ===
 5
 Taxon_A
@@ -929,7 +983,7 @@ Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 7:0 (lower matrix format): End of input reached while reading distance (4, 3)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
 5
 Taxon_A
@@ -937,7 +991,7 @@ Taxon_B 1.0
 Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:19 (lower matrix format): End of input reached while reading distance (4, 3)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
 ===
 5
 Taxon_A
@@ -945,7 +999,7 @@ Taxon_B 1.0
 Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 
-Exception <class 'C_DistMatrix.SyntaxError'>: At 6:0 (lower matrix format): End of input reached while reading label 4
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
 ===
 3
 A          0.00000 0.00000 0.00000

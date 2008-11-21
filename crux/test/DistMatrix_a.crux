@@ -17,7 +17,7 @@ matrices = ["""     5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 """,
 
@@ -25,7 +25,7 @@ Epsilon    3.000 3.000 3.000 1.000 0.000
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000""",
 
 """5
@@ -100,14 +100,38 @@ Taxon_C 2.0 3.0
 """,
 
 """3
-Taxon_A 1.0e4 +1.0e4 -1.0e4
-Taxon_B 1e4   +1e4   -1e4
-Taxon_C 1e+4  1e-4   1E4
+Taxon_A 0.0e4 +1.0e4 -1.0e4
+Taxon_B 1e4   +0e4   -1e-4
+Taxon_C -1e+4 -1e-4   0E4
 """,
 
 #
 # Error cases.
 #
+
+"""5
+Taxon_A 1.0 1.0 2.0 3.0 4.0
+Taxon_B 1.0 0.0 1.5 2.5 3.5
+Taxon_C 2.0 1.5 0.0 2.2 3.2
+Taxon_D 3.0 2.5 2.2 0.0 3.1
+Taxon_E 4.0 3.5 3.2 3.1 0.0
+""",
+
+"""5
+Taxon_A 0.0 1.0 2.0 3.0 4.0
+Taxon_B 1.0 1.0 1.5 2.5 3.5
+Taxon_C 2.0 1.5 0.0 2.2 3.2
+Taxon_D 3.0 2.5 2.2 0.0 3.1
+Taxon_E 4.0 3.5 3.2 3.1 0.0
+""",
+
+"""5
+Taxon_A 0.0 2.0 2.0 3.0 4.0
+Taxon_B 1.0 0.0 1.5 2.5 3.5
+Taxon_C 2.0 1.5 0.0 2.2 3.2
+Taxon_D 3.0 2.5 2.2 0.0 3.1
+Taxon_E 4.0 3.5 3.2 3.1 0.0
+""",
 
 """
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -178,7 +202,7 @@ Epsilon    3.000 3.000 3.000 1.000 0.000
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
            3.000 3.000 3.000 1.000 0.000
 """,
 
@@ -186,7 +210,7 @@ Delta      3.000 3.000 0.000 0.000 1.000
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Gamma      3.000 3.000 3.000 1.000 0.000
 """,
 
@@ -196,7 +220,7 @@ Gamma      3.000 3.000 3.000 1.000 0.000
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 
 """,
 
@@ -204,7 +228,7 @@ Epsilon    3.000 3.000 3.000 1.000
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000
 """,
 
@@ -212,21 +236,21 @@ Epsilon    3.000 3.000 3.000
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000""",
 
 """     5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000
+Delta      3.000 3.000 3.000 0.000 1.000
 """,
 
 """     5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
-Delta      3.000 3.000 0.000 0.000 1.000""",
+Delta      3.000 3.000 3.000 0.000 1.000""",
 
 """5
 Taxon_A     1.0 2.0 3.0 4.0
@@ -280,17 +304,20 @@ for matrix in matrices:
         for i in xrange(len(lines)):
             lines[i] += "\n"
         distMatrix = Crux.DistMatrix.DistMatrix(lines)
-        print distMatrix.render('full', '%.5f')
-        print distMatrix.render('upper', '%.5f')
-        print distMatrix.render('lower', '%.5f')
+        distMatrix.render('full', '%.5f')
+        print
+        distMatrix.render('upper', '%.5f')
+        print
+        distMatrix.render('lower', '%.5f')
+        print
     except:
         import sys
-        import traceback
+#        import traceback
 
         error = sys.exc_info()
         print "Exception %s: %s" % (error[0], error[1])
-        for l in traceback.format_exception(*error):
-            print l,
+#        for l in traceback.format_exception(*error):
+#            print l,
 
 for matrix in matrices:
     try:
@@ -300,30 +327,33 @@ for matrix in matrices:
         f.write(matrix)
         f.seek(0, 0)
         distMatrix = Crux.DistMatrix.DistMatrix(f)
-        print distMatrix.render(format='full', distFormat='%.5f')
-        print distMatrix.render(distFormat='%.5f')
+        distMatrix.render(format='full', distFormat='%.5f')
+        print
+        distMatrix.render(distFormat='%.5f')
+        print
     except:
         import sys
-        import traceback
+#        import traceback
 
         error = sys.exc_info()
         print "Exception %s: %s" % (error[0], error[1])
-        for l in traceback.format_exception(*error):
-            print l,
+#        for l in traceback.format_exception(*error):
+#            print l,
 
 try:
     print "==="
-    taxonMap = Crux.Taxa.Map([Crux.Taxa.taxon(label) for label in
+    taxaMap = Crux.Taxa.Map([Crux.Taxa.get(label) for label in
       ('A', 'B', 'C')])
-    distMatrix = Crux.DistMatrix.DistMatrix(taxonMap)
-    print distMatrix.render('full', '%.5f')
+    distMatrix = Crux.DistMatrix.DistMatrix(taxaMap)
+    distMatrix.render('full', '%.5f')
+    print
 except:
     import sys
-    import traceback
+#    import traceback
 
     error = sys.exc_info()
     print "Exception %s: %s" % (error[0], error[1])
-    for l in traceback.format_exception(*error):
-        print l,
+#    for l in traceback.format_exception(*error):
+#        print l,
 
 print "Test end"

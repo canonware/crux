@@ -16,6 +16,7 @@ CxmInline CxtDMSize
 CxDistMatrixNxy2i(CxtDMSize n, CxtDMSize x, CxtDMSize y) {
     CxmAssert(x < n);
     CxmAssert(y < n);
+    CxmAssert(x != y);
 
     if (x > y) {
 	CxtDMSize t;
