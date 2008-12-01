@@ -13,11 +13,11 @@ import sys
 
 print "Test begin"
 
-matrix = Crux.DistMatrix.DistMatrix(open(Crux.opts.scriptargs[1]
+matrix = Crux.DistMatrix.DistMatrix(open(Crux.Config.scriptargs[1]
                                          + '/test/treezilla.dist'))
 t = matrix.rnj()
 
-t.canonize()
+t.canonize(matrix.taxaMap)
 print t.render()
 
 print "Test end"

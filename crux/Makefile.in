@@ -11,49 +11,82 @@
 #
 ################################################################################
 
+# Clear out all vpaths, then set just one (default vpath) for the main build
+# directory.
+vpath
+vpath % .
+
+# Clear the default suffixes, so that built-in rules are not used.
+.SUFFIXES :
+
 SHELL := /bin/sh
 
-# Force a full rebuild if any of the header files have changed.  In an ideal
-# world, all build dependencies would be tracked in one place, but setup.py
-# only does part of the job, so this kludge is necessary to avoid inconsistent
-# partial rebuilds.
-all:
-	@mkdir -p @objroot@/build/share/Crux-@crux_version@
-	@sh -c 'force=0; \
-		for f in @manual_deps@; do \
-			if @TEST@ "@objroot@/build.stamp" -ot "$$f"; then \
-				@ECHO@ Force full rebuild due to $$f; \
-				force=1; \
-			fi \
-		done; \
-		if @TEST@ "x$$force" = "x0"; then \
-			@ECHO@ "@PYTHON@ setup.py build"; \
-			@PYTHON@ setup.py build; \
-		else \
-			@ECHO@ "@PYTHON@ setup.py build --force"; \
-			@PYTHON@ setup.py build --force; \
-		fi'
-	@ECHO@ stamp > @objroot@/build.stamp
+# Build parameters.
+CPPFLAGS := @CPPFLAGS@
+CFLAGS := @CFLAGS@ -fPIC -DPIC
+ifeq (macho, @abi@)
+CFLAGS += -dynamic
+endif
+LDFLAGS := @LDFLAGS@
 
-pickles: all
-	@objroot@/bin/crux --batch --infile=@srcroot@/pickles.crux
+# File lists.
+CHDRS := @chdrs@
+CSRCS := @csrcs@
+PXDS := @pxds@
+PYXS := @pyxs@
+PKGS := @pkgs@
+PYS := @pys@
+BINS := @bins@
+TESTS := @tests@
 
-install: all pickles
-	install -d @prefix@/share/Crux-@crux_version@
-	@for f in `find @abs_objroot@/build/share/Crux-@crux_version@ -type f`; do \
-	install -m 644 $f @abs_objroot@/build/share/Crux-@crux_version@; \
+# Default target.
+all: installable
+
+# Cython-generated .c files.
+CYCS := $(PYXS:%.pyx=%.c) $(PKGS:%.pyx=%.c)
+
+# Include generated dependency files.
+-include $(CYCS:@srcroot@pkg/%.c=@objroot@build/pkg/%.d) \
+	$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.d)
+
+dist: $(CYCS)
+
+runnable: @objroot@build/run/bin/crux
+
+installable: @objroot@build/inst/bin/crux pickles
+
+pickles: runnable
+	@mkdir -p @objroot@build/run/share/Crux/parsers
+	@objroot@build/run/bin/crux --batch --infile=@srcroot@pickles.crux
+
+install: installable
+	install -d @BINDIR@
+	install -m 755 @objroot@build/inst/bin/crux @BINDIR@
+	install -d @DATADIR@/Crux/lib
+	install -m 755 @objroot@build/inst/share/Crux/lib/libCx.so @DATADIR@/Crux/lib
+	install -d @DATADIR@/Crux/parsers
+	@for f in `find @abs_objroot@build/run/share/Crux/parsers -type f`; do \
+	echo "install -m 644 $$f @DATADIR@/Crux/parsers"; \
+	install -m 644 $$f @DATADIR@/Crux/parsers; \
 done
-	@PYTHON@ setup.py install
+	@for d in $(patsubst @objroot@build/inst/site-packages/%,@site_packages@/%,$(sort $(dir $(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) $(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)))); do \
+	echo "install -d $$d"; \
+	install -d $$d; \
+done
+	@for f in $(patsubst @objroot@build/inst/site-packages/%,%,$(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) $(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)); do \
+	echo "install -m 755 @objroot@build/inst/site-packages/$$f @site_packages@/`dirname $$f`"; \
+	install -m 755 @objroot@build/inst/site-packages/$$f @site_packages@/`dirname $$f`; \
+done
 
-check: all
+check: runnable
 	@sh -c 'total=0; \
 		failures=0; \
 		@ECHO@ "========================================="; \
-		for t in @crux_tests@; do \
+		for t in $(TESTS); do \
 			total=`expr $$total + 1`; \
 			@ECHO@ -n "$$t ... "; \
-			2>&1 @objroot@/bin/crux --batch --quiet --infile=$$t \
-			  -- @srcroot@ @objroot@ \
+			2>&1 @objroot@build/run/bin/crux --batch --quiet \
+			  --infile=$$t -- @abs_srcroot@ @abs_objroot@ \
 			  | @PERL@ -pe "s/\[[1-9][0-9]* refs\]\n//g" \
 			  > $${t}.out; \
 			if @TEST@ -e "$${t}.exp"; then \
@@ -74,53 +107,130 @@ check: all
 		@ECHO@ "Failures: $$failures/$$total"'
 
 clean:
-	rm -rf @objroot@/build
-	@sh -c 'for t in @crux_tests@; do \
-			@ECHO@ "rm -f $${t}.out"; \
-			rm -f $${t}.out; \
-		done'
+	rm -rf @objroot@build
+	rm -f @objroot@test/*.out
 
 distclean: clean
-	rm -f @objroot@/config.log
-	rm -f @objroot@/config.status
-	rm -f @objroot@/config.stamp
+	rm -f @objroot@config.log
+	rm -f @objroot@config.status
+	rm -f @objroot@cfghdrs.stamp
+	rm -f @objroot@cfgoutputs.stamp
 	rm -f @cfghdrs@
 	rm -f @cfgoutputs@
 
 cyclean:
-	rm -f @cython_outputs@
+ifeq (@enable_cython@, 1)
+	rm -f $(CYCS)
+endif
 
 relclean: distclean cyclean
-	rm -rf @objroot@/autom4te.cache
-	rm -f @objroot@/configure
+	rm -rf @objroot@autom4te.cache
+	rm -f @objroot@configure
+
+@objroot@build/lib/%.o : @srcroot@lib/%.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@
+	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
+
+@objroot@build/run/share/Crux/lib/libCx.so : $(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+	@mkdir -p $(@D)
+ifeq (elf, @abi@)
+	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+
+endif
+ifeq (macho, @abi@)
+	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @abs_objroot@build/run/shard/Crux/lib/libCx.so -o $@ $+
+endif
+
+@objroot@build/inst/share/Crux/lib/libCx.so : \
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+	@mkdir -p $(@D)
+ifeq (elf, @abi@)
+	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+
+endif
+ifeq (macho, @abi@)
+	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @DATADIR@/share/Crux/lib/libCx.so -o $@ $+
+endif
+
+# Cython-generated files are shipped with releases, so the following rule is
+# not always needed.
+ifeq (@enable_cython@, 1)
+@srcroot@%.c : @srcroot@%.pyx
+	@PYTHON@ @CYTHON@ -I@srcroot@pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) -o $@ $<
+	@@abs_objroot@cydep -I/usr/include $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -P@srcroot@src --infile=$< --outfile=$(@:@srcroot@pkg/%.c=@objroot@build/pkg/%.d)
+endif
+
+@objroot@build/pkg/%.o : @srcroot@pkg/%.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) @python_config_cflags@ -c $< -o$@
+
+@objroot@build/run/site-packages/%.so : @objroot@build/pkg/%.o \
+				@objroot@build/run/share/Crux/lib/libCx.so
+	@mkdir -p $(@D)
+ifneq ($(words "" @RPATH@), 1)
+	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib @python_config_ldflags@ -o $@ $+
+else
+	$(CC) -shared @python_config_ldflags@ -o $@ $+
+endif
+
+@objroot@build/inst/site-packages/%.so : @objroot@build/pkg/%.o \
+				@objroot@build/inst/share/Crux/lib/libCx.so
+	@mkdir -p $(@D)
+ifneq ($(words "" @RPATH@), 1)
+	$(CC) -shared @RPATH@@DATADIR@/Crux/lib @python_config_ldflags@ -o $@ $+
+else
+	$(CC) -shared @python_config_ldflags@ -o $@ $+
+endif
+
+@objroot@build/run/site-packages/%.py : @srcroot@pkg/%.py
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -r --infile=$< --outfile=$@
+
+@objroot@build/inst/site-packages/%.py : @srcroot@pkg/%.py
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -i --infile=$< --outfile=$@
+
+@objroot@build/run/bin/crux : @srcroot@bin/crux \
+		$(CYCS:@srcroot@pkg/%.c=@objroot@build/run/site-packages/%.so) \
+		$(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%)
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -r --infile=$< --outfile=$@
+
+@objroot@build/inst/bin/crux : @srcroot@bin/crux \
+		$(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) \
+		$(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -i --infile=$< --outfile=$@
 
 #
 # Re-configuration rules.
 #
 ifeq (@enable_autogen@, 1)
-@srcroot@/configure : @srcroot@/configure.ac
-	cd @srcroot@ && @AUTOCONF@
+@srcroot@configure : @srcroot@configure.ac
+	cd ./@srcroot@ && @AUTOCONF@
 
-@objroot@/config.status : @srcroot@/configure
-	@objroot@/config.status --recheck
+@objroot@config.status : @srcroot@configure
+	./@objroot@config.status --recheck
 
 # cfghdrs rules.
-@srcroot@/cfghdrs.stamp.in : @srcroot@/configure.ac
-	@ECHO@ stamp > @srcroot@/cfghdrs.stamp.in
+@srcroot@cfghdrs.stamp.in : @srcroot@configure.ac
+	@ECHO@ stamp > @srcroot@cfghdrs.stamp.in
 
-@objroot@/cfghdrs.stamp : $(patsubst %, @srcroot@/%.in, @cfghdrs@) \
-			 @srcroot@/configure
-	./@objroot@/config.status
+@objroot@cfghdrs.stamp : $(patsubst %, @srcroot@%.in, @cfghdrs@) \
+			 @srcroot@configure
+	./@objroot@config.status
 
-@cfghdrs@ : @objroot@/cfghdrs.stamp
+@cfghdrs@ : @objroot@cfghdrs.stamp
 
 # cfgoutputs rules.
-@srcroot@/cfgoutputs.stamp.in : @srcroot@/configure.ac
-	@ECHO@ stamp > @srcroot@/cfgoutputs.stamp.in
+@srcroot@cfgoutputs.stamp.in : @srcroot@configure.ac
+	@ECHO@ stamp > @srcroot@cfgoutputs.stamp.in
 
-@objroot@/cfgoutputs.stamp : $(patsubst %, @srcroot@/%.in, @cfgoutputs@) \
-			    @srcroot@/configure
-	./@objroot@/config.status
+@objroot@cfgoutputs.stamp : $(patsubst %, @srcroot@%.in, @cfgoutputs@) \
+			    @srcroot@configure
+	./@objroot@config.status
 
-@cfgoutputs@ : @objroot@/cfgoutputs.stamp
+# There must be some action in order for make to re-read Makefile when it is
+# out of date.
+@cfgoutputs@ : @objroot@cfgoutputs.stamp
+	@true
 endif

@@ -1,19 +1,20 @@
+syntax: glob
+
+syntax: regexp
 ^crux/autom4te\.cache
 ^crux/bin/crux$
-^crux/cfg(hdrs|outputs).stamp$
+^crux/bin/cruxo$
+^crux/build
+^crux/cfg(hdrs|outputs)\.stamp$
 ^crux/config\.(log|status)$
 ^crux/configure$
-^crux/crux$
-^crux/build
-^crux/src/Crux/Cx_defs\.h$
+^crux/cfg$
+^crux/cydep$
 ^crux/Makefile$
-^crux/NotInstalled/NotInstalled\.py$
-^crux/NotInstalled/NotInstalled\.pyc$
-^crux/NotInstalled/NotInstalled\.pyo$
-^crux/setup\.py$
-^crux/src/[A-Za-z0-9_]+.c$
-^crux/src/Crux/[A-Za-z0-9_]+.c$
-^crux/src/Crux/Config.py$
+^crux/lib/Cx_defs\.h$
+^crux/pkg/(Parsing)\.c$
+^crux/pkg/Crux/(__init__|Character|CTMatrix|Fasta|Newick|Taxa|Tree)\.c$
+^crux/pkg/Crux/DistMatrix/(__init__|Nj)\.c$
 ^crux/test/[A-Za-z]*_[a-z]\.crux\.out$
 ^crux/test/[A-Za-z]*_[a-z]\.log$
 ^crux/test/[A-Za-z]*_[a-z]\.pickle$

@@ -38,30 +38,33 @@ H 23 25 20 26 15 15 10  0
 )
 
 for testMatrix in testMatrices:
-    matrix = Crux.DistMatrix.DistMatrix(testMatrix)
+    lines = testMatrix.split("\n")
+    for i in xrange(len(lines)):
+        lines[i] += "\n"
+    matrix = Crux.DistMatrix.DistMatrix(lines)
     #matrix.render(distFormat="%2.0f", outFile=sys.stdout)
     t = matrix.rnj()
-    taxonMap = t.taxonMapGet()
-    t.canonize()
+    taxaMap = matrix.taxaMap
+    t.canonize(taxaMap)
     print t.render(labels=True, lengths=True, lengthFormat="%.0f")
 
     for i in xrange(10):
-        matrix = Crux.DistMatrix.DistMatrix(testMatrix)
+        matrix = Crux.DistMatrix.DistMatrix(lines)
         matrix.shuffle()
         t = matrix.rnj()
 
         treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
-        t = Crux.Tree.Tree(treeStr, taxonMap=taxonMap)
-        t.canonize()
+        t = Crux.Tree.Tree(treeStr, taxaMap=taxaMap)
+        t.canonize(taxaMap)
         print t.render(labels=True, lengths=True, lengthFormat="%.0f")
 
     for i in xrange(10):
-        matrix = Crux.DistMatrix.DistMatrix(testMatrix)
+        matrix = Crux.DistMatrix.DistMatrix(lines)
         t = matrix.rnj(joinRandom=True, tryAdditive=True)
 
         treeStr = t.render(labels=True, lengths=True, lengthFormat="%.0f")
-        t = Crux.Tree.Tree(treeStr, taxonMap=taxonMap)
-        t.canonize()
+        t = Crux.Tree.Tree(treeStr, taxaMap=taxaMap)
+        t.canonize(taxaMap)
         print t.render(labels=True, lengths=True, lengthFormat="%.0f")
 
 print "Test end"

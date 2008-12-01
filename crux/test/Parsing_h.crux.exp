@@ -41,10 +41,10 @@ Item sets:
   2: ItemSet(kernel: [<S> ::= S * <$>., <e>] [none], added: '')
   3: ItemSet(kernel: [S ::= E *., <$>] [none], [E ::= E * star E., <$>/plus/star] [split], [E ::= E * plus E., <$>/plus/star] [split], added: '')
   4: ItemSet(kernel: [<S> ::= S <$> *., <e>] [none], added: '')
-  5: ItemSet(kernel: [E ::= E star * E., <$>/plus/star] [split], added: '[E ::= * E star E., <$>/plus/star] [split], [E ::= * i., <$>/plus/star] [none], [E ::= * E plus E., <$>/plus/star] [split]')
-  6: ItemSet(kernel: [E ::= E plus * E., <$>/plus/star] [split], added: '[E ::= * E star E., <$>/plus/star] [split], [E ::= * i., <$>/plus/star] [none], [E ::= * E plus E., <$>/plus/star] [split]')
-  7: ItemSet(kernel: [E ::= E * star E., <$>/plus/star] [split], [E ::= E * plus E., <$>/plus/star] [split], [E ::= E star E *., <$>/plus/star] [split], added: '')
-  8: ItemSet(kernel: [E ::= E * star E., <$>/plus/star] [split], [E ::= E * plus E., <$>/plus/star] [split], [E ::= E plus E *., <$>/plus/star] [split], added: '')
+  5: ItemSet(kernel: [E ::= E plus * E., <$>/plus/star] [split], added: '[E ::= * E star E., <$>/plus/star] [split], [E ::= * i., <$>/plus/star] [none], [E ::= * E plus E., <$>/plus/star] [split]')
+  6: ItemSet(kernel: [E ::= E star * E., <$>/plus/star] [split], added: '[E ::= * E star E., <$>/plus/star] [split], [E ::= * i., <$>/plus/star] [none], [E ::= * E plus E., <$>/plus/star] [split]')
+  7: ItemSet(kernel: [E ::= E * star E., <$>/plus/star] [split], [E ::= E * plus E., <$>/plus/star] [split], [E ::= E plus E *., <$>/plus/star] [split], added: '')
+  8: ItemSet(kernel: [E ::= E * star E., <$>/plus/star] [split], [E ::= E * plus E., <$>/plus/star] [split], [E ::= E star E *., <$>/plus/star] [split], added: '')
 Parsing.Spec: 3 tokens, 2 non-terminals, 4 productions, 9 states, 21 actions (8 split):
 Algorithm compatibility: GLR
 Parsing tables:
@@ -82,8 +82,8 @@ Parsing tables:
     Goto:
     Action:
                 <$> : reduce S ::= E. [none]
-               plus : shift  6 [split]
-               star : shift  5 [split]
+               plus : shift  5 [split]
+               star : shift  6 [split]
   ==============================================================================
   State 4:
            <S> ::= S <$> *. [none]
@@ -95,7 +95,7 @@ Parsing tables:
            E ::= * E star E. [split]
            E ::= * i. [none]
            E ::= * E plus E. [split]
-           E ::= E star * E. [split]
+           E ::= E plus * E. [split]
     Goto:
                   E : 7
     Action:
@@ -105,7 +105,7 @@ Parsing tables:
            E ::= * E star E. [split]
            E ::= * i. [none]
            E ::= * E plus E. [split]
-           E ::= E plus * E. [split]
+           E ::= E star * E. [split]
     Goto:
                   E : 8
     Action:
@@ -114,26 +114,26 @@ Parsing tables:
   State 7:
            E ::= E * star E. [split]
            E ::= E * plus E. [split]
+           E ::= E plus E *. [split]
+    Goto:
+    Action:
+                <$> : reduce E ::= E plus E. [split]
+               plus : shift  5 [split]
+               plus : reduce E ::= E plus E. [split]
+               star : reduce E ::= E plus E. [split]
+               star : shift  6 [split]
+  ==============================================================================
+  State 8:
+           E ::= E * star E. [split]
+           E ::= E * plus E. [split]
            E ::= E star E *. [split]
     Goto:
     Action:
                 <$> : reduce E ::= E star E. [split]
                plus : reduce E ::= E star E. [split]
-               plus : shift  6 [split]
+               plus : shift  5 [split]
                star : reduce E ::= E star E. [split]
-               star : shift  5 [split]
-  ==============================================================================
-  State 8:
-           E ::= E * star E. [split]
-           E ::= E * plus E. [split]
-           E ::= E plus E *. [split]
-    Goto:
-    Action:
-                <$> : reduce E ::= E plus E. [split]
-               plus : shift  6 [split]
-               plus : reduce E ::= E plus E. [split]
-               star : reduce E ::= E plus E. [split]
-               star : shift  5 [split]
+               star : shift  6 [split]
 Input: i + i * i
 --------------------------------------------------------------------------------
 INPUT: i
@@ -148,75 +148,75 @@ INPUT: plus
    --> shift(c) 3
 STK 0: [0] {i} [1]
     1: [0] {i} [3]
-   --> shift(a) 6
-STK 0: [0] {i} [3] {plus} [6]
+   --> shift(a) 5
+STK 0: [0] {i} [3] {plus} [5]
 --------------------------------------------------------------------------------
 INPUT: i
    --> shift(a) 1
-STK 0: [0] {i} [3] {plus} [6] {i} [1]
+STK 0: [0] {i} [3] {plus} [5] {i} [1]
 --------------------------------------------------------------------------------
 INPUT: star
-   --> enqueue(c) E ::= i. [none]
-                  [[6], {i}, [1]]
-   --> reduce E ::= i. [none]
-              [[6], {i}, [1]]
-   --> shift(c) 8
-   --> enqueue(f) E ::= E plus E. [split]
-                  [[0], {i}, [3], {plus}, [6], {i}, [8]]
-   --> reduce E ::= E plus E. [split]
-              [[0], {i}, [3], {plus}, [6], {i}, [8]]
-   --> shift(c) 3
-STK 0: [0] {i} [3] {plus} [6] {i} [1]
-    1: [0] {i} [3] {plus} [6] {i} [8]
-    2: [0] {(i + i)} [3]
-   --> shift(a) 5
-   --> shift(a) 5
-STK 0: [0] {i} [3] {plus} [6] {i} [8] {star} [5]
-    1: [0] {(i + i)} [3] {star} [5]
---------------------------------------------------------------------------------
-INPUT: i
-   --> shift(a) 1
-   --> shift(a) 1
-STK 0: [0] {i} [3] {plus} [6] {i} [8] {star} [5] {i} [1]
-    1: [0] {(i + i)} [3] {star} [5] {i} [1]
---------------------------------------------------------------------------------
-INPUT: <$>
-   --> enqueue(c) E ::= i. [none]
-                  [[5], {i}, [1]]
    --> enqueue(c) E ::= i. [none]
                   [[5], {i}, [1]]
    --> reduce E ::= i. [none]
               [[5], {i}, [1]]
    --> shift(c) 7
-   --> enqueue(f) E ::= E star E. [split]
-                  [[6], {i}, [8], {star}, [5], {i}, [7]]
-   --> reduce E ::= i. [none]
-              [[5], {i}, [1]]
-   --> shift(b) [7]
-   --> enqueue(f) E ::= E star E. [split]
-                  [[0], {(i + i)}, [3], {star}, [5], {i}, [7]]
-   --> reduce E ::= E star E. [split]
-              [[6], {i}, [8], {star}, [5], {i}, [7]]
-   --> shift(c) 8
    --> enqueue(f) E ::= E plus E. [split]
-                  [[0], {i}, [3], {plus}, [6], {(i * i)}, [8]]
+                  [[0], {i}, [3], {plus}, [5], {i}, [7]]
+   --> reduce E ::= E plus E. [split]
+              [[0], {i}, [3], {plus}, [5], {i}, [7]]
+   --> shift(c) 3
+STK 0: [0] {i} [3] {plus} [5] {i} [1]
+    1: [0] {i} [3] {plus} [5] {i} [7]
+    2: [0] {(i + i)} [3]
+   --> shift(a) 6
+   --> shift(a) 6
+STK 0: [0] {i} [3] {plus} [5] {i} [7] {star} [6]
+    1: [0] {(i + i)} [3] {star} [6]
+--------------------------------------------------------------------------------
+INPUT: i
+   --> shift(a) 1
+   --> shift(a) 1
+STK 0: [0] {i} [3] {plus} [5] {i} [7] {star} [6] {i} [1]
+    1: [0] {(i + i)} [3] {star} [6] {i} [1]
+--------------------------------------------------------------------------------
+INPUT: <$>
+   --> enqueue(c) E ::= i. [none]
+                  [[6], {i}, [1]]
+   --> enqueue(c) E ::= i. [none]
+                  [[6], {i}, [1]]
+   --> reduce E ::= i. [none]
+              [[6], {i}, [1]]
+   --> shift(c) 8
+   --> enqueue(f) E ::= E star E. [split]
+                  [[5], {i}, [7], {star}, [6], {i}, [8]]
+   --> reduce E ::= i. [none]
+              [[6], {i}, [1]]
+   --> shift(b) [8]
+   --> enqueue(f) E ::= E star E. [split]
+                  [[0], {(i + i)}, [3], {star}, [6], {i}, [8]]
    --> reduce E ::= E star E. [split]
-              [[0], {(i + i)}, [3], {star}, [5], {i}, [7]]
+              [[5], {i}, [7], {star}, [6], {i}, [8]]
+   --> shift(c) 7
+   --> enqueue(f) E ::= E plus E. [split]
+                  [[0], {i}, [3], {plus}, [5], {(i * i)}, [7]]
+   --> reduce E ::= E star E. [split]
+              [[0], {(i + i)}, [3], {star}, [6], {i}, [8]]
    --> shift(c) 3
    --> enqueue(f) S ::= E. [none]
                   [[0], {((i + i) * i)}, [3]]
    --> reduce E ::= E plus E. [split]
-              [[0], {i}, [3], {plus}, [6], {(i * i)}, [8]]
+              [[0], {i}, [3], {plus}, [5], {(i * i)}, [7]]
    --> merge ((i + i) * i) <--> (i + (i * i))
                                 -------------
    --> reduce S ::= E. [none]
               [[0], {(i + (i * i))}, [3]]
    --> shift(c) 2
-STK 0: [0] {i} [3] {plus} [6] {i} [8] {star} [5] {i} [1]
-    1: [0] {(i + i)} [3] {star} [5] {i} [1]
-    2: [0] {i} [3] {plus} [6] {i} [8] {star} [5] {i} [7]
-    3: [0] {(i + i)} [3] {star} [5] {i} [7]
-    4: [0] {i} [3] {plus} [6] {(i * i)} [8]
+STK 0: [0] {i} [3] {plus} [5] {i} [7] {star} [6] {i} [1]
+    1: [0] {(i + i)} [3] {star} [6] {i} [1]
+    2: [0] {i} [3] {plus} [5] {i} [7] {star} [6] {i} [8]
+    3: [0] {(i + i)} [3] {star} [6] {i} [8]
+    4: [0] {i} [3] {plus} [5] {(i * i)} [7]
     5: [0] {(i + (i * i))} [3]
     6: [0] {(i + (i * i))} [2]
    --> shift(a) 4

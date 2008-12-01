@@ -1,4 +1,0 @@
-# This module is used by Crux.Config to determine whether Crux is being run
-# in the source tree.
-
-prefix = "@abs_objroot@/build"

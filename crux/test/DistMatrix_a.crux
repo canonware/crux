@@ -9,6 +9,7 @@
 #
 ################################################################################
 
+import random
 import sys
 import os
 import tempfile
@@ -294,6 +295,9 @@ Taxon_D 3.0 2.5 2.2
 """
             ]
 
+# Re-seed the PRNG so that test results are repeatable.
+random.seed(42)
+
 print "Test begin"
 
 for matrix in matrices:
@@ -308,6 +312,15 @@ for matrix in matrices:
         print
         distMatrix.render('upper', '%.5f')
         print
+        distMatrix.render('lower', '%.5f')
+        print
+        if distMatrix.ntaxa > 2:
+            print "--- sampled"
+            sDistMatrix = Crux.DistMatrix.DistMatrix(distMatrix,
+              sampleSize=distMatrix.ntaxa-1)
+            sDistMatrix.render('lower', '%.5f')
+        print "--- shuffled"
+        distMatrix.shuffle()
         distMatrix.render('lower', '%.5f')
         print
     except:

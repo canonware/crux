@@ -1,0 +1,171 @@
+#!@PYTHON@@python_opts@
+#
+# Process files much as autoconf would, but behave differently depending on
+# whether the output file is for use in-tree or installed.
+
+import optparse
+import os
+import re
+import sys
+
+class CfgHelpFormatter(optparse.IndentedHelpFormatter):
+    def format_usage(self, usage):
+        return """cfg usage:
+    cfg -h | --help
+    cfg [<options>]
+
+    Option               | Description
+    ---------------------+---------------------------------------------------
+    -h | --help          | Print usage and exit.
+    -i                   | Generate output as for installation.
+    -r                   | Generate output as for running in the object tree.
+    --infile=<file>      | Find dependencies for <file>.
+    --outfile=<file>     | Write dependencies to <file>.
+
+cfg processes files much as autoconf out, but it substitutes path-related
+variables differently, depending on whether the output file is for use in the
+object tree or installed.
+"""
+
+# Process the command line.
+def parse_options():
+    helpformatter = CfgHelpFormatter()
+    parser = optparse.OptionParser(formatter=helpformatter, add_help_option=0)
+    parser.disable_interspersed_args()
+    parser.add_option("-h", "--help", dest="help", action="store_true",
+      default=False)
+    parser.add_option("-i", dest="installable", action="store_true",
+      default=True)
+    parser.add_option("-r", dest="installable", action="store_false")
+    parser.add_option("--infile", dest="infile", default=None)
+    parser.add_option("--outfile", dest="outfile", default=None)
+
+    (opts, rem) = parser.parse_args()
+    if len(rem) > 0:
+        print >> sys.stderr, "cfg: Invalid argument%s: %r" % \
+          (("" if len(rem) == 1 else "s"), rem)
+        CfgHelpFormatter().format_usage("")
+        sys.exit(1)
+
+    if opts.help:
+        print helpformatter.format_usage("")
+        sys.exit(0)
+
+    return opts
+
+#
+# Beginning of main execution.
+#
+
+# Parse command line options.
+opts = parse_options()
+
+# Read input.
+if opts.infile is not None:
+    infile = open(opts.infile, 'r')
+    mode = os.stat(opts.infile).st_mode
+else:
+    opts.infile = "<stdin>"
+    infile = sys.stdin
+    mode = 0644
+lines = infile.readlines()
+
+# Prepare outfile.
+if opts.outfile is not None:
+    outfile = open(opts.outfile, "w+")
+    os.chmod(opts.outfile, mode)
+else:
+    outfile = sys.stdout
+    opts.outfile = "<stdout>"
+
+# Set variables according to output mode.
+if opts.installable:
+    PREFIX = "@PREFIX@"
+    BINDIR = "@BINDIR@"
+    DATADIR = "@DATADIR@"
+    MANDIR = "@MANDIR@"
+    site_packages = "@site_packages@"
+    installable = "True"
+else:
+    PREFIX = "@abs_objroot@build"
+    BINDIR = "@abs_objroot@build/run/bin"
+    DATADIR = "@abs_objroot@build/run/share"
+    MANDIR = "@abs_objroot@build/run/share/man"
+    site_packages = "@abs_objroot@build/run/site-packages"
+    installable = "False"
+
+# Create a lookup table and regex for @...@ substitutions.
+dAtAt = {
+    "srcroot": "@srcroot@",
+    "abs_srcroot": "@abs_srcroot@",
+    "objroot": "@objroot@",
+    "abs_objroot": "@abs_objroot@",
+
+    "PREFIX": PREFIX,
+    "BINDIR": BINDIR,
+    "DATADIR": DATADIR,
+    "MANDIR": MANDIR,
+
+    "abi": "@abi@",
+    "RPATH": "@RPATH@",
+    "enable_autogen": "@enable_autogen@",
+    "enable_cython": "@enable_cython@",
+    "enable_debug": "@enable_debug@",
+    "enable_cc_silence": "@enable_cc_silence@",
+    "enable_inlines": "@enable_inlines@",
+
+    "python_opts": "@python_opts@",
+    "PYTHON": "@PYTHON@",
+    "python_config_includes": "@python_config_includes@",
+    "python_config_cflags": "@python_config_cflags@",
+    "python_config_ldflags": "@python_config_ldflags@",
+    "site_packages": site_packages,
+    "CYTHON": "@CYTHON@",
+    "crux_version": "@crux_version@",
+    "chdrs": "@chdrs@",
+    "csrcs": "@csrcs@",
+    "pxds": "@pxds@",
+    "pyxs": "@pyxs@",
+    "pkgs": "@pkgs@",
+    "pys": "@pys@",
+    "bins": "@bins@",
+    "tests": "@tests@",
+
+    "cfghdrs": "@cfghdrs@",
+    "cfgoutputs": "@cfgoutputs@",
+
+    "installable": installable
+}
+# Validate.  Even better would be to automatically generate dAtAt, but this
+# would have to be done as a pre-configure step, thus requiring manual
+# intervention anyway.
+#
+# Check for '@' in the values.
+for v in dAtAt.itervalues():
+    if len(v) > 0 and v[0] == '@' and v[-1] == '@':
+        print >> sys.stderr, "Extraneous key: %s" % v
+        sys.exit(1)
+# Search configure.ac for AC_SUBST keys that are missing from dAtAt.
+for l in open("@srcroot@configure.ac", "r"):
+    m = re.compile(r"^\s*AC_SUBST\(\[([^\]]+)\]\)\s*$").match(l)
+    if m:
+        if m.group(1) not in dAtAt:
+            print >> sys.stderr, "Missing key: @%s@" % m.group(1)
+            sys.exit(1)
+
+lAtAt = dAtAt.keys()
+lAtAt.sort()
+sAtAt = "@(%s)@" % ("|".join(lAtAt))
+reAtAt = re.compile(sAtAt)
+
+# Do I/O.
+for inline in lines:
+    outline = []
+    prevPos = 0
+    for m in reAtAt.finditer(inline):
+        outline.append(inline[prevPos:m.start(1)-1])
+        outline.append(dAtAt[m.group(1)])
+        prevPos = m.end(1) + 1
+    outline.append(inline[prevPos:])
+
+    outfile.write("".join(outline))
