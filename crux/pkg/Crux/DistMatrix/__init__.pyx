@@ -345,7 +345,7 @@ cdef class Dist(Nonterm):
                 raise SyntaxError(line, "Too many distances")
             m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
         elif parser.format == FormatLower:
-            if j == k:
+            if j == i:
                 raise SyntaxError(line, "Too many distances")
             m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
 

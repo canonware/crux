@@ -6,6 +6,6 @@ Crux.CTMatrix.CTMatrix((
 Crux.Newick.Parser(Crux.Tree.Tree())
 Crux.DistMatrix.DistMatrix((
   "2\n",
-  "A\n"
+  "A\n",
   "B 1.0\n"
 ))
