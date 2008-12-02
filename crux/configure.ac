@@ -182,6 +182,7 @@ if test "x$enable_debug" = "x1" ; then
   AC_DEFINE([CxmAssertions])
 else
   python_opts=" -O"
+  CPPFLAGS="${CPPFLAGS} -DPYREX_WITHOUT_ASSERTIONS"
 fi
 AC_SUBST([enable_debug])
 

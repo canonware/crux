@@ -1,16 +1,3 @@
-################################################################################
-#
-# <Copyright = jasone>
-# <License>
-#
-################################################################################
-#
-# Version: Crux <Version = crux>
-#
-# Makefile.in
-#
-################################################################################
-
 # Clear out all vpaths, then set just one (default vpath) for the main build
 # directory.
 vpath
@@ -40,10 +27,13 @@ BINS := @bins@
 TESTS := @tests@
 
 # Default target.
-all: installable
+all: inst
 
 # Cython-generated .c files.
 CYCS := $(PYXS:%.pyx=%.c) $(PKGS:%.pyx=%.c)
+
+.SECONDARY: $(CYCS:@srcroot@pkg/%.c=@objroot@build/pkg/%.o) \
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 
 # Include generated dependency files.
 -include $(CYCS:@srcroot@pkg/%.c=@objroot@build/pkg/%.d) \
@@ -51,15 +41,18 @@ CYCS := $(PYXS:%.pyx=%.c) $(PKGS:%.pyx=%.c)
 
 dist: $(CYCS)
 
-runnable: @objroot@build/run/bin/crux
+run: @objroot@build/run/bin/crux \
+	$(CYCS:@srcroot@pkg/%.c=@objroot@build/run/site-packages/%.so) \
+	$(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%)
 
-installable: @objroot@build/inst/bin/crux pickles
+inst: pickles @objroot@build/inst/bin/crux \
+	$(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) \
+	$(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)
 
-pickles: runnable
-	@mkdir -p @objroot@build/run/share/Crux/parsers
+pickles: run
 	@objroot@build/run/bin/crux --batch --infile=@srcroot@pickles.crux
 
-install: installable
+install: inst
 	install -d @BINDIR@
 	install -m 755 @objroot@build/inst/bin/crux @BINDIR@
 	install -d @DATADIR@/Crux/lib
@@ -78,7 +71,7 @@ done
 	install -m 755 @objroot@build/inst/site-packages/$$f @site_packages@/`dirname $$f`; \
 done
 
-check: runnable
+check: run
 	@sh -c 'total=0; \
 		failures=0; \
 		@ECHO@ "========================================="; \
@@ -129,7 +122,7 @@ relclean: distclean cyclean
 
 @objroot@build/lib/%.o : @srcroot@lib/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@
 	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
 
 @objroot@build/run/share/Crux/lib/libCx.so : $(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
@@ -161,7 +154,7 @@ endif
 
 @objroot@build/pkg/%.o : @srcroot@pkg/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) @python_config_cflags@ -c $< -o$@
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) @python_config_cflags@ -c $< -o$@
 
 @objroot@build/run/site-packages/%.so : @objroot@build/pkg/%.o \
 				@objroot@build/run/share/Crux/lib/libCx.so
@@ -189,15 +182,12 @@ endif
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -i --infile=$< --outfile=$@
 
-@objroot@build/run/bin/crux : @srcroot@bin/crux \
-		$(CYCS:@srcroot@pkg/%.c=@objroot@build/run/site-packages/%.so) \
-		$(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%)
+@objroot@build/run/bin/crux : @srcroot@bin/crux
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -r --infile=$< --outfile=$@
+	@mkdir -p @objroot@build/run/share/Crux/parsers
 
-@objroot@build/inst/bin/crux : @srcroot@bin/crux \
-		$(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) \
-		$(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)
+@objroot@build/inst/bin/crux : @srcroot@bin/crux
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -i --infile=$< --outfile=$@
 
