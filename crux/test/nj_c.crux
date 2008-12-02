@@ -26,6 +26,6 @@ for i in xrange(len(lines)):
 matrix = Crux.DistMatrix.DistMatrix(lines)
 t = matrix.nj()
 t.canonize(matrix.taxaMap)
-print t.render(labels=True, lengths=True, lengthFormat="%.6f")
+print t.render(lengths=True, lengthFormat="%.6f")
 
 print "Test end"

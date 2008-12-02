@@ -22,21 +22,24 @@ CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b);
 CxmInline int
 CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b) {
     int ret;
-    int64_t aInt, bInt;
+    union {
+	CxtDMDist d;
+	int64_t i;
+    } aU, bU;
 
     // Convert a and b to lexicographically ordered ints.
-    aInt = *(int64_t *) &a;
-    if (aInt < 0) {
-	aInt = 0x8000000000000000ULL - aInt;
+    aU.d = a;
+    if (aU.i < 0) {
+	aU.i = 0x8000000000000000ULL - aU.i;
     }
 
-    bInt = *(int64_t *) &b;
-    if (bInt < 0) {
-	bInt = 0x8000000000000000ULL - bInt;
+    bU.d = b;
+    if (bU.i < 0) {
+	bU.i = 0x8000000000000000ULL - bU.i;
     }
 
     // Check if a and b are within aMaxUlps of each other.
-    if (llabs(aInt - bInt) <= CxmDistMatrixNjMaxUlps) {
+    if (llabs(aU.i - bU.i) <= CxmDistMatrixNjMaxUlps) {
 	ret = 0;
     } else if (a < b) {
 	ret = -1;

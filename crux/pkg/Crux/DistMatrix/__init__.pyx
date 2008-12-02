@@ -494,7 +494,9 @@ cdef class DistMatrix:
             # Simple duplication.
             self.taxaMap = Taxa.Map(other.taxaMap.taxaGet())
             self._allocDists(other.ntaxa)
-            memcpy(self.dists, other.dists, sizeof(CxtDMDist) * self.ntaxa)
+            memcpy(self.dists, other.dists, sizeof(CxtDMDist) * \
+              (CxDistMatrixNxy2i(self.ntaxa, self.ntaxa - 2, self.ntaxa - 1) \
+              + 1))
         else:
             if sampleSize < 2 or sampleSize > other.ntaxa:
                 raise ValueError("sampleSize out of range (%d not in 2..%d)" \

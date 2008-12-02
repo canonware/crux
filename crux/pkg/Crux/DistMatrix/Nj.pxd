@@ -12,6 +12,7 @@ cdef class Nj:
     cdef Tree tree
     cdef list nodes
 
+#XXX    cdef void _njDump(self) except *
     cdef void _rInit(self) except *
     cdef void _rScaledInit(self) except *
     cdef void _nodesInit(self, Taxa.Map taxaMap) except *
@@ -24,6 +25,7 @@ cdef class Nj:
     cdef void _njCompact(self, CxtDMSize xMin, CxtDMSize yMin, Node node,
       CxtDMDist distX, CxtDMDist distY) except *
     cdef void _njDiscard(self)
+    cdef void _njFinalJoin(self) except *
 
     cdef void prepare(self, CxtDMDist *d, CxtDMSize n, Taxa.Map taxaMap) \
       except *

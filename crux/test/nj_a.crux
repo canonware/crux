@@ -18,6 +18,6 @@ matrix = Crux.DistMatrix.DistMatrix(open(Crux.Config.scriptargs[1]
 t = matrix.nj()
 
 t.canonize(matrix.taxaMap)
-print t.render()
+print t.render(taxaMap=matrix.taxaMap)
 
 print "Test end"

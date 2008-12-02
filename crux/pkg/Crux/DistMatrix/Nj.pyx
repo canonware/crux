@@ -157,6 +157,7 @@ from CxDistMatrixNj cimport *
 from Crux.Tree cimport Tree, Node, Edge
 
 import random
+#XXX import sys # XXX For _njDump().
 
 cdef class Nj:
     def __cinit__(self):
@@ -177,6 +178,43 @@ cdef class Nj:
         if self.rScaledBase != NULL:
             free(self.rScaledBase)
             self.rScaledBase = NULL
+
+#XXX    cdef void _njDump(self) except *:
+#XXX        cdef CxtDMSize i, x, y
+#XXX
+#XXX        sys.stderr.write( \
+#XXX          "----------------------------------------" \
+#XXX          "----------------------------------------\n")
+#XXX        i = 0
+#XXX        for 0 <= x < self.n:
+#XXX            # || node
+#XXX            sys.stderr.write(" " * (x * 9))
+#XXX            y -= self.n - (x + 1)
+#XXX            for x + 1 <= y < self.n:
+#XXX                sys.stderr.write(" " * 9)
+#XXX            taxon = self.nodes[x].taxon
+#XXX            if taxon is not None:
+#XXX                sys.stderr.write(" || %s\n" % taxon.label)
+#XXX            else:
+#XXX                sys.stderr.write(" || %r\n" % self.nodes[x])
+#XXX
+#XXX            # dist || r
+#XXX            sys.stderr.write(" " * (x * 9))
+#XXX            y -= self.n - (x + 1)
+#XXX            for y <= y < self.n:
+#XXX                sys.stderr.write(" %8.4f" % self.d[i])
+#XXX                i += 1
+#XXX            sys.stderr.write(" || %8.4f\n" % self.r[x])
+#XXX
+#XXX            # tdist || rScaled
+#XXX            sys.stderr.write(" " * (x * 9))
+#XXX            y -= self.n - (x + 1)
+#XXX            i -= self.n - (x + 1)
+#XXX            for y <= y < self.n:
+#XXX                sys.stderr.write(" %8.4f" % \
+#XXX                  (self.d[i] - (self.rScaled[x] + self.rScaled[y])))
+#XXX                i += 1
+#XXX            sys.stderr.write(" || %8.4f\n" % self.rScaled[x])
 
     cdef void _rInit(self) except *:
         cdef CxtDMDist *d, *r, dist
@@ -234,8 +272,12 @@ cdef class Nj:
             self.rScaled[x] = self.r[x] / denom
 
     cdef void _njRandomMinFind(self, CxtDMSize *rXMin, CxtDMSize *rYMin):
-        cdef CxtDMSize nmins, i, x, y, xMin, yMin
-        cdef CxtDMDist transMin, transCur
+        cdef CxtDMSize nmins, i, n, x, y, xMin, yMin
+        cdef CxtDMDist *d, *rScaled
+        cdef CxtDMDist transMin, transCur, rScaledX
+
+        # Silence compiler warnings.
+#        xMin = yMin = 0
 
         # Calculate the transformed distance for each pairwise distance.  Keep
         # track of the minimum transformed distance, so that the corresponding
@@ -245,9 +287,13 @@ cdef class Nj:
         nmins = 1
         transMin = HUGE_VAL
         i = 0
-        for 0 <= x <= self.n:
-            for x + 1 <= y < self.n:
-                transCur = self.d[i]
+        d = self.d
+        rScaled = self.rScaled
+        n = self.n
+        for 0 <= x < n:
+            rScaledX = rScaled[x]
+            for x + 1 <= y < n:
+                transCur = d[i] - (rScaledX + rScaled[y])
                 i += 1
 
                 # Use CxDistMatrixNjDistCompare() in order to compare
@@ -282,8 +328,12 @@ cdef class Nj:
         rYMin[0] = yMin
 
     cdef void _njDeterministicMinFind(self, CxtDMSize *rXMin, CxtDMSize *rYMin):
-        cdef CxtDMSize i, x, y, xMin, yMin
-        cdef CxtDMDist transMin, transCur
+        cdef CxtDMSize i, n, x, y, xMin, yMin
+        cdef CxtDMDist *d, *rScaled
+        cdef CxtDMDist transMin, transCur, rScaledX
+
+        # Silence compiler warnings.
+#        xMin = yMin = 0
 
         # Calculate the transformed distance for each pairwise distance.  Keep
         # track of the minimum transformed distance, so that the corresponding
@@ -292,9 +342,13 @@ cdef class Nj:
         # This is by far the most time-consuming portion of NJ.
         transMin = HUGE_VAL
         i = 0
-        for 0 <= x <= self.n:
-            for x + 1 <= y < self.n:
-                transCur = self.d[i]
+        d = self.d
+        rScaled = self.rScaled
+        n = self.n
+        for 0 <= x < n:
+            rScaledX = rScaled[x]
+            for x + 1 <= y < n:
+                transCur = d[i] - (rScaledX + rScaled[y])
                 i += 1
 
                 # Since an arbitrary tie-breaking decision is being made anyway,
@@ -332,14 +386,149 @@ cdef class Nj:
         return node
 
     cdef void _njRSubtract(self, CxtDMSize xMin, CxtDMSize yMin):
-        assert False # XXX
+        cdef CxtDMSize n, x, iX, iY
+        cdef CxtDMDist *d, *r
+        cdef CxtDMDist dist
+
+        # Subtract old distances from r.
+        d = self.d
+        r = self.r
+        n = self.n
+        iX = xMin - 1
+        iY = yMin - 1
+        for 0 <= x < xMin:
+            dist = d[iX]
+            iX += n - 2 - x
+            r[x] -= dist
+
+            dist = d[iY]
+            iY += n - 2 - x
+            r[x] -= dist
+
+        # (x == xMin)
+        iY += n - 2 - x
+        x += 1
+
+        for x <= x < yMin:
+            iX += 1
+            dist = d[iX]
+            r[x] -= dist
+
+            dist = d[iY]
+            iY += n - 2 - x
+            r[x] -= dist
+
+        # (x == yMin)
+        iX += 1
+        dist = d[iX]
+        r[x] -= dist
+        x += 1
+
+        for x <= x < n:
+            iX += 1
+            dist = d[iX]
+            r[x] -= dist
+
+            iY += 1
+            dist = d[iY]
+            r[x] -= dist
+
+        # Rather than repeatedly subtracting distances from aR[aXMin] and
+        # aR[aYMin] (and accumulating floating point error), simply clear these
+        # two elements of r.
+        r[xMin] = 0.0
+        r[yMin] = 0.0
 
     cdef void _njCompact(self, CxtDMSize xMin, CxtDMSize yMin, Node node,
       CxtDMDist distX, CxtDMDist distY) except *:
-        assert False # XXX
+        cdef CxtDMSize n, x, iX, iY
+        cdef CxtDMDist *d, *r
+        cdef CxtDMDist dist
+
+        # Insert the new node, such that it overwrites one of its children.
+        self.nodes[xMin] = node
+
+        # Calculate distances to the new node, and add them to r.  This clobbers
+        # old distances, just after the last time they are needed.
+        d = self.d
+        r = self.r
+        n = self.n
+        iX = xMin - 1
+        iY = yMin - 1
+        for 0 <= x < xMin:
+            dist = ((d[iX] - distX) + (d[iY] - distY)) / 2
+            d[iX] = dist
+            iX += n - 2 - x
+            iY += n - 2 - x
+            r[x] += dist
+            r[xMin] += dist
+
+        # (x == xMin)
+        iY += n - 2 - x
+        x += 1
+
+        for x <= x < yMin:
+            iX += 1
+            dist = ((d[iX] - distX) + (d[iY] - distY)) / 2
+            d[iX] = dist
+            iY += n - 2 - x
+            r[x] += dist
+            r[xMin] += dist
+
+        # (x == yMin)
+        iX += 1
+        x += 1
+
+        for x <= x < n:
+            iX += 1
+            iY += 1
+            dist = ((d[iX] - distX) + (d[iY] - distY)) / 2
+            d[iX] = dist
+            r[x] += dist
+            r[xMin] += dist
+
+        # Fill in the remaining gap (yMin row/column), by moving the first row
+        # into the gap.  The first row can be removed from the matrix in
+        # constant time, whereas collapsing the gap directly would require a
+        # series of memmove() calls, and leaving the gap would result in
+        # increased cache misses.
+        iX = 0
+        iY = n + yMin - 3
+        for 1 <= x < yMin:
+            d[iY] = d[iX]
+            iY += n - 2 - x
+            iX += 1
+
+        # (x == yMin)
+        iX += 1
+        x += 1
+
+        for x <= x < n:
+            iY += 1
+            d[iY] = d[iX]
+            iX += 1
+
+        # Fill in the gap in r, and nodes.  rScaled is re-calculated from
+        # scratch, so there is no need to touch it here.
+        r[yMin] = r[0]
+        self.nodes[yMin] = self.nodes[0]
 
     cdef void _njDiscard(self):
-        assert False # XXX
+        # Move pointers forward, which removes the first row.
+        self.d = &self.d[self.n - 1]
+        self.r = &self.r[1]
+        self.rScaled = &self.rScaled[1]
+        self.nodes.pop(0)
+
+    cdef void _njFinalJoin(self) except *:
+        cdef Edge edge
+
+        # Join the remaining two nodes.
+        edge = Edge(self.tree)
+        edge.attach(self.nodes[0], self.nodes[1])
+        edge.length = self.d[0]
+
+        self.tree.base = self.nodes[0]
 
     cdef void prepare(self, CxtDMDist *d, CxtDMSize n, Taxa.Map taxaMap) \
       except *:
@@ -351,21 +540,23 @@ cdef class Nj:
 
         self._rInit()
         self._rScaledInit()
-        self.tree = Tree()
+        self._rScaledUpdate()
+        self.tree = Tree(rooted=False)
         self._nodesInit(taxaMap)
 
     cdef Tree nj(self, bint random):
-        cdef CxtDMSize nleft, xMin, yMin
+        cdef CxtDMSize xMin, yMin
         cdef CxtDMDist distX, distY
         cdef Node node
 
-        assert self.dBase != NULL # Was self.prepare() called?
+        assert self.tree is not None # Was self.prepare() called?
 
         # Iteratively join two nodes in the matrix, until only two are left.
-        for self.nBase >= nleft > 2:
+        self.n = self.nBase
+        while self.n > 2:
             # Standard neighbor joining.
-            self.n = nleft
             self._rScaledUpdate()
+#XXX            self._njDump()
             if random:
                 self._njRandomMinFind(&xMin, &yMin)
             else:
@@ -374,7 +565,9 @@ cdef class Nj:
             self._njRSubtract(xMin, yMin)
             self._njCompact(xMin, yMin, node, distX, distY)
             self._njDiscard()
+            self.n -= 1
 
+#XXX        self._njDump()
         # Join last two nodes.
         self._njFinalJoin()
 
