@@ -19,11 +19,12 @@ class CydepHelpFormatter(optparse.IndentedHelpFormatter):
     -I <dir>             | Add <dir> to C include path.
     -P <dir>             | Add <dir> to Python module path.
     --infile=<file>      | Find dependencies for <file>.
-    --outfile=<file>     | Write dependencies to <file>.
+    --targetfile=<file>  | Build target <file>.
+    --depfile=<file>     | Write dependencies to <file>.
 
-cydep generates non-transitive dependencies (no recursion).  Process
-each source file individually whenever it is modified, and provide all
-the dependencies to 'make'.
+cydep generates transitive .pxd dependencies, and non-transitive .py/.h
+dependencies.  Process each source file individually whenever it is
+modified, and provide all the dependencies to 'make'.
 """
 
 # Process the command line.
@@ -35,8 +36,9 @@ def parse_options():
       default=False)
     parser.add_option("-I", dest="ipath", action="append", default=[])
     parser.add_option("-P", dest="ppath", action="append", default=[])
-    parser.add_option("--infile", dest="infile", default=None)
-    parser.add_option("--outfile", dest="outfile", default=None)
+    parser.add_option("--infile", dest="infiles", action="append", default=[])
+    parser.add_option("--targetfile", dest="targetfile", default="<target>")
+    parser.add_option("--depfile", dest="depfile", default=None)
 
     (opts, rem) = parser.parse_args()
     if len(rem) > 0:
@@ -83,6 +85,14 @@ def resolve_import(import_, indir, ppath, templates):
 
     return None
 
+def merge_input(inputs, cimport, indir, ppath):
+    path = resolve_import(cimport, indir, ppath, ("%s.pxd", "%s/__init__.pxd"))
+
+    for (f, fname, indir) in inputs:
+        if fname == path:
+            return
+    inputs.append((open(path, 'r'), path, os.path.dirname(path)))
+
 #
 # Beginning of main execution.
 #
@@ -90,144 +100,156 @@ def resolve_import(import_, indir, ppath, templates):
 # Parse command line options.
 opts = parse_options()
 
-if opts.infile is not None:
-    infile = open(opts.infile, 'r')
-    indir = os.path.dirname(opts.infile)
+if len(opts.infiles) != 0:
+    inputs = []
+    for infile in opts.infiles:
+        inputs.append((open(infile, 'r'), infile, os.path.dirname(infile)))
 else:
-    opts.infile = "<stdin>"
-    infile = sys.stdin
-    indir = "."
-lines = infile.readlines()
+    inputs = [(sys.stdin, "<stdin>", ".")]
 
-# Pre-process input to combine lines with multi-line statements/strings.
-reCont = re.compile(r"^(.*)\\$")
-i = 0
-while i < len(lines):
-    # Merge multi-line """...""" strings.
-    while len(lines[i].split('"""')) % 2 == 0:
-        lines[i] = lines[i] + lines[i+1]
-        lines.pop(i+1)
-
-    # Merge multi-line '''...''' strings.
-    while len(lines[i].split("'''")) % 2 == 0:
-        lines[i] = lines[i] + lines[i+1]
-        lines.pop(i+1)
-
-    # Merge \-continued lines.
-    m = reCont.match(lines[i])
-    if m:
-        lines[i] = m.group(1) + lines[i+1]
-        lines.pop(i+1)
-    else:
-        i += 1
-
-#
-# Look for statements that induce file dependencies.
-#
 includes = set()
 cimports = set()
 imports = set()
-for line in lines:
-    # cdef extern from "spam.h":
-    m = re.compile(r'^\s*cdef\s+extern\s+from\s+"([^"]*)"\s*:').match(line)
-    if m:
-        includes.add(m.group(1))
-        continue
 
-    # cimport .Spam
-    # cimport Spam
-    # cimport Spam.Ham
-    # cimport Spam, Ham
-    m = re.compile(r"^\s*cimport\s+([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").match(line)
-    if m:
-        cimports.add(m.group(1))
-        rem = m.group(2)
-        m = re.compile(r"\s*,\s*([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").match(rem)
-        while m:
-            cimports.add(m.group(1))
+input = 0
+while input < len(inputs):
+    (f, fname, indir) = inputs[input]
+    input += 1
+
+    lines = f.readlines()
+
+    # Pre-process input to combine lines with multi-line statements/strings.
+    reCont = re.compile(r"^(.*)\\$")
+    i = 0
+    while i < len(lines):
+        # Merge multi-line """...""" strings.
+        while len(lines[i].split('"""')) % 2 == 0:
+            lines[i] = lines[i] + lines[i+1]
+            lines.pop(i+1)
+
+        # Merge multi-line '''...''' strings.
+        while len(lines[i].split("'''")) % 2 == 0:
+            lines[i] = lines[i] + lines[i+1]
+            lines.pop(i+1)
+
+        # Merge \-continued lines.
+        m = reCont.match(lines[i])
+        if m:
+            lines[i] = m.group(1) + lines[i+1]
+            lines.pop(i+1)
+        else:
+            i += 1
+
+    #
+    # Look for statements that induce file dependencies.
+    #
+    for line in lines:
+        # cdef extern from "spam.h":
+        m = re.compile(r'^\s*cdef\s+extern\s+from\s+"([^"]*)"\s*:').match(line)
+        if m:
+            includes.add((m.group(1), indir))
+            continue
+
+        # cimport .Spam
+        # cimport Spam
+        # cimport Spam.Ham
+        # cimport Spam, Ham
+        m = re.compile(r"^\s*cimport\s+([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").\
+          match(line)
+        if m:
+            if (m.group(1), indir) not in cimports:
+                merge_input(inputs, m.group(1), indir, opts.ppath)
+            cimports.add((m.group(1), indir))
             rem = m.group(2)
-            m = re.compile(r"\s*,\s*([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").\
-              match(rem)
-        continue
+            m = re.compile(r"\s*,\s*([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").match(rem)
+            while m:
+                if (m.group(1), indir) not in cimports:
+                    merge_input(inputs, m.group(1), indir, opts.ppath)
+                cimports.add((m.group(1), indir))
+                rem = m.group(2)
+                m = re.compile(r"\s*,\s*([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").\
+                  match(rem)
+            continue
 
-    # from Spam cimport <...>
-    m = re.compile(r"^\s*from\s+([A-Za-z_.][A-Za-z0-9_.]*)\s+cimport\s").\
-      match(line)
-    if m:
-        cimports.add(m.group(1))
-        continue
+        # from Spam cimport <...>
+        m = re.compile(r"^\s*from\s+([A-Za-z_.][A-Za-z0-9_.]*)\s+cimport\s").\
+          match(line)
+        if m:
+            if (m.group(1), indir) not in cimports:
+                merge_input(inputs, m.group(1), indir, opts.ppath)
+            cimports.add((m.group(1), indir))
+            continue
 
-    # import .Spam
-    # import Spam
-    # import Spam.Ham
-    # import Spam, Ham
-    m = re.compile(r"^\s*import\s+([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").match(line)
-    if m:
-        imports.add(m.group(1))
-        rem = m.group(2)
-        m = re.compile(r"\s*,\s*([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").match(rem)
-        while m:
-            imports.add(m.group(1))
+        # import .Spam
+        # import Spam
+        # import Spam.Ham
+        # import Spam, Ham
+        m = re.compile(r"^\s*import\s+([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").\
+          match(line)
+        if m:
+            imports.add((m.group(1), indir))
             rem = m.group(2)
-            m = re.compile(r"\s*,\s*([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").\
-              match(rem)
-        continue
-    # from ..Spam import <...>
-    m = re.compile(r"^\s*from\s+([A-Za-z_.][A-Za-z0-9_.]*)\s+import\s").\
-      match(line)
-    if m:
-        imports.add(m.group(1))
-        continue
+            m = re.compile(r"\s*,\s*([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").match(rem)
+            while m:
+                imports.add((m.group(1), indir))
+                rem = m.group(2)
+                m = re.compile(r"\s*,\s*([A-Za-z_.][A-Za-z0-9_.]*)(.*)$").\
+                  match(rem)
+            continue
+        # from ..Spam import <...>
+        m = re.compile(r"^\s*from\s+([A-Za-z_.][A-Za-z0-9_.]*)\s+import\s").\
+          match(line)
+        if m:
+            imports.add((m.group(1), indir))
+            continue
 
-# Prepare outfile.
-if opts.outfile is not None:
+# Prepare depfile.
+if opts.depfile is not None:
     try:
-        os.makedirs(os.path.dirname(opts.outfile))
+        os.makedirs(os.path.dirname(opts.depfile))
     except os.error:
         pass
-    outfile = open(opts.outfile, "w+")
+    depfile = open(opts.depfile, "w+")
 else:
-    outfile = sys.stdout
-    opts.outfile = "<stdout>"
+    depfile = sys.stdout
+    opts.depfile = "<stdout>"
 
 deps = set()
+for (f, fname, indir) in inputs:
+    deps.add(os.path.normpath(fname))
 
 # Resolve #include dependencies.
-for i in includes:
+for (i, indir) in includes:
     for p in opts.ipath:
         path = "%s/%s" % (p, i)
         if os.path.exists(path):
-            deps.add(path)
+            deps.add(os.path.normpath(path))
             break
     else:
         print >> sys.stderr, "Unresolvable #include: %r" % i
         sys.exit(1)
 
 # Resolve cimport dependencies.
-for i in cimports:
+for (i, indir) in cimports:
     path = resolve_import(i, indir, opts.ppath, ("%s.pxd", "%s/__init__.pxd"))
     if path is not None:
-        deps.add(path)
+        deps.add(os.path.normpath(path))
     else:
-        outfile.write("# Unresolvable: cimport %s\n" % i)
+        depfile.write("# Unresolvable: cimport %s\n" % i)
 
 # Resolve import dependencies.
-for i in imports:
+for (i, indir) in imports:
     path = resolve_import(i, indir, opts.ppath, ("%s.py", "%s/__init__.py"))
     if path is not None:
-        deps.add(path)
+        deps.add(os.path.normpath(path))
     else:
-        outfile.write("# Unresolvable: import %s\n" % i)
+        depfile.write("# Unresolvable: import %s\n" % i)
 
 # Write out dependencies.
-instem = opts.infile.split(".")[-2]
-outfile.write("%s.c :" % instem)
-outfile.write(" \\\n  %s.pyx" % instem)
-if os.path.exists("%s.pxd" % instem):
-    outfile.write(" \\\n  %s.pxd" % instem)
+depfile.write("%s :" % opts.targetfile)
 deps = list(deps)
 deps.sort()
 for dep in deps:
-    outfile.write(" \\\n  %s" % dep)
-outfile.write("\n")
-outfile.close()
+    depfile.write(" \\\n  %s" % dep)
+depfile.write("\n")
+depfile.close()
