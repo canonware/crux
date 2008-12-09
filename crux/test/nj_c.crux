@@ -20,10 +20,7 @@ C  7  9  0 11
 D 12 14 11  0
 """
 
-lines = testMatrix.split("\n")
-for i in xrange(len(lines)):
-    lines[i] += "\n"
-matrix = Crux.DistMatrix.DistMatrix(lines)
+matrix = Crux.DistMatrix.DistMatrix(testMatrix)
 t = matrix.nj()
 t.canonize(matrix.taxaMap)
 print t.render(lengths=True, lengthFormat="%.6f")

@@ -304,10 +304,7 @@ for matrix in matrices:
     try:
         print "==="
         print matrix
-        lines = matrix.split("\n")
-        for i in xrange(len(lines)):
-            lines[i] += "\n"
-        distMatrix = Crux.DistMatrix.DistMatrix(lines)
+        distMatrix = Crux.DistMatrix.DistMatrix(matrix)
         distMatrix.render('full', '%.5f')
         print
         distMatrix.render('upper', '%.5f')

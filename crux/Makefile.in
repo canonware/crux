@@ -17,33 +17,41 @@ endif
 LDFLAGS := @LDFLAGS@
 
 # File lists.
-CHDRS := @chdrs@
 CSRCS := @csrcs@
+FSRCS := @fsrcs@
 PXDS := @pxds@
 PYXS := @pyxs@
 PKGS := @pkgs@
 PYS := @pys@
-BINS := @bins@
 TESTS := @tests@
 
 # Default target.
 all: inst
 
+# Flex-generated .c files.  These are not included in CSRCS.
+FLCS := $(FSRCS:%.l=%.c)
+
 # Cython-generated .c files.
 CYCS := $(PYXS:%.pyx=%.c) $(PKGS:%.pyx=%.c)
 
+# Prevent make from deleting .o files, since each .o can be used for linking
+# multiple targets, potentially across make invocations (ex: make run; make
+# inst).
 .SECONDARY: $(CYCS:@srcroot@pkg/%.c=@objroot@build/pkg/%.o) \
-		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
+		$(FLCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 
 # Include generated dependency files.
 -include $(CYCS:@srcroot@pkg/%.c=@objroot@build/pkg/%.d) \
-	$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.d)
+	$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.d) \
+	$(FLCS:@srcroot@lib/%.c=@objroot@build/lib/%.d)
 
-dist: $(CYCS)
+dist: $(FLCS) $(CYCS)
 
 run: @objroot@build/run/bin/crux \
-	$(CYCS:@srcroot@pkg/%.c=@objroot@build/run/site-packages/%.so) \
-	$(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%)
+		$(CYCS:@srcroot@pkg/%.c=@objroot@build/run/site-packages/%.so) \
+		$(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%)
+	@mkdir -p @objroot@build/run/share/Crux/parsers
 
 inst: pickles @objroot@build/inst/bin/crux \
 	$(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) \
@@ -102,6 +110,8 @@ check: run
 clean:
 	rm -rf @objroot@build
 	rm -f @objroot@test/*.out
+	rm -f @objroot@test/*.log
+	rm -f @objroot@test/*.pickle
 
 distclean: clean
 	rm -f @objroot@config.log
@@ -111,21 +121,30 @@ distclean: clean
 	rm -f @cfghdrs@
 	rm -f @cfgoutputs@
 
+flclean:
+ifeq (@enable_flex@, 1)
+	rm -f $(FLCS)
+endif
+
 cyclean:
 ifeq (@enable_cython@, 1)
 	rm -f $(CYCS)
 endif
 
-relclean: distclean cyclean
+relclean: distclean flclean cyclean
 	rm -rf @objroot@autom4te.cache
 	rm -f @objroot@configure
 
+#===============================================================================
 @objroot@build/lib/%.o : @srcroot@lib/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@
 	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
 
-@objroot@build/run/share/Crux/lib/libCx.so : $(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+#===============================================================================
+@objroot@build/run/share/Crux/lib/libCx.so : \
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
+		$(FLCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
 	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+
@@ -135,7 +154,8 @@ ifeq (macho, @abi@)
 endif
 
 @objroot@build/inst/share/Crux/lib/libCx.so : \
-		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
+		$(FLCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
 	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+
@@ -144,19 +164,32 @@ ifeq (macho, @abi@)
 	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @DATADIR@/share/Crux/lib/libCx.so -o $@ $+
 endif
 
+#===============================================================================
+# Flex-generated files are shipped with releases, so the following rule is not
+# always needed.
+ifeq (@enable_flex@, 1)
+@srcroot@%.c @srcroot@%.h : @srcroot@%.l
+	@FLEX@ -CFa -8 -v --header-file=$(<:%.l=%.h) -o $(<:%.l=%.c) $<
+endif
+
+#===============================================================================
 # Cython-generated files are shipped with releases, so the following rule is
 # not always needed.
 ifeq (@enable_cython@, 1)
 @srcroot@%.c : @srcroot@%.pyx
-	@PYTHON@ @CYTHON@ -I@srcroot@pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) -o $@ $<
-	@@abs_objroot@cydep -I/usr/include $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -P@srcroot@src --infile=$< --outfile=$(@:@srcroot@pkg/%.c=@objroot@build/pkg/%.d)
+	@PYTHON@ @CYTHON@ -I@srcroot@pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) @python_config_includes@ -o $@ $<
+	@@abs_objroot@cydep -I/usr/include $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -P@srcroot@pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) --infile=$< --outfile=$(@:@srcroot@pkg/%.c=@objroot@build/pkg/%.d)
 endif
 
+#===============================================================================
 @objroot@build/pkg/%.o : @srcroot@pkg/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) @python_config_cflags@ -c $< -o$@
 
-@objroot@build/run/site-packages/%.so : @objroot@build/pkg/%.o \
+#===============================================================================
+# Rules for building packages/modules that link against libCx.  These rules
+# must come before the more generic rules that follow.
+@objroot@build/run/site-packages/Crux/%.so : @objroot@build/pkg/Crux/%.o \
 				@objroot@build/run/share/Crux/lib/libCx.so
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
@@ -165,7 +198,7 @@ else
 	$(CC) -shared @python_config_ldflags@ -o $@ $+
 endif
 
-@objroot@build/inst/site-packages/%.so : @objroot@build/pkg/%.o \
+@objroot@build/inst/site-packages/Crux/%.so : @objroot@build/pkg/Crux/%.o \
 				@objroot@build/inst/share/Crux/lib/libCx.so
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
@@ -174,6 +207,16 @@ else
 	$(CC) -shared @python_config_ldflags@ -o $@ $+
 endif
 
+#===============================================================================
+@objroot@build/run/site-packages/%.so : @objroot@build/pkg/%.o
+	@mkdir -p $(@D)
+	$(CC) -shared @python_config_ldflags@ -o $@ $+
+
+@objroot@build/inst/site-packages/%.so : @objroot@build/pkg/%.o
+	@mkdir -p $(@D)
+	$(CC) -shared @python_config_ldflags@ -o $@ $+
+
+#===============================================================================
 @objroot@build/run/site-packages/%.py : @srcroot@pkg/%.py
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -r --infile=$< --outfile=$@
@@ -182,18 +225,18 @@ endif
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -i --infile=$< --outfile=$@
 
-@objroot@build/run/bin/crux : @srcroot@bin/crux
+#===============================================================================
+@objroot@build/run/bin/% : @srcroot@bin/%
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -r --infile=$< --outfile=$@
-	@mkdir -p @objroot@build/run/share/Crux/parsers
 
-@objroot@build/inst/bin/crux : @srcroot@bin/crux
+@objroot@build/inst/bin/% : @srcroot@bin/%
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -i --infile=$< --outfile=$@
 
-#
+#===============================================================================
 # Re-configuration rules.
-#
+
 ifeq (@enable_autogen@, 1)
 @srcroot@configure : @srcroot@configure.ac
 	cd ./@srcroot@ && @AUTOCONF@

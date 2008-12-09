@@ -6,6 +6,7 @@ dnl Version requirements for external software we depend on.
 dnl 
 PYTHON_VERSION_MIN=2.6.0
 CYTHON_VERSION_MIN=0.10.0
+FLEX_VERSION_MIN=2.5.35
 
 srcroot=$srcdir
 if test "x${srcroot}" = "x." ; then
@@ -134,7 +135,8 @@ AC_SUBST([abi])
 AC_SUBST([RPATH])
 
 dnl Disable rules that do automatic regeneration of configure output by default.
-AC_ARG_ENABLE([autogen], [  --enable-autogen        Automatically regenerate configure output],
+AC_ARG_ENABLE([autogen],
+  [AS_HELP_STRING[--enable-autogen], [Automatically regenerate configure output])],
 if test "x$enable_autogen" = "xno" ; then
   enable_autogen="0"
 else
@@ -146,7 +148,8 @@ enable_autogen="0"
 AC_SUBST([enable_autogen])
 
 dnl Disable Cython code generation by default.
-AC_ARG_ENABLE([cython], [  --enable-cython         Compile .pyx/.pxd sources to .c outputs],
+AC_ARG_ENABLE([cython],
+  [AS_HELP_STRING([--enable-cython], [Compile .pyx/.pxd sources to .c outputs])],
 if test "x$enable_cython" = "xyes" ; then
   enable_cython="1"
 else
@@ -156,6 +159,19 @@ fi
 enable_cython="0"
 )
 AC_SUBST([enable_cython])
+
+dnl Disable flex code generation by default.
+AC_ARG_ENABLE([flex],
+  [AS_HELP_STRING([--enable-flex], [Compile .l sources to C outputs])],
+if test "x$enable_flex" = "xyes" ; then
+  enable_flex="1"
+else
+  enable_flex="0"
+  fi
+,
+enable_flex="0"
+)
+AC_SUBST([enable_flex])
 
 AC_PROG_INSTALL
 AC_PROG_RANLIB
@@ -167,7 +183,8 @@ AC_PATH_PROG([PERL], [perl], , [$PATH])
 AC_PATH_PROG([AUTOCONF], [autoconf], , [$PATH])
 
 dnl Do not compile with debugging by default.
-AC_ARG_ENABLE([debug], [  --enable-debug          Build debugging code],
+AC_ARG_ENABLE([debug],
+  [AS_HELP_STRING([--enable-debug], [Build debugging code])],
 [if test "x$enable_debug" = "xno" ; then
   enable_debug="0"
 else
@@ -188,7 +205,8 @@ AC_SUBST([enable_debug])
 
 dnl Do not silence irrelevant compiler warnings by default, since enabling this
 dnl option incurs a slight performance penalty.
-AC_ARG_ENABLE([cc-silence], [  --enable-cc-silence     Silence irrelevant compiler warnings],
+AC_ARG_ENABLE([cc-silence],
+  [AS_HELP_STRING([--enable-cc-silence], [Silence irrelevant compiler warnings])],
 [if test "x$enable_cc_silence" = "xno" ; then
   enable_cc_silence="0"
 else
@@ -214,7 +232,7 @@ fi
 
 dnl Support inlines by default.
 AC_ARG_ENABLE([inlines],
-              [  --disable-inlines       Do not use inline functions],
+  [AS_HELP_STRING([--disable-inlines], [Do not use inline functions])],
 [if test "x$enable_inlines" = "xno" ; then
   enable_inlines="0"
 else
@@ -236,7 +254,7 @@ dnl ============================================================================
 dnl Make sure the version of python found is sufficient.
 
 dnl Get path to python.
-AC_ARG_WITH([python], [  --with-python           python program],
+AC_ARG_WITH([python], [AS_HELP_STRING([--with-python], [python program])],
 if test "x$with_python" = "xno" ; then
   PYTHON=
 else
@@ -256,34 +274,38 @@ else
   fi
 fi
 
-AC_MSG_CHECKING([for python >= $PYTHON_VERSION_MIN])
-PYTHON_FOUND=`2>&1 $PYTHON -V | awk '{print $2}'`
-if test "x$PYTHON_FOUND" != "x<Version" ; then
-  PYTHON_MAJOR=`echo ${PYTHON_FOUND} | tr . " " | awk '{print $1}'`
-  PYTHON_MINOR=`echo ${PYTHON_FOUND} | tr . " " | awk '{print $2}' | tr a-z " " |awk '{print $1}'`
-  PYTHON_BRANCH=`echo ${PYTHON_FOUND} | tr . " " | awk '{print $3}' | tr a-z " " |awk '{print $1}'`
-  if test "x$PYTHON_BRANCH" = "x" ; then
-    PYTHON_BRANCH=0
-  fi
-  PYTHON_MAJOR_MIN=`echo $PYTHON_VERSION_MIN | tr . " " | awk '{print $1}'`
-  PYTHON_MINOR_MIN=`echo $PYTHON_VERSION_MIN | tr . " " | awk '{print $2}'`
-  PYTHON_BRANCH_MIN=`echo $PYTHON_VERSION_MIN | tr . " " | awk '{print $3}'`
-  if test $PYTHON_MAJOR -gt $PYTHON_MAJOR_MIN \
-       -o $PYTHON_MAJOR -eq $PYTHON_MAJOR_MIN \
-       -a $PYTHON_MINOR -gt $PYTHON_MINOR_MIN \
-       -o $PYTHON_MAJOR -eq $PYTHON_MAJOR_MIN \
-       -a $PYTHON_MINOR -eq $PYTHON_MINOR_MIN \
-       -a $PYTHON_BRANCH -ge $PYTHON_BRANCH_MIN ; then
-    AC_MSG_RESULT([$PYTHON_MAJOR.$PYTHON_MINOR.$PYTHON_BRANCH])
-    have_python="1"
-  else
-    AC_MSG_RESULT([no])
-    have_python="0"
-  fi
-else
-  AC_MSG_RESULT([unknown development version])
-  have_python="1"
+dnl CX_VERSION_CHECK([prog], [version], [version_min], [result])
+AC_DEFUN([CX_VERSION_CHECK], [
+CX_VERSION_PROG=$1
+CX_VERSION=$2
+CX_VERSION_MIN=$3
+AC_MSG_CHECKING([for $CX_VERSION_PROG >= $CX_VERSION_MIN])
+CX_VERSION_MAJOR=`echo ${CX_VERSION} | tr . " " | awk '{print [$]1}'`
+CX_VERSION_MINOR=`echo ${CX_VERSION} | tr . " " | awk '{print [$]2}' | tr a-z " " |awk '{print [$]1}'`
+CX_VERSION_BRANCH=`echo ${CX_VERSION} | tr . " " | awk '{print [$]3}' | tr a-z " " |awk '{print [$]1}'`
+if test "x$CX_VERSION_BRANCH" = "x" ; then
+  CX_VERSION_BRANCH=0
 fi
+CX_VERSION_MAJOR_MIN=`echo $CX_VERSION_MIN | tr . " " | awk '{print [$]1}'`
+CX_VERSION_MINOR_MIN=`echo $CX_VERSION_MIN | tr . " " | awk '{print [$]2}'`
+CX_VERSION_BRANCH_MIN=`echo $CX_VERSION_MIN | tr . " " | awk '{print [$]3}'`
+if test $CX_VERSION_MAJOR -gt $CX_VERSION_MAJOR_MIN \
+     -o $CX_VERSION_MAJOR -eq $CX_VERSION_MAJOR_MIN \
+     -a $CX_VERSION_MINOR -gt $CX_VERSION_MINOR_MIN \
+     -o $CX_VERSION_MAJOR -eq $CX_VERSION_MAJOR_MIN \
+     -a $CX_VERSION_MINOR -eq $CX_VERSION_MINOR_MIN \
+     -a $CX_VERSION_BRANCH -ge $CX_VERSION_BRANCH_MIN ; then
+  AC_MSG_RESULT([$CX_VERSION_MAJOR.$CX_VERSION_MINOR.$CX_VERSION_BRANCH])
+  $4="1"
+else
+  AC_MSG_RESULT([no ($CX_VERSION_MAJOR.$CX_VERSION_MINOR.$CX_VERSION_BRANCH)])
+  $4="0"
+fi
+])
+
+PYTHON_FOUND=`2>&1 $PYTHON -V | awk '{print $2}'`
+CX_VERSION_CHECK([python], [$PYTHON_FOUND], [$PYTHON_VERSION_MIN],
+  [have_python])
 if test "x$have_python" = "x0" ; then
   AC_MSG_ERROR([Cannot build without python])
 fi
@@ -318,7 +340,7 @@ dnl ============================================================================
 dnl Make sure the version of cython found is sufficient.
 if test "x${enable_cython}" = "x1" ; then
   dnl Get path to cython.
-  AC_ARG_WITH([cython], [  --with-cython           cython program],
+  AC_ARG_WITH([cython], [AS_HELP_STRING([--with-cython], [cython program])],
   if test "x$with_cython" = "xno" ; then
     CYTHON=
   else
@@ -338,38 +360,46 @@ if test "x${enable_cython}" = "x1" ; then
     fi
   fi
 
-  AC_MSG_CHECKING([for cython >= $CYTHON_VERSION_MIN])
   CYTHON_FOUND=`2>&1 $CYTHON -V | awk '{print $3}'`
-  if test "x$CYTHON_FOUND" != "x<Version" ; then
-    CYTHON_MAJOR=`echo ${CYTHON_FOUND} | tr . " " | awk '{print $1}'`
-    CYTHON_MINOR=`echo ${CYTHON_FOUND} | tr . " " | awk '{print $2}' | tr a-z " " |awk '{print $1}'`
-    CYTHON_BRANCH=`echo ${CYTHON_FOUND} | tr . " " | awk '{print $3}' | tr a-z " " |awk '{print $1}'`
-    if test "x$CYTHON_BRANCH" = "x" ; then
-      CYTHON_BRANCH=0
-    fi
-    CYTHON_MAJOR_MIN=`echo $CYTHON_VERSION_MIN | tr . " " | awk '{print $1}'`
-    CYTHON_MINOR_MIN=`echo $CYTHON_VERSION_MIN | tr . " " | awk '{print $2}'`
-    CYTHON_BRANCH_MIN=`echo $CYTHON_VERSION_MIN | tr . " " | awk '{print $3}'`
-    if test $CYTHON_MAJOR -gt $CYTHON_MAJOR_MIN \
-         -o $CYTHON_MAJOR -eq $CYTHON_MAJOR_MIN \
-         -a $CYTHON_MINOR -gt $CYTHON_MINOR_MIN \
-         -o $CYTHON_MAJOR -eq $CYTHON_MAJOR_MIN \
-         -a $CYTHON_MINOR -eq $CYTHON_MINOR_MIN \
-         -a $CYTHON_BRANCH -ge $CYTHON_BRANCH_MIN ; then
-      AC_MSG_RESULT([$CYTHON_MAJOR.$CYTHON_MINOR.$CYTHON_BRANCH])
-      have_cython="1"
-    else
-      AC_MSG_RESULT([no])
-      have_cython="0"
-    fi
-  else
-    AC_MSG_RESULT([unknown development version])
-    have_cython="1"
-  fi
+  CX_VERSION_CHECK([cython], [$CYTHON_FOUND], [$CYTHON_VERSION_MIN],
+    [have_cython])
   if test "x$have_cython" = "x0" ; then
     AC_MSG_ERROR([Cannot build without cython])
   fi
   AC_SUBST([CYTHON])
+fi
+
+dnl ============================================================================
+dnl Make sure the version of flex found is sufficient.
+if test "x${enable_flex}" = "x1" ; then
+  dnl Get path to flex.
+  AC_ARG_WITH([flex], [AS_HELP_STRING([--with-flex], [flex program])],
+  if test "x$with_flex" = "xno" ; then
+    FLEX=
+  else
+    FLEX="$with_flex"
+  fi
+  ,
+    FLEX=
+  )
+  if test "x$FLEX" != "x" ; then
+     if test ! -x "${FLEX}" ; then
+       AC_MSG_ERROR([Unusable or missing flex: ${FLEX}])
+     fi
+  else
+    AC_PATH_PROG([FLEX], [flex], , [$PATH])
+    if test "x$FLEX" = "x" ; then
+      AC_MSG_ERROR([Cannot build without flex])
+    fi
+  fi
+
+  FLEX_FOUND=`2>&1 $FLEX --version | awk '{print $2}'`
+  CX_VERSION_CHECK([flex], [$FLEX_FOUND], [$FLEX_VERSION_MIN],
+    [have_flex])
+  if test "x$have_flex" = "x0" ; then
+    AC_MSG_ERROR([Cannot build without flex])
+  fi
+  AC_SUBST([FLEX])
 fi
 
 dnl ============================================================================
@@ -386,21 +416,32 @@ dnl ============================================================================
 dnl Generate file lists.
 
 dnl C headers.
-chdrs=""
-for h in `find ${srcroot}lib -type f |grep "\.h$" |sort` ; do
-  chdrs="${chdrs} ${h}"
-done
 for h in `find ${srcroot}lib -type f |grep "\.h\.in$" |sort` ; do
   chdr="`dirname ${h}`/`basename ${h} .in`"
-  chdrs="${chdrs} ${chdr}"
   cfghdrs="${cfghdrs} ${chdr}"
 done
-AC_SUBST([chdrs])
+
+dnl Flex sources.  csrcs uses fsrcs to avoid multiple listing, so fsrcs must be
+dnl generated first.
+fsrcs=""
+for f in `find ${srcroot}lib -type f |grep "Cx[[A-Za-z0-9]]*\.l$" |sort` ; do
+  fsrcs="${fsrcs} ${f}"
+done
+AC_SUBST([fsrcs])
 
 dnl C sources.
 csrcs=""
 for s in `find ${srcroot}lib -type f |grep "Cx[[A-Za-z0-9]]*\.c$" |sort` ; do
-  csrcs="${csrcs} ${s}"
+  is_fsrc="0"
+  for f in ${fsrcs} ; do
+    c="`dirname ${f}`/`basename ${f} .l`.c"
+    if test "x${s}" = "x${c}" ; then
+      is_fsrc="1"
+    fi
+  done
+  if test "x$is_fsrc" = "x0" ; then
+    csrcs="${csrcs} ${s}"
+  fi
 done
 AC_SUBST([csrcs])
 
@@ -430,13 +471,6 @@ for s in `find ${srcroot}pkg -type f |grep "\.py$" |sort` ; do
   pys="${pys} ${s}"
 done
 AC_SUBST([pys])
-
-dnl Python scripts.
-bins=""
-for b in `find ${srcroot}bin -type f |sort` ; do
-  bins="{$bins} ${b}"
-done
-AC_SUBST([bins])
 
 dnl Tests.
 tests=""
@@ -473,6 +507,7 @@ AC_MSG_RESULT([Crux version  : $crux_version])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([PYTHON        : ${PYTHON}])
 AC_MSG_RESULT([CYTHON        : ${CYTHON}])
+AC_MSG_RESULT([FLEX          : ${FLEX}])
 AC_MSG_RESULT([CC            : ${CC}])
 AC_MSG_RESULT([CPPFLAGS      : ${CPPFLAGS}])
 AC_MSG_RESULT([CFLAGS        : ${CFLAGS}])
@@ -491,6 +526,7 @@ AC_MSG_RESULT([abs_objroot   : ${abs_objroot}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([autogen       : ${enable_autogen}])
 AC_MSG_RESULT([cython        : ${enable_cython}])
+AC_MSG_RESULT([flex          : ${enable_flex}])
 AC_MSG_RESULT([debug         : ${enable_debug}])
 AC_MSG_RESULT([cc-silence    : ${enable_cc_silence}])
 AC_MSG_RESULT([inlines       : ${enable_inlines}])

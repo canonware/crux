@@ -38,10 +38,7 @@ H 23 25 20 26 15 15 10  0
 )
 
 for testMatrix in testMatrices:
-    lines = testMatrix.split("\n")
-    for i in xrange(len(lines)):
-        lines[i] += "\n"
-    matrix = Crux.DistMatrix.DistMatrix(lines)
+    matrix = Crux.DistMatrix.DistMatrix(testMatrix)
     #matrix.render(distFormat="%2.0f", outFile=sys.stdout)
     t = matrix.nj()
     taxaMap = matrix.taxaMap
@@ -49,7 +46,7 @@ for testMatrix in testMatrices:
     print t.render(lengths=True, lengthFormat="%.0f")
 
     for i in xrange(10):
-        matrix = Crux.DistMatrix.DistMatrix(lines)
+        matrix = Crux.DistMatrix.DistMatrix(testMatrix)
         matrix.shuffle()
         t = matrix.nj()
 
@@ -59,7 +56,7 @@ for testMatrix in testMatrices:
         print t.render(lengths=True, lengthFormat="%.0f")
 
     for i in xrange(10):
-        matrix = Crux.DistMatrix.DistMatrix(lines)
+        matrix = Crux.DistMatrix.DistMatrix(testMatrix)
         t = matrix.nj(joinRandom=True)
 
         treeStr = t.render(lengths=True, lengthFormat="%.0f")

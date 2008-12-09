@@ -12,6 +12,7 @@ syntax: regexp
 ^crux/cydep$
 ^crux/Makefile$
 ^crux/lib/Cx_defs\.h$
+^crux/lib/DistMatrix/CxDistMatrixLexer.[ch]$
 ^crux/pkg/(Parsing)\.c$
 ^crux/pkg/Crux/(__init__|Character|CTMatrix|Fasta|Newick|Taxa|Tree)\.c$
 ^crux/pkg/Crux/DistMatrix/(__init__|Nj)\.c$

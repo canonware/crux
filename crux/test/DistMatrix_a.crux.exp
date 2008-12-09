@@ -531,7 +531,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: num ('0.000')
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: num (0.0)
 ===
 5
 Alpha            1.000 2.000 3.000 3.000
@@ -638,14 +638,14 @@ Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 3.000 0.000 1.000
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Insufficient taxa
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
 Beta       1.000 0.000 2.000 3.000 3.000
 Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 3.000 0.000 1.000
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 5: Insufficient taxa
 ===
 5
 Taxon_A     1.0 2.0 3.0 4.0
@@ -653,21 +653,21 @@ Taxon_B         1.5 2.5 3.5
 Taxon_C             2.2 3.2
 Taxon_D                 3.1
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Insufficient taxa
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
 ===
 5
 Taxon_A     1.0 2.0 3.0 4.0
 Taxon_B         1.5 2.5 3.5
 Taxon_C             2.2 3.2
 Taxon_D                 3.1
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 5: Insufficient taxa
 ===
 5
 Taxon_A     1.0 2.0 3.0 4.0
 Taxon_B         1.5 2.5 3.5
 Taxon_C             2.2 3.2
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 5: Insufficient taxa
 ===
 5
 Taxon_A
@@ -692,7 +692,7 @@ Taxon_B 1.0
 Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Insufficient taxa
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Insufficient taxa
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -991,7 +991,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: num ('0.000')
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: num (0.0)
 ===
 5
 Alpha            1.000 2.000 3.000 3.000

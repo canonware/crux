@@ -128,44 +128,49 @@ cdef class pDists(Parsing.Precedence):
 #
 
 cdef class Token(Parsing.Token):
-    cdef str raw
     cdef int line
 
-    def __init__(self, Parser parser, str raw, int line):
+    def __init__(self, Parser parser, int line):
         Parsing.Token.__init__(self, parser)
 
-        self.raw = raw
         self.line = line
-
-    def __repr__(self):
-        return Parsing.Token.__repr__(self) + (" (%r)" % self.raw)
 
 cdef class TokenInt(Token):
     "%token int [pInt]"
     cdef CxtDMSize i
 
-    def __init__(self, Parser parser, str raw, int line):
-        Token.__init__(self, parser, raw, line)
+    def __init__(self, Parser parser, int i, int line):
+        Token.__init__(self, parser, line)
 
-        self.i = int(raw)
+        self.i = i
+
+    def __repr__(self):
+        return Parsing.Token.__repr__(self) + (" (%r)" % self.i)
 
 cdef class TokenNum(Token):
     "%token num [pNum]"
     cdef CxtDMDist n
 
-    def __init__(self, Parser parser, str raw, int line):
-        Token.__init__(self, parser, raw, line)
+    # XXX Down-cast to float loses precision.
+    def __init__(self, Parser parser, float n, int line):
+        Token.__init__(self, parser, line)
 
-        self.n = float(raw)
+        self.n = n
+
+    def __repr__(self):
+        return Parsing.Token.__repr__(self) + (" (%r)" % self.n)
 
 cdef class TokenLabel(Token):
     "%token label"
     cdef str label
 
-    def __init__(self, Parser parser, str raw, int line):
-        Token.__init__(self, parser, raw, line)
+    def __init__(self, Parser parser, str label, int line):
+        Token.__init__(self, parser, line)
 
-        self.label = raw
+        self.label = label
+
+    def __repr__(self):
+        return Parsing.Token.__repr__(self) + (" (%r)" % self.label)
 
 #
 # End Token.
@@ -410,37 +415,54 @@ cdef class Parser(Parsing.Lr):
   | ([\n])                                       # whitespace (newline)
 """, re.M | re.X)
 
-    cpdef parse(self, lines, int line=1, bint verbose=False):
-        cdef str l
-        cdef int pos
+    cpdef parse(self, input, int line=1, bint verbose=False):
+        cdef yyscan_t scanner
+        cdef CxtDistMatrixLexerExtra extra
+        cdef int status, tokType
 
-        assert getattr3(lines, '__iter__', None) is not None
+        assert type(input) in (file, str)
 
+        extra.ioerror = 0
+
+        if type(input) == file:
+            extra.inputMode = CxeDistMatrixLexerInputModeFd
+            extra.input.fd = input.fileno()
+        elif type(input) == str:
+            extra.inputMode = CxeDistMatrixLexerInputModeStr
+            extra.input.s.s = input
+            extra.input.s.len = len(input)
+        else:
+            assert False
+
+        if CxDistMatrixLexer_lex_init_extra(&extra, &scanner) != 0:
+            raise MemoryError("Error in CxDistMatrixLexer_lex_init_extra()")
+
+        # XXX Remove self.line and verbose.
         self.verbose = verbose
-        self.line = line
+        extra.line = line
 
-        for l in lines:
-            pos = 0
-            while pos < len(l):
-                m = _re.match(l, pos)
-                if m is None:
-                    raise SyntaxError(self.line, "Invalid token")
-                idx = m.lastindex
-                start = m.start(idx)
-                end = m.end(idx)
-                if idx == 1:   # integer (#taxa or distance)
-                    self.token(TokenInt(self, l[start:end], self.line))
-                elif idx == 2: # distance
-                    self.token(TokenNum(self, l[start:end], self.line))
-                elif idx == 3: # label
-                    self.token(TokenLabel(self, l[start:end], self.line))
-                elif idx == 4: # whitespace
-                    pass
-                elif idx == 5: # whitespace (newline)
-                    self.line += 1
+        try:
+            status = CxDistMatrixLexer_lex(scanner)
+            self.line = extra.line # XXX Remove self.line.
+            while status > 0:
+                tokType = extra.tokType
+                if tokType == CxeDistMatrixLexerTokTypeInt:
+                    self.token(TokenInt(self, extra.tok.int_, extra.line))
+                elif tokType == CxeDistMatrixLexerTokTypeDist:
+                    self.token(TokenNum(self, extra.tok.dist, extra.line))
+                elif tokType == CxeDistMatrixLexerTokTypeLabel:
+                    self.token(TokenLabel(self, extra.tok.label, extra.line))
                 else:
                     assert False
-                pos = end
+
+                status = CxDistMatrixLexer_lex(scanner)
+                self.line = extra.line # XXX Remove self.line.
+            if status == -1:
+                raise SyntaxError("Line %d: Invalid character" % extra.line)
+            if extra.ioerror != 0:
+                raise IOError("I/O error for %r" % input)
+        finally:
+            CxDistMatrixLexer_lex_destroy(scanner);
 
         self.eoi()
 
@@ -458,7 +480,7 @@ cdef class DistMatrix:
 
     # Construct a symmetric DistMatrix from one of the following inputs:
     #
-    #   lines : Parse the iterable lines as a distance matrix.
+    #   file/str : Parse the input file/string as a distance matrix.
     #
     #   Taxa.Map : Create an uninitialized distance matrix of the appropriate
     #              size, given the number of taxa in the Taxa.Map.
@@ -466,7 +488,7 @@ cdef class DistMatrix:
     #   DistMatrix : Duplicate or sample from the input DistMatrix, depending
     #                on the value of the 'sampleSize' parameter.
     def __init__(self, input=None, int sampleSize=-1):
-        if getattr3(input, '__iter__', None) is not None:
+        if type(input) in (file, str):
             self._parse(input)
         elif type(input) is Taxa.Map:
             self.taxaMap = <Taxa.Map>input
@@ -474,7 +496,7 @@ cdef class DistMatrix:
         elif type(input) is DistMatrix:
             self._dup(input, sampleSize)
         else:
-            raise ValueError("Iterable lines, Taxa.Map, or DistMatrix expected")
+            raise ValueError("File, string, Taxa.Map, or DistMatrix expected")
 
     cdef void _allocDists(self, CxtDMSize ntaxa) except *:
         assert self.dists == NULL

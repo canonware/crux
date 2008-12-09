@@ -66,7 +66,7 @@ def resolve_import(import_, indir, ppath, templates):
 
     # Try relative import.
     for template in templates:
-        path = template % ("/".join([indir] + elms))
+        path = template % (os.path.join(*([indir] + elms)))
         if os.path.exists(path):
             return path
 
@@ -77,7 +77,7 @@ def resolve_import(import_, indir, ppath, templates):
     # Search ppath for the module.
     for p in opts.ppath:
         for template in templates:
-            path = template % ("/".join([p] + elms))
+            path = template % (os.path.join(*([p] + elms)))
             if os.path.exists(path):
                 return path
 
