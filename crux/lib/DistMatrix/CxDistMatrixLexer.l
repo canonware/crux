@@ -45,9 +45,11 @@
 %%
 
 [1-9][0-9]* {
+    char *endptr;
+
     errno = 0;
-    yyextra->tok.int_ = strtoul(yytext, NULL, 10);
-    if (errno != 0) {
+    yyextra->tok.dist = strtod(yytext, &endptr);
+    if (endptr == yytext || errno != 0) {
         return -1;
     }
     yyextra->tokType = CxeDistMatrixLexerTokTypeInt;

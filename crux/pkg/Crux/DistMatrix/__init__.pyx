@@ -27,7 +27,6 @@ class MemoryError(Exception, exceptions.MemoryError):
     def __str__(self):
         return self._str
 
-cimport Parsing
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
 cimport Crux.Tree as Tree
@@ -49,23 +48,7 @@ import random
 import re
 import sys
 
-# Forward declarations.
-cdef class pInt(Parsing.Precedence)
-cdef class pNum(Parsing.Precedence)
-cdef class pDists(Parsing.Precedence)
-cdef class Token(Parsing.Token)
-cdef class TokenInt(Token)
-cdef class TokenNum(Token)
-cdef class TokenLabel(Token)
-cdef class Nonterm(Parsing.Nonterm)
-cdef class Matrix(Nonterm)
-cdef class Ntaxa(Nonterm)
-cdef class Rows(Nonterm)
-cdef class Row(Nonterm)
-cdef class Label(Nonterm)
-cdef class Dists(Nonterm)
-cdef class Dist(Nonterm)
-cdef class Parser(Parsing.Lr)
+# Forward declaration.
 cdef class DistMatrix
 
 #===============================================================================
@@ -109,211 +92,38 @@ cdef class DistMatrix
 #   Taxon_D 3.0 2.5 2.2
 #   Taxon_E 4.0 3.5 3.2 3.1
 #
-
 #===============================================================================
-# Begin Precedence.
-#
 
-cdef class pInt(Parsing.Precedence):
-    "%fail"
-cdef class pNum(Parsing.Precedence):
-    "%fail"
-cdef class pDists(Parsing.Precedence):
-    "%fail <pInt <pNum"
+cdef enum Format:
+    FormatUninitialized,
+    FormatUnknown,
+    FormatFull,
+    FormatUpper,
+    FormatLower
 
-#
-# End Precedence.
-#===============================================================================
-# Begin Token.
-#
-
-cdef class Token(Parsing.Token):
+cdef class Parser:
     cdef int line
+    cdef DistMatrix matrix
+    cdef Taxa.Map taxaMap
+    cdef Format format
+    cdef CxtDMSize i, j
 
-    def __init__(self, Parser parser, int line):
-        Parsing.Token.__init__(self, parser)
+    def __init__(self, DistMatrix matrix, Taxa.Map taxaMap):
+        self.matrix = matrix
+        self.taxaMap = taxaMap
+        self.format = FormatUninitialized
 
-        self.line = line
-
-cdef class TokenInt(Token):
-    "%token int [pInt]"
-    cdef CxtDMSize i
-
-    def __init__(self, Parser parser, int i, int line):
-        Token.__init__(self, parser, line)
-
-        self.i = i
-
-    def __repr__(self):
-        return Parsing.Token.__repr__(self) + (" (%r)" % self.i)
-
-cdef class TokenNum(Token):
-    "%token num [pNum]"
-    cdef CxtDMDist n
-
-    # XXX Down-cast to float loses precision.
-    def __init__(self, Parser parser, float n, int line):
-        Token.__init__(self, parser, line)
-
-        self.n = n
-
-    def __repr__(self):
-        return Parsing.Token.__repr__(self) + (" (%r)" % self.n)
-
-cdef class TokenLabel(Token):
-    "%token label"
-    cdef str label
-
-    def __init__(self, Parser parser, str label, int line):
-        Token.__init__(self, parser, line)
-
-        self.label = label
-
-    def __repr__(self):
-        return Parsing.Token.__repr__(self) + (" (%r)" % self.label)
-
-#
-# End Token.
-#===============================================================================
-# Begin Nonterm.
-#
-
-cdef class Nonterm(Parsing.Nonterm):
-    def __init__(self, Parser parser):
-        Parsing.Nonterm.__init__(self, parser)
-
-cdef class Matrix(Nonterm):
-    "%start"
-    cpdef reduce(self, Ntaxa Ntaxa, Rows Rows):
-        "%reduce Ntaxa Rows"
-        cdef Parser parser
-
-        parser = <Parser>self.parser
-
-        if parser.taxaMap.ntaxa != parser.matrix.ntaxa:
-            raise SyntaxError(parser.line, "Insufficient taxa")
-
-cdef class Ntaxa(Nonterm):
-    "%nonterm"
-    cpdef reduce(self, TokenInt int_):
-        "%reduce int"
-        cdef DistMatrix m
-
-        m = (<Parser>self.parser).matrix
-        m._allocDists(int_.i)
-        m.ntaxa = int_.i
-
-cdef class Rows(Nonterm):
-    "%nonterm"
-    cpdef reduceOne(self, Row row):
-        "%reduce Row"
-    cpdef reduceExtend(self, Rows rows, Row row):
-        "%reduce Rows Row"
-
-cdef class Row(Nonterm):
-    "%nonterm"
-    cpdef reduce(self, Label Label, Dists Dists):
-        "%reduce Label Dists"
-        cdef Parser parser
-        cdef CxtDMSize i, j
-
-        parser = <Parser>self.parser
-        i = parser.i
-        j = parser.j
-
-        if parser.format == FormatUnknown:
-            assert i == 0
-            if j == parser.matrix.ntaxa:
-                parser.format = FormatUpper
-                i = 1
-                j = 2
-            elif j == 1:
-                parser.format = FormatLower
-                i = 1
-                j = 0
-            else:
-                raise SyntaxError(Label.label.line,
-                  "Incorrect number of distances")
-        elif parser.format == FormatFull:
-            if j != parser.matrix.ntaxa:
-                raise SyntaxError(Label.label.line,
-                  "Incorrect number of distances")
-            i += 1
-            j = 0
-        elif parser.format == FormatUpper:
-            if j != parser.matrix.ntaxa:
-                raise SyntaxError(Label.label.line,
-                  "Incorrect number of distances")
-            i += 1
-            j = i + 1
-        elif parser.format == FormatLower:
-            if j != i:
-                raise SyntaxError(Label.label.line,
-                  "Incorrect number of distances")
-            i += 1
-            j = 0
-        else:
-            assert False
-
-        parser.i = i
-        parser.j = j
-
-cdef class Label(Nonterm):
-    "%nonterm"
-    cdef TokenLabel label
-
-    cpdef reduce(self, TokenLabel label):
-        "%reduce label"
-        cdef Parser parser
-        cdef Taxon taxon
-        cdef Taxa.Map taxaMap
-
-        self.label = label
-
-        parser = <Parser>self.parser
-
-        # Create taxon mapping.
-        taxon = Taxa.get(label.label)
-        taxaMap = parser.taxaMap
-        if taxaMap.indGet(taxon) != -1:
-            raise SyntaxError(label.line, "Duplicate taxon label: %r" %
-              label.label)
-
-        if taxaMap.ntaxa == parser.matrix.ntaxa:
-            raise SyntaxError(label.line, "Excess taxon: %r" % label.label)
-
-        taxaMap.map(taxon, taxaMap.ntaxa)
-
-cdef class Dists(Nonterm):
-    "%nonterm"
-    cpdef reduceEmpty(self):
-        "%reduce [pDists]"
-    cpdef reduceOne(self, Dist Dist):
-        "%reduce Dist"
-    cpdef reduceExtend(self, Dists Dists, Dist Dist):
-        "%reduce Dists Dist"
-
-cdef class Dist(Nonterm):
-    "%nonterm"
-    cpdef reduceInt(self, TokenInt int_):
-        "%reduce int"
-        self._setDist(int_.i, int_.line)
-
-    cpdef reduceNum(self, TokenNum num):
-        "%reduce num"
-        self._setDist(num.n, num.line)
-
-    cdef void _setDist(self, CxtDMDist dist, int line) except *:
-        cdef Parser parser
+    cdef void tokenDist(self, CxtDMDist dist, unsigned line) except *:
         cdef DistMatrix m
         cdef CxtDMSize i, j, k
 
-        parser = <Parser>self.parser
-        m = parser.matrix
-        i = parser.i
-        j = parser.j
+        m = self.matrix
+        i = self.i
+        j = self.j
 
-        if parser.format == FormatUnknown:
+        if self.format == FormatUninitialized:
+            raise SyntaxError(line, "Unexpected distance")
+        elif self.format == FormatUnknown:
             if j < m.ntaxa:
                 m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
             else:
@@ -322,8 +132,8 @@ cdef class Dist(Nonterm):
                 # matrix would turn out to be in upper format, so now we need
                 # to discard the diagonal and shift all the distances down one
                 # element.
-                parser.format = FormatFull
-                if m.dists[CxDistMatrixNxy2i(m.ntaxa, 0, 1)] != 0.0:
+                self.format = FormatFull
+                if m.dists[CxDistMatrixNxy2i(m.ntaxa, 0, 1)] != <CxtDMDist>0.0:
                     raise SyntaxError(line, "Non-zero distance on diagonal")
                 # Shift the entire first row back one element.
                 for 1 <= k < j - 1:
@@ -331,13 +141,13 @@ cdef class Dist(Nonterm):
                       m.dists[CxDistMatrixNxy2i(m.ntaxa, 0, k + 1)]
                 j -= 1
                 m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
-        elif parser.format == FormatFull:
+        elif self.format == FormatFull:
             if j < i:
                 if dist != m.dists[CxDistMatrixNxy2i(m.ntaxa, j, i)]:
                     raise SyntaxError(line,
                       "Non-symmetric distance for %r <--> %r" %
-                      (parser.taxaMap.taxonGet(j).label,
-                      parser.taxaMap.taxonGet(i).label))
+                      (self.taxaMap.taxonGet(j).label,
+                      self.taxaMap.taxonGet(i).label))
             elif j == i:
                 if dist != 0.0:
                     raise SyntaxError(line, "Non-zero distance on diagonal")
@@ -345,85 +155,88 @@ cdef class Dist(Nonterm):
                 raise SyntaxError(line, "Too many distances")
             else:
                 m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
-        elif parser.format == FormatUpper:
+        elif self.format == FormatUpper:
             if j == m.ntaxa:
                 raise SyntaxError(line, "Too many distances")
             m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
-        elif parser.format == FormatLower:
+        elif self.format == FormatLower:
             if j == i:
                 raise SyntaxError(line, "Too many distances")
             m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
+        else:
+            assert False
 
         j += 1
-        parser.j = j
+        self.j = j
 
-#
-# End Nonterm.
-#===============================================================================
+    cdef void nextRow(self, unsigned line) except *:
+        cdef CxtDMSize i, j
 
-# Regex used to recognize tokens.
-cdef _re
+        i = self.i
+        j = self.j
 
-cdef Parsing.Spec _spec
+        if self.format == FormatUninitialized:
+            self.format = FormatUnknown
+            i = 0
+            j = 1
+        elif self.format == FormatUnknown:
+            if i == 0:
+                if j == self.matrix.ntaxa:
+                    self.format = FormatUpper
+                    i = 1
+                    j = 2
+                elif j == 1:
+                    self.format = FormatLower
+                    i = 1
+                    j = 0
+                else:
+                    raise SyntaxError(line, "Incorrect number of distances")
+            else:
+                assert False
+        elif self.format == FormatFull:
+            if j != self.matrix.ntaxa:
+                raise SyntaxError(line, "Incorrect number of distances")
+            i += 1
+            j = 0
+        elif self.format == FormatUpper:
+            if j != self.matrix.ntaxa:
+                raise SyntaxError(line, "Incorrect number of distances")
+            i += 1
+            j = i + 1
+        elif self.format == FormatLower:
+            if j != i:
+                raise SyntaxError(line, "Incorrect number of distances")
+            i += 1
+            j = 0
+        else:
+            assert False
 
-cdef enum Format:
-    FormatUnknown,
-    FormatFull,
-    FormatUpper,
-    FormatLower
+        self.i = i
+        self.j = j
 
-cdef class Parser(Parsing.Lr):
-    cdef int line
-    cdef DistMatrix matrix
-    cdef Taxa.Map taxaMap
-    cdef Format format
-    cdef CxtDMSize i, j
+    cdef void tokenLabel(self, str label, unsigned line) except *:
+        cdef Taxon taxon
 
-    def __init__(self, DistMatrix matrix, Taxa.Map taxaMap):
-        global _re, _spec
+        # Update row state.
+        self.nextRow(line)
 
-        if _spec is None:
-            _spec = self._initSpec()
-        Parsing.Lr.__init__(self, _spec)
+        # Create taxon mapping.
+        taxon = Taxa.get(label)
+        if self.taxaMap.indGet(taxon) != -1:
+            raise SyntaxError(line, "Duplicate taxon label: %r" % label)
+        if self.taxaMap.ntaxa == self.matrix.ntaxa:
+            raise SyntaxError(line, "Excess taxon: %r" % label)
+        self.taxaMap.map(taxon, self.taxaMap.ntaxa)
 
-        if _re is None:
-            _re = self._initRe()
-
-        self.matrix = matrix
-        self.taxaMap = taxaMap
-        self.format = FormatUnknown
-        self.i = 0
-        self.j = 1
-
-    cdef Parsing.Spec _initSpec(self):
-        return Parsing.Spec([sys.modules[__name__]],
-          pickleFile="%s/Crux/parsers/DistMatrix.pickle" % Crux.Config.datadir,
-          verbose=(False if (not __debug__ or Crux.Config.quiet) else True),
-          skinny=(False if __debug__ else True),
-          logFile="%s/Crux/parsers/DistMatrix.log" % Crux.Config.datadir)
-
-    cdef _initRe(self):
-        return re.compile(r"""
-    ([1-9][0-9]*(?=\s))                          # integer (#taxa or dist)
-  | ([-+]?
-     [0-9]+(?:[.][0-9]+)?
-     (?:[eE][-+]?[0-9]+)?
-     (?=\s|$))                                   # distance
-  | (^[A-Za-z_][A-Za-z0-9_\-.]*
-     (?:[ \t\r\f\v]+[A-Za-z_][A-Za-z0-9_\-.]*)*) # label
-  | ([ \t\r\f\v]+)                               # whitespace
-  | ([\n])                                       # whitespace (newline)
-""", re.M | re.X)
-
-    cpdef parse(self, input, int line=1, bint verbose=False):
+    cdef void parse(self, input, int line=1) except *:
         cdef yyscan_t scanner
         cdef CxtDistMatrixLexerExtra extra
-        cdef int status, tokType
+        cdef int status, ntaxa, tokType
 
         assert type(input) in (file, str)
 
+        extra.line = line
         extra.ioerror = 0
-
         if type(input) == file:
             extra.inputMode = CxeDistMatrixLexerInputModeFd
             extra.input.fd = input.fileno()
@@ -435,36 +248,40 @@ cdef class Parser(Parsing.Lr):
             assert False
 
         if CxDistMatrixLexer_lex_init_extra(&extra, &scanner) != 0:
-            raise MemoryError("Error in CxDistMatrixLexer_lex_init_extra()")
-
-        # XXX Remove self.line and verbose.
-        self.verbose = verbose
-        extra.line = line
+            raise MemoryError("Error initializing lexer")
 
         try:
+            # Get number of taxa.
             status = CxDistMatrixLexer_lex(scanner)
-            self.line = extra.line # XXX Remove self.line.
+            if status > 0:
+                if extra.tokType != CxeDistMatrixLexerTokTypeInt:
+                    raise SyntaxError(extra.line, "Number of taxa expected")
+                ntaxa = int(CxDistMatrixLexer_get_text(scanner))
+                self.matrix._allocDists(ntaxa)
+                self.matrix.ntaxa = ntaxa
+                status = CxDistMatrixLexer_lex(scanner)
+
+            # Get rows.
             while status > 0:
                 tokType = extra.tokType
-                if tokType == CxeDistMatrixLexerTokTypeInt:
-                    self.token(TokenInt(self, extra.tok.int_, extra.line))
-                elif tokType == CxeDistMatrixLexerTokTypeDist:
-                    self.token(TokenNum(self, extra.tok.dist, extra.line))
+                if tokType in (CxeDistMatrixLexerTokTypeInt, \
+                  CxeDistMatrixLexerTokTypeDist):
+                    self.tokenDist(extra.tok.dist, extra.line)
                 elif tokType == CxeDistMatrixLexerTokTypeLabel:
-                    self.token(TokenLabel(self, extra.tok.label, extra.line))
+                    self.tokenLabel(extra.tok.label, extra.line)
                 else:
                     assert False
 
                 status = CxDistMatrixLexer_lex(scanner)
-                self.line = extra.line # XXX Remove self.line.
             if status == -1:
                 raise SyntaxError("Line %d: Invalid character" % extra.line)
             if extra.ioerror != 0:
                 raise IOError("I/O error for %r" % input)
+            self.nextRow(extra.line)
+            if self.taxaMap.ntaxa != self.matrix.ntaxa:
+                raise SyntaxError(extra.line, "Insufficient taxa")
         finally:
             CxDistMatrixLexer_lex_destroy(scanner);
-
-        self.eoi()
 
 #
 #===============================================================================

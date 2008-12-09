@@ -31,7 +31,6 @@ typedef struct {
 
     CxtDistMatrixLexerTokType tokType;
     union {
-        unsigned long int_;
         CxtDMDist dist;
         char *label;
     } tok;

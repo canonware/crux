@@ -522,7 +522,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: label ('Alpha')
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 2: Number of taxa expected
 ===
 5
            0.000 1.000 2.000 3.000 3.000
@@ -531,7 +531,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: num (0.0)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 2: Unexpected distance
 ===
 5
 Alpha            1.000 2.000 3.000 3.000
@@ -576,7 +576,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 4: Incorrect number of distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -586,7 +586,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 5: Incorrect number of distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -613,7 +613,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -622,7 +622,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -676,7 +676,7 @@ Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Incorrect number of distances
 ===
 5
 Taxon_A
@@ -982,7 +982,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: label ('Alpha')
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 2: Number of taxa expected
 ===
 5
            0.000 1.000 2.000 3.000 3.000
@@ -991,7 +991,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: num (0.0)
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 2: Unexpected distance
 ===
 5
 Alpha            1.000 2.000 3.000 3.000
@@ -1036,7 +1036,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 4: Incorrect number of distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -1046,7 +1046,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 0.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 0.000
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 3: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 5: Incorrect number of distances
 ===
 5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -1073,7 +1073,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000 1.000 
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -1082,7 +1082,7 @@ Gamma      2.000 2.000 0.000 3.000 3.000
 Delta      3.000 3.000 3.000 0.000 1.000
 Epsilon    3.000 3.000 3.000
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Incorrect number of distances
 ===
      5
 Alpha      0.000 1.000 2.000 3.000 3.000
@@ -1136,7 +1136,7 @@ Taxon_C 2.0 1.5
 Taxon_D 3.0 2.5 2.2
 Taxon_E 4.0 3.5 3.2
 
-Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 6: Incorrect number of distances
+Exception <class 'Crux.DistMatrix.SyntaxError'>: Line 7: Incorrect number of distances
 ===
 5
 Taxon_A

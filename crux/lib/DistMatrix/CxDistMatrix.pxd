@@ -18,7 +18,6 @@ cdef extern from "CxDistMatrix.h":
         int fd
         struct_input_s s
     cdef union union_tok:
-        unsigned long int_
         CxtDMDist dist
         char *label
     ctypedef struct CxtDistMatrixLexerExtra:
@@ -40,3 +39,4 @@ cdef extern from "CxDistMatrixLexer.h":
       yyscan_t *scanner)
     cdef int CxDistMatrixLexer_lex_destroy(yyscan_t scanner)
     cdef int CxDistMatrixLexer_lex(yyscan_t scanner)
+    cdef char *CxDistMatrixLexer_get_text(yyscan_t scanner)
