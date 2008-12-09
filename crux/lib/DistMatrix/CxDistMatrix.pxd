@@ -2,7 +2,7 @@ cdef extern from "sys/types.h":
     ctypedef unsigned long size_t
 
 cdef extern from "CxDistMatrix.h":
-    ctypedef double CxtDMDist
+    ctypedef float CxtDMDist
     ctypedef unsigned long CxtDMSize
     ctypedef enum CxtDistMatrixLexerInputMode:
         CxeDistMatrixLexerInputModeFd

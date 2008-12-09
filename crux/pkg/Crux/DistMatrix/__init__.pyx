@@ -362,14 +362,20 @@ cdef class DistMatrix:
         parser = Parser(self, self.taxaMap)
         parser.parse(input)
 
-    cdef CxtDMDist distanceGet(self, CxtDMSize x, CxtDMSize y):
+    cpdef CxtDMDist distanceGet(self, CxtDMSize x, CxtDMSize y):
+        assert x < self.ntaxa
+        assert y < self.ntaxa
+
         if x == y:
             return 0.0
 
         return self.dists[CxDistMatrixNxy2i(self.ntaxa, x, y)]
 
-    cdef void distanceSet(self, CxtDMSize x, CxtDMSize y, CxtDMDist distance):
+    cpdef distanceSet(self, CxtDMSize x, CxtDMSize y, CxtDMDist distance):
         assert x != y or distance == 0.0
+        assert x < self.ntaxa
+        assert y < self.ntaxa
+
         if x == y:
             return
 

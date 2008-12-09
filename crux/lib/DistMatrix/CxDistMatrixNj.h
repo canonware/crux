@@ -17,25 +17,27 @@ CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b);
 // during tree construction, but the error grows exponentially, so that
 // approach ends up not being practical.
 //
-// Provide 9 (base 10) digits of accuracy.
-#define CxmDistMatrixNjMaxUlps 0x3fffffU
+// Provide 5 (base 10) digits of accuracy.
+#define CxmDistMatrixNjMaxUlps 0x7fU
 CxmInline int
 CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b) {
     int ret;
     union {
 	CxtDMDist d;
-	int64_t i;
+	int32_t i;
     } aU, bU;
+
+    CxmAssert(sizeof(CxtDMDist) == sizeof(float));
 
     // Convert a and b to lexicographically ordered ints.
     aU.d = a;
     if (aU.i < 0) {
-	aU.i = 0x8000000000000000ULL - aU.i;
+	aU.i = 0x80000000U - aU.i;
     }
 
     bU.d = b;
     if (bU.i < 0) {
-	bU.i = 0x8000000000000000ULL - bU.i;
+	bU.i = 0x80000000U - bU.i;
     }
 
     // Check if a and b are within aMaxUlps of each other.

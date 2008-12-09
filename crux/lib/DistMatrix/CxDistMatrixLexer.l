@@ -48,7 +48,7 @@
     char *endptr;
 
     errno = 0;
-    yyextra->tok.dist = strtod(yytext, &endptr);
+    yyextra->tok.dist = strtof(yytext, &endptr);
     if (endptr == yytext || errno != 0) {
         return -1;
     }
@@ -60,7 +60,7 @@
     char *endptr;
 
     errno = 0;
-    yyextra->tok.dist = strtod(yytext, &endptr);
+    yyextra->tok.dist = strtof(yytext, &endptr);
     if (endptr == yytext || errno != 0) {
         return -1;
     }

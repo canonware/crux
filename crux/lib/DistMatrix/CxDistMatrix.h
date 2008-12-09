@@ -3,7 +3,7 @@
 
 #include "../Cx.h"
 
-typedef double CxtDMDist;
+typedef float CxtDMDist;
 typedef unsigned long CxtDMSize;
 
 typedef enum {

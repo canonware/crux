@@ -11,8 +11,8 @@ cdef class DistMatrix:
     cdef void _parse(self, input) except *
     cdef void _allocDists(self, CxtDMSize ntaxa) except *
     cdef void _dup(self, DistMatrix other, int sampleSize) except *
-    cdef CxtDMDist distanceGet(self, CxtDMSize x, CxtDMSize y)
-    cdef void distanceSet(self, CxtDMSize x, CxtDMSize y, CxtDMDist distance)
+    cpdef CxtDMDist distanceGet(self, CxtDMSize x, CxtDMSize y)
+    cpdef distanceSet(self, CxtDMSize x, CxtDMSize y, CxtDMDist distance)
     cdef Tree _nj(self, bint random)
     cdef Tree _rnj(self, bint random, bint additive)
     cdef void _rowsSwap(self, CxtDMSize a, CxtDMSize b)
