@@ -152,12 +152,13 @@ cdef extern from "math.h":
     cdef double HUGE_VALF
 
 from SFMT cimport *
+from CxRi cimport *
 from CxDistMatrix cimport *
 from CxDistMatrixNj cimport *
 
 from Crux.Tree cimport Tree, Node, Edge
 
-#XXX import sys # XXX For _njDump().
+#import sys # For _njDump().
 
 cdef class Nj:
     def __cinit__(self):
@@ -179,42 +180,42 @@ cdef class Nj:
             free(self.rScaledBase)
             self.rScaledBase = NULL
 
-#XXX    cdef void _njDump(self) except *:
-#XXX        cdef CxtDMSize i, x, y
-#XXX
-#XXX        sys.stderr.write( \
-#XXX          "----------------------------------------" \
-#XXX          "----------------------------------------\n")
-#XXX        i = 0
-#XXX        for 0 <= x < self.n:
-#XXX            # || node
-#XXX            sys.stderr.write(" " * (x * 9))
-#XXX            y -= self.n - (x + 1)
-#XXX            for x + 1 <= y < self.n:
-#XXX                sys.stderr.write(" " * 9)
-#XXX            taxon = self.nodes[x].taxon
-#XXX            if taxon is not None:
-#XXX                sys.stderr.write(" || %s\n" % taxon.label)
-#XXX            else:
-#XXX                sys.stderr.write(" || %r\n" % self.nodes[x])
-#XXX
-#XXX            # dist || r
-#XXX            sys.stderr.write(" " * (x * 9))
-#XXX            y -= self.n - (x + 1)
-#XXX            for y <= y < self.n:
-#XXX                sys.stderr.write(" %8.4f" % self.d[i])
-#XXX                i += 1
-#XXX            sys.stderr.write(" || %8.4f\n" % self.r[x])
-#XXX
-#XXX            # tdist || rScaled
-#XXX            sys.stderr.write(" " * (x * 9))
-#XXX            y -= self.n - (x + 1)
-#XXX            i -= self.n - (x + 1)
-#XXX            for y <= y < self.n:
-#XXX                sys.stderr.write(" %8.4f" % \
-#XXX                  (self.d[i] - (self.rScaled[x] + self.rScaled[y])))
-#XXX                i += 1
-#XXX            sys.stderr.write(" || %8.4f\n" % self.rScaled[x])
+#    cdef void _njDump(self) except *:
+#        cdef CxtDMSize i, x, y
+#
+#        sys.stdout.write( \
+#          "----------------------------------------" \
+#          "----------------------------------------\n")
+#        i = 0
+#        for 0 <= x < self.n:
+#            # || node
+#            sys.stdout.write(" " * (x * 9))
+#            y -= self.n - (x + 1)
+#            for x + 1 <= y < self.n:
+#                sys.stdout.write(" " * 9)
+#            taxon = self.nodes[x].taxon
+#            if taxon is not None:
+#                sys.stdout.write(" || %s\n" % taxon.label)
+#            else:
+#                sys.stdout.write(" || %r\n" % self.nodes[x])
+#
+#            # dist || r
+#            sys.stdout.write(" " * (x * 9))
+#            y -= self.n - (x + 1)
+#            for y <= y < self.n:
+#                sys.stdout.write(" %8.4f" % self.d[i])
+#                i += 1
+#            sys.stdout.write(" || %8.4f\n" % self.r[x])
+#
+#            # tdist || rScaled
+#            sys.stdout.write(" " * (x * 9))
+#            y -= self.n - (x + 1)
+#            i -= self.n - (x + 1)
+#            for y <= y < self.n:
+#                sys.stdout.write(" %8.4f" % \
+#                  (self.d[i] - (self.rScaled[x] + self.rScaled[y])))
+#                i += 1
+#            sys.stdout.write(" || %8.4f\n" % self.rScaled[x])
 
     cdef void _rInit(self) except *:
         cdef CxtDMDist *d, *r, dist
@@ -538,6 +539,7 @@ cdef class Nj:
         self.dBase = d
         self.d = d
         self.nBase = n
+        self.n = self.nBase
 
         self._rInit()
         self._rScaledInit()
@@ -553,11 +555,10 @@ cdef class Nj:
         assert self.tree is not None # Was self.prepare() called?
 
         # Iteratively join two nodes in the matrix, until only two are left.
-        self.n = self.nBase
         while self.n > 2:
             # Standard neighbor joining.
             self._rScaledUpdate()
-#XXX            self._njDump()
+#            self._njDump()
             if random:
                 self._njRandomMinFind(&xMin, &yMin)
             else:
@@ -568,18 +569,407 @@ cdef class Nj:
             self._njDiscard()
             self.n -= 1
 
-#XXX        self._njDump()
         # Join last two nodes.
+#        self._njDump()
         self._njFinalJoin()
 
         return self.tree
 
 cdef class Rnj(Nj):
+    cdef CxtDMSize _rnjRowAllMinFind(self, CxtDMSize x, CxtDMDist *rDist):
+        cdef CxtDMSize ret, y, i, nmins
+        cdef CxtDMDist dist, minDist
+        cdef int rel
+
+        minDist = HUGE_VALF
+
+        # Find the minimum distance from the node on row x to any other node
+        # that comes before it in the matrix.
+        if x != 0:
+            i = CxDistMatrixNxy2i(self.n, 0, x)
+            for 0 <= y < x:
+                dist = self.d[i] - (self.rScaled[y] + self.rScaled[x])
+                i += (self.n - 2 - y)
+
+                rel = CxDistMatrixNjDistCompare(dist, minDist)
+                if rel == -1:
+                    nmins = 1
+                    minDist = dist
+                    ret = y
+                elif rel == 0:
+                    # Choose y such that all tied distances have an equal
+                    # probability of being chosen.
+                    nmins += 1
+                    if gen_rand64_range(nmins) == 0:
+                        ret = y
+                elif rel == 1:
+                    pass
+                else:
+                    assert False
+            assert minDist != HUGE_VALF
+
+
+        # Find the minimum distance from the node on row x to any other node
+        # that comes after it in the matrix.
+        if x < self.n - 1:
+            i = CxDistMatrixNxy2i(self.n, x, x + 1)
+            for x + 1 <= y < self.n:
+                dist = self.d[i] - (self.rScaled[x] + self.rScaled[y])
+                i += 1
+
+                rel = CxDistMatrixNjDistCompare(dist, minDist)
+                if rel == -1:
+                    nmins = 1
+                    minDist = dist
+                    ret = y
+                elif rel == 0:
+                    # Choose y such that all tied distances have an equal
+                    # probability of being chosen.
+                    nmins += 1
+                    if gen_rand64_range(nmins) == 0:
+                        ret = y
+                elif rel == 1:
+                    pass
+                else:
+                    assert False
+            assert minDist != HUGE_VALF
+
+        rDist[0] = minDist
+        return ret
+
+    cdef bint _rnjRowAllMinOk(self, CxtDMSize x, CxtDMDist minDist):
+        cdef CxtDMSize y, i
+        cdef CxtDMDist dist
+
+        # Make sure that minDist is <= any transformed distance in the row
+        # portion of row x.
+        if x + 1 < self.n:
+            i = CxDistMatrixNxy2i(self.n, x, x + 1)
+            for x + 1 <= y < self.n:
+                dist = self.d[i] - (self.rScaled[x] + self.rScaled[y])
+                i += 1
+
+                if CxDistMatrixNjDistCompare(dist, minDist) == -1:
+                    return False
+
+        # Make sure that minDist is <= any transformed distance in the column
+        # portion of row x.
+        if x != 0:
+            i = CxDistMatrixNxy2i(self.n, 0, x)
+            for 0 <= y < x:
+                dist = self.d[i] - (self.rScaled[y] + self.rScaled[x])
+                i += (self.n - 2 - y)
+
+                if CxDistMatrixNjDistCompare(dist, minDist) == -1:
+                    return False
+
+        return True
+
+    cdef CxtDMSize _rnjRowMinFind(self, CxtDMSize x):
+        cdef CxtDMSize ret, y, i
+        cdef CxtDMDist dist, minDist
+
+        # Find the minimum distance from the node on row x to any other node
+        # that comes after it in the matrix.
+        i = CxDistMatrixNxy2i(self.n, x, x + 1)
+        minDist = HUGE_VALF
+        for x + 1 <= y < self.n:
+            dist = self.d[i] - (self.rScaled[x] + self.rScaled[y])
+            i += 1
+
+            # Don't bother using CxDistMatrixNjCompare() here, since this
+            # function is only used for deterministic RNJ.
+            if dist < minDist:
+                minDist = dist
+                ret = y
+        assert minDist != HUGE_VALF
+
+        return ret
+
+    # Make sure that clustering a and b would not change the distances
+    # between nodes.  This must be done in order to make sure that we get the
+    # true tree, in the case that the distance matrix corresponds to precisely
+    # one tree (distances are additive).  If the distances are non-additive
+    # though, there is no need to do this check.
+    cdef bint _rnjPairClusterAdditive(self, CxtDMSize a, CxtDMSize b):
+        cdef CxtDMSize iAB, iA, iB, x
+        cdef CxtDMDist distA, distB, dist
+
+        # Calculate distances from {a,b} to the new node.
+        iAB = CxDistMatrixNxy2i(self.n, a, b)
+        distA = (self.d[iAB] + self.rScaled[a] - self.rScaled[b]) / 2
+        distB = self.d[iAB] - distA
+
+        # Calculate distances to the new node, and make sure that they are
+        # consistent with the current distances.
+
+        # Iterate over the row portion of distances for a and b.
+        if b + 1 < self.n:
+            iA = CxDistMatrixNxy2i(self.n, a, b + 1)
+            iB = CxDistMatrixNxy2i(self.n, b, b + 1)
+            for b + 1 <= x < self.n:
+                dist = ((self.d[iA] - distA) + (self.d[iB] - distB)) / 2
+                iA += 1
+                iB += 1
+
+                if CxDistMatrixNjDistCompare(dist + distA, \
+                  self.d[CxDistMatrixNxy2i(self.n, a, x)]) != 0:
+                    return False
+
+                if CxDistMatrixNjDistCompare(dist + distB, \
+                  self.d[CxDistMatrixNxy2i(self.n, b, x)]) != 0:
+                    return False
+
+        # Iterate over the first column portion of distances for a and b.
+        iA = a - 1
+        iB = b - 1
+        for 0 <= x < a:
+            dist = ((self.d[iA] - distA) + (self.d[iB] - distB)) / 2
+            iA += (self.n - 2 - x)
+            iB += (self.n - 2 - x)
+
+            if CxDistMatrixNjDistCompare(dist + distA, \
+              self.d[CxDistMatrixNxy2i(self.n, x, a)]) != 0:
+                return False
+
+            if CxDistMatrixNjDistCompare(dist + distB, \
+              self.d[CxDistMatrixNxy2i(self.n, x, b)]) != 0:
+                return False
+
+        # (x == a)
+        iB += (self.n - 2 - x)
+        x += 1
+
+        # Iterate over the first row portion of distances for a, and the second
+        # column portion of distances for b.
+        for x <= x < b:
+            iA += 1
+            dist = ((self.d[iA] - distA) + (self.d[iB] - distB)) / 2
+            iB += (self.n - 2 - x)
+
+            if CxDistMatrixNjDistCompare(dist + distA, \
+              self.d[CxDistMatrixNxy2i(self.n, a, x)]) != 0:
+                return False
+
+            if CxDistMatrixNjDistCompare(dist + distB, \
+              self.d[CxDistMatrixNxy2i(self.n, x, b)]) != 0:
+                return False
+
+        return True
+
+    # Finish checking whether it is okay to cluster rows a and b;
+    # _rnjRowMinFind() or _rnjRowAllMinFind() has already done some of the work
+    # by the time this function is called.
+    #
+    # Two nodes, a and b, can be clustered if the transformed distance between
+    # them is less than or equal to the transformed distances from a or b to
+    # any other node.
+    cdef bint _rnjPairClusterOk(self, CxtDMSize a, CxtDMSize b):
+        cdef CxtDMSize x, iA, iB
+        cdef CxtDMDist distAB, dist
+
+        assert a < b
+
+        # Calculate the transformed distance between a and b.
+        distAB = self.d[CxDistMatrixNxy2i(self.n, a, b)] \
+          - (self.rScaled[a] + self.rScaled[b])
+
+        # Iterate over the row portion of distances for b.  Distances for a were
+        # already checked before this function was called.
+        if b < self.n - 1:
+            iB = CxDistMatrixNxy2i(self.n, b, b + 1)
+            for b + 1 <= x < self.n:
+                dist = self.d[iB] - (self.rScaled[x] + self.rScaled[b])
+                # Don't bother using CxDistMatrixNjDistCompare() here, since
+                # this function is only used for deterministic RNJ.
+                if dist < distAB:
+                    return False
+                iB += 1
+
+        # Iterate over the first column portion of distances for a and b.
+        iA = a - 1
+        iB = b - 1
+        for 0 <= x < a:
+            dist = self.d[iA] - (self.rScaled[x] + self.rScaled[a])
+            # Don't bother using CxDistMatrixNjDistCompare() here, since this
+            # function is only used for deterministic RNJ.
+            if dist < distAB:
+                return False
+
+            dist = self.d[iB] - (self.rScaled[x] + self.rScaled[b])
+            # Don't bother using CxDistMatrixNjDistCompare() here, since this
+            # function is only used for deterministic RNJ.
+            if dist < distAB:
+                return False
+
+            iA += (self.n - 2 - x)
+            iB += (self.n - 2 - x)
+
+        # (x == a)
+        iB += (self.n - 2 - x)
+        x += 1
+
+        # Iterate over the second column portion of distances for b.  Distances
+        # for a were already checked before this function was called.
+        for x <= x < b:
+            dist = self.d[iB] - (self.rScaled[x] + self.rScaled[b])
+            # Don't bother using CxDistMatrixNjDistCompare() here, since this
+            # function is only used for deterministic RNJ.
+            if dist < distAB:
+                return False
+            iB += (self.n - 2 - x)
+
+        return True
+
+    # Try all clusterings of two rows in the matrix, in a random order.  Do
+    # this in as cache-friendly a manner as possible (keeping in mind that the
+    # matrix is stored in row-major form).  This means:
+    #
+    # 1) For each randomly chosen row (x), find the row which is the closest
+    #    (y), according to transformed distances, by calling
+    #    _rnjRowAllMinFind().
+    #
+    # 2) If the additivity constraint is enabled, check whether clustering x
+    #    and y would violate additivity, by calling _rnjPairClusterAdditive().
+    #
+    # 2) Check whether it is okay to cluster x and y, by calling _rnjAllMinOk().
+    cdef void _rnjRandomCluster(self, bint additive) except *:
+        cdef CxtRi ri
+        cdef bint clustered, done
+        cdef CxtDMSize randomRow, closestRow, x, y
+        cdef CxtDMDist dist, distX, distY
+        cdef Node node
+
+        CxRiNew(&ri)
+        if CxRiInit(&ri, self.n):
+            raise MemoryError("Error in CxRiInit(..., %d)" % self.n)
+
+        try:
+            clustered = True
+            done = False
+            while not done:
+                if not clustered:
+                    additive = False
+                    if CxRiInit(&ri, self.n):
+                        raise MemoryError("Error in CxRiInit(..., %d)" % self.n)
+                clustered = False
+                while CxRiIndGet(&ri) < CxRiNintsGet(&ri):
+                    # Randomly sample a row, without replacement.
+                    randomRow = CxRiRandomGet(&ri)
+
+                    # Find a row that is closest to randomRow.
+                    closestRow = self._rnjRowAllMinFind(randomRow, &dist)
+
+                    if randomRow < closestRow:
+                        x = randomRow
+                        y = closestRow
+                    else:
+                        x = closestRow
+                        y = randomRow
+
+                    # Make sure that no row is closer to y than x is.
+
+                    if ((not additive) or self._rnjPairClusterAdditive(x, y)) \
+                      and self._rnjRowAllMinOk(closestRow, dist):
+                        clustered = True
+#                        self._njDump()
+                        node = self._njNodesJoin(x, y, &distX, &distY)
+                        self._njRSubtract(x, y)
+                        self._njCompact(x, y, node, distX, distY)
+                        self._njDiscard()
+                        self.n -= 1
+                        self._rScaledUpdate()
+
+                        # Shrinking the matrix may have reduced it to the point
+                        # that the enclosing loop will no longer function
+                        # correctly.  Check this condition here, in order to
+                        # reduce branch overhead for the case where no join is
+                        # done.
+                        if self.n == 2:
+                            done = True
+                            break
+
+                        if CxRiInit(&ri, self.n):
+                            raise MemoryError("Error in CxRiInit(..., %d)" % \
+                              self.n)
+        finally:
+            CxRiDelete(&ri)
+#        self._njDump()
+
+    # Iteratively try all clusterings of two rows in the matrix.  Do this in a
+    # cache-friendly manner (keeping in mind that the matrix is stored in
+    # row-major form).  This means:
+    #
+    # 1) For each row (x), find the row after it which is the closest (y),
+    #    according to transformed distances, by calling _rnjRowMinFind().  This
+    #    operation scans the row portion of the distances for x, which is a
+    #    fast operation.
+    #
+    # 2) If the additivity constraint is enabled, check whether clustering x
+    #    and y would violate additivity, by calling _rnjPairClusterAdditive().
+    #
+    # 2) Check whether it is okay to cluster x and y, by calling
+    #    _rnjPairClusterOk().
+    #
+    # 3) If x and y can be clustered, do so, then immediately try to cluster
+    #    with x again (as long as collapsing the matrix didn't move row x).
+    cdef void _rnjDeterministicCluster(self, bint additive) except *:
+        cdef CxtDMSize x, y
+        cdef CxtDMDist distX, distY
+        cdef Node node
+        cdef bint clustered, done
+
+        clustered = True
+        done = False
+        while not done:
+            if not clustered:
+                additive = False
+            clustered = False
+            x = 0
+            while x < self.n - 1:
+                y = self._rnjRowMinFind(x)
+
+                if ((not additive) or self._rnjPairClusterAdditive(x, y)) \
+                  and self._rnjPairClusterOk(x, y):
+                    clustered = True
+#                    self._njDump()
+                    node = self._njNodesJoin(x, y, &distX, &distY)
+                    self._njRSubtract(x, y)
+                    self._njCompact(x, y, node, distX, distY)
+                    self._njDiscard()
+                    self.n -= 1
+                    self._rScaledUpdate()
+
+                    # Shrinking the matrix may have reduced it to the point
+                    # that the enclosing loop will no longer function
+                    # correctly.  Check this condition here, in order to reduce
+                    # branch overhead for the case where no join is done.
+                    if self.n == 2:
+                        done = True
+                        break
+
+                    # The indexing of the matrix is shifted as a result of
+                    # having removed the first row.  Set x such that joining
+                    # with this row is immediately tried again.
+                    #
+                    # Note that if x is 0, then the row is now at (y - 1); in
+                    # that case, stay on row 0.
+                    if x > 0:
+                        x -= 1
+                else:
+                    x += 1
+#        self._njDump()
+
     cdef Tree rnj(self, bint random, bint additive):
-#        if random:
-#            self._njRandomCluster()
-#        else:
-#            self._njDeterministicCluster()
-        # XXX
+        assert self.tree is not None # Was self.prepare() called?
+
+        if random:
+            self._rnjRandomCluster(additive)
+        else:
+            self._rnjDeterministicCluster(additive)
+
+        # Join last two nodes.
+#        self._njDump()
+        self._njFinalJoin()
 
         return self.tree

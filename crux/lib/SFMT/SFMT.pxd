@@ -4,9 +4,9 @@ cdef extern from "stdint.h":
 
 cdef extern from "SFMT.h":
     cdef uint32_t gen_rand32()
-    cdef uint32_t gen_rand32_range(uint32_t range)
+    cdef uint32_t gen_rand32_range(uint32_t limit)
     cdef uint64_t gen_rand64()
-    cdef uint64_t gen_rand64_range(uint64_t range)
+    cdef uint64_t gen_rand64_range(uint64_t limit)
     cdef void fill_array32(uint32_t *array, int size)
     cdef void fill_array64(uint64_t *array, int size)
     cdef void init_gen_rand(uint32_t seed)

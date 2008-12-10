@@ -13,7 +13,7 @@ cdef class Nj:
     cdef Tree tree
     cdef list nodes
 
-#XXX    cdef void _njDump(self) except *
+#    cdef void _njDump(self) except *
     cdef void _rInit(self) except *
     cdef void _rScaledInit(self) except *
     cdef void _nodesInit(self, Taxa.Map taxaMap) except *
@@ -33,4 +33,11 @@ cdef class Nj:
     cdef Tree nj(self, bint random)
 
 cdef class Rnj(Nj):
+    cdef CxtDMSize _rnjRowAllMinFind(self, CxtDMSize x, CxtDMDist *rDist)
+    cdef bint _rnjRowAllMinOk(self, CxtDMSize x, CxtDMDist minDist)
+    cdef CxtDMSize _rnjRowMinFind(self, CxtDMSize x)
+    cdef bint _rnjPairClusterAdditive(self, CxtDMSize a, CxtDMSize b)
+    cdef bint _rnjPairClusterOk(self, CxtDMSize a, CxtDMSize b)
+    cdef void _rnjRandomCluster(self, bint additive) except *
+    cdef void _rnjDeterministicCluster(self, bint additive) except *
     cdef Tree rnj(self, bint random, bint additive)

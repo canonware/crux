@@ -51,7 +51,7 @@ for testMatrix in testMatrices:
         t = matrix.rnj()
 
         treeStr = t.render(lengths=True, lengthFormat="%.0f")
-        t = Crux.Tree.Tree(treeStr)
+        t = Crux.Tree.Tree(treeStr, rooted=False)
         t.canonize(taxaMap)
         print t.render(lengths=True, lengthFormat="%.0f")
 
@@ -60,7 +60,7 @@ for testMatrix in testMatrices:
         t = matrix.rnj(joinRandom=True, tryAdditive=True)
 
         treeStr = t.render(lengths=True, lengthFormat="%.0f")
-        t = Crux.Tree.Tree(treeStr)
+        t = Crux.Tree.Tree(treeStr, rooted=False)
         t.canonize(taxaMap)
         print t.render(lengths=True, lengthFormat="%.0f")
 

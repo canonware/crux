@@ -63,7 +63,7 @@ AC_PROG_CPP
 
 AC_CANONICAL_HOST
 dnl CPU-specific settings.
-MTCPPFLAGS="-DMEXP=19937 -DDSFMT_MEXP=19937"
+MTCPPFLAGS="-DMEXP=19937"
 MTCFLAGS="-fno-strict-aliasing"
 case "${host_cpu}" in
   i[[3456]]86)
