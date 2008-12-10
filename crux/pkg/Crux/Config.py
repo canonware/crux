@@ -1,6 +1,8 @@
 import random
 import time
 
+import Crux
+
 version = "@crux_version@"
 
 prefix = "@PREFIX@"
@@ -13,7 +15,6 @@ debug = (True if @enable_debug@ else False)
 # Defaults for command line settings.
 batch = False
 quiet = False
-seed = int(time.time())
-random.seed(seed)
+Crux.seed(int(time.time())) # Sets Config.seed.
 infile = None
 scriptargs = []

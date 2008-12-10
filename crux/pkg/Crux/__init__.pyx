@@ -2,8 +2,10 @@
 Classes for phylogenetic inference.
 """
 
-# Initialize libCx.
 from Cx cimport *
+from SFMT cimport *
+
+# Initialize libCx.
 CxInit()
 
 # Import pure Python modules.
@@ -18,3 +20,10 @@ cimport Crux.Fasta as Fasta
 cimport Crux.Newick as Newick
 cimport Crux.Taxa as Taxa
 cimport Crux.Tree as Tree
+
+cpdef seed(int s):
+    import Config
+    Config.seed = s
+    import random
+    random.seed(s)
+    init_gen_rand(s)

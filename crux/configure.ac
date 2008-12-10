@@ -63,18 +63,23 @@ AC_PROG_CPP
 
 AC_CANONICAL_HOST
 dnl CPU-specific settings.
+MTCPPFLAGS="-DMEXP=19937 -DDSFMT_MEXP=19937"
+MTCFLAGS="-fno-strict-aliasing"
 case "${host_cpu}" in
   i[[3456]]86)
 	AC_DEFINE([CxmCpuIa32])
 	CFLAGS="${CFLAGS} -msse2"
+	MTCPPFLAGS="${MTCPPFLAGS} -DHAVE_SSE2=1"
 	;;
   x86_64)
 	AC_DEFINE([CxmCpuAmd64])
 	CFLAGS="${CFLAGS} -msse2"
+	MTCPPFLAGS="${MTCPPFLAGS} -DHAVE_SSE2=1"
 	;;
   powerpc)
 	AC_DEFINE([CxmCpuPpc])
 	CFLAGS="${CFLAGS} -faltivec"
+	MTCPPFLAGS="${MTCPPFLAGS} -DHAVE_ALTIVEC=1"
 	;;
   *)
 	;;
@@ -224,11 +229,14 @@ dnl Only optimize if not debugging.
 if test "x$enable_debug" = "x0" -a "x$no_CFLAGS" = "xyes" ; then
   dnl Make sure that an optimization flag was not specified in EXTRA_CFLAGS.
   if test "x$GCC" = "xyes" ; then
-    echo "$EXTRA_CFLAGS" | grep "\-O" >/dev/null || CFLAGS="$CFLAGS -O2"
+    echo "$EXTRA_CFLAGS" | grep "\-O" >/dev/null || CFLAGS="$CFLAGS -O3 -funroll-loops -fomit-frame-pointer"
+    MTCFLAGS="${MTCFLAGS} --param max-inline-insns-single=1800 --param inline-unit-growth=500 --param large-function-growth=900"
   else
     echo "$EXTRA_CFLAGS" | grep "\-O" >/dev/null || CFLAGS="$CFLAGS -O"
   fi
 fi
+AC_SUBST([MTCPPFLAGS])
+AC_SUBST([MTCFLAGS])
 
 dnl Support inlines by default.
 AC_ARG_ENABLE([inlines],
@@ -431,7 +439,7 @@ AC_SUBST([fsrcs])
 
 dnl C sources.
 csrcs=""
-for s in `find ${srcroot}lib -type f |grep "Cx[[A-Za-z0-9]]*\.c$" |sort` ; do
+for s in `find ${srcroot}lib -type f |grep "[[A-Za-z0-9]]*\.c$" |sort` ; do
   is_fsrc="0"
   for f in ${fsrcs} ; do
     c="`dirname ${f}`/`basename ${f} .l`.c"
@@ -510,7 +518,9 @@ AC_MSG_RESULT([CYTHON        : ${CYTHON}])
 AC_MSG_RESULT([FLEX          : ${FLEX}])
 AC_MSG_RESULT([CC            : ${CC}])
 AC_MSG_RESULT([CPPFLAGS      : ${CPPFLAGS}])
+AC_MSG_RESULT([MTCPPFLAGS    : ${MTCPPFLAGS}])
 AC_MSG_RESULT([CFLAGS        : ${CFLAGS}])
+AC_MSG_RESULT([MTCFLAGS      : ${MTCFLAGS}])
 AC_MSG_RESULT([LDFLAGS       : ${LDFLAGS}])
 AC_MSG_RESULT([LIBS          : ${LIBS}])
 AC_MSG_RESULT([])

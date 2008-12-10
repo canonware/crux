@@ -1,0 +1,1 @@
+cpdef seed(int s)

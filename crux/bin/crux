@@ -70,8 +70,8 @@ opts = parse_options()
 Crux.Config.batch = opts.batch
 Crux.Config.quiet = opts.quiet
 if opts.seed is not None:
-    Crux.Config.seed = opts.seed
-    random.seed(Crux.config.seed)
+    Config.seed = opts.seed
+    Crux.seed(opts.seed)
 Crux.Config.infile = opts.infile
 Crux.Config.scriptargs = opts.scriptargs
 

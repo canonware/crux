@@ -10,7 +10,9 @@ SHELL := /bin/sh
 
 # Build parameters.
 CPPFLAGS := @CPPFLAGS@
+MTCPPFLAGS := @MTCPPFLAGS@
 CFLAGS := @CFLAGS@ -fPIC -DPIC
+MTCFLAGS := @MTCFLAGS@
 ifeq (macho, @abi@)
 CFLAGS += -dynamic
 endif
@@ -136,6 +138,18 @@ relclean: distclean flclean cyclean
 	rm -f @objroot@configure
 
 #===============================================================================
+# Handle SFMT compilation specially.
+@objroot@build/lib/SFMT/%.o : @srcroot@lib/SFMT/%.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(MTCFLAGS) $(CPPFLAGS) $(MTCPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@
+	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $(MTCPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
+
+# Handle dSFMT compilation specially.
+@objroot@build/lib/dSFMT/%.o : @srcroot@lib/dSFMT/%.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(MTCFLAGS) $(CPPFLAGS) $(MTCPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@
+	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $(MTCPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
+
 @objroot@build/lib/%.o : @srcroot@lib/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@

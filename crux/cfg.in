@@ -106,6 +106,10 @@ dAtAt = {
     "DATADIR": DATADIR,
     "MANDIR": MANDIR,
 
+    "CPPFLAGS": "@CPPFLAGS",
+    "MTCPPFLAGS": "@MTCPPFLAGS",
+    "CFLAGS": "@CFLAGS",
+    "MTCFLAGS": "@MTCFLAGS",
     "abi": "@abi@",
     "RPATH": "@RPATH@",
     "enable_autogen": "@enable_autogen@",

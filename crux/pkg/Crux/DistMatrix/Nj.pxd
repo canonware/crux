@@ -3,6 +3,7 @@ cimport Crux.Taxa as Taxa
 
 from CxDistMatrix cimport *
 from CxDistMatrixNj cimport *
+from SFMT cimport *
 
 cdef class Nj:
     cdef CxtDMDist *dBase, *d # d is advanced as rows are removed.

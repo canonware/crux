@@ -27,7 +27,7 @@ CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b) {
 	int32_t i;
     } aU, bU;
 
-    CxmAssert(sizeof(CxtDMDist) == sizeof(float));
+    CxmAssert(sizeof(CxtDMDist) == sizeof(int32_t));
 
     // Convert a and b to lexicographically ordered ints.
     aU.d = a;
@@ -41,7 +41,7 @@ CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b) {
     }
 
     // Check if a and b are within aMaxUlps of each other.
-    if (llabs(aU.i - bU.i) <= CxmDistMatrixNjMaxUlps) {
+    if (abs(aU.i - bU.i) <= CxmDistMatrixNjMaxUlps) {
 	ret = 0;
     } else if (a < b) {
 	ret = -1;

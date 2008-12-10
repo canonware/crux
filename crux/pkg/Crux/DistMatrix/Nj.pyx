@@ -149,14 +149,14 @@ cdef extern from "stdlib.h":
     cdef void free(void *ptr)
 
 cdef extern from "math.h":
-    cdef double HUGE_VAL
+    cdef double HUGE_VALF
 
+from SFMT cimport *
 from CxDistMatrix cimport *
 from CxDistMatrixNj cimport *
 
 from Crux.Tree cimport Tree, Node, Edge
 
-import random
 #XXX import sys # XXX For _njDump().
 
 cdef class Nj:
@@ -275,6 +275,7 @@ cdef class Nj:
         cdef CxtDMSize nmins, i, n, x, y, xMin, yMin
         cdef CxtDMDist *d, *rScaled
         cdef CxtDMDist transMin, transCur, rScaledX
+        cdef int rel
 
         # Silence compiler warnings.
 #        xMin = yMin = 0
@@ -285,7 +286,7 @@ cdef class Nj:
         #
         # This is by far the most time-consuming portion of NJ.
         nmins = 1
-        transMin = HUGE_VAL
+        transMin = HUGE_VALF
         i = 0
         d = self.d
         rScaled = self.rScaled
@@ -308,7 +309,7 @@ cdef class Nj:
                     # Choose such that all tied distances have an equal
                     # probability of being chosen.
                     nmins += 1
-                    if random.randint(0, nmins - 1) == 0:
+                    if gen_rand64_range(nmins) == 0:
                         xMin = x
                         yMin = y
                         transMin = transCur
@@ -340,7 +341,7 @@ cdef class Nj:
         # nodes can be joined.
         #
         # This is by far the most time-consuming portion of NJ.
-        transMin = HUGE_VAL
+        transMin = HUGE_VALF
         i = 0
         d = self.d
         rScaled = self.rScaled
