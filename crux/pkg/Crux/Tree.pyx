@@ -411,20 +411,31 @@ updated.
     cpdef heldGet(self, int i):
         pass # XXX
 
+    cdef void _renderAppend(self, str s) except *:
+        if self._renderList is not None:
+            self._renderList.append(s)
+        else:
+            self._renderFile.write(s)
+
     cpdef str render(self, bint lengths=False, lengthFormat="%.5e",
-      Taxa.Map taxaMap=None):
+      Taxa.Map taxaMap=None, file outFile=None):
         cdef str ret
         cdef Node n, neighbor
         cdef Ring ring
         cdef int degree
 
-        self._renderList = []
+        if outFile is None:
+            self._renderList = []
+            self._renderFile = None
+        else:
+            self._renderList = None
+            self._renderFile = outFile
 
         # Render.
         n = self._base
         if n != None:
             if self.rooted:
-#                self._renderList.append("[&r] ")
+#                self._renderAppend("[&r] ")
                 if n._taxon is not None:
                     raise Malformed("Root is labeled")
 
@@ -438,7 +449,7 @@ updated.
                     neighbor = ring._other._node
                     neighbor.rrender(n, lengths, lengthFormat, taxaMap)
             else: # Unrooted tree.
-#                self._renderList.append("[&u] ")
+#                self._renderAppend("[&u] ")
                 degree = n._degreeGet()
                 if degree == 0:
                     # There is only one node in the tree.
@@ -456,21 +467,26 @@ updated.
                     else:
                         # This tree only has two taxa; start with the tree
                         # base.
-                        self._renderList.append("(")
+                        self._renderAppend("(")
                         n.rrender(neighbor, lengths, lengthFormat, taxaMap)
-                        self._renderList.append(",")
+                        self._renderAppend(",")
                         neighbor.rrender(n, lengths, lengthFormat, taxaMap,
                           zeroLength=True)
-                        self._renderList.append(")")
+                        self._renderAppend(")")
                 else:
                     # Internal node.
                     n.rrender(None, lengths, lengthFormat, taxaMap,
                       noLength=True)
 
-        self._renderList.append(";")
+        self._renderAppend(";")
 
-        ret = "".join(self._renderList)
-        self._renderList = None
+        if self._renderList is not None:
+            ret = "".join(self._renderList)
+            self._renderList = None
+        else:
+            self._renderFile.write("\n")
+            ret = None
+            self._renderFile = None
         return ret
 
     # Callback method that is used by the render method for recursive rendering
@@ -565,20 +581,20 @@ cache, set calculate to True.
                 neighbor = r._other._node
                 if neighbor != prev:
                     if did_paren:
-                        self._tree._renderList.append(",")
+                        self._tree._renderAppend(",")
                     elif not did_paren:
-                        self._tree._renderList.append("(")
+                        self._tree._renderAppend("(")
                         did_paren = True
 
                     neighbor.rrender(self, lengths, lengthFormat, taxaMap)
 
             if did_paren:
-                self._tree._renderList.append(")")
+                self._tree._renderAppend(")")
 
         # Render label.
         if self._taxon is not None:
             if taxaMap is not None:
-                self._tree._renderList.append("%d" %
+                self._tree._renderAppend("%d" %
                   taxaMap.indGet(self._taxon))
             else:
                 # Protect special characters, if necessary.
@@ -586,11 +602,11 @@ cache, set calculate to True.
                 m = re.compile(r"[_()[\]':;,]").search(label)
                 if m:
                     label = re.compile("'").sub("''", label)
-                    self._tree._renderList.append("'%s'" % label)
+                    self._tree._renderAppend("'%s'" % label)
                 else:
                     if label.find(" ") != -1:
                         label = re.compile(" ").sub("_", label)
-                    self._tree._renderList.append("%s" % label)
+                    self._tree._renderAppend("%s" % label)
 
         # Render branch length.
         degree = self._degreeGet()
@@ -600,9 +616,9 @@ cache, set calculate to True.
             if zeroLength:
                 # This tree only has two taxa; take care not to double the
                 # branch length.
-                self._tree._renderList.append((":" + lengthFormat) % 0.0)
+                self._tree._renderAppend((":" + lengthFormat) % 0.0)
             elif not noLength:
-                self._tree._renderList.append((":" + lengthFormat) % \
+                self._tree._renderAppend((":" + lengthFormat) % \
                   (ring._edge._length))
 
     """Compute the number of edges that separate self and other."""

@@ -12,6 +12,7 @@ cdef class Tree:
     cdef Node _base
     cdef _taxa, _nodes, _edges
     cdef list _renderList
+    cdef file _renderFile
     cdef int _sn # Incremented every time the tree is modified.
     cdef int _cacheSn, _cachedNtaxa, _cachedNnodes, _cachedNedges
     cdef public bint rooted
@@ -49,7 +50,9 @@ cdef class Tree:
     cpdef tbrAllNeighborsMp(self, int maxHold=*)
     cpdef nHeldGet(self)
     cpdef heldGet(self, int i)
-    cpdef str render(self, bint lengths=*, lengthFormat=*, Taxa.Map taxaMap=*)
+    cdef void _renderAppend(self, str s) except *
+    cpdef str render(self, bint lengths=*, lengthFormat=*, Taxa.Map taxaMap=*,
+      file outFile=*)
 
 cdef class Node:
     cdef object __weakref__

@@ -14,7 +14,7 @@ import random
 print "Test begin"
 
 # Re-seed the PRNG so that test results are repeatable.
-random.seed(42)
+Crux.seed(42)
 
 matrix = Crux.DistMatrix.DistMatrix(open(Crux.opts.scriptargs[1]
                                          + '/test/treezilla.dist'))

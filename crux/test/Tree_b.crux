@@ -1,9 +1,10 @@
 # Test canonization.
 
 import random
+import sys
 
 # Re-seed the PRNG so that test results are repeatable.
-random.seed(42)
+Crux.seed(42)
 
 print "Test begin"
 
@@ -13,10 +14,16 @@ for i in xrange(10):
         t = Crux.Tree.Tree(i, taxaMap=taxaMap)
         print "==="
         print "Original: %s" % t.render(taxaMap=taxaMap)
+        print "Original: ",
+        t.render(taxaMap=taxaMap, outFile=sys.stdout)
         t.canonize(taxaMap)
         print "Rooted:   %s" % t.render(taxaMap=taxaMap)
+        print "Rooted:   ",
+        t.render(taxaMap=taxaMap, outFile=sys.stdout)
         t.deroot()
         t.canonize(taxaMap)
         print "Unrooted: %s" % t.render(taxaMap=taxaMap)
+        print "Unrooted: ",
+        t.render(taxaMap=taxaMap, outFile=sys.stdout)
 
 print "Test end"

@@ -296,7 +296,7 @@ Taxon_D 3.0 2.5 2.2
             ]
 
 # Re-seed the PRNG so that test results are repeatable.
-random.seed(42)
+Crux.seed(42)
 
 print "Test begin"
 
