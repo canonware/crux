@@ -7,6 +7,10 @@
 #ifndef CxmUseInlines
 int
 CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b);
+int
+CxDistMatrixNjDistLt(CxtDMDist a, CxtDMDist b);
+int
+CxDistMatrixNjDistEq(CxtDMDist a, CxtDMDist b);
 #endif
 
 #if (defined(CxmUseInlines) || defined(CxDistMatrixNj_c))
@@ -21,7 +25,6 @@ CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b);
 #define CxmDistMatrixNjMaxUlps 0x7fU
 CxmInline int
 CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b) {
-    int ret;
     union {
 	CxtDMDist d;
 	int32_t i;
@@ -42,14 +45,70 @@ CxDistMatrixNjDistCompare(CxtDMDist a, CxtDMDist b) {
 
     // Check if a and b are within aMaxUlps of each other.
     if (abs(aU.i - bU.i) <= CxmDistMatrixNjMaxUlps) {
-	ret = 0;
+	return 0;
     } else if (a < b) {
-	ret = -1;
+	return -1;
     } else {
-	ret = 1;
+	return 1;
+    }
+}
+
+CxmInline int
+CxDistMatrixNjDistLt(CxtDMDist a, CxtDMDist b) {
+    union {
+	CxtDMDist d;
+	int32_t i;
+    } aU, bU;
+
+    CxmAssert(sizeof(CxtDMDist) == sizeof(int32_t));
+
+    // Convert a and b to lexicographically ordered ints.
+    aU.d = a;
+    if (aU.i < 0) {
+	aU.i = 0x80000000U - aU.i;
     }
 
-    return ret;
+    bU.d = b;
+    if (bU.i < 0) {
+	bU.i = 0x80000000U - bU.i;
+    }
+
+    // Check if a and b are within aMaxUlps of each other.
+    if (abs(aU.i - bU.i) <= CxmDistMatrixNjMaxUlps) {
+	return 0;
+    } else if (a < b) {
+	return 1;
+    } else {
+	return 0;
+    }
+}
+
+CxmInline int
+CxDistMatrixNjDistEq(CxtDMDist a, CxtDMDist b) {
+    union {
+	CxtDMDist d;
+	int32_t i;
+    } aU, bU;
+
+    CxmAssert(sizeof(CxtDMDist) == sizeof(int32_t));
+
+    // Convert a and b to lexicographically ordered ints.
+    aU.d = a;
+    if (aU.i < 0) {
+	aU.i = 0x80000000U - aU.i;
+    }
+
+    bU.d = b;
+    if (bU.i < 0) {
+	bU.i = 0x80000000U - bU.i;
+    }
+
+    // Check if a and b are within aMaxUlps of each other.
+    if (abs(aU.i - bU.i) <= CxmDistMatrixNjMaxUlps) {
+	return 1;
+    } else {
+	return 0;
+    }
 }
 #endif
 

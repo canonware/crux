@@ -274,7 +274,7 @@ cdef class Parser:
 
                 status = CxDistMatrixLexer_lex(scanner)
             if status == -1:
-                raise SyntaxError("Line %d: Invalid character" % extra.line)
+                raise SyntaxError(extra.line, "Invalid character")
             if extra.ioerror != 0:
                 raise IOError("I/O error for %r" % input)
             self.nextRow(extra.line)
@@ -317,6 +317,7 @@ cdef class DistMatrix:
 
     cdef void _allocDists(self, CxtDMSize ntaxa) except *:
         assert self.dists == NULL
+        assert ntaxa > 1
         self.dists = <CxtDMDist *>calloc(CxDistMatrixNxy2i(ntaxa, ntaxa - 2,
           ntaxa - 1) + 1, sizeof(CxtDMDist))
         if self.dists == NULL:
