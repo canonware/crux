@@ -12,9 +12,10 @@ mandir = "@MANDIR@"
 
 debug = (True if @enable_debug@ else False)
 
-# Defaults for command line settings.
-batch = False
-quiet = False
+# Defaults for when Crux is imported by an application other than the crux
+# front end.
+batch = True
+verbose = True
 Crux.seed(int(time.time())) # Sets Config.seed.
 infile = None
 scriptargs = []

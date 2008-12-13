@@ -60,7 +60,7 @@ inst: pickles @objroot@build/inst/bin/crux \
 	$(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)
 
 pickles: run
-	@objroot@build/run/bin/crux --batch --infile=@srcroot@pickles.crux
+	@objroot@build/run/bin/crux --verbose @srcroot@pickles.crux
 
 install: inst
 	install -d @BINDIR@
@@ -88,8 +88,8 @@ check: run
 		for t in $(TESTS); do \
 			total=`expr $$total + 1`; \
 			@ECHO@ -n "$$t ... "; \
-			2>&1 @objroot@build/run/bin/crux --batch --quiet \
-			  --infile=$$t -- @abs_srcroot@ @abs_objroot@ \
+			2>&1 @objroot@build/run/bin/crux $$t - \
+			  @abs_srcroot@ @abs_objroot@ \
 			  | @PERL@ -pe "s/\[[1-9][0-9]* refs\]\n//g" \
 			  > $${t}.out; \
 			if @TEST@ -e "$${t}.exp"; then \
