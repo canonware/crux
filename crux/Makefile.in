@@ -60,7 +60,7 @@ inst: pickles @objroot@build/inst/bin/crux \
 	$(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)
 
 pickles: run
-	@objroot@build/run/bin/crux --verbose @srcroot@pickles.crux
+	@objroot@build/run/bin/crux --verbose @srcroot@pickles.cx
 
 install: inst
 	install -d @BINDIR@

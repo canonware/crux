@@ -16,6 +16,6 @@ syntax: regexp
 ^crux/pkg/(Parsing)\.c$
 ^crux/pkg/Crux/(__init__|Character|CTMatrix|Fasta|Newick|Taxa|Tree)\.c$
 ^crux/pkg/Crux/DistMatrix/(__init__|Nj)\.c$
-^crux/test/[A-Za-z]*_[a-z]\.crux\.out$
+^crux/test/[A-Za-z]*_[a-z]\.cx\.out$
 ^crux/test/[A-Za-z]*_[a-z]\.log$
 ^crux/test/[A-Za-z]*_[a-z]\.pickle$

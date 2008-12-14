@@ -482,7 +482,7 @@ AC_SUBST([pys])
 
 dnl Tests.
 tests=""
-for t in `find ${srcroot}test -type f |grep "\.crux$" |sort`; do
+for t in `find ${srcroot}test -type f |grep "\.cx$" |sort`; do
   tests="${tests} ${t}"
 done
 AC_SUBST([tests])

@@ -455,7 +455,7 @@ cdef class Parser(Parsing.Lr):
         if _spec is None:
             _spec = Parsing.Spec(sys.modules[__name__],
               pickleFile="%s/Crux/parsers/Newick.pickle" % Crux.Config.datadir,
-              verbose=(True if (__debug__ or Crux.Config.verbose) else False),
+              verbose=(True if (__debug__ and Crux.Config.verbose) else False),
               skinny=(False if __debug__ else True),
               logFile="%s/Crux/parsers/Newick.log" % Crux.Config.datadir)
         return _spec
