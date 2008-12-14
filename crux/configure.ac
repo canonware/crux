@@ -413,11 +413,7 @@ fi
 dnl ============================================================================
 dnl Crux configuration.
 dnl 
-if echo "<Version = crux>" | grep Version >/dev/null ; then
-  crux_version=0.0.0
-else
-  crux_version="<Version = crux>"
-fi
+crux_version=`cat VERSION`
 AC_SUBST([crux_version])
 
 dnl ============================================================================
