@@ -6,36 +6,6 @@
 typedef float CxtDMDist;
 typedef unsigned long CxtDMSize;
 
-typedef enum {
-    CxeDistMatrixLexerInputModeFd,
-    CxeDistMatrixLexerInputModeStr
-} CxtDistMatrixLexerInputMode;
-
-typedef enum {
-    CxeDistMatrixLexerTokTypeInt,
-    CxeDistMatrixLexerTokTypeDist,
-    CxeDistMatrixLexerTokTypeLabel
-} CxtDistMatrixLexerTokType;
-
-typedef struct {
-    unsigned line;
-    int ioerror;
-    CxtDistMatrixLexerInputMode inputMode;
-    union {
-        int fd;
-        struct {
-            char *s;
-            size_t len;
-        } s;
-    } input;
-
-    CxtDistMatrixLexerTokType tokType;
-    union {
-        CxtDMDist dist;
-        char *label;
-    } tok;
-} CxtDistMatrixLexerExtra;
-
 #ifndef CxmUseInlines
 CxtDMSize
 CxDistMatrixNxy2i(CxtDMSize n, CxtDMSize x, CxtDMSize y);

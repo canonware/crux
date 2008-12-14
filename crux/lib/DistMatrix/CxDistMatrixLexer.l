@@ -1,8 +1,39 @@
+%top{
+#include "CxDistMatrix.h"
+
+typedef enum {
+    CxeDistMatrixLexerInputModeFd,
+    CxeDistMatrixLexerInputModeStr
+} CxtDistMatrixLexerInputMode;
+
+typedef enum {
+    CxeDistMatrixLexerTokTypeInt,
+    CxeDistMatrixLexerTokTypeDist,
+    CxeDistMatrixLexerTokTypeLabel
+} CxtDistMatrixLexerTokType;
+
+typedef struct {
+    unsigned line;
+    int ioerror;
+    CxtDistMatrixLexerInputMode inputMode;
+    union {
+        int fd;
+        struct {
+            char *s;
+            size_t len;
+        } s;
+    } input;
+
+    CxtDistMatrixLexerTokType tokType;
+    union {
+        CxtDMDist dist;
+        char *label;
+    } tok;
+} CxtDistMatrixLexerExtra;
+}
 %{
 #include <stdlib.h>
 #include <errno.h>
-
-#include "CxDistMatrix.h"
 
 #define YY_INPUT(buf, result, max_size) do {				\
     switch (yyextra->inputMode) {					\
@@ -93,22 +124,3 @@ int
 CxDistMatrixLexer_wrap(yyscan_t yyscanner) {
     return 1;
 }
-
-#if 0
-int
-main(void) {
-    const char *tok;
-    yyscan_t scanner;
-    foo_t foo = {"hello"};
-
-    if (yylex_init_extra(&foo, &scanner) != 0) {
-	fprintf(stderr, "Error in yylex_init_extra()\n");
-    }
-    while ((tok = CxDistMatrixLexer_get(scanner)) != NULL) {
-//        fprintf(stderr, "%s\n", tok);
-    }
-//    fprintf(stderr, "\n");
-    yylex_destroy(scanner);
-    return 0;
-}
-#endif
