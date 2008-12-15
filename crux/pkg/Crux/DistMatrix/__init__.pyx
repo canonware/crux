@@ -428,7 +428,7 @@ needed.
                 self.dists[CxDistMatrixNxy2i(self.ntaxa, i, a)] = distB
                 self.dists[CxDistMatrixNxy2i(self.ntaxa, i, b)] = distA
 
-    cdef void _matrixShuffle(self, list order):
+    cdef void _matrixShuffle(self, list order) except *:
         cdef list rowTab, curOrder
         cdef CxtDMSize i, a, b, frRow, t
 
@@ -436,15 +436,15 @@ needed.
         # the matrix (rowTab), as well as a table that represents the current
         # row order of the matrix (curOrder).  This is needed to keep track of
         # where rows end up as repeated row swaps are done.
-        rowTab = range(self.ntaxa)
-        curOrder = range(self.ntaxa)
+        rowTab = [i for i in xrange(self.ntaxa)]
+        curOrder = [i for i in xrange(self.ntaxa)]
 
         # Iteratively swap the correct row into row i.  The last row need not be
         # swapped with itself.
         for 0 <= i < self.ntaxa - 1:
-            frRow = order[i]
+            frRow = <CxtDMSize>order[i]
             a = i
-            b = rowTab[frRow]
+            b = <CxtDMSize>rowTab[frRow]
 
             self._rowsSwap(a, b)
 
@@ -454,9 +454,10 @@ needed.
             curOrder[b] = t
 
             # Update rowTab.
-            t = rowTab[curOrder[a]]
-            rowTab[curOrder[a]] = rowTab[curOrder[b]]
-            rowTab[curOrder[b]] = t
+            t = <CxtDMSize>rowTab[<CxtDMSize>curOrder[a]]
+            rowTab[<CxtDMSize>curOrder[a]] = \
+              <CxtDMSize>rowTab[<CxtDMSize>curOrder[b]]
+            rowTab[<CxtDMSize>curOrder[b]] = t
 
     # Randomly shuffle the order of rows/columns in the distance matrix, and
     # make corresponding changes to the Taxa.Map.
@@ -466,7 +467,8 @@ needed.
         cdef int i
 
         # Create a random shuffle order.
-        order = random.sample(xrange(self.ntaxa), self.ntaxa)
+        order = [<CxtDMSize>i for i in xrange(self.ntaxa)]
+        random.shuffle(order)
 
         # Shuffle the matrix.
         self._matrixShuffle(order)

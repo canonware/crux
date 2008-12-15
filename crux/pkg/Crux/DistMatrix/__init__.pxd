@@ -20,7 +20,7 @@ cdef class DistMatrix:
     cdef Tree _nj(self, bint random)
     cdef Tree _rnj(self, bint random, bint additive)
     cdef void _rowsSwap(self, CxtDMSize a, CxtDMSize b)
-    cdef void _matrixShuffle(self, list order)
+    cdef void _matrixShuffle(self, list order) except *
     cpdef shuffle(self)
     cpdef Tree nj(self, bint joinRandom=*, bint destructive=*)
     cpdef Tree rnj(self, bint joinRandom=*, bint tryAdditive=*,
