@@ -19,8 +19,6 @@ cimport Crux.Fasta as Fasta
 from Crux.Character cimport Dna, Protein
 from Crux.DistMatrix cimport DistMatrix
 
-from CxDistMatrix cimport *
-
 import sys
 
 global __name__
@@ -111,7 +109,7 @@ cdef class CTMatrix:
         self.seq += 1
 
     # Compute the uncorrected distance between two taxa.
-    cdef CxtDMDist _dist(self, char *a, char *b, int sLen):
+    cdef float _dist(self, char *a, char *b, int sLen):
         cdef int i, nchars, diff
         cdef char aC, bC
 
@@ -126,7 +124,7 @@ cdef class CTMatrix:
                     diff += 1
 
         if nchars > 0:
-            return <CxtDMDist>diff / <CxtDMDist>nchars
+            return <float>diff / <float>nchars
         else:
             return 1.0
 
@@ -143,7 +141,7 @@ The following correction algorithms are supported:
         cdef Taxon iTaxon, jTaxon
         cdef str iSeq, jSeq
         cdef char *iStr, *jStr
-        cdef CxtDMDist dist
+        cdef float dist
 
         assert correction in (None, "jukes", "kimura")
 

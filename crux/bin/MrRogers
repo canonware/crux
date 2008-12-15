@@ -31,6 +31,7 @@ MrRogers usage:
     -s <int>, --seed=<int>   Set pseudo-random number generator seed
                                (*based on system time, microsecond resolution).
     -r, --norandom           Attempt joins deterministically (*disabled).
+                               (Clearcut never randomizes joins for NJ.)
     -A, --noadditive         Do not check for additivity (*disabled).  (Clearcut
                                does not support this option.)
     -S, --shuffle            Randomly shuffle the distance matrix (*disabled).

@@ -1,5 +1,7 @@
 %top{
-#include "CxDistMatrix.h"
+#include <stdlib.h>
+
+#include "../Cx.h"
 
 typedef enum {
     CxeDistMatrixLexerInputModeFd,
@@ -26,13 +28,12 @@ typedef struct {
 
     CxtDistMatrixLexerTokType tokType;
     union {
-        CxtDMDist dist;
+        float dist;
         char *label;
     } tok;
 } CxtDistMatrixLexerExtra;
 }
 %{
-#include <stdlib.h>
 #include <errno.h>
 
 #define YY_INPUT(buf, result, max_size) do {				\

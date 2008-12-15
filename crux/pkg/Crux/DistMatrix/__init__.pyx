@@ -41,7 +41,7 @@ cdef extern from "stdlib.h":
 cdef extern from "string.h":
     cdef void *memcpy(void *dest, void *src, size_t n)
 
-from CxDistMatrix cimport *
+from CxDistMatrixLexer cimport *
 cimport Crux.DistMatrix.Nj as Nj
 
 import random
@@ -106,16 +106,16 @@ cdef class Parser:
     cdef DistMatrix matrix
     cdef Taxa.Map taxaMap
     cdef Format format
-    cdef CxtDMSize i, j
+    cdef size_t i, j
 
     def __init__(self, DistMatrix matrix, Taxa.Map taxaMap):
         self.matrix = matrix
         self.taxaMap = taxaMap
         self.format = FormatUninitialized
 
-    cdef void tokenDist(self, CxtDMDist dist, unsigned line) except *:
+    cdef void tokenDist(self, float dist, unsigned line) except *:
         cdef DistMatrix m
-        cdef CxtDMSize i, j, k
+        cdef size_t i, j, k
 
         m = self.matrix
         i = self.i
@@ -125,7 +125,7 @@ cdef class Parser:
             raise SyntaxError(line, "Unexpected distance")
         elif self.format == FormatUnknown:
             if j < m.ntaxa:
-                m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
+                m.dists[nxy2i(m.ntaxa, i, j)] = dist
             else:
                 # This is the last distance for the first row of a full matrix.
                 # Up to now we have been working under the assumption that the
@@ -133,17 +133,17 @@ cdef class Parser:
                 # to discard the diagonal and shift all the distances down one
                 # element.
                 self.format = FormatFull
-                if m.dists[CxDistMatrixNxy2i(m.ntaxa, 0, 1)] != <CxtDMDist>0.0:
+                if m.dists[nxy2i(m.ntaxa, 0, 1)] != <float>0.0:
                     raise SyntaxError(line, "Non-zero distance on diagonal")
                 # Shift the entire first row back one element.
                 for 1 <= k < j - 1:
-                    m.dists[CxDistMatrixNxy2i(m.ntaxa, 0, k)] = \
-                      m.dists[CxDistMatrixNxy2i(m.ntaxa, 0, k + 1)]
+                    m.dists[nxy2i(m.ntaxa, 0, k)] = \
+                      m.dists[nxy2i(m.ntaxa, 0, k + 1)]
                 j -= 1
-                m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
+                m.dists[nxy2i(m.ntaxa, i, j)] = dist
         elif self.format == FormatFull:
             if j < i:
-                if dist != m.dists[CxDistMatrixNxy2i(m.ntaxa, j, i)]:
+                if dist != m.dists[nxy2i(m.ntaxa, j, i)]:
                     raise SyntaxError(line,
                       "Non-symmetric distance for %r <--> %r" %
                       (self.taxaMap.taxonGet(j).label,
@@ -154,15 +154,15 @@ cdef class Parser:
             elif j == m.ntaxa:
                 raise SyntaxError(line, "Too many distances")
             else:
-                m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
+                m.dists[nxy2i(m.ntaxa, i, j)] = dist
         elif self.format == FormatUpper:
             if j == m.ntaxa:
                 raise SyntaxError(line, "Too many distances")
-            m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
+            m.dists[nxy2i(m.ntaxa, i, j)] = dist
         elif self.format == FormatLower:
             if j == i:
                 raise SyntaxError(line, "Too many distances")
-            m.dists[CxDistMatrixNxy2i(m.ntaxa, i, j)] = dist
+            m.dists[nxy2i(m.ntaxa, i, j)] = dist
         else:
             assert False
 
@@ -170,7 +170,7 @@ cdef class Parser:
         self.j = j
 
     cdef void nextRow(self, unsigned line) except *:
-        cdef CxtDMSize i, j
+        cdef size_t i, j
 
         i = self.i
         j = self.j
@@ -315,11 +315,11 @@ cdef class DistMatrix:
         else:
             raise ValueError("File, string, Taxa.Map, or DistMatrix expected")
 
-    cdef void _allocDists(self, CxtDMSize ntaxa) except *:
+    cdef void _allocDists(self, size_t ntaxa) except *:
         assert self.dists == NULL
         assert ntaxa > 1
-        self.dists = <CxtDMDist *>calloc(CxDistMatrixNxy2i(ntaxa, ntaxa - 2,
-          ntaxa - 1) + 1, sizeof(CxtDMDist))
+        self.dists = <float *>calloc(nxy2i(ntaxa, ntaxa - 2,
+          ntaxa - 1) + 1, sizeof(float))
         if self.dists == NULL:
             raise MemoryError("Failed to allocate %d-taxon distance matrix" %
               <int>ntaxa)
@@ -328,14 +328,14 @@ cdef class DistMatrix:
     cdef void _dup(self, DistMatrix other, int sampleSize) except *:
         cdef Taxa.Map taxaMap, otherMap
         cdef list sample
-        cdef CxtDMSize i, j
+        cdef size_t i, j
 
         if sampleSize == -1:
             # Simple duplication.
             self.taxaMap = Taxa.Map(other.taxaMap.taxaGet())
             self._allocDists(other.ntaxa)
-            memcpy(self.dists, other.dists, sizeof(CxtDMDist) * \
-              (CxDistMatrixNxy2i(self.ntaxa, self.ntaxa - 2, self.ntaxa - 1) \
+            memcpy(self.dists, other.dists, sizeof(float) * \
+              (nxy2i(self.ntaxa, self.ntaxa - 2, self.ntaxa - 1) \
               + 1))
         else:
             if sampleSize < 2 or sampleSize > other.ntaxa:
@@ -352,8 +352,8 @@ cdef class DistMatrix:
             self._allocDists(sampleSize)
             for 0 <= i < sampleSize:
                 for i + 1 <= j < sampleSize:
-                    self.dists[CxDistMatrixNxy2i(sampleSize, i, j)] = \
-                      other.dists[CxDistMatrixNxy2i(other.ntaxa, sample[i], \
+                    self.dists[nxy2i(sampleSize, i, j)] = \
+                      other.dists[nxy2i(other.ntaxa, sample[i], \
                       sample[j])]
         self.additive = other.additive
 
@@ -364,16 +364,16 @@ cdef class DistMatrix:
         parser = Parser(self, self.taxaMap)
         parser.parse(input)
 
-    cpdef CxtDMDist distanceGet(self, CxtDMSize x, CxtDMSize y):
+    cpdef float distanceGet(self, size_t x, size_t y):
         assert x < self.ntaxa
         assert y < self.ntaxa
 
         if x == y:
             return 0.0
 
-        return self.dists[CxDistMatrixNxy2i(self.ntaxa, x, y)]
+        return self.dists[nxy2i(self.ntaxa, x, y)]
 
-    cpdef distanceSet(self, CxtDMSize x, CxtDMSize y, CxtDMDist distance):
+    cpdef distanceSet(self, size_t x, size_t y, float distance):
         assert x != y or distance == 0.0
         assert x < self.ntaxa
         assert y < self.ntaxa
@@ -381,7 +381,7 @@ cdef class DistMatrix:
         if x == y:
             return
 
-        self.dists[CxDistMatrixNxy2i(self.ntaxa, x, y)] = distance
+        self.dists[nxy2i(self.ntaxa, x, y)] = distance
 
     cdef Tree _nj(self, bint random):
         """
@@ -416,21 +416,21 @@ needed.
         (ret, self.additive) = rnj.rnj(random, additive)
         return ret
 
-    cdef void _rowsSwap(self, CxtDMSize a, CxtDMSize b):
-        cdef CxtDMSize i
-        cdef CxtDMDist distA, distB
+    cdef void _rowsSwap(self, size_t a, size_t b):
+        cdef size_t i
+        cdef float distA, distB
 
         for 0 <= i < self.ntaxa:
             if i != a and i != b:
-                distA = self.dists[CxDistMatrixNxy2i(self.ntaxa, i, a)]
-                distB = self.dists[CxDistMatrixNxy2i(self.ntaxa, i, b)]
+                distA = self.dists[nxy2i(self.ntaxa, i, a)]
+                distB = self.dists[nxy2i(self.ntaxa, i, b)]
 
-                self.dists[CxDistMatrixNxy2i(self.ntaxa, i, a)] = distB
-                self.dists[CxDistMatrixNxy2i(self.ntaxa, i, b)] = distA
+                self.dists[nxy2i(self.ntaxa, i, a)] = distB
+                self.dists[nxy2i(self.ntaxa, i, b)] = distA
 
     cdef void _matrixShuffle(self, list order) except *:
         cdef list rowTab, curOrder
-        cdef CxtDMSize i, a, b, frRow, t
+        cdef size_t i, a, b, frRow, t
 
         # Create a lookup table that maps original row to the current row of
         # the matrix (rowTab), as well as a table that represents the current
@@ -442,9 +442,9 @@ needed.
         # Iteratively swap the correct row into row i.  The last row need not be
         # swapped with itself.
         for 0 <= i < self.ntaxa - 1:
-            frRow = <CxtDMSize>order[i]
+            frRow = <size_t>order[i]
             a = i
-            b = <CxtDMSize>rowTab[frRow]
+            b = <size_t>rowTab[frRow]
 
             self._rowsSwap(a, b)
 
@@ -454,10 +454,10 @@ needed.
             curOrder[b] = t
 
             # Update rowTab.
-            t = <CxtDMSize>rowTab[<CxtDMSize>curOrder[a]]
-            rowTab[<CxtDMSize>curOrder[a]] = \
-              <CxtDMSize>rowTab[<CxtDMSize>curOrder[b]]
-            rowTab[<CxtDMSize>curOrder[b]] = t
+            t = <size_t>rowTab[<size_t>curOrder[a]]
+            rowTab[<size_t>curOrder[a]] = \
+              <size_t>rowTab[<size_t>curOrder[b]]
+            rowTab[<size_t>curOrder[b]] = t
 
     # Randomly shuffle the order of rows/columns in the distance matrix, and
     # make corresponding changes to the Taxa.Map.
@@ -467,7 +467,7 @@ needed.
         cdef int i
 
         # Create a random shuffle order.
-        order = [<CxtDMSize>i for i in xrange(self.ntaxa)]
+        order = [<size_t>i for i in xrange(self.ntaxa)]
         random.shuffle(order)
 
         # Shuffle the matrix.
@@ -503,7 +503,7 @@ needed.
     # Print the matrix to a string in 'full', 'upper', or 'lower' format.
     cpdef render(self, str format=None, str distFormat="%.5e",
       file outFile=None):
-        cdef CxtDMSize i, j
+        cdef size_t i, j
         cdef str s
 
         if format is None:

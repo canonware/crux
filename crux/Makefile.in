@@ -31,8 +31,10 @@ TESTS := @tests@
 # Default target.
 all: inst
 
-# Flex-generated .c files.  These are not included in CSRCS.
+# Flex-generated C files.
+FLHS := $(FSRCS:%.l=%.h)
 FLCS := $(FSRCS:%.l=%.c)
+CSRCS += $(FLCS)
 
 # Cython-generated .c files.
 CYCS := $(PYXS:%.pyx=%.c) $(PKGS:%.pyx=%.c)
@@ -41,15 +43,13 @@ CYCS := $(PYXS:%.pyx=%.c) $(PKGS:%.pyx=%.c)
 # multiple targets, potentially across make invocations (ex: make run; make
 # inst).
 .SECONDARY: $(CYCS:@srcroot@pkg/%.c=@objroot@build/pkg/%.o) \
-		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
-		$(FLCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 
 # Include generated dependency files.
 -include $(CYCS:@srcroot@pkg/%.c=@objroot@build/pkg/%.d) \
-	$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.d) \
-	$(FLCS:@srcroot@lib/%.c=@objroot@build/lib/%.d)
+	$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.d)
 
-dist: $(FLCS) $(CYCS)
+dist: $(FLHS) $(FLCS) $(CYCS)
 
 run: $(CYCS:@srcroot@pkg/%.c=@objroot@build/run/site-packages/%.so) \
     $(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%) \
@@ -130,6 +130,7 @@ distclean: clean
 
 flclean:
 ifeq (@enable_flex@, 1)
+	rm -f $(FLHS)
 	rm -f $(FLCS)
 endif
 
@@ -162,8 +163,7 @@ relclean: distclean flclean cyclean
 
 #===============================================================================
 @objroot@build/run/share/Crux/lib/libCx.so : \
-		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
-		$(FLCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
 	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+
@@ -173,8 +173,7 @@ ifeq (macho, @abi@)
 endif
 
 @objroot@build/inst/share/Crux/lib/libCx.so : \
-		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
-		$(FLCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
 	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+

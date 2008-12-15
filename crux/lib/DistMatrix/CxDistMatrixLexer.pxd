@@ -1,9 +1,8 @@
 cdef extern from "sys/types.h":
     ctypedef unsigned long size_t
 
-cdef extern from "CxDistMatrix.h":
-    ctypedef float CxtDMDist
-    ctypedef unsigned long CxtDMSize
+cdef extern from "CxDistMatrixLexer.h":
+    ctypedef void *yyscan_t
     ctypedef enum CxtDistMatrixLexerInputMode:
         CxeDistMatrixLexerInputModeFd
         CxeDistMatrixLexerInputModeStr
@@ -18,7 +17,7 @@ cdef extern from "CxDistMatrix.h":
         int fd
         struct_input_s s
     cdef union union_tok:
-        CxtDMDist dist
+        float dist
         char *label
     ctypedef struct CxtDistMatrixLexerExtra:
         unsigned line
@@ -28,13 +27,6 @@ cdef extern from "CxDistMatrix.h":
         CxtDistMatrixLexerTokType tokType
         union_tok tok
 
-    cdef inline CxtDMSize CxDistMatrixNxy2i(CxtDMSize n, CxtDMSize x,
-      CxtDMSize y)
-    cdef CxtDMDist *CxDistMatrixNew(CxtDMSize ntaxa)
-    cdef void CxDistMatrixDelete(CxtDMDist *matrix)
-
-cdef extern from "CxDistMatrixLexer.h":
-    ctypedef void *yyscan_t
     cdef int CxDistMatrixLexer_lex_init_extra(CxtDistMatrixLexerExtra *extra, \
       yyscan_t *scanner)
     cdef int CxDistMatrixLexer_lex_destroy(yyscan_t scanner)

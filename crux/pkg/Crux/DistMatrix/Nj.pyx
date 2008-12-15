@@ -143,22 +143,57 @@
 cdef extern from "sys/types.h":
     ctypedef unsigned long size_t
 
+cdef extern from "stdint.h":
+    ctypedef int int32_t
+    ctypedef unsigned uint32_t
+
 cdef extern from "stdlib.h":
     cdef void *calloc(size_t nmemb, size_t size)
     cdef void *malloc(size_t size)
     cdef void free(void *ptr)
+    cdef int abs(int i)
 
 cdef extern from "math.h":
     cdef double HUGE_VALF
 
 from SFMT cimport *
 from CxRi cimport *
-from CxDistMatrix cimport *
-from CxDistMatrixNj cimport *
 
 from Crux.Tree cimport Tree, Node, Edge
+from Crux.DistMatrix cimport nxy2i
 
 #import sys # For _njDump().
+
+cdef union fiUnion:
+    float d
+    int32_t i
+
+cdef enum:
+    MaxUlps = 0x7f
+
+# Compare two distances, and consider them equal if they are close enough.
+# MaxUlps (ULP: Units in Last Place) specifies the maximum number of ulps that
+# a and b may differ by and still be considered equal.  Ideally, we would keep
+# track of the maximum possible accumulated error during tree construction, but
+# the error grows exponentially, so that approach ends up not being practical.
+#
+# Provide 5 (base 10) digits of accuracy.
+cdef inline bint distEq(float a, float b):
+    cdef fiUnion aU, bU
+
+    assert sizeof(float) == sizeof(int32_t)
+
+    # Convert a and b to lexicographically ordered ints.
+    aU.d = a
+    if aU.i < 0:
+        aU.i = <uint32_t>0x80000000 - aU.i
+
+    bU.d = b
+    if bU.i < 0:
+        bU.i = <uint32_t>0x80000000U - bU.i
+
+    # Check if a and b are within MaxUlps of each other.
+    return abs(aU.i - bU.i) <= MaxUlps
 
 cdef class Nj:
     def __cinit__(self):
@@ -181,7 +216,7 @@ cdef class Nj:
             self.rScaledBase = NULL
 
 #    cdef void _njDump(self) except *:
-#        cdef CxtDMSize i, x, y
+#        cdef size_t i, x, y
 #
 #        sys.stdout.write( \
 #          "----------------------------------------" \
@@ -218,11 +253,11 @@ cdef class Nj:
 #            sys.stdout.write(" || %8.4f\n" % self.rScaled[x])
 
     cdef void _rInit(self) except *:
-        cdef CxtDMDist *d, *r, dist
-        cdef CxtDMSize x, y, i
+        cdef float *d, *r, dist
+        cdef size_t x, y, i
 
         # Allocate zeroed vector.
-        r = <CxtDMDist *>calloc(self.nBase, sizeof(CxtDMDist))
+        r = <float *>calloc(self.nBase, sizeof(float))
         if r == NULL:
             raise MemoryError("Failed to allocate %d-taxon distance vector" %
               <int>self.nBase)
@@ -242,9 +277,9 @@ cdef class Nj:
         self.r = r
 
     cdef void _rScaledInit(self) except *:
-        cdef CxtDMDist *rScaled
+        cdef float *rScaled
 
-        rScaled = <CxtDMDist *>malloc(sizeof(CxtDMDist) * self.nBase)
+        rScaled = <float *>malloc(sizeof(float) * self.nBase)
         if rScaled == NULL:
             raise MemoryError("Failed to allocate %d-taxon distance vector" %
               <int>self.nBase)
@@ -265,18 +300,17 @@ cdef class Nj:
             self.nodes.append(node)
 
     cdef void _rScaledUpdate(self):
-        cdef CxtDMSize x, denom
+        cdef size_t x, denom
 
         # Calculate rScaled for each node.
         denom = self.n - 2
         for 0 <= x < self.n:
             self.rScaled[x] = self.r[x] / denom
 
-    cdef void _njRandomMinFind(self, CxtDMSize *rXMin, CxtDMSize *rYMin):
-        cdef CxtDMSize nmins, i, n, x, y, xMin, yMin
-        cdef CxtDMDist *d, *rScaled
-        cdef CxtDMDist transMin, transCur, rScaledX
-        cdef int rel
+    cdef void _njRandomMinFind(self, size_t *rXMin, size_t *rYMin):
+        cdef size_t nmins, i, n, x, y, xMin, yMin
+        cdef float *d, *rScaled
+        cdef float transMin, transCur, rScaledX
 
         # Silence compiler warnings.
 #        xMin = yMin = 0
@@ -298,15 +332,9 @@ cdef class Nj:
                 transCur = d[i] - (rScaledX + rScaled[y])
                 i += 1
 
-                # Use CxDistMatrixNjDistCompare() in order to compare
-                # transformed distances, so that random selection is possible.
-                rel = CxDistMatrixNjDistCompare(transCur, transMin)
-                if rel == -1:
-                    nmins = 1
-                    xMin = x
-                    yMin = y
-                    transMin = transCur
-                elif rel == 0:
+                # Use distEq() in order to compare transformed distances,
+                # so that random selection is possible.
+                if distEq(transCur, transMin):
                     # Choose such that all tied distances have an equal
                     # probability of being chosen.
                     nmins += 1
@@ -314,14 +342,8 @@ cdef class Nj:
                         xMin = x
                         yMin = y
                         transMin = transCur
-                elif rel == 1:
-                    pass
-                else:
-                    assert False
-
-                # Since an arbitrary tie-breaking decision is being made anyway,
-                # don't bother using CxDistMatrixNjDistCompare() here.
-                if transCur < transMin:
+                elif transCur < transMin:
+                    nmins = 1
                     xMin = x
                     yMin = y
                     transMin = transCur
@@ -329,10 +351,10 @@ cdef class Nj:
         rXMin[0] = xMin
         rYMin[0] = yMin
 
-    cdef void _njDeterministicMinFind(self, CxtDMSize *rXMin, CxtDMSize *rYMin):
-        cdef CxtDMSize i, n, x, y, xMin, yMin
-        cdef CxtDMDist *d, *rScaled
-        cdef CxtDMDist transMin, transCur, rScaledX
+    cdef void _njDeterministicMinFind(self, size_t *rXMin, size_t *rYMin):
+        cdef size_t i, n, x, y, xMin, yMin
+        cdef float *d, *rScaled
+        cdef float transMin, transCur, rScaledX
 
         # Silence compiler warnings.
 #        xMin = yMin = 0
@@ -354,7 +376,7 @@ cdef class Nj:
                 i += 1
 
                 # Since an arbitrary tie-breaking decision is being made anyway,
-                # don't bother using CxDistMatrixNjDistLt() here.
+                # don't bother using distEq() here.
                 if transCur < transMin:
                     xMin = x
                     yMin = y
@@ -363,18 +385,18 @@ cdef class Nj:
         rXMin[0] = xMin
         rYMin[0] = yMin
 
-    cdef Node _njNodesJoin(self, CxtDMSize xMin, CxtDMSize yMin,
-      CxtDMDist *rDistX, CxtDMDist *rDistY):
+    cdef Node _njNodesJoin(self, size_t xMin, size_t yMin,
+      float *rDistX, float *rDistY):
         cdef Node node
         cdef Edge edgeX, edgeY
-        cdef CxtDMSize iMin
-        cdef CxtDMDist distX, distY
+        cdef size_t iMin
+        cdef float distX, distY
 
         node = Node(self.tree)
 
         edgeX = Edge(self.tree)
         edgeX.attach(node, self.nodes[xMin])
-        iMin = CxDistMatrixNxy2i(self.n, xMin, yMin)
+        iMin = nxy2i(self.n, xMin, yMin)
         distX = (self.d[iMin] + self.rScaled[xMin] - self.rScaled[yMin]) / 2
         edgeX.length = distX
 
@@ -387,10 +409,10 @@ cdef class Nj:
         rDistY[0] = distY
         return node
 
-    cdef void _njRSubtract(self, CxtDMSize xMin, CxtDMSize yMin):
-        cdef CxtDMSize n, x, iX, iY
-        cdef CxtDMDist *d, *r
-        cdef CxtDMDist dist
+    cdef void _njRSubtract(self, size_t xMin, size_t yMin):
+        cdef size_t n, x, iX, iY
+        cdef float *d, *r
+        cdef float dist
 
         # Subtract old distances from r.
         d = self.d
@@ -441,11 +463,11 @@ cdef class Nj:
         r[xMin] = 0.0
         r[yMin] = 0.0
 
-    cdef void _njCompact(self, CxtDMSize xMin, CxtDMSize yMin, Node node,
-      CxtDMDist distX, CxtDMDist distY) except *:
-        cdef CxtDMSize n, x, iX, iY
-        cdef CxtDMDist *d, *r
-        cdef CxtDMDist dist
+    cdef void _njCompact(self, size_t xMin, size_t yMin, Node node,
+      float distX, float distY) except *:
+        cdef size_t n, x, iX, iY
+        cdef float *d, *r
+        cdef float dist
 
         # Insert the new node, such that it overwrites one of its children.
         self.nodes[xMin] = node
@@ -532,7 +554,7 @@ cdef class Nj:
 
         self.tree.base = self.nodes[0]
 
-    cdef void prepare(self, CxtDMDist *d, CxtDMSize n, Taxa.Map taxaMap) \
+    cdef void prepare(self, float *d, size_t n, Taxa.Map taxaMap) \
       except *:
         assert self.dBase == NULL # Was self.prepare() already called?
 
@@ -548,8 +570,8 @@ cdef class Nj:
         self._nodesInit(taxaMap)
 
     cdef Tree nj(self, bint random):
-        cdef CxtDMSize xMin, yMin
-        cdef CxtDMDist distX, distY
+        cdef size_t xMin, yMin
+        cdef float distX, distY
         cdef Node node
 
         assert self.tree is not None # Was self.prepare() called?
@@ -576,11 +598,10 @@ cdef class Nj:
         return self.tree
 
 cdef class Rnj(Nj):
-    cdef CxtDMSize _rnjRowAllMinFind(self, CxtDMSize x, CxtDMDist *rDist):
-        cdef CxtDMSize ret, n, y, i, nmins
-        cdef CxtDMDist *d, *rScaled
-        cdef CxtDMDist dist, minDist
-        cdef int rel
+    cdef size_t _rnjRowAllMinFind(self, size_t x, float *rDist):
+        cdef size_t ret, n, y, i, nmins
+        cdef float *d, *rScaled
+        cdef float dist, minDist
 
         d = self.d
         rScaled = self.rScaled
@@ -591,61 +612,50 @@ cdef class Rnj(Nj):
         # Find the minimum distance from the node on row x to any other node
         # that comes before it in the matrix.
         if x != 0:
-            i = CxDistMatrixNxy2i(n, 0, x)
+            i = nxy2i(n, 0, x)
             for 0 <= y < x:
                 dist = d[i] - (rScaled[y] + rScaled[x])
                 i += (n - 2 - y)
 
-                rel = CxDistMatrixNjDistCompare(dist, minDist)
-                if rel == -1:
-                    nmins = 1
-                    minDist = dist
-                    ret = y
-                elif rel == 0:
+                if distEq(dist, minDist):
                     # Choose y such that all tied distances have an equal
                     # probability of being chosen.
                     nmins += 1
                     if gen_rand64_range(nmins) == 0:
                         ret = y
-                elif rel == 1:
-                    pass
-                else:
-                    assert False
+                elif dist < minDist:
+                    nmins = 1
+                    minDist = dist
+                    ret = y
             assert minDist != HUGE_VALF
-
 
         # Find the minimum distance from the node on row x to any other node
         # that comes after it in the matrix.
         if x < n - 1:
-            i = CxDistMatrixNxy2i(n, x, x + 1)
+            i = nxy2i(n, x, x + 1)
             for x + 1 <= y < n:
                 dist = d[i] - (rScaled[x] + rScaled[y])
                 i += 1
 
-                rel = CxDistMatrixNjDistCompare(dist, minDist)
-                if rel == -1:
-                    nmins = 1
-                    minDist = dist
-                    ret = y
-                elif rel == 0:
+                if distEq(dist, minDist):
                     # Choose y such that all tied distances have an equal
                     # probability of being chosen.
                     nmins += 1
                     if gen_rand64_range(nmins) == 0:
                         ret = y
-                elif rel == 1:
-                    pass
-                else:
-                    assert False
+                elif dist < minDist:
+                    nmins = 1
+                    minDist = dist
+                    ret = y
             assert minDist != HUGE_VALF
 
         rDist[0] = minDist
         return ret
 
-    cdef bint _rnjRowAllMinOk(self, CxtDMSize x, CxtDMDist minDist):
-        cdef CxtDMSize n, y, i
-        cdef CxtDMDist *d, *rScaled
-        cdef CxtDMDist dist
+    cdef bint _rnjRowAllMinOk(self, size_t x, float minDist):
+        cdef size_t n, y, i
+        cdef float *d, *rScaled
+        cdef float dist
 
         d = self.d
         rScaled = self.rScaled
@@ -654,31 +664,31 @@ cdef class Rnj(Nj):
         # Make sure that minDist is <= any transformed distance in the row
         # portion of row x.
         if x + 1 < n:
-            i = CxDistMatrixNxy2i(n, x, x + 1)
+            i = nxy2i(n, x, x + 1)
             for x + 1 <= y < n:
                 dist = d[i] - (rScaled[x] + rScaled[y])
                 i += 1
 
-                if CxDistMatrixNjDistLt(dist, minDist):
+                if dist < minDist and not distEq(dist, minDist):
                     return False
 
         # Make sure that minDist is <= any transformed distance in the column
         # portion of row x.
         if x != 0:
-            i = CxDistMatrixNxy2i(n, 0, x)
+            i = nxy2i(n, 0, x)
             for 0 <= y < x:
                 dist = d[i] - (rScaled[y] + rScaled[x])
                 i += (n - 2 - y)
 
-                if CxDistMatrixNjDistLt(dist, minDist):
+                if dist < minDist and not distEq(dist, minDist):
                     return False
 
         return True
 
-    cdef CxtDMSize _rnjRowMinFind(self, CxtDMSize x):
-        cdef CxtDMSize ret, n, y, i
-        cdef CxtDMDist *d, *rScaled
-        cdef CxtDMDist dist, minDist
+    cdef size_t _rnjRowMinFind(self, size_t x):
+        cdef size_t ret, n, y, i
+        cdef float *d, *rScaled
+        cdef float dist, minDist
 
         d = self.d
         rScaled = self.rScaled
@@ -686,14 +696,14 @@ cdef class Rnj(Nj):
 
         # Find the minimum distance from the node on row x to any other node
         # that comes after it in the matrix.
-        i = CxDistMatrixNxy2i(n, x, x + 1)
+        i = nxy2i(n, x, x + 1)
         minDist = HUGE_VALF
         for x + 1 <= y < n:
             dist = d[i] - (rScaled[x] + rScaled[y])
             i += 1
 
-            # Don't bother using CxDistMatrixNjCompare() here, since this
-            # function is only used for deterministic RNJ.
+            # Don't bother using distEq() here, since this method is only
+            # used for deterministic RNJ.
             if dist < minDist:
                 minDist = dist
                 ret = y
@@ -706,17 +716,17 @@ cdef class Rnj(Nj):
     # true tree, in the case that the distance matrix corresponds to precisely
     # one tree (distances are additive).  If the distances are non-additive
     # though, there is no need to do this check.
-    cdef bint _rnjPairClusterAdditive(self, CxtDMSize a, CxtDMSize b):
-        cdef CxtDMSize n, iAB, iA, iB
-        cdef CxtDMDist *d, *rScaled
-        cdef CxtDMDist distA, distB, dist
+    cdef bint _rnjPairClusterAdditive(self, size_t a, size_t b):
+        cdef size_t n, iAB, iA, iB
+        cdef float *d, *rScaled
+        cdef float distA, distB, dist
 
         d = self.d
         rScaled = self.rScaled
         n = self.n
 
         # Calculate distances from {a,b} to the new node.
-        iAB = CxDistMatrixNxy2i(n, a, b)
+        iAB = nxy2i(n, a, b)
         distA = (d[iAB] + rScaled[a] - rScaled[b]) / 2
         distB = d[iAB] - distA
 
@@ -727,34 +737,31 @@ cdef class Rnj(Nj):
         # floating point error).
 
         if (b + 1 < n):
-            iA = CxDistMatrixNxy2i(n, a, b+1)
-            iB = CxDistMatrixNxy2i(n, b, b+1)
+            iA = nxy2i(n, a, b+1)
+            iB = nxy2i(n, b, b+1)
             dist = ((d[iA] - distA) + (d[iB] - distB)) / 2
-            return CxDistMatrixNjDistEq(dist + distA, \
-              d[CxDistMatrixNxy2i(n, a, b+1)])
+            return distEq(dist + distA, d[nxy2i(n, a, b+1)])
         elif a > 0:
             dist = ((d[a-1] - distA) + (d[b-1] - distB)) / 2
-            return CxDistMatrixNjDistEq(dist + distA, \
-              d[CxDistMatrixNxy2i(n, 0, a)])
+            return distEq(dist + distA, d[nxy2i(n, 0, a)])
         else:
             assert b > 1
             iA = a
             iB = b + n - 3
             dist = ((d[iA] - distA) + (d[iB] - distB)) / 2
-            return CxDistMatrixNjDistEq(dist + distA, \
-              d[CxDistMatrixNxy2i(n, a, 1)])
+            return distEq(dist + distA, d[nxy2i(n, a, 1)])
 
     # Finish checking whether it is okay to cluster rows a and b;
     # _rnjRowMinFind() or _rnjRowAllMinFind() has already done some of the work
-    # by the time this function is called.
+    # by the time this method is called.
     #
     # Two nodes, a and b, can be clustered if the transformed distance between
     # them is less than or equal to the transformed distances from a or b to
     # any other node.
-    cdef bint _rnjPairClusterOk(self, CxtDMSize a, CxtDMSize b):
-        cdef CxtDMSize n, x, iA, iB
-        cdef CxtDMDist *d, *rScaled
-        cdef CxtDMDist distAB, dist
+    cdef bint _rnjPairClusterOk(self, size_t a, size_t b):
+        cdef size_t n, x, iA, iB
+        cdef float *d, *rScaled
+        cdef float distAB, dist
 
         assert a < b
 
@@ -763,16 +770,16 @@ cdef class Rnj(Nj):
         n = self.n
 
         # Calculate the transformed distance between a and b.
-        distAB = d[CxDistMatrixNxy2i(n, a, b)] - (rScaled[a] + rScaled[b])
+        distAB = d[nxy2i(n, a, b)] - (rScaled[a] + rScaled[b])
 
         # Iterate over the row portion of distances for b.  Distances for a were
-        # already checked before this function was called.
+        # already checked before this method was called.
         if b < n - 1:
-            iB = CxDistMatrixNxy2i(n, b, b + 1)
+            iB = nxy2i(n, b, b + 1)
             for b + 1 <= x < n:
                 dist = d[iB] - (rScaled[x] + rScaled[b])
-                # Don't bother using CxDistMatrixNjDistLt() here, since
-                # this function is only used for deterministic RNJ.
+                # Don't bother using distEq() here, since this method is only
+                # used for deterministic RNJ.
                 if dist < distAB:
                     return False
                 iB += 1
@@ -782,14 +789,14 @@ cdef class Rnj(Nj):
         iB = b - 1
         for 0 <= x < a:
             dist = d[iA] - (rScaled[x] + rScaled[a])
-            # Don't bother using CxDistMatrixNjDistLt() here, since this
-            # function is only used for deterministic RNJ.
+            # Don't bother using distEq() here, since this method is only used
+            # for deterministic RNJ.
             if dist < distAB:
                 return False
 
             dist = d[iB] - (rScaled[x] + rScaled[b])
-            # Don't bother using CxDistMatrixNjDistLt() here, since this
-            # function is only used for deterministic RNJ.
+            # Don't bother using distEq() here, since this method is only used
+            # for deterministic RNJ.
             if dist < distAB:
                 return False
 
@@ -801,11 +808,11 @@ cdef class Rnj(Nj):
         x += 1
 
         # Iterate over the second column portion of distances for b.  Distances
-        # for a were already checked before this function was called.
+        # for a were already checked before this method was called.
         for x <= x < b:
             dist = d[iB] - (rScaled[x] + rScaled[b])
-            # Don't bother using CxDistMatrixNjDistLt() here, since this
-            # function is only used for deterministic RNJ.
+            # Don't bother using distEq() here, since this method is only
+            # used for deterministic RNJ.
             if dist < distAB:
                 return False
             iB += (n - 2 - x)
@@ -827,8 +834,8 @@ cdef class Rnj(Nj):
     cdef bint _rnjRandomCluster(self, bint additive) except -1:
         cdef CxtRi ri
         cdef bint clustered, done
-        cdef CxtDMSize randomRow, closestRow, x, y
-        cdef CxtDMDist dist, distX, distY
+        cdef size_t randomRow, closestRow, x, y
+        cdef float dist, distX, distY
         cdef Node node
 
         CxRiNew(&ri)
@@ -907,8 +914,8 @@ cdef class Rnj(Nj):
     #    with x again (as long as collapsing the matrix didn't move row x).
     cdef bint _rnjDeterministicCluster(self, bint additive) except -1:
         cdef bint clustered, done
-        cdef CxtDMSize x, y
-        cdef CxtDMDist distX, distY
+        cdef size_t x, y
+        cdef float distX, distY
         cdef Node node
 
         clustered = True

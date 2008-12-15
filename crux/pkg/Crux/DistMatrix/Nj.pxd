@@ -1,15 +1,14 @@
 from Crux.Tree cimport Tree, Node
 cimport Crux.Taxa as Taxa
 
-from CxDistMatrix cimport *
-from CxDistMatrixNj cimport *
-from SFMT cimport *
+cdef extern from "sys/types.h":
+    ctypedef unsigned long size_t
 
 cdef class Nj:
-    cdef CxtDMDist *dBase, *d # d is advanced as rows are removed.
-    cdef CxtDMSize nBase, n
-    cdef CxtDMDist *rBase, *r
-    cdef CxtDMDist *rScaledBase, *rScaled
+    cdef float *dBase, *d # d is advanced as rows are removed.
+    cdef size_t nBase, n
+    cdef float *rBase, *r
+    cdef float *rScaledBase, *rScaled
     cdef Tree tree
     cdef list nodes
 
@@ -18,26 +17,25 @@ cdef class Nj:
     cdef void _rScaledInit(self) except *
     cdef void _nodesInit(self, Taxa.Map taxaMap) except *
     cdef void _rScaledUpdate(self)
-    cdef void _njRandomMinFind(self, CxtDMSize *rXMin, CxtDMSize *rYMin)
-    cdef void _njDeterministicMinFind(self, CxtDMSize *rXMin, CxtDMSize *rYMin)
-    cdef Node _njNodesJoin(self, CxtDMSize xMin, CxtDMSize yMin,
-      CxtDMDist *rDistX, CxtDMDist *rDistY)
-    cdef void _njRSubtract(self, CxtDMSize xMin, CxtDMSize yMin)
-    cdef void _njCompact(self, CxtDMSize xMin, CxtDMSize yMin, Node node,
-      CxtDMDist distX, CxtDMDist distY) except *
+    cdef void _njRandomMinFind(self, size_t *rXMin, size_t *rYMin)
+    cdef void _njDeterministicMinFind(self, size_t *rXMin, size_t *rYMin)
+    cdef Node _njNodesJoin(self, size_t xMin, size_t yMin, float *rDistX,
+      float *rDistY)
+    cdef void _njRSubtract(self, size_t xMin, size_t yMin)
+    cdef void _njCompact(self, size_t xMin, size_t yMin, Node node, float distX,
+      float distY) except *
     cdef void _njDiscard(self)
     cdef void _njFinalJoin(self) except *
 
-    cdef void prepare(self, CxtDMDist *d, CxtDMSize n, Taxa.Map taxaMap) \
-      except *
+    cdef void prepare(self, float *d, size_t n, Taxa.Map taxaMap) except *
     cdef Tree nj(self, bint random)
 
 cdef class Rnj(Nj):
-    cdef CxtDMSize _rnjRowAllMinFind(self, CxtDMSize x, CxtDMDist *rDist)
-    cdef bint _rnjRowAllMinOk(self, CxtDMSize x, CxtDMDist minDist)
-    cdef CxtDMSize _rnjRowMinFind(self, CxtDMSize x)
-    cdef bint _rnjPairClusterAdditive(self, CxtDMSize a, CxtDMSize b)
-    cdef bint _rnjPairClusterOk(self, CxtDMSize a, CxtDMSize b)
+    cdef size_t _rnjRowAllMinFind(self, size_t x, float *rDist)
+    cdef bint _rnjRowAllMinOk(self, size_t x, float minDist)
+    cdef size_t _rnjRowMinFind(self, size_t x)
+    cdef bint _rnjPairClusterAdditive(self, size_t a, size_t b)
+    cdef bint _rnjPairClusterOk(self, size_t a, size_t b)
     cdef bint _rnjRandomCluster(self, bint additive) except -1
     cdef bint _rnjDeterministicCluster(self, bint additive) except -1
     cdef rnj(self, bint random, bint additive)
