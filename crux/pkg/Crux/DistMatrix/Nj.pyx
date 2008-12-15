@@ -824,7 +824,7 @@ cdef class Rnj(Nj):
     #    and y would violate additivity, by calling _rnjPairClusterAdditive().
     #
     # 2) Check whether it is okay to cluster x and y, by calling _rnjAllMinOk().
-    cdef void _rnjRandomCluster(self, bint additive) except *:
+    cdef bint _rnjRandomCluster(self, bint additive) except -1:
         cdef CxtRi ri
         cdef bint clustered, done
         cdef CxtDMSize randomRow, closestRow, x, y
@@ -886,6 +886,7 @@ cdef class Rnj(Nj):
         finally:
             CxRiDelete(&ri)
 #        self._njDump()
+        return additive
 
     # Iteratively try all clusterings of two rows in the matrix.  Do this in a
     # cache-friendly manner (keeping in mind that the matrix is stored in
@@ -904,7 +905,7 @@ cdef class Rnj(Nj):
     #
     # 3) If x and y can be clustered, do so, then immediately try to cluster
     #    with x again (as long as collapsing the matrix didn't move row x).
-    cdef void _rnjDeterministicCluster(self, bint additive) except *:
+    cdef bint _rnjDeterministicCluster(self, bint additive) except -1:
         cdef bint clustered, done
         cdef CxtDMSize x, y
         cdef CxtDMDist distX, distY
@@ -950,17 +951,18 @@ cdef class Rnj(Nj):
                 else:
                     x += 1
 #        self._njDump()
+        return additive
 
-    cdef Tree rnj(self, bint random, bint additive):
+    cdef rnj(self, bint random, bint additive):
         assert self.tree is not None # Was self.prepare() called?
 
         if random:
-            self._rnjRandomCluster(additive)
+            additive = self._rnjRandomCluster(additive)
         else:
-            self._rnjDeterministicCluster(additive)
+            additive = self._rnjDeterministicCluster(additive)
 
         # Join last two nodes.
 #        self._njDump()
         self._njFinalJoin()
 
-        return self.tree
+        return (self.tree, additive)

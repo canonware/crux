@@ -298,7 +298,7 @@ updated.
         if self.rooted:
             base = self._base
             assert base is not None
-            assert base._degreeGet() <= 1
+            assert base._degreeGet(calculate=True) <= 1
         else:
             # Find the minimum taxon before canonizing, and set it as the tree
             # base.  This is critical to correct results, since starting from
@@ -323,25 +323,42 @@ updated.
         ring._other._canonize(taxaMap)
 
     cpdef int collapse(self) except -1:
-        cdef list collapsable
+        cdef list collapsable, clampable
+        cdef Node minTaxon
         cdef Ring ring, r
+        cdef Edge edge
 
         if self._base is None:
             return 0
 
+        # If the base is an internal node, move the base in order to keep from
+        # losing the tree, should the current base node be removed from the
+        # tree.
+        if self._base._degreeGet(calculate=True) > 1:
+            self.base = self._base._ring._other._someLeaf()
+        assert self._base._degreeGet() <= 1
+
         # Generate a list of collapsable edges (but actually store rings in the
         # list, in order to be able to tell which end of the edge is closer to
         # the tree base).
+        #
+        # Also generate a list of clampablel edge.  Leaf edges cannot be
+        # removed, but their lengths can be clamped at 0.0.
         ring = self._base._ring
         if ring is None:
             return 0
         collapsable = []
+        clampable = []
         for r in ring:
-            r._other._collapsable(collapsable)
+            r._other._collapsable(collapsable, clampable)
 
         # Collapse edges.
         for r in collapsable:
             r._collapse()
+
+        # Clamp leaf edge lengths.
+        for edge in clampable:
+            edge.length = 0.0
 
         return len(collapsable)
 
@@ -776,6 +793,15 @@ cdef class Ring:
 
         return ret
 
+    cdef Node _someLeaf(self):
+        cdef Ring next
+
+        next = self._next
+        if next is self:
+            return self._node
+        else:
+            return next._other._someLeaf()
+
     cdef Node _canonize(self, Taxa.Map taxaMap):
         cdef Node ret, minTaxon, node, nodeOther
         cdef int degree
@@ -786,7 +812,7 @@ cdef class Ring:
         node = self._node
         ret = node
 
-        degree = node._degreeGet()
+        degree = node._degreeGet(calculate=True)
         if degree > 1:
             rings = []
 
@@ -820,12 +846,12 @@ cdef class Ring:
 
         return ret
 
-    cdef void _collapsable(self, list collapsable) except *:
+    cdef void _collapsable(self, list collapsable, list clampable) except *:
         cdef Ring ring
         cdef Edge edge
 
         for ring in self.siblings():
-            ring._other._collapsable(collapsable)
+            ring._other._collapsable(collapsable, clampable)
 
         edge = self._edge
         if edge._length <= 0.0:
@@ -834,7 +860,7 @@ cdef class Ring:
                 collapsable.append(self)
             else:
                 # Leaf node.  Clamp length.
-                edge.length = 0.0
+                clampable.append(edge)
 
     cdef void _collapse(self):
         cdef Ring rOther, rTemp

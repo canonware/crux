@@ -1,1 +1,1 @@
-cpdef seed(int s)
+cpdef seed(unsigned s)

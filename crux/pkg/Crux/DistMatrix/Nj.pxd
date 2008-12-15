@@ -38,6 +38,6 @@ cdef class Rnj(Nj):
     cdef CxtDMSize _rnjRowMinFind(self, CxtDMSize x)
     cdef bint _rnjPairClusterAdditive(self, CxtDMSize a, CxtDMSize b)
     cdef bint _rnjPairClusterOk(self, CxtDMSize a, CxtDMSize b)
-    cdef void _rnjRandomCluster(self, bint additive) except *
-    cdef void _rnjDeterministicCluster(self, bint additive) except *
-    cdef Tree rnj(self, bint random, bint additive)
+    cdef bint _rnjRandomCluster(self, bint additive) except -1
+    cdef bint _rnjDeterministicCluster(self, bint additive) except -1
+    cdef rnj(self, bint random, bint additive)

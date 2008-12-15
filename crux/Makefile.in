@@ -25,6 +25,7 @@ PXDS := @pxds@
 PYXS := @pyxs@
 PKGS := @pkgs@
 PYS := @pys@
+BINS := @bins@
 TESTS := @tests@
 
 # Default target.
@@ -50,21 +51,25 @@ CYCS := $(PYXS:%.pyx=%.c) $(PKGS:%.pyx=%.c)
 
 dist: $(FLCS) $(CYCS)
 
-run: @objroot@build/run/bin/crux \
-		$(CYCS:@srcroot@pkg/%.c=@objroot@build/run/site-packages/%.so) \
-		$(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%)
+run: $(CYCS:@srcroot@pkg/%.c=@objroot@build/run/site-packages/%.so) \
+    $(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%) \
+    $(BINS:@srcroot@bin/%=@objroot@build/run/bin/%)
 	@mkdir -p @objroot@build/run/share/Crux/parsers
 
-inst: pickles @objroot@build/inst/bin/crux \
-	$(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) \
-	$(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)
+inst: pickles \
+    $(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) \
+    $(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%) \
+    $(BINS:@srcroot@bin/%=@objroot@build/inst/bin/%)
 
 pickles: run
 	@objroot@build/run/bin/crux --verbose @srcroot@pickles.cx
 
 install: inst
 	install -d @BINDIR@
-	install -m 755 @objroot@build/inst/bin/crux @BINDIR@
+	@for b in $(BINS); do \
+	echo "install -m 755 @objroot@build/inst/bin/`basename $$b` @BINDIR@"; \
+	install -m 755 @objroot@build/inst/bin/`basename $$b` @BINDIR@; \
+done
 	install -d @DATADIR@/Crux/lib
 	install -m 755 @objroot@build/inst/share/Crux/lib/libCx.so @DATADIR@/Crux/lib
 	install -d @DATADIR@/Crux/parsers

@@ -2,7 +2,6 @@
 
 import optparse
 import os
-import random
 import sys
 import time
 
@@ -15,23 +14,23 @@ class CruxHelpFormatter(optparse.IndentedHelpFormatter):
     def format_usage(self, usage):
         return """crux usage:
     crux -h | --help
-    crux --version
-    crux [<options>] [<infile>] [- [<scriptargs>]]
+    crux -V | --version
+    crux [<options>] [<file>] [- [<scriptargs>]]
 
-    Option               | Description
-    ---------------------+------------------------------------------------------
-    --help         or -h | Print usage and exit.
-    --version            | Print version information and exit.
-    --batch        or -b | Run in batch mode.
-    --interactive  or -i | Run in interactive mode.
-    --verbose      or -v | Enable verbose output.
-    --quiet        or -q | Disable verbose output.
-    --seed=<int>         | Specify random number generator seed.
-    --infile=<infile>    | Read input from <infile>.
+    Option                     | Description
+    ---------------------------+------------------------------------------------
+    -h, --help                 | Print usage and exit.
+    -V, --version              | Print version information and exit.
+    -b, --batch                | Run in batch mode.
+    -i, --interactive          | Run in interactive mode.
+    -v, --verbose              | Enable verbose output.
+    -q, --quiet                | Disable verbose output.
+    -s <int>, --seed=<int>     | Set pseudo-random number generator seed.
+    -f <file>, --file=<file>   | Read input from <file>.
 
     Trailing argument(s) | Description
     ---------------------+------------------------------------------------------
-    <infile>             | Read input from <infile> (same as --infile=<infile>).
+    <file>               | Read input from <file> (same as --file=<file>).
     - [<scriptargs>]     | Provide <scriptargs> arguments to script.
 
 crux runs interactively and verbosely by default, unless an input file is
@@ -45,7 +44,7 @@ def parse_options():
     parser.disable_interspersed_args()
     parser.add_option("-h", "--help", dest="help", action="store_true",
       default=False)
-    parser.add_option("--version", dest="version", action="store_true",
+    parser.add_option("-V", "--version", dest="version", action="store_true",
       default=False)
     parser.add_option("-i", "--interactive", dest="batch", action="store_false")
     parser.add_option("-b", "--batch", dest="batch", action="store_true",
@@ -53,8 +52,8 @@ def parse_options():
     parser.add_option("-q", "--quiet", dest="verbose", action="store_false")
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
       default=None)
-    parser.add_option("--seed", dest="seed", type="int", default=None)
-    parser.add_option("--infile", dest="infile", default=None)
+    parser.add_option("-s", "--seed", dest="seed", type="int", default=None)
+    parser.add_option("-f", "--file", dest="infile", default=None)
     parser.add_option("--__execed", dest="execed", action="store_true",
       default=False)
 
@@ -91,7 +90,7 @@ def parse_options():
 
     return opts
 
-#
+#===============================================================================
 # Beginning of main execution.
 #
 

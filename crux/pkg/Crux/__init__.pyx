@@ -21,7 +21,7 @@ cimport Crux.Newick as Newick
 cimport Crux.Taxa as Taxa
 cimport Crux.Tree as Tree
 
-cpdef seed(int s):
+cpdef seed(unsigned s):
     import Config
     Config.seed = s
     import random

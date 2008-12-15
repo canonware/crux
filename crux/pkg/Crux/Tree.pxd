@@ -91,8 +91,9 @@ cdef class Ring:
     cpdef siblings(self) # Iterator.
 
     cdef Node _minTaxon(self, Taxa.Map taxaMap)
+    cdef Node _someLeaf(self)
     cdef Node _canonize(self, Taxa.Map taxaMap)
-    cdef void _collapsable(self, list collapsable) except *
+    cdef void _collapsable(self, list collapsable, list clampable) except *
     cdef void _collapse(self)
     cdef int _separation(self, Node other, int sep)
 

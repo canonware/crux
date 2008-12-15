@@ -355,6 +355,7 @@ cdef class DistMatrix:
                     self.dists[CxDistMatrixNxy2i(sampleSize, i, j)] = \
                       other.dists[CxDistMatrixNxy2i(other.ntaxa, sample[i], \
                       sample[j])]
+        self.additive = other.additive
 
     cdef void _parse(self, input) except *:
         cdef Parser parser
@@ -403,6 +404,7 @@ Construct a tree using the relaxed neighbor joining (RNJ) algorithm.  This
 operation discards the matrix contents, so maintain a duplicate matrix if
 needed.
 """
+        cdef Tree ret
         cdef Nj.Rnj rnj
 
         rnj = Nj.Rnj()
@@ -411,7 +413,8 @@ needed.
         self.dists = NULL
         self.ntaxa = 0
 
-        return rnj.rnj(random, additive)
+        (ret, self.additive) = rnj.rnj(random, additive)
+        return ret
 
     cdef void _rowsSwap(self, CxtDMSize a, CxtDMSize b):
         cdef CxtDMSize i

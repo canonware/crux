@@ -1,0 +1,223 @@
+#!@PYTHON@@python_opts@
+
+import optparse
+import sys
+import time
+
+if "@site_packages@" not in sys.path:
+    sys.path.insert(0, "@site_packages@")
+import Crux
+
+# Create a help formatter subclass for the command line parser.
+class MrRogersHelpFormatter(optparse.IndentedHelpFormatter):
+    def format_usage(self, usage):
+        return """\
+MrRogers (won't you be my neighbor?), is very similar in function and scope to
+the Clearcut program (http://bioinformatics.hungry.com/clearcut/).  It
+implements Relaxed neigbhor joining (RNJ) and neighbor joining (NJ), using
+either pairwise distances (PHYLIP-like distance matrix format), or aligned
+sequences (FASTA format) as input.
+
+MrRogers usage:
+  MrRogers -h | --help
+  MrRogers -V | -version
+  MrRogers [<options>]
+
+  General options:
+    -h, --help               Print usage and exit.
+    -V, --version            Print version information and exit.
+    -v, --verbose            Enable verbose output (*disabled).
+    -q, --quiet              Disable verbose output (*enabled).
+    -s <int>, --seed=<int>   Set pseudo-random number generator seed
+                               (*based on system time, microsecond resolution).
+    -r, --norandom           Attempt joins deterministically (*disabled).
+    -A, --noadditive         Do not check for additivity (*disabled).  (Clearcut
+                               does not support this option.)
+    -S, --shuffle            Randomly shuffle the distance matrix (*disabled).
+    -N, --neighbor           Use NJ rather than RNJ (*disabled).
+
+  Input options:
+    -I, --stdin              Read from standard input (*enabled).
+    -i <file>, --in=<file>   Read from <file>.
+    -d, --distance           Read input as distance matrix (*enabled).
+    -a, --alignment          Read input as an alignment (*disabled).
+    -D, --DNA                Read input alignment as DNA (*enabled).
+    -P, --protein            Read input alignment as protein (*disabled).
+
+  Distance correction model
+  options:
+    -j, --jukes              Use Jukes-Cantor correction (*disabled).
+    -k, --kimura             Use Kimura correction (*disabled).
+
+  Output options:
+    -O, --stdout             Write to standard output (*enabled).
+    -o <file>, --out=<file>  Write to <file>.
+    -m, --matrixout=<file>   Write distance matrix to <file> (*disabled).
+    -n, --ntrees=<int>       Generate <int> trees (*1).
+    -c, --collapse           Collapse negative-/zero-length branches
+                               (*disabled).  (Clearcut does not support this
+                               option.)
+    -C, --canonize           Canonize trees (*disabled).  (Clearcut does not
+                               support this option.)
+    -e, --expblen            Write branch lengths using exponential notation
+                               (*disabled).
+    -E, --expdist            Write pairwise distances using exponential notation
+                               (*disabled).
+
+Examples:
+  Create an RNJ tree from a distance matrix:
+    MrRogers --distance < distances.dist > treefile.tre
+
+  Create an RNJ tree from a DNA alignment:
+    MrRogers --alignment --DNA -in=alignment.fasta --out=treefile.tre
+"""
+
+# Process the command line.
+def parse_options():
+    helpformatter = MrRogersHelpFormatter()
+    parser = optparse.OptionParser(formatter=helpformatter, add_help_option=0)
+    parser.disable_interspersed_args()
+    parser.add_option("-h", "--help", dest="help", action="store_true",
+      default=False)
+    parser.add_option("-V", "--version", dest="version", action="store_true",
+      default=False)
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
+      default=False)
+    parser.add_option("-q", "--quiet", dest="verbose", action="store_false")
+    parser.add_option("-s", "--seed", dest="seed", type="int",
+      default=int(time.time() * 1000000) & 0xffffffff)
+    parser.add_option("-r", "--norandom", dest="random", action="store_false",
+      default=True)
+    parser.add_option("-A", "--noadditive", dest="additive",
+      action="store_false", default=True)
+    parser.add_option("-S", "--shuffle", dest="shuffle", action="store_true",
+      default=False)
+    parser.add_option("-N", "--neighbor", dest="neighbor", action="store_true",
+      default=False)
+
+    parser.add_option("-I", "--stdin", dest="in_", action="store_const",
+      const=None)
+    parser.add_option("-i", "--in", dest="in_", default=None)
+    parser.add_option("-d", "--distance", dest="distance", action="store_true",
+      default=True)
+    parser.add_option("-a", "--alignment", dest="distance",
+      action="store_false")
+    parser.add_option("-D", "--DNA", dest="dna", action="store_true",
+      default=True)
+    parser.add_option("-P", "--protein", dest="dna", action="store_false")
+
+    parser.add_option("-j", "--jukes", dest="correction", action="store_const",
+      const="jukes", default=None)
+    parser.add_option("-k", "--kimura", dest="correction", action="store_const",
+      const="kimura")
+
+    parser.add_option("-O", "--stdout", dest="out", action="store_const",
+      const=None)
+    parser.add_option("-o", "--out", dest="out", default=None)
+    parser.add_option("-m", "--matrixout", dest="matrixout", default=None)
+    parser.add_option("-n", "--ntrees", dest="ntrees", type="int", default=1)
+    parser.add_option("-c", "--collapse", dest="collapse", action="store_true",
+      default=False)
+    parser.add_option("-C", "--canonize", dest="canonize", action="store_true",
+      default=False)
+    parser.add_option("-e", "--expblen", dest="blenFormat",
+      action="store_const", const="%.6e", default="%.6f")
+    parser.add_option("-E", "--expdist", dest="distFormat",
+      action="store_const", const="%.6e", default="%.6f")
+
+    (opts, extra) = parser.parse_args()
+    if (len(extra) > 0):
+        print >> sys.stderr, "Incorrect command line usage"
+        print >> sys.stderr, helpformatter.format_usage("")
+        sys.exit(1)
+
+    if opts.help:
+        print helpformatter.format_usage("")
+        sys.exit(0)
+
+    if opts.version:
+        print "MrRogers, version @crux_version@"
+        sys.exit(0)
+
+    if opts.in_ is None:
+        opts.in_ = "<stdin>"
+        opts.infile = sys.stdin
+    else:
+        opts.infile = open(opts.in_, "r")
+
+    if opts.out is None:
+        opts.out = "<stdout>"
+        opts.outfile = sys.stdout
+    else:
+        opts.outfile = open(opts.out, "w+")
+
+    if opts.matrixout is not None:
+        opts.matrixoutfile = open(opts.matrixout, "w+")
+
+    return opts
+
+#===============================================================================
+# Beginning of main execution.
+
+# Parse command line options.
+opts = parse_options()
+
+# Seed the PRNG.
+if opts.verbose:
+    print "PRNG SEED: %d" % opts.seed
+Crux.seed(opts.seed)
+
+# Read input.
+if opts.distance:
+    matrix = Crux.DistMatrix.DistMatrix(opts.infile)
+else:
+    cTMatrix = Crux.CTMatrix.CTMatrix(opts.infile,
+      charType=(Crux.Character.Dna if opts.dna else Crux.Character.Protein))
+    matrix = cTMatrix.distances(correction=opts.correction)
+
+if opts.matrixout is not None:
+    matrix.render(format="lower", distFormat=opts.distFormat,
+      outFile=opts.matrixoutfile)
+
+for i in xrange(opts.ntrees):
+    # Only use a duplicate matrix if generating more trees; it's okay to
+    # destroy the input matrix on the last iteration.
+    if i + 1 == opts.ntrees:
+        m = matrix
+    else:
+        m = Crux.DistMatrix.DistMatrix(matrix)
+
+    if opts.shuffle:
+        m.shuffle()
+
+    if opts.verbose:
+        start = time.time()
+
+    if opts.neighbor:
+        tree = m.nj(joinRandom=opts.random, destructive=True)
+    else:
+        tree = m.rnj(joinRandom=opts.random, tryAdditive=opts.additive,
+          destructive=True)
+
+    if opts.verbose:
+        stop = time.time()
+        if not opts.neighbor:
+            print "Tree is%s additive" % ("" if m.additive else " not")
+        print "%s tree built in %.6f secs" % \
+          (("NJ" if opts.neighbor else "RNJ"), (stop - start))
+
+    if opts.collapse:
+        ncollapsed = tree.collapse()
+        if opts.verbose and ncollapsed > 0:
+            print "Collapsed %d edge%s" % \
+              (ncollapsed, ("" if ncollapsed == 1 else "s"))
+
+    if opts.canonize:
+        tree.canonize(m.taxaMap)
+
+    tree.render(lengths=True, lengthFormat=opts.blenFormat,
+      outFile=opts.outfile)
+
+if opts.verbose:
+    print "%sNJ tree(s) in %s" % (("" if opts.neighbor else "Relaxed "),
+      opts.out)

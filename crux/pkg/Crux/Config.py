@@ -16,6 +16,6 @@ debug = (True if @enable_debug@ else False)
 # front end.
 batch = True
 verbose = True
-Crux.seed(int(time.time())) # Sets Config.seed.
+Crux.seed(int(time.time() * 1000000) & 0xffffffff) # Sets Config.seed.
 infile = None
 scriptargs = []

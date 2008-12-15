@@ -1,3 +1,6 @@
+# Forward declaration.
+cdef class DistMatrix
+
 from Crux.Tree cimport Tree
 cimport Crux.Taxa as Taxa
 
@@ -7,6 +10,7 @@ cdef class DistMatrix:
     cdef readonly Taxa.Map taxaMap
     cdef CxtDMDist *dists
     cdef readonly CxtDMSize ntaxa
+    cdef readonly bint additive # Unspecified unless rnj() has been used.
 
     cdef void _parse(self, input) except *
     cdef void _allocDists(self, CxtDMSize ntaxa) except *

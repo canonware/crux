@@ -428,14 +428,14 @@ done
 dnl Flex sources.  csrcs uses fsrcs to avoid multiple listing, so fsrcs must be
 dnl generated first.
 fsrcs=""
-for f in `find ${srcroot}lib -type f |grep "Cx[[A-Za-z0-9]]*\.l$" |sort` ; do
+for f in `find ${srcroot}lib -type f |grep "/Cx[[A-Za-z0-9]]*\.l$" |sort` ; do
   fsrcs="${fsrcs} ${f}"
 done
 AC_SUBST([fsrcs])
 
 dnl C sources.
 csrcs=""
-for s in `find ${srcroot}lib -type f |grep "[[A-Za-z0-9]]*\.c$" |sort` ; do
+for s in `find ${srcroot}lib -type f |grep "/[[A-Za-z0-9]]*\.c$" |sort` ; do
   is_fsrc="0"
   for f in ${fsrcs} ; do
     c="`dirname ${f}`/`basename ${f} .l`.c"
@@ -451,7 +451,7 @@ AC_SUBST([csrcs])
 
 dnl Cython headers.
 pxds=""
-for d in `find ${srcroot}pkg -type f |grep "\.pxd$" |sort` ; do
+for d in `find ${srcroot}pkg -type f |grep "/[[A-Za-z0-9_]]*\.pxd$" |sort` ; do
   pxds="${pxds} ${d}"
 done
 AC_SUBST([pxds])
@@ -459,7 +459,7 @@ AC_SUBST([pxds])
 dnl Cython module/package sources.
 pyxs=""
 pkgs=""
-for s in `find ${srcroot}pkg -type f |grep "\.pyx$" |sort` ; do
+for s in `find ${srcroot}pkg -type f |grep "/[[A-Za-z0-9_]]*\.pyx$" |sort` ; do
   if test "`basename ${s} .pyx`" != "__init__" ; then
     pyxs="${pyxs} ${s}"
   else
@@ -471,14 +471,21 @@ AC_SUBST([pkgs])
 
 dnl Python modules.
 pys=""
-for s in `find ${srcroot}pkg -type f |grep "\.py$" |sort` ; do
+for s in `find ${srcroot}pkg -type f |grep "/[[A-Za-z0-9_]]*\.py$" |sort` ; do
   pys="${pys} ${s}"
 done
 AC_SUBST([pys])
 
+dnl Executables.
+bins=""
+for b in `find ${srcroot}bin -type f |grep "/[[A-Za-z0-9]]*$" |sort` ; do
+  bins="${bins} ${b}"
+done
+AC_SUBST([bins])
+
 dnl Tests.
 tests=""
-for t in `find ${srcroot}test -type f |grep "\.cx$" |sort`; do
+for t in `find ${srcroot}test -type f |grep "/[[A-Za-z0-9_]]*\.cx$" |sort`; do
   tests="${tests} ${t}"
 done
 AC_SUBST([tests])

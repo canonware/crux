@@ -134,6 +134,7 @@ dAtAt = {
     "pyxs": "@pyxs@",
     "pkgs": "@pkgs@",
     "pys": "@pys@",
+    "bins": "@bins@",
     "tests": "@tests@",
 
     "cfghdrs": "@cfghdrs@",
