@@ -226,8 +226,7 @@ for (i, indir) in includes:
             deps.add(os.path.normpath(path))
             break
     else:
-        print >> sys.stderr, "Unresolvable #include: %r" % i
-        sys.exit(1)
+        depfile.write("# Unresolvable: #include %r\n" % i)
 
 # Resolve cimport dependencies.
 for (i, indir) in cimports:

@@ -174,7 +174,15 @@ if opts.distance:
 else:
     cTMatrix = Crux.CTMatrix.CTMatrix(opts.infile,
       charType=(Crux.Character.Dna if opts.dna else Crux.Character.Protein))
-    matrix = cTMatrix.distances(correction=opts.correction)
+    alignment = Crux.CTMatrix.Alignment(matrix=cTMatrix)
+    if opts.correction is None:
+        matrix = alignment.dists()
+    elif opts.correction is "jukes":
+        matrix = alignment.jukesDists()
+    elif opts.correction is "kimura":
+        matrix = alignment.kimuraDists() # XXX
+    else:
+        assert False
 
 if opts.matrixout is not None:
     matrix.render(format="lower", distFormat=opts.distFormat,

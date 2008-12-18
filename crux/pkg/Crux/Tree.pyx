@@ -434,7 +434,7 @@ updated.
         else:
             self._renderFile.write(s)
 
-    cpdef str render(self, bint lengths=False, lengthFormat="%.5e",
+    cpdef str render(self, bint lengths=False, lengthFormat="%.7e",
       Taxa.Map taxaMap=None, file outFile=None):
         cdef str ret
         cdef Node n, neighbor

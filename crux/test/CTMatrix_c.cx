@@ -1,0 +1,20 @@
+print "Test begin"
+
+dnaChar = Crux.Character.Dna()
+map = Crux.Taxa.Map([Crux.Taxa.get(label) for label in
+  ('Taxon_A', 'Taxon_B', 'Taxon_C')])
+matrix = Crux.CTMatrix.CTMatrix(taxaMap=map)
+
+print "Taxa map: %r" % ([taxon.label for taxon in matrix.taxaMap.taxaGet()])
+
+matrix.dataSet(Crux.Taxa.get("Taxon_B"), "CCCCC")
+print "Taxon_B data: %r" % matrix.dataGet(Crux.Taxa.get("Taxon_B"))
+
+matrix.dataSet(Crux.Taxa.get("Taxon_A"), "AAAAA")
+matrix.dataSet(Crux.Taxa.get("Taxon_C"), "GGGG")
+matrix.dataSet(Crux.Taxa.get("Taxon_D"), "TTTTT")
+
+alignment = Crux.CTMatrix.Alignment(matrix=matrix, pad='-')
+print alignment.fastaPrint()
+
+print "Test end"

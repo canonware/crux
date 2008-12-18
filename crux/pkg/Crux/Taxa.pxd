@@ -7,8 +7,8 @@ cpdef Taxon get(str label)
 
 cdef class Map:
     cdef dict _taxon2ind, _ind2taxon
+    cdef readonly int ntaxa
 
-    # property ntaxa
     cpdef Taxon taxonGet(self, int ind)
     cpdef int indGet(self, Taxon taxon)
     cpdef list taxaGet(self)

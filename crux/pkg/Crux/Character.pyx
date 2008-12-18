@@ -1,14 +1,14 @@
-################################################################################
+#===============================================================================
 #
 # The Character class encapsulates the functionality that is necessary to
 # map character codes to bit vectors (as well as the reverse mapping).  Under
 # normal circumstances, there are only a few Character instances, though
 # many characters may refer to them.
 #
-# The Dna and Protein classes are pre-configured to
-# support the standard codes.
+# The dna and protein instances are pre-configured to support the standard
+# codes.
 #
-################################################################################
+#===============================================================================
 
 import Crux.Exception
 
@@ -27,10 +27,22 @@ class ValueError(Exception, exceptions.ValueError):
 cimport Crux.DistMatrix as DistMatrix
 
 cdef class Character:
-    def __init__(self):
+    def __init__(self, list states=[], dict ambiguities={}, dict aliases={}):
+        cdef str state, ambiguity, alias
+
+        self.any = 0 # Union of all primary states.
         self._pStates = {} # Primary states.
         self._aStates = {} # All states (including primary states).
         self._vals = {} # Reverse lookup of states.
+
+        for state in states:
+            self._stateCodeAdd(state)
+
+        for ambiguity in ambiguities:
+            self._ambiguityCodeAdd(ambiguity, ambiguities[ambiguity])
+
+        for alias in aliases:
+            self._aliasCodeAdd(alias, aliases[alias])
 
     cpdef int nstates(self):
         return len(self._pStates)
@@ -39,7 +51,7 @@ cdef class Character:
         return self._aStates.keys()
 
     # Define state code.
-    cpdef stateCodeAdd(self, str code):
+    cdef void _stateCodeAdd(self, str code) except *:
         cdef int pval, val
 
         if self._aStates.has_key(code):
@@ -52,10 +64,13 @@ cdef class Character:
         val = 1 << (pval - 1)
         self._aStates[code] = val
 
+        # Merge into any.
+        self.any |= val
+
         # Create a reverse lookup (val --> code).
         self._vals[val] = code
 
-    cpdef ambiguityCodeAdd(self, str code, list oStates=None):
+    cdef void _ambiguityCodeAdd(self, str code, list oStates) except *:
         cdef int val
         cdef str oState
 
@@ -65,7 +80,7 @@ cdef class Character:
         # Define a key in _ambiguities that makes it possible to get the state's
         # value in constant time.
         val = 0
-        if oStates != None:
+        if oStates is not None:
             for oState in oStates:
                 val |= self._aStates[oState]
         self._aStates[code] = val
@@ -74,7 +89,7 @@ cdef class Character:
         if not self._vals.has_key(val):
             self._vals[val] = code
 
-    cpdef aliasCodeAdd(self, str code, str oState):
+    cdef void _aliasCodeAdd(self, str code, str oState) except *:
         cdef int val
 
         if self._aStates.has_key(code):
@@ -105,56 +120,129 @@ cdef class Character:
 
         return self._vals[val]
 
+#===============================================================================
+
+# Forward declaration.
+cdef class Dna(Character)
+
+cdef Dna dna
+
 cdef class Dna(Character):
+    """
+Character codes for DNA/RNA nucleotides.
+"""
     def __init__(self):
-        Character.__init__(self)
+        global dna
 
-        states = ['T', 'G', 'C', 'A']
-        for state in states:
-            self.stateCodeAdd(state)
+        assert dna is None
+        Character.__init__(self,
+          states=['T', 'G', 'C', 'A'],
+          ambiguities={
+            'K' : ['T', 'G'          ],
+            'Y' : ['T',      'C'     ],
+            'S' : [     'G', 'C'     ],
+            'B' : ['T', 'G', 'C'     ],
+            'W' : ['T',           'A'],
+            'R' : [     'G',      'A'],
+            'D' : ['T', 'G',      'A'],
+            'M' : [          'C', 'A'],
+            'H' : ['T',      'C', 'A'],
+            'V' : [     'G', 'C', 'A'],
+            'N' : ['T', 'G', 'C', 'A'],
+            '-' : [                  ]
+          },
+          aliases={
+            'U': 'T', # RNA.
+            'u': 'T', # RNA.
+            't': 'T',
+            'g': 'G',
+            'k': 'K',
+            'c': 'C',
+            'y': 'Y',
+            's': 'S',
+            'b': 'B',
+            'a': 'A',
+            'w': 'W',
+            'r': 'R',
+            'd': 'D',
+            'm': 'M',
+            'h': 'H',
+            'v': 'V',
+            'n': 'N',
+            '?': 'N',
+            '.': '-'
+          }
+        )
 
-        ambiguities = {'K' : ['T', 'G'          ],
-                       'Y' : ['T',      'C'     ],
-                       'S' : [     'G', 'C'     ],
-                       'B' : ['T', 'G', 'C'     ],
-                       'W' : ['T',           'A'],
-                       'R' : [     'G',      'A'],
-                       'D' : ['T', 'G',      'A'],
-                       'M' : [          'C', 'A'],
-                       'H' : ['T',      'C', 'A'],
-                       'V' : [     'G', 'C', 'A'],
-                       '-' : ['T', 'G', 'C', 'A']}
-        for ambiguity in ambiguities:
-            self.ambiguityCodeAdd(ambiguity, ambiguities[ambiguity])
+    def get(cls):
+        global dna
 
-        aliases = {'t': 'T',
-                   'g': 'G',
-                   'k': 'K',
-                   'c': 'C',
-                   'y': 'Y',
-                   's': 'S',
-                   'b': 'B',
-                   'a': 'A',
-                   'w': 'W',
-                   'r': 'R',
-                   'd': 'D',
-                   'm': 'M',
-                   'h': 'H',
-                   'v': 'V',
-                   'N': '-',
-                   'n': '-',
-                   'X': '-',
-                   'x': '-'}
-        for alias in aliases:
-            self.aliasCodeAdd(alias, aliases[alias])
+        if dna is None:
+            dna = Dna()
+        return dna
+    get = classmethod(get)
+
+#===============================================================================
+
+# Forward declaration.
+cdef class Protein(Character)
+
+cdef Protein protein
 
 cdef class Protein(Character):
+    """
+Character codes for protein amino acids.
+"""
     def __init__(self):
-        Character.__init__(self)
+        global protein
 
-        states = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M',
-                  'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
-        for state in states:
-            self.stateCodeAdd(state)
+        assert protein is None
+        Character.__init__(self,
+          states=[
+            'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M',
+            'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'Y', '*'
+          ],
+          ambiguities={
+            'B': ['D', 'N'],
+            'Z': ['E', 'Q'],
+            'X': ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M',
+                  'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'Y', '*'],
+            '-': []
+          },
+          aliases={
+            'a': 'A',
+            'b': 'B',
+            'c': 'C',
+            'd': 'D',
+            'e': 'E',
+            'f': 'F',
+            'g': 'G',
+            'h': 'H',
+            'i': 'I',
+            'k': 'K',
+            'l': 'L',
+            'm': 'M',
+            'n': 'N',
+            'p': 'P',
+            'q': 'Q',
+            'r': 'R',
+            's': 'S',
+            't': 'T',
+            'u': 'U',
+            'v': 'V',
+            'w': 'W',
+            'x': 'X',
+            'y': 'Y',
+            'z': 'Z',
+            '?': 'X',
+            '.': '-'
+          }
+        )
 
-        self.ambiguityCodeAdd('-', states)
+    def get(cls):
+        global protein
+
+        if protein is None:
+            protein = Protein()
+        return protein
+    get = classmethod(get)

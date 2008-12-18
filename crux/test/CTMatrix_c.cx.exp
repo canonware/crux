@@ -1,0 +1,10 @@
+Test begin
+Taxa map: ['Taxon_A', 'Taxon_B', 'Taxon_C']
+Taxon_B data: 'CCCCC'
+>Taxon_A
+AAAAA
+>Taxon_B
+CCCCC
+>Taxon_C
+GGGG-
+Test end

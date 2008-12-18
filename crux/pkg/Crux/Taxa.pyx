@@ -22,7 +22,8 @@ cdef class Taxon:
         return cmp(self.label, other.label)
 
     def __hash__(self):
-        return id(self)
+#        return self.label.__hash__()
+        return <int>(id(self) & 0x7fffffff) # Fragile, but faster than above.
 
     def __repr__(self):
         return "Crux.Taxon.taxon('%s')" % self.label
@@ -55,9 +56,7 @@ cdef class Map:
                 self._taxon2ind[taxon] = i
                 self._ind2taxon[i] = taxon
 
-    property ntaxa:
-        def __get__(self):
-            return len(self._ind2taxon)
+        self.ntaxa = len(self._ind2taxon)
 
     cpdef Taxon taxonGet(self, int ind):
         try:
@@ -110,3 +109,4 @@ cdef class Map:
 
         self._taxon2ind[taxon] = ind
         self._ind2taxon[ind] = taxon
+        self.ntaxa = len(self._ind2taxon)

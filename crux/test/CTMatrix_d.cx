@@ -1,0 +1,19 @@
+import sys
+
+from Crux import Character
+
+print "Test begin"
+
+f = open(Crux.Config.scriptargs[1] + "/test/treezilla.fasta")
+matrix = Crux.CTMatrix.CTMatrix(f, Character.Dna)
+mStr = matrix.fastaPrint()
+alignment = Crux.CTMatrix.Alignment(matrix=matrix)
+aStr = alignment.fastaPrint()
+
+if mStr != aStr:
+    print "mStr:"
+    print mStr
+    print "aStr:"
+    print aStr
+
+print "Test end"

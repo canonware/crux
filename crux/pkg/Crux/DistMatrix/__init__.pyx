@@ -501,7 +501,7 @@ needed.
             return m._rnj(joinRandom, tryAdditive)
 
     # Print the matrix to a string in 'full', 'upper', or 'lower' format.
-    cpdef render(self, str format=None, str distFormat="%.5e",
+    cpdef render(self, str format=None, str distFormat="%.7e",
       file outFile=None):
         cdef size_t i, j
         cdef str s

@@ -187,7 +187,7 @@ endif
 # always needed.
 ifeq (@enable_flex@, 1)
 @srcroot@%.c @srcroot@%.h : @srcroot@%.l
-	@FLEX@ -CFa -8 -v --header-file=$(<:%.l=%.h) -o $(<:%.l=%.c) $<
+	@FLEX@ -CFa -8 --header-file=$(<:%.l=%.h) -o $(<:%.l=%.c) $<
 endif
 
 #===============================================================================
@@ -196,7 +196,7 @@ endif
 ifeq (@enable_cython@, 1)
 @srcroot@%.c : @srcroot@%.pyx @srcroot@%.pxd
 	@PYTHON@ @CYTHON@ -I@srcroot@pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) @python_config_includes@ -o $@ $<
-	@@abs_objroot@cydep -I/usr/include $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -P@srcroot@pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,--infile=%,$+) --targetfile=$@ --depfile=$(@:@srcroot@pkg/%.c=@objroot@build/pkg/%.d)
+	@@abs_objroot@cydep -I/usr/include $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) @python_config_includes@ -P@srcroot@pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,--infile=%,$+) --targetfile=$@ --depfile=$(@:@srcroot@pkg/%.c=@objroot@build/pkg/%.d)
 endif
 
 #===============================================================================

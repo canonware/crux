@@ -1,45 +1,28 @@
+Exception Crux.Character.ValueError: ValueError() in 'Crux.Character.Character.code2val' ignored
 Test begin
 === Character ===
-==> stateCodeAdd('A')
 A --> 1
 A <-- 1
-nstates: 1
-==> stateCodeAdd('B')
 B --> 2
 B <-- 2
-nstates: 2
-==> stateCodeAdd('C')
 C --> 4
 C <-- 4
-nstates: 3
-==> stateCodeAdd('D')
 D --> 8
 D <-- 8
-nstates: 4
-Codes: ['A', 'B', 'C', 'D']
-==> ambiguityCodeAdd('Y', ['C', 'D'])
 Y --> 12
 Y <-- 12
-==> ambiguityCodeAdd('X', ['A', 'B', 'C'])
 X --> 7
 X <-- 7
-==> ambiguityCodeAdd('Z', ['A', 'B', 'C', 'D'])
 Z --> 15
 Z <-- 15
-==> ambiguityCodeAdd('W', ['A', 'B'])
 W --> 3
 W <-- 3
-Codes: ['A', 'B', 'C', 'D', 'W', 'X', 'Y', 'Z']
-==> aliasCodeAdd('a', 'A')
 a --> 1
 A <-- 1
-==> aliasCodeAdd('c', 'C')
 c --> 4
 C <-- 4
-==> aliasCodeAdd('b', 'B')
 b --> 2
 B <-- 2
-==> aliasCodeAdd('d', 'D')
 d --> 8
 D <-- 8
 Codes: ['A', 'B', 'C', 'D', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd']
@@ -50,9 +33,11 @@ Exception <class 'Crux.Character.ValueError'>: State already defined: 'A'
 Exception <class 'Crux.Character.ValueError'>: State not defined: 'J'
 Exception <class 'Crux.Character.ValueError'>: Value not defined: 42
 === Dna ===
-Codes: ['-', 'A', 'B', 'C', 'D', 'G', 'H', 'K', 'M', 'N', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'a', 'b', 'c', 'd', 'g', 'h', 'k', 'm', 'n', 'r', 's', 't', 'v', 'w', 'x', 'y']
+Codes: ['-', '.', '?', 'A', 'B', 'C', 'D', 'G', 'H', 'K', 'M', 'N', 'R', 'S', 'T', 'U', 'V', 'W', 'Y', 'a', 'b', 'c', 'd', 'g', 'h', 'k', 'm', 'n', 'r', 's', 't', 'u', 'v', 'w', 'y']
 nstates: 4
-- --> 0xf --> -
+- --> 0x0 --> -
+. --> 0x0 --> -
+? --> 0xf --> N
 A --> 0x8 --> A
 B --> 0x7 --> B
 C --> 0x4 --> C
@@ -61,13 +46,13 @@ G --> 0x2 --> G
 H --> 0xd --> H
 K --> 0x3 --> K
 M --> 0xc --> M
-N --> 0xf --> -
+N --> 0xf --> N
 R --> 0xa --> R
 S --> 0x6 --> S
 T --> 0x1 --> T
+U --> 0x1 --> T
 V --> 0xe --> V
 W --> 0x9 --> W
-X --> 0xf --> -
 Y --> 0x5 --> Y
 a --> 0x8 --> A
 b --> 0x7 --> B
@@ -77,40 +62,67 @@ g --> 0x2 --> G
 h --> 0xd --> H
 k --> 0x3 --> K
 m --> 0xc --> M
-n --> 0xf --> -
+n --> 0xf --> N
 r --> 0xa --> R
 s --> 0x6 --> S
 t --> 0x1 --> T
+u --> 0x1 --> T
 v --> 0xe --> V
 w --> 0x9 --> W
-x --> 0xf --> -
 y --> 0x5 --> Y
 === Protein ===
-Codes: ['-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
-nstates: 24
-- --> 0x00ffffff --> -
+Codes: ['*', '-', '.', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+nstates: 22
+* --> 0x00200000 --> *
+- --> 0x00000000 --> -
+. --> 0x00000000 --> -
+? --> 0x003fffff --> X
 A --> 0x00000001 --> A
-B --> 0x00000002 --> B
-C --> 0x00000004 --> C
-D --> 0x00000008 --> D
-E --> 0x00000010 --> E
-F --> 0x00000020 --> F
-G --> 0x00000040 --> G
-H --> 0x00000080 --> H
-I --> 0x00000100 --> I
-K --> 0x00000200 --> K
-L --> 0x00000400 --> L
-M --> 0x00000800 --> M
-N --> 0x00001000 --> N
-P --> 0x00002000 --> P
-Q --> 0x00004000 --> Q
-R --> 0x00008000 --> R
-S --> 0x00010000 --> S
-T --> 0x00020000 --> T
-U --> 0x00040000 --> U
-V --> 0x00080000 --> V
-W --> 0x00100000 --> W
-X --> 0x00200000 --> X
-Y --> 0x00400000 --> Y
-Z --> 0x00800000 --> Z
+B --> 0x00000804 --> B
+C --> 0x00000002 --> C
+D --> 0x00000004 --> D
+E --> 0x00000008 --> E
+F --> 0x00000010 --> F
+G --> 0x00000020 --> G
+H --> 0x00000040 --> H
+I --> 0x00000080 --> I
+K --> 0x00000100 --> K
+L --> 0x00000200 --> L
+M --> 0x00000400 --> M
+N --> 0x00000800 --> N
+P --> 0x00001000 --> P
+Q --> 0x00002000 --> Q
+R --> 0x00004000 --> R
+S --> 0x00008000 --> S
+T --> 0x00010000 --> T
+U --> 0x00020000 --> U
+V --> 0x00040000 --> V
+W --> 0x00080000 --> W
+X --> 0x003fffff --> X
+Y --> 0x00100000 --> Y
+Z --> 0x00002008 --> Z
+a --> 0x00000001 --> A
+b --> 0x00000804 --> B
+c --> 0x00000002 --> C
+d --> 0x00000004 --> D
+e --> 0x00000008 --> E
+f --> 0x00000010 --> F
+g --> 0x00000020 --> G
+h --> 0x00000040 --> H
+i --> 0x00000080 --> I
+k --> 0x00000100 --> K
+l --> 0x00000200 --> L
+m --> 0x00000400 --> M
+n --> 0x00000800 --> N
+p --> 0x00001000 --> P
+q --> 0x00002000 --> Q
+r --> 0x00004000 --> R
+s --> 0x00008000 --> S
+t --> 0x00010000 --> T
+u --> 0x00020000 --> U
+v --> 0x00040000 --> V
+w --> 0x00080000 --> W
+x --> 0x003fffff --> X
+y --> 0x00100000 --> Y
+z --> 0x00002008 --> Z
 Test end

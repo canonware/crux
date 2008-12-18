@@ -1,0 +1,203 @@
+dna = ["""
+>A
+AAAAAAAAAAAAAAAAAAAA
+>C
+CCCCCCCCCCCCCCCCCCCC
+>G
+GGGGGGGGGGGGGGGGGGGG
+>T
+TTTTTTTTTTTTTTTTTTTT
+>K
+KKKKKKKKKKKKKKKKKKKK
+>Y
+YYYYYYYYYYYYYYYYYYYY
+>S
+SSSSSSSSSSSSSSSSSSSS
+>B
+BBBBBBBBBBBBBBBBBBBB
+>W
+WWWWWWWWWWWWWWWWWWWW
+>R
+RRRRRRRRRRRRRRRRRRRR
+>D
+DDDDDDDDDDDDDDDDDDDD
+>M
+MMMMMMMMMMMMMMMMMMMM
+>H
+HHHHHHHHHHHHHHHHHHHH
+>V
+VVVVVVVVVVVVVVVVVVVV
+>N
+NNNNNNNNNNNNNNNNNNNN
+>gap1
+--------------------
+>a
+aaaaaaaaaaaaaaaaaaaa
+>c
+cccccccccccccccccccC
+>g
+gggggggggggggggggggg
+>t
+tttttttttttttttttttT
+>k
+kkkkkkkkkkkkkkkkkkkk
+>y
+yyyyyyyyyyyyyyyyyyyy
+>s
+ssssssssssssssssssss
+>b
+bbbbbbbbbbbbbbbbbbbb
+>w
+wwwwwwwwwwwwwwwwwwww
+>r
+rrrrrrrrrrrrrrrrrrrr
+>d
+dddddddddddddddddddd
+>m
+mmmmmmmmmmmmmmmmmmmm
+>h
+hhhhhhhhhhhhhhhhhhhh
+>v
+vvvvvvvvvvvvvvvvvvvv
+>n
+nnnnnnnnnnnnnnnnnnnn
+>gap2
+--------------------
+"""
+]
+
+protein = ["""
+>A
+AAAAAAAAAAAAAAAAAAAA
+>C
+CCCCCCCCCCCCCCCCCCCC
+>D
+DDDDDDDDDDDDDDDDDDDD
+>E
+EEEEEEEEEEEEEEEEEEEE
+>F
+FFFFFFFFFFFFFFFFFFFF
+>G
+GGGGGGGGGGGGGGGGGGGG
+>H
+HHHHHHHHHHHHHHHHHHHH
+>I
+IIIIIIIIIIIIIIIIIIII
+>K
+KKKKKKKKKKKKKKKKKKKK
+>L
+LLLLLLLLLLLLLLLLLLLL
+>M
+MMMMMMMMMMMMMMMMMMMM
+>N
+NNNNNNNNNNNNNNNNNNNN
+>P
+PPPPPPPPPPPPPPPPPPPP
+>Q
+QQQQQQQQQQQQQQQQQQQQ
+>R
+RRRRRRRRRRRRRRRRRRRR
+>S
+SSSSSSSSSSSSSSSSSSSS
+>T
+TTTTTTTTTTTTTTTTTTTT
+>U
+UUUUUUUUUUUUUUUUUUUU
+>V
+VVVVVVVVVVVVVVVVVVVV
+>W
+WWWWWWWWWWWWWWWWWWWW
+>Y
+YYYYYYYYYYYYYYYYYYYY
+>stop1
+********************
+>B
+BBBBBBBBBBBBBBBBBBBB
+>Z
+ZZZZZZZZZZZZZZZZZZZZ
+>X
+XXXXXXXXXXXXXXXXXXXX
+>gap1
+--------------------
+>a
+aaaaaaaaaaaaaaaaaaaa
+>c
+cccccccccccccccccccc
+>d
+dddddddddddddddddddd
+>e
+eeeeeeeeeeeeeeeeeeee
+>f
+ffffffffffffffffffff
+>g
+gggggggggggggggggggg
+>h
+hhhhhhhhhhhhhhhhhhhh
+>i
+iiiiiiiiiiiiiiiiiiii
+>k
+kkkkkkkkkkkkkkkkkkkk
+>l
+llllllllllllllllllll
+>m
+mmmmmmmmmmmmmmmmmmmm
+>n
+nnnnnnnnnnnnnnnnnnnn
+>p
+pppppppppppppppppppp
+>q
+qqqqqqqqqqqqqqqqqqqq
+>r
+rrrrrrrrrrrrrrrrrrrr
+>s
+ssssssssssssssssssss
+>t
+tttttttttttttttttttt
+>u
+uuuuuuuuuuuuuuuuuuuu
+>v
+vvvvvvvvvvvvvvvvvvvv
+>w
+wwwwwwwwwwwwwwwwwwww
+>y
+yyyyyyyyyyyyyyyyyyyy
+>stop2
+********************
+>b
+bbbbbbbbbbbbbbbbbbbb
+>z
+zzzzzzzzzzzzzzzzzzzz
+>x
+xxxxxxxxxxxxxxxxxxxx
+>gap2
+--------------------
+"""
+]
+
+print "Test begin"
+
+for (matrixStrs, charType) in ((dna, Crux.Character.Dna),
+  (protein, Crux.Character.Protein)):
+    print "=== charType: %r ===" % charType
+    for s in matrixStrs:
+        lines = s.split("\n")
+        for i in xrange(len(lines)):
+            lines[i] += "\n"
+        matrix = Crux.CTMatrix.CTMatrix(lines, charType)
+        a = Crux.CTMatrix.Alignment(matrix=matrix)
+
+        for avgAmbigs in (True, False):
+            for scoreGaps in (True, False):
+                print "=== dists(avgAmbigs=%r, scoreGaps=%r) ===" % \
+                  (avgAmbigs, scoreGaps)
+                m = a.dists(avgAmbigs=avgAmbigs, scoreGaps=scoreGaps)
+                m.render(distFormat="%.2f", outFile=sys.stdout)
+
+        for avgAmbigs in (True, False):
+            for scoreGaps in (True, False):
+                print "=== jukesDists(avgAmbigs=%r, scoreGaps=%r) ===" % \
+                  (avgAmbigs, scoreGaps)
+                m = a.jukesDists(avgAmbigs=avgAmbigs, scoreGaps=scoreGaps)
+                m.render(distFormat="%.2f", outFile=sys.stdout)
+
+print "Test end"

@@ -5,40 +5,38 @@ print "Test begin"
 #
 
 print "=== Character ==="
-c = Crux.Character.Character()
 
-for code in ['A', 'B', 'C', 'D']:
-    print "==> stateCodeAdd(%r)" % code
-    c.stateCodeAdd(code)
+states = ['A', 'B', 'C', 'D']
+ambiguities = {
+  'W': ['A', 'B'],
+  'X': ['A', 'B', 'C'],
+  'Y': ['C', 'D'],
+  'Z': ['A', 'B', 'C', 'D']
+}
+aliases = {
+  'a': 'A',
+  'b': 'B',
+  'c': 'C',
+  'd': 'D'
+}
+
+c = Crux.Character.Character(states, ambiguities, aliases)
+
+for code in states:
     val =  c.code2val(code)
     print "%s --> %d" % (code, val)
     print "%s <-- %d" % (c.val2code(val), val)
-    print "nstates: %d" % c.nstates()
 codes = c.codes()
 codes.sort()
-print "Codes: %r" % codes
 
-aCodes = {'W': ['A', 'B'],
-          'X': ['A', 'B', 'C'],
-          'Y': ['C', 'D'],
-          'Z': ['A', 'B', 'C', 'D']}
-for code in aCodes.keys():
-    print "==> ambiguityCodeAdd(%r, %r)" % (code, aCodes[code])
-    c.ambiguityCodeAdd(code, aCodes[code])
+for code in ambiguities.keys():
     val =  c.code2val(code)
     print "%s --> %d" % (code, val)
     print "%s <-- %d" % (c.val2code(val), val)
 codes = c.codes()
 codes.sort()
-print "Codes: %r" % codes
 
-xCodes = {'a': 'A',
-          'b': 'B',
-          'c': 'C',
-          'd': 'D'}
-for code in xCodes.keys():
-    print "==> aliasCodeAdd(%r, %r)" % (code, xCodes[code])
-    c.aliasCodeAdd(code, xCodes[code])
+for code in aliases.keys():
     val =  c.code2val(code)
     print "%s --> %d" % (code, val)
     print "%s <-- %d" % (c.val2code(val), val)
@@ -49,7 +47,7 @@ print "nstates: %d" % c.nstates()
 
 # Error conditions.
 try:
-    c.stateCodeAdd('A')
+    c = Crux.Character.Character(['A', 'A'])
 except:
     import sys
 
@@ -57,7 +55,7 @@ except:
     print "Exception %s: %s" % (error[0], error[1])
 
 try:
-    c.ambiguityCodeAdd('A', ['B', 'C'])
+    c = Crux.Character.Character(['A', 'B', 'C'], {'A': ['B', 'C']})
 except:
     import sys
 
@@ -65,7 +63,7 @@ except:
     print "Exception %s: %s" % (error[0], error[1])
 
 try:
-    c.aliasCodeAdd('A', 'B')
+    c = Crux.Character.Character(['A', 'B'], {}, {'A': 'B'})
 except:
     import sys
 
@@ -73,7 +71,7 @@ except:
     print "Exception %s: %s" % (error[0], error[1])
 
 try:
-    c.aliasCodeAdd('j', 'J')
+    c = Crux.Character.Character(['A'], {}, {'j': 'J'})
 except:
     import sys
 
@@ -81,6 +79,7 @@ except:
     print "Exception %s: %s" % (error[0], error[1])
 
 try:
+    c = Crux.Character.Character(['A'])
     c.code2val('a')
 except:
     import sys
@@ -89,6 +88,7 @@ except:
     print "Exception %s: %s" % (error[0], error[1])
 
 try:
+    c = Crux.Character.Character(['A'])
     c.val2code(42)
 except:
     import sys
@@ -101,7 +101,7 @@ except:
 #
 
 print "=== Dna ==="
-c = Crux.Character.Dna()
+c = Crux.Character.Dna.get()
 codes = c.codes()
 codes.sort()
 print "Codes: %r" % codes
@@ -114,7 +114,7 @@ for code in codes:
 # Protein tests.
 #
 print "=== Protein ==="
-c = Crux.Character.Protein()
+c = Crux.Character.Protein.get()
 codes = c.codes()
 codes.sort()
 print "Codes: %r" % codes

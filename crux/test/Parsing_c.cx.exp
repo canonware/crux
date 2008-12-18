@@ -42,8 +42,8 @@ Non-terminals:
       S ::= R. [none]
 Item sets:
   0: ItemSet(kernel: [<S> ::= * S <$>., <e>] [none], added: '[S ::= * L equal R., <$>] [none], [S ::= * R., <$>] [none], [R ::= * L., <$>] [none], [L ::= * star R., <$>/equal] [none], [L ::= * id., <$>/equal] [none]')
-  1: ItemSet(kernel: [L ::= star * R., <$>/equal] [none], added: '[R ::= * L., <$>/equal] [none], [L ::= * star R., <$>/equal] [none], [L ::= * id., <$>/equal] [none]')
-  2: ItemSet(kernel: [L ::= id *., <$>/equal] [none], added: '')
+  1: ItemSet(kernel: [L ::= id *., <$>/equal] [none], added: '')
+  2: ItemSet(kernel: [L ::= star * R., <$>/equal] [none], added: '[R ::= * L., <$>/equal] [none], [L ::= * star R., <$>/equal] [none], [L ::= * id., <$>/equal] [none]')
   3: ItemSet(kernel: [<S> ::= S * <$>., <e>] [none], added: '')
   4: ItemSet(kernel: [S ::= R *., <$>] [none], added: '')
   5: ItemSet(kernel: [S ::= L * equal R., <$>] [none], [R ::= L *., <$>] [none], added: '')
@@ -68,10 +68,17 @@ Parsing tables:
                   R : 4
                   S : 3
     Action:
-                 id : shift  2 [none]
-               star : shift  1 [none]
+                 id : shift  1 [none]
+               star : shift  2 [none]
   ==============================================================================
   State 1:
+           L ::= id *. [none]
+    Goto:
+    Action:
+                <$> : reduce L ::= id. [none]
+              equal : reduce L ::= id. [none]
+  ==============================================================================
+  State 2:
            R ::= * L. [none]
            L ::= * star R. [none]
            L ::= * id. [none]
@@ -80,15 +87,8 @@ Parsing tables:
                   L : 7
                   R : 6
     Action:
-                 id : shift  2 [none]
-               star : shift  1 [none]
-  ==============================================================================
-  State 2:
-           L ::= id *. [none]
-    Goto:
-    Action:
-                <$> : reduce L ::= id. [none]
-              equal : reduce L ::= id. [none]
+                 id : shift  1 [none]
+               star : shift  2 [none]
   ==============================================================================
   State 3:
            <S> ::= S * <$>. [none]
@@ -139,8 +139,8 @@ Parsing tables:
                   L : 7
                   R : 10
     Action:
-                 id : shift  2 [none]
-               star : shift  1 [none]
+                 id : shift  1 [none]
+               star : shift  2 [none]
   ==============================================================================
   State 10:
             S ::= L equal R *. [none]
