@@ -73,7 +73,7 @@ def resolve_import(import_, indir, ppath, templates):
             return path
 
     if relative:
-        print >> sys.stderr, "Unresolvable relative import: %r" % i
+        print >> sys.stderr, "Unresolvable relative import: %r" % import_
         sys.exit(1)
 
     # Search ppath for the module.
@@ -87,6 +87,8 @@ def resolve_import(import_, indir, ppath, templates):
 
 def merge_input(inputs, cimport, indir, ppath):
     path = resolve_import(cimport, indir, ppath, ("%s.pxd", "%s/__init__.pxd"))
+    if path is None:
+        return
 
     for (f, fname, indir) in inputs:
         if fname == path:
@@ -100,6 +102,7 @@ def merge_input(inputs, cimport, indir, ppath):
 # Parse command line options.
 opts = parse_options()
 
+# Prepare inputs.
 if len(opts.infiles) != 0:
     inputs = []
     for infile in opts.infiles:
