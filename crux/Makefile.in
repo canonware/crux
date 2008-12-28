@@ -96,7 +96,7 @@ check: run
 			@ECHO@ -n "$$t ... "; \
 			2>&1 @objroot@build/run/bin/crux $$t - \
 			  @abs_srcroot@ @abs_objroot@ \
-			  | @PERL@ -pe "s/\[[1-9][0-9]* refs\]\n//g" \
+			  | @GREP@ -v "\[[1-9][0-9]* refs\]" \
 			  > $${t}.out; \
 			if @TEST@ -e "$${t}.exp"; then \
 				2>&1 diff -u $${t}.exp $${t}.out >/dev/null; \

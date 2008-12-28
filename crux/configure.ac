@@ -184,7 +184,7 @@ AC_PATH_PROG([AR], [ar], , [$PATH])
 AC_PATH_PROG([LD], [ld], , [$PATH])
 AC_PATH_PROG([TEST], [test], , [$PATH])
 AC_PATH_PROG([ECHO], [echo], , [$PATH])
-AC_PATH_PROG([PERL], [perl], , [$PATH])
+AC_PATH_PROG([grep], [grep], , [$PATH])
 AC_PATH_PROG([AUTOCONF], [autoconf], , [$PATH])
 
 dnl Do not compile with debugging by default.
