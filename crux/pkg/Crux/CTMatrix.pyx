@@ -19,19 +19,9 @@ cimport Crux.Fasta as Fasta
 from Crux.Character cimport Character, Dna
 from Crux.DistMatrix cimport DistMatrix
 
-cdef extern from "sys/types.h":
-    ctypedef unsigned long size_t
-
-cdef extern from "stdlib.h":
-    cdef void *malloc(size_t size)
-    cdef void free(void *ptr)
-
-cdef extern from "string.h":
-    cdef void *memset(void *s, int c, size_t n)
-    cdef void *memcpy(void *dest, void *src, size_t n)
-
-cdef extern from "float.h":
-    cdef float FLT_EPSILON
+from libc cimport *
+from libm cimport *
+from atlas cimport *
 
 cdef extern from "Python.h":
     cdef object PyString_FromStringAndSize(char *s, Py_ssize_t len)
@@ -207,6 +197,100 @@ cdef class PctIdent:
                 valid += 1
         fident[0] = ident
         nvalid[0] = valid
+
+cdef class LogDet:
+    cdef Character char_
+    cdef bint scoreGaps
+    cdef int code2val[128]
+    cdef double *A
+    cdef unsigned n
+
+    def __cinit__(self):
+        self.A = NULL
+
+    def __dealloc__(self):
+        if self.A != NULL:
+            free(self.A)
+            self.A = NULL
+
+    def __init__(self, type charType, bint scoreGaps):
+        cdef str code
+        cdef char *sCode
+        cdef int iCode
+
+        assert issubclass(charType, Character)
+        self.char_ = charType.get()
+
+        for code in self.char_.codes():
+            sCode = <char *>code
+            iCode = sCode[0]
+            self.code2val[iCode] = self.char_.code2val(code)
+
+        self.scoreGaps = scoreGaps
+
+        self.n = self.char_.nstates()
+        self.A = <double *>calloc(self.n * self.n, sizeof(double))
+        if self.A == NULL:
+            raise MemoryError("Matrix allocation failed")
+
+    # Compute determinant of the pairwise frequency matrix for a vs. b.
+    cdef double det(self, char *a, char *b, unsigned seqlen):
+        cdef unsigned j, popA, popB
+        cdef int aC, bC, aI, bI
+        cdef int ambiguous, aVal, bVal, aOff, bOff
+        cdef double sum, p
+
+        ambiguous = self.char_.any
+        memset(self.A, 0, self.n * self.n * sizeof(double))
+
+        for 0 <= j < seqlen:
+            aC = a[j]
+            bC = b[j]
+            aVal = self.code2val[aC]
+            popA = pop(aVal)
+            if aC == bC and popA == 1:
+                aOff = ffs(aVal) - 1
+                # Identical non-ambiguous characters.
+                self.A[aOff*self.n + aOff] += 1.0
+            else:
+                bVal = self.code2val[bC]
+                popB = pop(bVal)
+
+                if popA == 1 and popB == 1:
+                    aOff = ffs(aVal) - 1
+                    bOff = ffs(bVal) - 1
+                    self.A[aOff*self.n + bOff] += 1.0
+                elif not self.scoreGaps and (popA == 0 or popB == 0):
+                    # Ignore this character.
+                    pass
+                else:
+                    # Ambiguous character(s).
+
+                    # Translate gaps to mean "any character".
+                    if aVal == 0:
+                        aVal = ambiguous
+                        popA = pop(aVal)
+                    if bVal == 0:
+                        bVal = ambiguous
+                        popB = pop(bVal)
+
+                    # Each possible state combination is assigned an equal
+                    # probability.  All combinations sum to 1.0.
+                    p = <double>1.0 / <double>(popA * popB)
+
+                    # Iterate over every state combination, and add p to the
+                    # combinations that are represented by the ambiguity.
+                    for 0 <= aI < self.n:
+                        for 0 <= bI < self.n:
+                            if (aVal & (1 << aI)) and (bVal & (1 << bI)):
+                                self.A[aI*self.n + bI] += p
+
+        # Normalize matrix, such that the elements sum to 1.0.
+        sum = cblas_dasum(self.n * self.n, self.A, 1)
+        if sum > 0.0:
+            cblas_dscal(self.n * self.n, <double>1.0 / sum, self.A, 1)
+
+        return CxMatDdet(self.n, self.A)
 
 cdef class Alignment:
     def __cinit__(self):
@@ -405,9 +489,9 @@ of all the cases that the ambiguities could possibly resolve to.
         assert self.rows != NULL
 
         ret = DistMatrix(self.taxaMap)
-        tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
 
         if self.ntaxa > 1:
+            tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
             for 0 <= i < self.ntaxa:
                 iRow = self.getRow(i)
                 for i + 1 <= j < self.ntaxa:
@@ -426,8 +510,8 @@ of all the cases that the ambiguities could possibly resolve to.
 Calculate pairwise distances, corrected for multiple hits using the
 Jukes-Cantor method, and the computational methods described by:
 
-  Tajima, F. (1993) Unbiased Estimation of Evolutionary Distance between
-  Nucleotide Sequences.  Mol. Biol. Evol. 10(3):677-688.
+  Tajima, F. (1993) Unbiased estimation of evolutionary distance between
+  nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
 
 If scoreGaps is enabled, gaps are treated as being ambiguous, rather than as
 missing.
@@ -444,15 +528,14 @@ of all the cases that the ambiguities could possibly resolve to.
 
         assert self.rows != NULL
 
-        NaN = 1e10000 / 1e10000
-
         ret = DistMatrix(self.taxaMap)
-        tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
-
-        nstates = self.charType.get().nstates()
-        b = <float>(nstates - 1) / <float>nstates
 
         if self.ntaxa > 1:
+            tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
+            NaN = 1e10000 / 1e10000
+            nstates = self.charType.get().nstates()
+            b = <float>(nstates - 1) / <float>nstates
+
             for 0 <= i < self.ntaxa:
                 iRow = self.getRow(i)
                 for i + 1 <= j < self.ntaxa:
@@ -472,6 +555,52 @@ of all the cases that the ambiguities could possibly resolve to.
                                 # so there's no point in continuing.
                                 break
                     else:
+                        d = NaN
+                    ret.distanceSet(i, j, d)
+
+        return ret
+
+    cpdef DistMatrix logdetDists(self, bint scoreGaps=True):
+        """
+Calculate pairwise distances, corrected for unequal state frequencies using the
+LogDet method described by:
+
+  Lockhart, P.J., M.A. Steel, M.D. Hendy, and D. Penny (1994) Recovering
+  evolutionary trees under a more Realistic model of sequence evolution.  Mol.
+  Biol. Evol. 11(4):605-612.
+
+If scoreGaps is enabled, gaps are treated as being ambiguous, rather than as
+missing.
+
+Ambiguity codes are handled by equal-weight averaging of all the cases that the
+ambiguities could possibly resolve to.  Unlike for some of the other distance
+correction methods (such as jukesDists()), it would be completely non-sensical
+to treat ambiguities as unique states.
+"""
+        cdef DistMatrix ret
+        cdef LogDet logDet
+        cdef int nstates, i, j
+        cdef char *iRow, *jRow
+        cdef unsigned n, x
+        cdef float NaN
+
+        assert self.rows != NULL
+
+
+        ret = DistMatrix(self.taxaMap)
+        logDet = LogDet(self.charType, scoreGaps)
+
+        if self.ntaxa > 1:
+            NaN = 1e10000 / 1e10000
+
+            for 0 <= i < self.ntaxa:
+                iRow = self.getRow(i)
+                for i + 1 <= j < self.ntaxa:
+                    jRow = self.getRow(j)
+                    det = logDet.det(iRow, jRow, self.nchars)
+                    if det > 0.0:
+                        d = -log(det)
+                    elif det == 0.0:
                         d = NaN
                     ret.distanceSet(i, j, d)
 

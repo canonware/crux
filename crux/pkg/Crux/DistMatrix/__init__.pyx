@@ -31,15 +31,7 @@ from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
 cimport Crux.Tree as Tree
 
-cdef extern from "sys/types.h":
-    ctypedef unsigned long size_t
-
-cdef extern from "stdlib.h":
-    cdef void *calloc(size_t nmemb, size_t size)
-    cdef void free(void *ptr)
-
-cdef extern from "string.h":
-    cdef void *memcpy(void *dest, void *src, size_t n)
+from libc cimport *
 
 from CxDistMatrixLexer cimport *
 cimport Crux.DistMatrix.Nj as Nj

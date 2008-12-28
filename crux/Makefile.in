@@ -17,6 +17,7 @@ ifeq (macho, @abi@)
 CFLAGS += -dynamic
 endif
 LDFLAGS := @LDFLAGS@
+LIBS := @LIBS@
 
 # File lists.
 CSRCS := @csrcs@
@@ -166,20 +167,20 @@ relclean: distclean flclean cyclean
 		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
-	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+
+	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
 endif
 ifeq (macho, @abi@)
-	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @abs_objroot@build/run/shard/Crux/lib/libCx.so -o $@ $+
+	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @abs_objroot@build/run/shard/Crux/lib/libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
 endif
 
 @objroot@build/inst/share/Crux/lib/libCx.so : \
 		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
-	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+
+	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
 endif
 ifeq (macho, @abi@)
-	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @DATADIR@/share/Crux/lib/libCx.so -o $@ $+
+	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @DATADIR@/share/Crux/lib/libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
 endif
 
 #===============================================================================

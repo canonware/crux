@@ -180,10 +180,7 @@ for (matrixStrs, charType) in ((dna, Crux.Character.Dna),
   (protein, Crux.Character.Protein)):
     print "=== charType: %r ===" % charType
     for s in matrixStrs:
-        lines = s.split("\n")
-        for i in xrange(len(lines)):
-            lines[i] += "\n"
-        matrix = Crux.CTMatrix.CTMatrix(lines, charType)
+        matrix = Crux.CTMatrix.CTMatrix(s, charType)
         a = Crux.CTMatrix.Alignment(matrix=matrix)
 
         for avgAmbigs in (True, False):

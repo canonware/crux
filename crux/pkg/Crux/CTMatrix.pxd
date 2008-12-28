@@ -39,3 +39,4 @@ cdef class Alignment:
 
     cpdef DistMatrix dists(self, bint avgAmbigs=*, bint scoreGaps=*)
     cpdef DistMatrix jukesDists(self, bint avgAmbigs=*, bint scoreGaps=*)
+    cpdef DistMatrix logdetDists(self, bint scoreGaps=*)

@@ -4,8 +4,7 @@ cdef class DistMatrix
 from Crux.Tree cimport Tree
 cimport Crux.Taxa as Taxa
 
-cdef extern from "sys/types.h":
-    ctypedef unsigned long size_t
+from libc cimport *
 
 cdef class DistMatrix:
     cdef readonly Taxa.Map taxaMap

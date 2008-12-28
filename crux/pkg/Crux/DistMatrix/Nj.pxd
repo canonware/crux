@@ -1,8 +1,7 @@
 from Crux.Tree cimport Tree, Node
 cimport Crux.Taxa as Taxa
 
-cdef extern from "sys/types.h":
-    ctypedef unsigned long size_t
+from libc cimport *
 
 cdef class Nj:
     cdef float *dBase, *d # d is advanced as rows are removed.

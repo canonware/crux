@@ -37,7 +37,7 @@ import re
 import sys
 
 cimport Parsing
-from Crux.Character cimport Dna, Protein
+from Crux.Character cimport Character, Dna
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
 
@@ -138,10 +138,6 @@ cdef class Chars(Nonterm):
 # End Nonterm.
 #===============================================================================
 
-# Regexs used to recognize all tokens.
-cdef _reDna
-cdef _reProtein
-
 cdef Parsing.Spec _spec
 
 cdef class Parser(Parsing.Lr):
@@ -165,24 +161,21 @@ cdef class Parser(Parsing.Lr):
           skinny=(False if __debug__ else True),
           logFile="%s/Crux/parsers/Fasta.log" % Crux.Config.datadir)
 
-    cdef _initReDna(self):
-        return re.compile(r"""
-    (^>\S+.*$)                          # description
-  | (^[ \t\n\r\f\v]*
-     [ABCDGHKMRSTVWY\-NX]
-     [ABCDGHKMRSTVWY\-NX \t\n\r\f\v]*$) # characters
-  | (^[ \t\n\r\f\v]*$)                  # whitespace
+    cdef _initRe(self, type charType):
+        cdef str chars, s
 
-""", re.I | re.X)
+        chars = "".join(charType.get().codes())
+        chars = re.sub("([*\-])", r"\\\1", chars)
 
-    cdef _initReProtein(self):
-        return re.compile(r"""
-    (^>\S+.*$)                                   # description
+        s = r"""
+    (^>\S+.*$)          # description
   | (^[ \t\n\r\f\v]*
-     [ABCDEFGHIKLMNPQRSTUVWXYZ*\-]
-     [ABCDEFGHIKLMNPQRSTUVWXYZ*\- \t\n\r\f\v]*$) # characters
-  | (^[ \t\n\r\f\v]*$)                           # whitespace
-""", re.I | re.X)
+     [%s]
+     [%s \t\n\r\f\v]*$) # characters
+  | (^[ \t\n\r\f\v]*$)  # whitespace
+""" % (chars, chars)
+
+        return re.compile(s, re.X)
 
     cdef void _addTaxon(self, Taxon taxon, str chars) except *:
         if self.taxaMap.indGet(taxon) == -1:
@@ -192,27 +185,21 @@ cdef class Parser(Parsing.Lr):
         # Set the character data for this taxon.
         self.matrix.dataSet(taxon, chars)
 
-    cpdef parse(self, lines, type charType=Dna, int line=1, bint verbose=False):
+    cpdef parse(self, input, type charType=Dna, int line=1, bint verbose=False):
         cdef object regex, m
         cdef int idx, start, end
         cdef str l
 
-        assert getattr3(lines, '__iter__', None) is not None
+        assert type(input) in (file, str)
+        if type(input) == str:
+            input = input.splitlines(True)
 
         self.verbose = verbose
 
-        if charType is Dna:
-            if _reDna is None:
-                _reDna = self._initReDna()
-            regex = _reDna
-        else:
-            assert charType is Protein
-            if _reProtein is None:
-                _reProtein = self._initReProtein()
-            regex = _reProtein
+        regex = self._initRe(charType)
 
         # Iteratively tokenize the input and feed the tokens to the parser.
-        for l in lines:
+        for l in input:
             m = regex.match(l)
             if m is None:
                 raise SyntaxError(line, "Invalid token")

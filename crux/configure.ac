@@ -494,8 +494,20 @@ dnl ============================================================================
 dnl Check for typedefs, structures, and compiler characteristics.
 AC_C_BIGENDIAN
 AC_HEADER_STDBOOL
+AC_CHECK_HEADERS([cblas.h], [], [AC_MSG_ERROR([Cannot build without cblas.h])])
+AC_CHECK_HEADERS([clapack.h], [],
+  [AC_MSG_ERROR([Cannot build without clapack.h])])
 
 dnl Check for library functions.
+AC_CHECK_LIB([m], [log], [], [AC_MSG_ERROR([Cannot build without libm])])
+AC_CHECK_LIB([atlas], [ATL_dscal], [],
+  [AC_MSG_ERROR([Cannot build without libatlas])])
+AC_CHECK_LIB([f77blas], [dscal_], [],
+  [AC_MSG_ERROR([Cannot build without libf77blas (ATLAS)])])
+AC_CHECK_LIB([cblas], [cblas_dscal], [],
+  [AC_MSG_ERROR([Cannot build without libcblas (ATLAS)])])
+AC_CHECK_LIB([lapack], [clapack_dgetrf], [],
+  [AC_MSG_ERROR([Cannot build without liblapack (Combined LAPACK/ATLAS)])])
 
 dnl Process .in files.
 AC_SUBST([cfghdrs])

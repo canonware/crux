@@ -49,6 +49,8 @@ MrRogers usage:
   options:
     -j, --jukes              Use Jukes-Cantor correction (*disabled).
     -k, --kimura             Use Kimura correction (*disabled).
+    -l, --logdet             Use LogDet correction (*disabled).  (Clearcut does
+                               not support this option.)
 
   Output options:
     -O, --stdout             Write to standard output (*enabled).
@@ -111,6 +113,8 @@ def parse_options():
       const="jukes", default=None)
     parser.add_option("-k", "--kimura", dest="correction", action="store_const",
       const="kimura")
+    parser.add_option("-l", "--logdet", dest="correction", action="store_const",
+      const="logdet")
 
     parser.add_option("-O", "--stdout", dest="out", action="store_const",
       const=None)
@@ -181,6 +185,8 @@ else:
         matrix = alignment.jukesDists()
     elif opts.correction is "kimura":
         matrix = alignment.kimuraDists() # XXX
+    elif opts.correction is "logdet":
+        matrix = alignment.logdetDists()
     else:
         assert False
 

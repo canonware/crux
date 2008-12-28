@@ -75,7 +75,6 @@ cdef class Parser(Parsing.Lr):
     cdef Taxa.Map taxaMap
 
     cdef Parsing.Spec _initSpec(self)
-    cdef _initReDna(self)
-    cdef _initReProtein(self)
+    cdef _initRe(self, type charType)
     cdef void _addTaxon(self, Taxon taxon, str chars) except *
     cpdef parse(self, lines, type charType=*, int line=*, bint verbose=*)
