@@ -112,6 +112,7 @@ dAtAt = {
     "MTCFLAGS": "@MTCFLAGS@",
     "LDFLAGS": "@LDFLAGS@",
     "LIBS": "@LIBS@",
+    "RPATH_EXTRA": "@RPATH_EXTRA@",
     "abi": "@abi@",
     "RPATH": "@RPATH@",
     "enable_autogen": "@enable_autogen@",

@@ -8,6 +8,10 @@ vpath % .
 
 SHELL := /bin/sh
 
+# Configuration parameters.
+BINDIR := @BINDIR@
+DATADIR := @DATADIR@
+
 # Build parameters.
 CPPFLAGS := @CPPFLAGS@
 MTCPPFLAGS := @MTCPPFLAGS@
@@ -18,6 +22,7 @@ CFLAGS += -dynamic
 endif
 LDFLAGS := @LDFLAGS@
 LIBS := @LIBS@
+RPATH_EXTRA := @RPATH_EXTRA@
 
 # File lists.
 CSRCS := @csrcs@
@@ -66,17 +71,17 @@ pickles: run
 	@objroot@build/run/bin/crux --verbose @srcroot@pickles.cx
 
 install: inst
-	install -d @BINDIR@
+	install -d $(BINDIR)
 	@for b in $(BINS); do \
-	echo "install -m 755 @objroot@build/inst/bin/`basename $$b` @BINDIR@"; \
-	install -m 755 @objroot@build/inst/bin/`basename $$b` @BINDIR@; \
+	echo "install -m 755 @objroot@build/inst/bin/`basename $$b` $(BINDIR)"; \
+	install -m 755 @objroot@build/inst/bin/`basename $$b` $(BINDIR); \
 done
-	install -d @DATADIR@/Crux/lib
-	install -m 755 @objroot@build/inst/share/Crux/lib/libCx.so @DATADIR@/Crux/lib
-	install -d @DATADIR@/Crux/parsers
+	install -d $(DATADIR)/Crux/lib
+	install -m 755 @objroot@build/inst/share/Crux/lib/libCx.so $(DATADIR)/Crux/lib
+	install -d $(DATADIR)/Crux/parsers
 	@for f in `find @abs_objroot@build/run/share/Crux/parsers -type f`; do \
-	echo "install -m 644 $$f @DATADIR@/Crux/parsers"; \
-	install -m 644 $$f @DATADIR@/Crux/parsers; \
+	echo "install -m 644 $$f $(DATADIR)/Crux/parsers"; \
+	install -m 644 $$f $(DATADIR)/Crux/parsers; \
 done
 	@for d in $(patsubst @objroot@build/inst/site-packages/%,@site_packages@/%,$(sort $(dir $(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) $(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)))); do \
 	echo "install -d $$d"; \
@@ -180,7 +185,7 @@ ifeq (elf, @abi@)
 	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
 endif
 ifeq (macho, @abi@)
-	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @DATADIR@/share/Crux/lib/libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
+	$(CC) -undefined dynamic_lookup -dynamiclib -install_name $(DATADIR)/share/Crux/lib/libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
 endif
 
 #===============================================================================
@@ -212,28 +217,28 @@ endif
 				@objroot@build/run/share/Crux/lib/libCx.so
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib @python_config_ldflags@ -o $@ $+
+	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
 else
-	$(CC) -shared @python_config_ldflags@ -o $@ $+
+	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
 endif
 
 @objroot@build/inst/site-packages/Crux/%.so : @objroot@build/pkg/Crux/%.o \
 				@objroot@build/inst/share/Crux/lib/libCx.so
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) -shared @RPATH@@DATADIR@/Crux/lib @python_config_ldflags@ -o $@ $+
+	$(CC) -shared @RPATH@$(DATADIR)/Crux/lib $(RPATH_EXTRA:%=@RPATH@%)$(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
 else
-	$(CC) -shared @python_config_ldflags@ -o $@ $+
+	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
 endif
 
 #===============================================================================
 @objroot@build/run/site-packages/%.so : @objroot@build/pkg/%.o
 	@mkdir -p $(@D)
-	$(CC) -shared @python_config_ldflags@ -o $@ $+
+	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
 
 @objroot@build/inst/site-packages/%.so : @objroot@build/pkg/%.o
 	@mkdir -p $(@D)
-	$(CC) -shared @python_config_ldflags@ -o $@ $+
+	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
 
 #===============================================================================
 @objroot@build/run/site-packages/%.py : @srcroot@pkg/%.py
@@ -267,9 +272,10 @@ ifeq (@enable_autogen@, 1)
 @srcroot@cfghdrs.stamp.in : @srcroot@configure.ac
 	@ECHO@ stamp > @srcroot@cfghdrs.stamp.in
 
-@objroot@cfghdrs.stamp : $(patsubst %, @srcroot@%.in, @cfghdrs@) \
+@objroot@cfghdrs.stamp : $(patsubst %, %.in, @cfghdrs@) \
 			 @srcroot@configure
 	./@objroot@config.status
+	@touch $@
 
 @cfghdrs@ : @objroot@cfghdrs.stamp
 
@@ -280,6 +286,7 @@ ifeq (@enable_autogen@, 1)
 @objroot@cfgoutputs.stamp : $(patsubst %, @srcroot@%.in, @cfgoutputs@) \
 			    @srcroot@configure
 	./@objroot@config.status
+	@touch $@
 
 # There must be some action in order for make to re-read Makefile when it is
 # out of date.

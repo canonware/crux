@@ -1,6 +1,5 @@
 # Cause Parsing pickles/logs to be created.
-Crux.CTMatrix.CTMatrix((
-  ">A\n",
-  "A"
-))
+Crux.CTMatrix.CTMatrix("""
+>A
+A""")
 Crux.Newick.Parser(Crux.Tree.Tree())

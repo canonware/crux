@@ -1,102 +1,370 @@
-################################################################################
-#
-# Building and installation instructions for the Crux distribution.
-#
-################################################################################
+=== Overview ===================================================================
 
-Optional: Regenerating the configure script requires GNU autoconf.
+This file describes how to build and install Crux.  The information is broken
+into the following sections:
 
-Optional: Running the test suite requires Perl.
+    === Overview
+    === Required software
+    === Optional software
+    === Simple installation
+    === Advanced configuration
+    === Advanced compilation
+    === Advanced installation
+    === Development
 
-Building this distribution in many cases is as simple as typing the following
-while in the root directory of the source tree:
+In the common case, you should be able to simply verify that you have the
+required software installed, then follow the simple installation instructions.
+However, if you intend to put Crux to serious use, pay particular attention to
+the quality of your ATLAS installation.
 
-	./configure
-	make
+==== Required software =========================================================
 
-To install, do the above, then type:
+Building Crux requires all of the following software.  Once installed, Crux only
+requires the Python runtime and any shared libraries that were linked against
+during compilation.
 
-	make install
+* gcc (http://gcc.gnu.org/).  In principle, any C99-conforming C compiler can be
+  used, but Crux has not recently been tested with any others.
 
-Cleanup targets include:
+* GNU make (http://www.gnu.org/software/make/make.html).  There are many
+  implementations of make, but Crux can only be built with GNU make, since the
+  build system uses numerous advanced features that are either missing or
+  incompatible in other implementations.
 
-	clean
-	distclean
-	relclean
+* ATLAS (http://math-atlas.sourceforge.net/), ideally with integrated LAPACK
+  (http://www.netlib.org/lapack/).  ATLAS is "Automatically Tuned Linear Algebra
+  Software", which means that it tunes itself to each computer when it is built.
+  Since pre-built software packages must be rather generic in nature, most
+  operating systems do not provide well tuned ATLAS packages.  For this reason,
+  you are strongly advised to go to the (considerable) trouble of building ATLAS
+  yourself.
 
-Optionally, pass any of the following (not a definitive list) arguments to
-'configure':
+  ATLAS can be compiled such that LAPACK is integrated.  This is preferrable
+  to a completely separate LAPACK build because it allows ATLAS to cleanly
+  replace portions of LAPACK with its more optimal implementations.  Another
+  option (used by Debian-based systems) is to rename the ATLAS-based LAPACK
+  library, so that it can be linked to in addition to the standard LAPACK
+  library.
+
+  The following instructions describe how to build shared ATLAS libraries with
+  LAPACK integrated, on a Linux system.  It is possible to use static
+  ATLAS/LAPACK libraries in Crux, but this results in multiple copies of
+  some functions being compiled into Crux.  This is because Crux is structured
+  as multiple Python modules, each of which is actually a separate shared
+  library.
+
+   1) Create a build directory in which to work.
+
+        $ mkdir ~/ATLAS
+        $ cd ~/ATLAS
+
+   2) Download LAPACK from:
+
+        http://www.netlib.org/lapack/
+
+      These instructions are based on version 3.2.
+
+   3) Extract the LAPACK source code.
+
+        $ tar xvzf lapack.tgz
+        $ cd lapack-3.2
+
+   4) Copy a gfortran-specific make.inc .
+
+        $ cp INSTALL/make.inc.gfortran make.inc
+
+   5) Modify make.inc such that:
+
+        OPTS = -O2 -fPIC -m64
+        NOOPT = -O0 -fPIC -m64
+
+      Leave off the -m64 argument if building on a 32-bit system.
+
+      Note that subsequent instructions assume:
+
+        PLAT = _LINUX
+
+      If this is not the case, either modify PLAT or adjust the instructions
+      accordingly.
+
+   6) Build LAPACK.
+
+        $ cd SRC
+        $ make
+
+   7) Change back to the working directory.
+
+        $ cd ~/ATLAS
+
+   8) Download ATLAS from:
+
+        http://downloads.sourceforge.net/math-atlas/
+
+      These instructions are based on version 3.8.2.
+
+   9) Extract the ATLAS source code.
+
+        $ tar xvjf atlas3.8.2.tar.bz2
+        $ cd ATLAS
+
+  10) Create an object directory in which to build ATLAS.
+
+        $ mkdir ATLAS_LINUX
+        $ cd ATLAS_LINUX
+
+  11) If your system uses some sort of CPU power-saving functionality, disable
+      it before building ATLAS.  The following assumes two CPUs; be sure to
+      disable power saving on all CPUs.
+
+        $ sudo cpufreq-selector -c 0 -g performance
+        $ sudo cpufreq-selector -c 1 -g performance
+
+  12) Configure ATLAS.  Leave off the '-b 64' argument if building on a 32-bit
+      system.
+
+        $ ../configure -b 64 -Fa alg -fPIC \
+          --with-netlib-lapack=$HOME/ATLAS/lapack-3.2/lapack_LINUX.a \
+          --prefix=/usr/local/atlas
+
+      IMPORTANT: When you build Crux, you will need to specify configure
+      arguments to tell the build system where to find ATLAS/LAPACK.  Use
+      something like the following:
+
+        $ CPPFLAGS="-I/usr/local/atlas/include" \
+          LDFLAGS="-L/usr/local/atlas/lib" ./configure
+
+  13) Build ATLAS.
+
+        $ make
+        $ cd lib
+        $ make shared
+        $ make ptshared
+        $ cd ..
+
+  14) Install ATLAS/LAPACK.
+
+        $ sudo make install
+        $ sudo cp -p lib/*.so /usr/local/atlas/lib
+
+  15) Configure ld.so to be able to find the shared libraries.  Add the
+      following line to the bottom of /etc/ld.so.conf:
+
+        /usr/local/atlas/lib
+
+      Then update ld.so's library cache:
+
+        $ sudo ldconfig -v
+
+      If you skip ld.so configuration, you will have to do one of the following:
+
+      + Configure Crux to embed the appropriate library path into the shared
+        libraries it generates (works only on ELF systems).
+
+        $ CPPFLAGS="-I/usr/local/atlas/include" \
+          LDFLAGS="-L/usr/local/atlas/lib" ./configure \
+          --with-rpath=/usr/local/atlas/lib
+
+      + Set LD_LIBRARY_PATH in the environment when running Crux.  For example
+        (assuming Bourne shell syntax):
+
+          $ LD_LIBRARY_PATH=/usr/local/atlas/lib crux
+
+        If another version of ATLAS/LAPACK is installed earlier in ld.so's
+        search path, you may have to set LD_LIBRARY_PATH in order to get
+        Crux to use the correct libraries, even if ld.so is configured as
+        described above.
+
+* LAPACK (http://www.netlib.org/lapack/).  The directions for ATLAS (above)
+  describe how to integrate LAPACK and ATLAS, which is the preferred method.
+  However, Crux's build system can cope with a separate LAPACK, as long as
+  ATLAS's LAPACK subset library has a name other than liblapack, which allows
+  both the full LAPACK and ATLAS's subset library to be linked to.  For example,
+  the following link options will work:
+
+      -llapack_atlas -llapack -lcblas -lf77blas -latlas
+
+==== Optional software =========================================================
+
+Crux releases include various pre-generated files, in order to reduce the
+number of software build dependencies for the typical user.  However, if you
+build using a Mercurial checkout, or if you need to generate modified outputs,
+one or more of the following may be required:
+
+* autoconf (http://www.gnu.org/software/autoconf/autoconf.html).
+
+  configure.ac --> configure
+
+* Cython (http://cython.org/).
+
+  pkg/Foo.{pyx,pxd} --> pkg/Foo.c
+
+* Flex (http://flex.sourceforge.net/).
+
+  lib/Foo.l --> lib/Foo.{c,h}
+
+=== Simple installation ========================================================
+
+Building and installing Crux can be as simple as typing the following while in
+the root directory of the source tree:
+
+    ./configure
+    make
+    make install
+
+=== Advanced Configuration =====================================================
+
+The 'configure' script supports numerous options that allow control of which
+Python interpreter is used, where Crux is installed, what compiler flags are
+used, etc.  Optionally, pass any of the following arguments (not a definitive
+list) to 'configure':
+
+--help
+    Print a definitive list of options.
 
 --prefix=<install-root-dir>
-	Set the base directory in which to install.  For example:
-	
-		./configure --prefix=/usr/local
+    Set the base directory in which to install.  For example:
 
-	will cause files to be installed into /usr/local/bin, /usr/local/man,
-	/usr/local/include, and /usr/local/share.
+        ./configure --prefix=/usr/local
 
---enable-autogen
-	Include dependency rules in the build system to automatically regenerate
-	files created by configure when their sources are newer.  This is
-	only of interest when making modifications to the source code.
+    will cause files to be installed into /usr/local/bin, /usr/local/share,
+    and /usr/local/man.  Note that in order to integrate with Python, Crux
+    installs its packages and modules Python's site-packages directory.
 
-Optionally, define environment variables when invoking configure, including (not
-exclusively):
+--with-python=<path-to-python>
+    Use the indicated Python interpreter, rather than using the PATH shell
+    variable to search for Python.
+
+--enable-debug
+    Enable assertions and validation code.  This incurs a substantial
+    performance hit, but is very useful when developing scripts (or Crux
+    itself).
+
+The following environment variables (not a definitive list) impact configure's
+behavior:
 
 CFLAGS="?"
-	Pass these flags to the compiler.  You probably shouldn't define this
-	unless you know what you are doing.
+    Pass these flags to the compiler.  You probably shouldn't define this unless
+    you know what you are doing.  (Use EXTRA_CFLAGS instead.)
 
 EXTRA_CFLAGS="?"
-	Append these flags to CFLAGS.  This makes it possible to add flags such
-	as -Werror, while allowing the configure script to determine what other
-	flags are appropriate for the specified configuration.
+    Append these flags to CFLAGS.  This makes it possible to add flags such as
+    -Werror, while allowing the configure script to determine what other flags
+    are appropriate for the specified configuration.
 
-	The configure script specifically checks whether an optimization (-O*)
-	flag is specified in EXTRA_CFLAGS, and refrains from specifying an
-	optimization level if it finds that one has already been specified in
-	EXTRA_CFLAGS.
+    The configure script specifically checks whether an optimization flag (-O*)
+    is specified in EXTRA_CFLAGS, and refrains from specifying an optimization
+    level if it finds that one has already been specified.
 
 CPPFLAGS="?"
-	Pass these flags to the C preprocessor.  Note that CFLAGS is not passed
-	to 'cpp' when 'configure' is looking for include files, so you must use 
-	CPPFLAGS instead if you need to help 'configure' find header files.
+    Pass these flags to the C preprocessor.  Note that CFLAGS is not passed to
+    'cpp' when 'configure' is looking for include files, so you must use
+    CPPFLAGS instead if you need to help 'configure' find header files.
 
 LD_LIBRARY_PATH="?"
-	'ld' uses this colon-separated list to find libraries.
+    'ld' uses this colon-separated list to find libraries.
 
 LDFLAGS="?"
-	Pass these flags when linking.
+    Pass these flags when linking.
 
 PATH="?"
-	'configure' uses this to find programs.
+    'configure' uses this to find programs.
 
-Optionally, define cook variables when invoking cook, including (not
+=== Advanced compilation =======================================================
+
+To run integrated regression tests, type:
+
+    make check
+
+The build system places its outputs in the 'build' directory, and creates two
+versions.  One of these versions can be run in place, and the other is only
+usable once installed in its final location.  In order to run crux in place,
+use:
+
+    ./build/run/bin/crux
+
+To re-build the two versions separately, use the following make targets:
+
+    run
+    inst
+
+To clean up build results to varying degrees, use the following make targets:
+
+    clean
+    distclean
+    relclean
+
+=== Advanced installation ======================================================
+
+Optionally, define make variables when invoking make, including (not
 exclusively):
 
-PREFIX="?"
-	Use this as the installation prefix.
-
 BINDIR="?"
-	Use this as the installation prefix for programs.
+    Use this as the installation prefix for programs.
 
 DATADIR="?"
-	Use this as the installation prefix for modules and documentation.
+    Use this as the installation prefix for modules and documentation.
 
 MANDIR="?"
-	Use this as the installation prefix for man pages.
+    Use this as the installation prefix for man pages.
 
 CC="?"
-	Use this to invoke the C compiler.
+    Use this to invoke the C compiler.
 
 CFLAGS="?"
-	Pass these flags to the compiler.
+    Pass these flags to the compiler.
 
 CPPFLAGS="?"
-	Pass these flags to the C preprocessor.
+    Pass these flags to the C preprocessor.
 
 LDFLAGS="?"
-	Pass these flags when linking.
+    Pass these flags when linking.
 
 PATH="?"
-	Use this to search for programs used during configuration and building.
+    Use this to search for programs used during configuration and building.
+
+=== Development ================================================================
+
+--- Use autogen.sh instead of configure ---
+
+If you intend to make non-trivial changes to Crux, use the 'autogen.sh' script
+rather than 'configure'.  This re-generates 'configure', enables configuration
+dependency rules, and enables re-generation of automatically generated source
+files, using the optional development software.
+
+--- Separate object directory ---
+
+The build system supports using an object directory separate from the source
+tree.  For example, you can create an 'obj' directory, and from within that
+directory, issue configuration and build commands:
+
+    autoconf
+    mkdir obj
+    ../configure --enable-autogen --enable-cython --enable-flex
+    make
+
+In practice, using a separate object directory is of limited utility, since the
+build system already places most of its outputs in the 'build' directory.
+
+--- Keep cfg.in in sync with configure.ac ---
+
+Since the build system has to generate different versions of various files for
+the 'run' versus 'inst' targets, it uses the 'cfg' script to do the @...@
+variable replacement that autoconf would normally handle.  Since 'cfg' is itself
+generated via autoconf, it must embed a dictionary of variable translations.  In
+order to minimize bit rot, 'cfg' does some validation to assure that all
+AC_SUBST keys can be translated.  If you add or remove any AC_SUBST macros in
+configure.ac, make the equivalent change to cfg.in.
+
+--- cydep is fragile ---
+
+The build system uses 'cydep' to compute transitive .pxd dependencies, so that
+it can potentially avoid rebuilding all .pyx sources every time a .pxd file is
+modified.  Unfortunately, this is tough to get 100% right, mainly because cydep
+can't always find all of the files it needs.  For example, the float.h C header
+is stashed in a gcc-internal directory on Linux systems.  Likewise, Cython
+searches for .pxd files in an internal directory that cydep does not know about.
+For these reasons, cydep emits comments that indicate what files could not be
+found during dependency computation.  If you notice that the build system
+fails to re-compile an out-of-date Cython source, look in build/pkg/*.d to
+verify that cydep picked up all the necessary dependencies, and if you find a
+problem, adjust the search paths accordingly.

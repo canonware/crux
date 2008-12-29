@@ -5,7 +5,7 @@ dnl
 dnl Version requirements for external software we depend on.
 dnl 
 PYTHON_VERSION_MIN=2.6.0
-CYTHON_VERSION_MIN=0.10.0
+CYTHON_VERSION_MIN=0.10.2
 FLEX_VERSION_MIN=2.5.35
 
 srcroot=$srcdir
@@ -138,6 +138,18 @@ case "${host}" in
 esac
 AC_SUBST([abi])
 AC_SUBST([RPATH])
+
+dnl Support optional additions to rpath.
+AC_ARG_WITH([rpath],
+  [AS_HELP_STRING([--with-rpath], [colon-separated rpath (ELF systems only)])],
+if test "x$with_rpath" = "xno" ; then
+  RPATH_EXTRA=
+else
+  RPATH_EXTRA="`echo $with_rpath | tr \":\" \" \"`"
+fi,
+  RPATH_EXTRA=
+)
+AC_SUBST([RPATH_EXTRA])
 
 dnl Disable rules that do automatic regeneration of configure output by default.
 AC_ARG_ENABLE([autogen],
@@ -413,7 +425,7 @@ fi
 dnl ============================================================================
 dnl Crux configuration.
 dnl 
-crux_version=`cat VERSION`
+crux_version=`cat ${srcroot}VERSION`
 AC_SUBST([crux_version])
 
 dnl ============================================================================
@@ -499,7 +511,6 @@ AC_CHECK_HEADERS([clapack.h], [],
   [AC_MSG_ERROR([Cannot build without clapack.h])])
 
 dnl Check for library functions.
-AC_CHECK_LIB([m], [log], [], [AC_MSG_ERROR([Cannot build without libm])])
 AC_CHECK_LIB([atlas], [ATL_dscal], [],
   [AC_MSG_ERROR([Cannot build without libatlas])])
 AC_CHECK_LIB([f77blas], [dscal_], [],
@@ -507,11 +518,17 @@ AC_CHECK_LIB([f77blas], [dscal_], [],
 AC_CHECK_LIB([cblas], [cblas_dscal], [],
   [AC_MSG_ERROR([Cannot build without libcblas (ATLAS)])])
 AC_CHECK_LIB([lapack], [clapack_dgetrf], [],
-  [AC_MSG_ERROR([Cannot build without liblapack (Combined LAPACK/ATLAS)])])
+  [AC_CHECK_LIB([lapack], [dgetrf_], [
+    AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
+      [LIBS="-llapack_atlas -llapack $LIBS"],
+      [AC_MSG_ERROR([Cannot build without ATLAS liblapack or liblapack_atlas])])
+  ])]
+)
+AC_CHECK_LIB([m], [log], [], [AC_MSG_ERROR([Cannot build without libm])])
 
 dnl Process .in files.
 AC_SUBST([cfghdrs])
-AC_CONFIG_HEADER([$cfghdrs cfghdrs.stamp])
+AC_CONFIG_HEADERS([$cfghdrs cfghdrs.stamp])
 
 AC_CONFIG_FILES([$cfgoutputs cfgoutputs.stamp])
 AC_DEFUN([CX_CONFIG_BINS], [
@@ -538,6 +555,7 @@ AC_MSG_RESULT([CFLAGS        : ${CFLAGS}])
 AC_MSG_RESULT([MTCFLAGS      : ${MTCFLAGS}])
 AC_MSG_RESULT([LDFLAGS       : ${LDFLAGS}])
 AC_MSG_RESULT([LIBS          : ${LIBS}])
+AC_MSG_RESULT([RPATH_EXTRA   : ${RPATH_EXTRA}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([PREFIX        : ${PREFIX}])
 AC_MSG_RESULT([BINDIR        : ${BINDIR}])
