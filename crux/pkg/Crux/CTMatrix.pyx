@@ -16,12 +16,13 @@ cimport Parsing
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
 cimport Crux.Fasta as Fasta
-from Crux.Character cimport Character, Dna
+from Crux.Character cimport Character, Dna, Protein
 from Crux.DistMatrix cimport DistMatrix
 
 from libc cimport *
 from libm cimport *
 from atlas cimport *
+from CxMath cimport pop, gcd
 
 cdef extern from "Python.h":
     cdef object PyString_FromStringAndSize(char *s, Py_ssize_t len)
@@ -122,17 +123,6 @@ cdef struct PctIdentRel:
     float fident # 0.0 for unequal sites, 1.0 for identical sites, something
                  # in between for ambiguous sites.
 
-# Compute the number of 1 bits in x.
-cdef inline unsigned pop(unsigned x):
-    assert sizeof(unsigned) == 4
-
-    x = x - ((x >> 1) & 0x55555555)
-    x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
-    x = (x + (x >> 4)) & 0x0f0f0f0f
-    x = x + (x >> 8)
-    x = x + (x >> 16)
-    return x & 0x0000003f
-
 cdef class PctIdent:
     cdef PctIdentRel tab[128 * 128]
 
@@ -198,6 +188,194 @@ cdef class PctIdent:
         fident[0] = ident
         nvalid[0] = valid
 
+cdef class K2p:
+    cdef bint scoreGaps
+    cdef int code2val[128]
+
+    def __init__(self, bint scoreGaps):
+        cdef Dna dna
+        cdef str code
+        cdef char *sCode
+        cdef int iCode
+
+        self.scoreGaps = scoreGaps
+
+        dna = Dna.get()
+        for code in dna.codes():
+            sCode = <char *>code
+            iCode = sCode[0]
+            self.code2val[iCode] = dna.code2val(code)
+
+    cdef void stats(self, char *a, char *b, unsigned len, unsigned *rN,
+      unsigned *rKs, unsigned *rKv):
+        cdef unsigned j
+        cdef int aC, bC, aI, bI
+        cdef int ambiguous, aVal, bVal, aOff, bOff
+        cdef double A[16]
+        cdef double p, n, ks, kv, k
+
+        ambiguous = Dna.get().any
+        memset(A, 0, sizeof(A))
+        for 0 <= j < len:
+            aC = a[j]
+            bC = b[j]
+            aVal = self.code2val[aC]
+            aPop = pop(aVal)
+            if aC == bC and aPop== 1:
+                aOff = ffs(aVal) - 1
+                # Identical non-ambiguous characters.
+                A[aOff*4 + aOff] += 1.0
+            else:
+                bVal = self.code2val[bC]
+                bPop = pop(bVal)
+
+                if aPop== 1 and bPop == 1:
+                    aOff = ffs(aVal) - 1
+                    bOff = ffs(bVal) - 1
+                    A[aOff*4 + bOff] += 1.0
+                elif not self.scoreGaps and (aPop== 0 or bPop == 0):
+                    # Ignore this character.
+                    pass
+                else:
+                    # Ambiguous character(s).
+
+                    # Translate gaps to mean "any character".
+                    if aVal == 0:
+                        aVal = ambiguous
+                        aPop= pop(aVal)
+                    if bVal == 0:
+                        bVal = ambiguous
+                        bPop = pop(bVal)
+
+                    # Each possible state combination is assigned an equal
+                    # probability.  All combinations sum to 1.0.
+                    p = <double>1.0 / <double>(aPop * bPop)
+
+                    # Iterate over every state combination, and add p to the
+                    # combinations that are represented by the ambiguity.
+                    for 0 <= aI < 4:
+                        for 0 <= bI < 4:
+                            if (aVal & (1 << aI)) and (bVal & (1 << bI)):
+                                A[aI*4 + bI] += p
+
+        # Compute stats needed by the k2p correction method.
+        #
+        #    A C G T
+        #  /--------  /------------
+        # A| - v s v  |  0  1  2  3
+        # C| v - v s  |  4  5  6  7
+        # G| s v - v  |  8  9 10 11
+        # T| v s v -  | 12 13 14 15
+        assert self.code2val[c'A'] == 8
+        assert self.code2val[c'C'] == 4
+        assert self.code2val[c'G'] == 2
+        assert self.code2val[c'T'] == 1
+        ks = A[2] + A[7] + A[8] + A[13]
+        kv = A[1] + A[3] + A[4] + A[6] + A[9] + A[11] + A[12] + A[14]
+        k = ks + kv
+        n = k + A[0] + A[5] + A[10] + A[15]
+
+        # Tajima's Taylor expansion method for computing corrected distances
+        # requires integer values.  Assuming it were possible to complete the
+        # computation with real numbers, this rounding would be a minor
+        # (unbiased) source of error for all but the shortest of sequences.
+        #
+        # Note that care is taken to do even rounding for ks and kv such that
+        # they sum to the rounded k.
+        rN[0] = <unsigned>round(n)
+        rKs[0] = <unsigned>round(ks)
+        rKv[0] = <unsigned>round(k - ks)
+
+    #                           ^
+    # Compute the first term of d, which can be factored as:
+    #
+    #     k
+    #  ------          max
+    #  \               ------   (i-j)    j   j
+    #   \      i!      \      kv        2  ks
+    #    >   ------- *  >     ------- * ------
+    #   /         i    /      (i-j)!    j!
+    #  /     2 i n     ------
+    #  ------          j=min
+    #   i=1
+    cdef double dist1(self, n, ks, kv):
+        cdef double ret, t0, t, u
+        cdef unsigned h, i, j, k, min, max
+
+        ret = 0.0
+        k = ks + kv
+        for 1 <= i <= k:
+            t = 0.5 / <double>i
+            for 1 <= h <= i:
+                t *= <double>h / <double>n
+
+            min = (0 if i - kv < 0 else i - kv)
+            max = (i if i < ks else ks)
+            # Compute first iteration.
+            j = min
+            for 1 <= h <= i-j:
+                t *= <double>kv
+                t /= <double>h
+            u = 2.0 * <double>ks
+            for 1 <= h <= j:
+                t *= u
+                t /= <double>h
+            ret += t
+
+            # Compute remaining iterations based on previous.
+            u = (2.0 / <double>kv) * <double>ks
+            for j + 1 <= j <= max:
+                t *= u
+                if i-j > 0:
+                    t /= <double>(i-j)
+                t /= <double>j
+                ret += t
+
+        return ret
+
+    #                            ^
+    # Compute the second term of d, which can be factored as:
+    #
+    #        kv
+    #      ----   i   i
+    #   1  \     2  kv
+    #  ---  >    ------
+    #   4  /        i
+    #      ----  i n
+    #      i=1
+    #
+    # Reduce the chances of numerical overflow by computing the numerator and
+    # denominator separately, trying to cancel common factors at each step.
+    cdef double dist2(self, n, kv):
+        cdef double ret, t, u
+        cdef unsigned h, i
+
+        ret = 0.0
+        # Compute first iteration.
+        i = 1
+        t = 0.5
+        t *= <double>kv
+        t /= <double>n
+        ret += t
+
+        # Compute remaining iterations based on previous.
+        u = 2.0 / <double>n * <double>kv
+        for i + 1 <= i < kv:
+            t *= u
+            ret += t / <double>i
+
+        return ret
+
+    cdef double dist(self, char *a, char *b, unsigned len):
+        cdef unsigned n, ks, kv
+
+        self.stats(a, b, len, &n, &ks, &kv)
+
+        if n == 0:
+            return 1e10000 / 1e10000 # NaN
+
+        return self.dist1(n, ks, kv) + self.dist2(n, kv)
+
 cdef class LogDet:
     cdef Character char_
     cdef bint scoreGaps
@@ -235,7 +413,7 @@ cdef class LogDet:
 
     # Compute determinant of the pairwise frequency matrix for a vs. b.
     cdef double det(self, char *a, char *b, unsigned seqlen):
-        cdef unsigned j, popA, popB
+        cdef unsigned j, popA, bPop
         cdef int aC, bC, aI, bI
         cdef int ambiguous, aVal, bVal, aOff, bOff
         cdef double sum, p
@@ -247,20 +425,20 @@ cdef class LogDet:
             aC = a[j]
             bC = b[j]
             aVal = self.code2val[aC]
-            popA = pop(aVal)
-            if aC == bC and popA == 1:
+            aPop= pop(aVal)
+            if aC == bC and aPop== 1:
                 aOff = ffs(aVal) - 1
                 # Identical non-ambiguous characters.
                 self.A[aOff*self.n + aOff] += 1.0
             else:
                 bVal = self.code2val[bC]
-                popB = pop(bVal)
+                bPop = pop(bVal)
 
-                if popA == 1 and popB == 1:
+                if aPop== 1 and bPop == 1:
                     aOff = ffs(aVal) - 1
                     bOff = ffs(bVal) - 1
                     self.A[aOff*self.n + bOff] += 1.0
-                elif not self.scoreGaps and (popA == 0 or popB == 0):
+                elif not self.scoreGaps and (aPop== 0 or bPop == 0):
                     # Ignore this character.
                     pass
                 else:
@@ -269,14 +447,14 @@ cdef class LogDet:
                     # Translate gaps to mean "any character".
                     if aVal == 0:
                         aVal = ambiguous
-                        popA = pop(aVal)
+                        aPop= pop(aVal)
                     if bVal == 0:
                         bVal = ambiguous
-                        popB = pop(bVal)
+                        bPop = pop(bVal)
 
                     # Each possible state combination is assigned an equal
                     # probability.  All combinations sum to 1.0.
-                    p = <double>1.0 / <double>(popA * popB)
+                    p = <double>1.0 / <double>(aPop * bPop)
 
                     # Iterate over every state combination, and add p to the
                     # combinations that are represented by the ambiguity.
@@ -505,7 +683,8 @@ of all the cases that the ambiguities could possibly resolve to.
 
         return ret
 
-    cpdef DistMatrix jukesDists(self, bint avgAmbigs=True, bint scoreGaps=True):
+    cpdef DistMatrix jukesDists(self, bint avgAmbigs=True,
+      bint scoreGaps=False):
         """
 Calculate pairwise distances, corrected for multiple hits using the
 Jukes-Cantor method, and the computational methods described by:
@@ -513,11 +692,11 @@ Jukes-Cantor method, and the computational methods described by:
   Tajima, F. (1993) Unbiased estimation of evolutionary distance between
   nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
 
-If scoreGaps is enabled, gaps are treated as being ambiguous, rather than as
-missing.
-
 If avgAmbigs is enabled, ambiguity codes are handled by equal-weight averaging
 of all the cases that the ambiguities could possibly resolve to.
+
+If scoreGaps is enabled, gaps are treated as being ambiguous, rather than as
+missing.
 """
         cdef DistMatrix ret
         cdef PctIdent tab
@@ -560,7 +739,138 @@ of all the cases that the ambiguities could possibly resolve to.
 
         return ret
 
-    cpdef DistMatrix logdetDists(self, bint scoreGaps=True):
+    cdef void _kimuraDistsDNA(self, DistMatrix m, bint scoreGaps):
+        cdef K2p k2p
+        cdef int a, b
+        cdef char *aRow, *bRow
+        cdef double d
+
+        k2p = K2p(scoreGaps)
+        for 0 <= a < self.ntaxa:
+            aRow = self.getRow(a)
+            for a + 1 <= b < self.ntaxa:
+                bRow = self.getRow(b)
+                d = k2p.dist(aRow, bRow, self.nchars)
+                m.distanceSet(a, b, d)
+
+    cdef void _kimuraDistsProtein(self, DistMatrix m, bint avgAmbigs,
+      bint scoreGaps):
+        cdef PctIdent tab
+        cdef int a, b
+        cdef char *aRow, *bRow
+        cdef unsigned n, iud
+        cdef float NaN, fident, ud, d
+        cdef list dayhoff_pams = [ # PAMs, [75.0% .. 93.0%] in 0.1% increments.
+          195, 196, 197, 198, 199, 200, 200, 201, 202, 203,
+          204, 205, 206, 207, 208, 209, 209, 210, 211, 212,
+          213, 214, 215, 216, 217, 218, 219, 220, 221, 222,
+          223, 224, 226, 227, 228, 229, 230, 231, 232, 233,
+          234, 236, 237, 238, 239, 240, 241, 243, 244, 245,
+          246, 248, 249, 250, 252, 253, 254, 255, 257, 258,
+          260, 261, 262, 264, 265, 267, 268, 270, 271, 273,
+          274, 276, 277, 279, 281, 282, 284, 285, 287, 289,
+          291, 292, 294, 296, 298, 299, 301, 303, 305, 307,
+          309, 311, 313, 315, 317, 319, 321, 323, 325, 328,
+          330, 332, 335, 337, 339, 342, 344, 347, 349, 352,
+          354, 357, 360, 362, 365, 368, 371, 374, 377, 380,
+          383, 386, 389, 393, 396, 399, 403, 407, 410, 414,
+          418, 422, 426, 430, 434, 438, 442, 447, 451, 456,
+          461, 466, 471, 476, 482, 487, 493, 498, 504, 511,
+          517, 524, 531, 538, 545, 553, 560, 569, 577, 586,
+          595, 605, 615, 626, 637, 649, 661, 675, 688, 703,
+          719, 736, 754, 775, 796, 819, 845, 874, 907, 945,
+          988]
+
+        NaN = 1e10000 / 1e10000
+        tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
+        for 0 <= a < self.ntaxa:
+            aRow = self.getRow(a)
+            for a + 1 <= b < self.ntaxa:
+                bRow = self.getRow(b)
+                tab.stats(aRow, bRow, self.nchars, &fident, &n)
+                if n == 0:
+                    m.distanceSet(a, b, NaN)
+                    continue
+
+                ud = 1.0 - (fident / <float>n)
+                # Convert ud to iud/1000, in order to be able to quantize
+                # uncorrected distance in tenths of a percent.
+                iud = <unsigned>roundf(ud * 1000.0)
+                if iud == 0:
+                    d = 0.0
+                elif iud < 750:
+                    # Use Kimura's empirical formula.
+                    d = -logf(1.0 - ud - ((ud / 5.0) * ud))
+                elif iud <= 930:
+                    # Correct distance using Dayhoff PAMs.
+                    d = <float>(<int>dayhoff_pams[iud - 750]) / 100.0
+                else:
+                    d = 10.0 # Arbitrary excessively large value.
+
+                m.distanceSet(a, b, d)
+
+    cpdef DistMatrix kimuraDists(self, bint avgAmbigs=True,
+      bint scoreGaps=False):
+        """
+Calculate corrected pairwise distances.
+
+DNA:
+  Correct for multiple hits using the Kimura two-parameter method, and the
+  computational methods described by:
+
+    Tajima, F. (1993) Unbiased estimation of evolutionary distance between
+    nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
+
+Protein:
+  Correct for multiple hits using the empirical formula presented as equation
+  (4.8) in:
+
+    Kimura, M. (1983) The neutral theory of molecular evolution.  p. 75,
+    Cambridge University Press, Cambridge, England.
+
+  Starting at ~75% divergence, this formula is inadequate, so use a method
+  based on Dayhoff PAM matrices, as developed in CLUSTAL W.
+
+    Dayhoff, M.O., R.M. Schwartz, B.C. Orcutt (1978) "A model of evolutionary
+    change in proteins." In "Atlas of Protein Sequence and Structure, vol. 5,
+    suppl. 3." M.O. Dayhoff (ed.), pp. 345-352, Natl.  Biomed. Res. Found.,
+    Washington, DC.
+
+    Thompson, J.D., D.G. Higgins, T.J. Gibson (1994) CLUSTAL W: improving the
+    sensitivity of progressive multiple sequence alignment through sequence
+    weighting, position specific gap penalties and weight matrix choice.
+    Nucleic Acids Res. 22:4673-4680.
+
+For DNA, ambiguity codes are handled by equal-weight averaging of all the cases
+that the ambiguities could possibly resolve to.  Unlike for some of the other
+distance correction methods (such as jukesDists()), it would be completely
+non-sensical to treat DNA ambiguities as unique states.  For protein, if
+avgAmbigs is enabled, ambiguity codes are handled by equal-weight averaging of
+all the cases that the ambiguities could possibly resolve to.
+
+If scoreGaps is enabled, gaps are treated as being ambiguous, rather than as
+missing.  Ambiguity is interpreted to mean that all states are equally likely,
+so enabling this option tends to substantially increase distance, due to
+unlikely mutations being highly represented.
+"""
+        cdef DistMatrix ret
+
+        assert self.rows != NULL
+
+        ret = DistMatrix(self.taxaMap)
+
+        if self.ntaxa > 1:
+            if self.charType is Dna:
+                self._kimuraDistsDNA(ret, scoreGaps)
+            elif self.charType is Protein:
+                self._kimuraDistsProtein(ret, avgAmbigs, scoreGaps)
+            else:
+                raise ValueError(
+                  "Unsupported character type for Kimura distance correction")
+
+        return ret
+
+    cpdef DistMatrix logdetDists(self, bint scoreGaps=False):
         """
 Calculate pairwise distances, corrected for unequal state frequencies using the
 LogDet method described by:
@@ -586,11 +896,10 @@ to treat ambiguities as unique states.
 
         assert self.rows != NULL
 
-
         ret = DistMatrix(self.taxaMap)
-        logDet = LogDet(self.charType, scoreGaps)
 
         if self.ntaxa > 1:
+            logDet = LogDet(self.charType, scoreGaps)
             NaN = 1e10000 / 1e10000
 
             for 0 <= i < self.ntaxa:

@@ -184,7 +184,7 @@ else:
     elif opts.correction is "jukes":
         matrix = alignment.jukesDists()
     elif opts.correction is "kimura":
-        matrix = alignment.kimuraDists() # XXX
+        matrix = alignment.kimuraDists()
     elif opts.correction is "logdet":
         matrix = alignment.logdetDists()
     else:

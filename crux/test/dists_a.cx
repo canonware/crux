@@ -197,4 +197,11 @@ for (matrixStrs, charType) in ((dna, Crux.Character.Dna),
                 m = a.jukesDists(avgAmbigs=avgAmbigs, scoreGaps=scoreGaps)
                 m.render(distFormat="%.2f", outFile=sys.stdout)
 
+        for avgAmbigs in (True, False):
+            for scoreGaps in (True, False):
+                print "=== kimuraDists(avgAmbigs=%r, scoreGaps=%r) ===" % \
+                  (avgAmbigs, scoreGaps)
+                m = a.kimuraDists(avgAmbigs=avgAmbigs, scoreGaps=scoreGaps)
+                m.render(distFormat="%.2f", outFile=sys.stdout)
+
 print "Test end"
