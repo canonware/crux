@@ -1,12 +1,7 @@
 #ifndef Cx_h
 #define Cx_h
 
-// Python headers.
-//#include <Python.h>
-//#include <compile.h>
-//#include <eval.h>
-
-#include "Cx_defs.h"
+#include <Cx_defs.h>
 
 #include <stdio.h>
 #include <stdlib.h>

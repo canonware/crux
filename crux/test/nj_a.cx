@@ -2,7 +2,7 @@ import sys
 
 print "Test begin"
 
-matrix = Crux.DistMatrix.DistMatrix(open(Crux.Config.scriptargs[1]
+matrix = Crux.DistMatrix.DistMatrix(open(Crux.Config.scriptargs[0]
                                          + '/test/treezilla.dist'))
 t = matrix.nj()
 

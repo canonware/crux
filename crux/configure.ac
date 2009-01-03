@@ -432,7 +432,7 @@ dnl ============================================================================
 dnl Generate file lists.
 
 dnl C headers.
-for h in `find ${srcroot}lib -type f |grep "\.h\.in$" |sort` ; do
+for h in `cd ./${srcroot}; find lib -type f |grep "\.h\.in$" |sort` ; do
   chdr="`dirname ${h}`/`basename ${h} .in`"
   cfghdrs="${cfghdrs} ${chdr}"
 done
@@ -497,7 +497,7 @@ AC_SUBST([bins])
 
 dnl Tests.
 tests=""
-for t in `find ${srcroot}test -type f |grep "/[[A-Za-z0-9_]]*\.cx$" |sort`; do
+for t in `cd ./${srcroot}; find test -type f |grep "/[[A-Za-z0-9_]]*\.cx$" |sort`; do
   tests="${tests} ${t}"
 done
 AC_SUBST([tests])
@@ -557,6 +557,7 @@ AC_MSG_RESULT([LDFLAGS       : ${LDFLAGS}])
 AC_MSG_RESULT([LIBS          : ${LIBS}])
 AC_MSG_RESULT([RPATH_EXTRA   : ${RPATH_EXTRA}])
 AC_MSG_RESULT([])
+AC_MSG_RESULT([site_packages : ${site_packages}])
 AC_MSG_RESULT([PREFIX        : ${PREFIX}])
 AC_MSG_RESULT([BINDIR        : ${BINDIR}])
 AC_MSG_RESULT([DATADIR       : ${DATADIR}])

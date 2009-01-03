@@ -93,18 +93,20 @@ done
 done
 
 check: run
+	@mkdir -p @objroot@test
 	@sh -c 'total=0; \
 		failures=0; \
 		@ECHO@ "========================================="; \
 		for t in $(TESTS); do \
 			total=`expr $$total + 1`; \
 			@ECHO@ -n "$$t ... "; \
-			2>&1 @objroot@build/run/bin/crux $$t - \
+			2>&1 @objroot@build/run/bin/crux @srcroot@$$t - \
 			  @abs_srcroot@ @abs_objroot@ \
 			  | @GREP@ -v "\[[1-9][0-9]* refs\]" \
-			  > $${t}.out; \
-			if @TEST@ -e "$${t}.exp"; then \
-				2>&1 diff -u $${t}.exp $${t}.out >/dev/null; \
+			  > @objroot@$${t}.out; \
+			if @TEST@ -e "@srcroot@$${t}.exp"; then \
+				2>&1 diff -u @srcroot@$${t}.exp \
+				  @objroot@$${t}.out >/dev/null; \
 				fail=$$?; \
 				if @TEST@ "$$fail" -eq "1" ; then \
 					failures=`expr $$failures + 1`; \
@@ -153,18 +155,12 @@ relclean: distclean flclean cyclean
 # Handle SFMT compilation specially.
 @objroot@build/lib/SFMT/%.o : @srcroot@lib/SFMT/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(MTCFLAGS) $(CPPFLAGS) $(MTCPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@
-	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $(MTCPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
-
-# Handle dSFMT compilation specially.
-@objroot@build/lib/dSFMT/%.o : @srcroot@lib/dSFMT/%.c
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(MTCFLAGS) $(CPPFLAGS) $(MTCPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@
+	$(CC) $(CFLAGS) $(MTCFLAGS) $(CPPFLAGS) $(MTCPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -c $< -o$@
 	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $(MTCPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
 
 @objroot@build/lib/%.o : @srcroot@lib/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -c $< -o$@
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -c $< -o$@
 	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
 
 #===============================================================================
@@ -202,13 +198,13 @@ endif
 ifeq (@enable_cython@, 1)
 @srcroot@%.c : @srcroot@%.pyx @srcroot@%.pxd
 	@PYTHON@ @CYTHON@ -I@srcroot@pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) @python_config_includes@ -o $@ $<
-	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@srcroot@pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,--infile=%,$+) --targetfile=$@ --depfile=$(@:@srcroot@pkg/%.c=@objroot@build/pkg/%.d)
+	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@srcroot@pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,--infile=%,$+) --targetfile=$@ --depfile=$(@:@srcroot@pkg/%.c=@objroot@build/pkg/%.d)
 endif
 
 #===============================================================================
 @objroot@build/pkg/%.o : @srcroot@pkg/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@build/lib/%)))) @python_config_cflags@ -c $< -o$@
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) @python_config_cflags@ -c $< -o$@
 
 #===============================================================================
 # Rules for building packages/modules that link against libCx.  These rules
