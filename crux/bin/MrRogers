@@ -12,11 +12,13 @@ import Crux
 class MrRogersHelpFormatter(optparse.IndentedHelpFormatter):
     def format_usage(self, usage):
         return """\
-MrRogers (won't you be my neighbor?), is very similar in function and scope to
+MrRogers (won't you be my neighbor?), is a script based on Crux
+(http://www.canonware.com/Crux/) that is very similar in function and scope to
 the Clearcut program (http://bioinformatics.hungry.com/clearcut/).  It
-implements Relaxed neigbhor joining (RNJ) and neighbor joining (NJ), using
+implements relaxed neigbhor joining (RNJ) and neighbor joining (NJ), using
 either pairwise distances (PHYLIP-like distance matrix format), or aligned
-sequences (FASTA format) as input.
+sequences (FASTA format) as input.  Computed distances are based on percent
+identity unless one of the distance correction algorithms is enabled.
 
 MrRogers usage:
   MrRogers -h | --help
@@ -31,9 +33,7 @@ MrRogers usage:
     -s <int>, --seed=<int>   Set pseudo-random number generator seed
                                (*based on system time, microsecond resolution).
     -r, --norandom           Attempt joins deterministically (*disabled).
-                               (Clearcut never randomizes joins for NJ.)
-    -A, --noadditive         Do not check for additivity (*disabled).  (Clearcut
-                               does not support this option.)
+    -A, --noadditive         Do not check for additivity (*disabled).
     -S, --shuffle            Randomly shuffle the distance matrix (*disabled).
     -N, --neighbor           Use NJ rather than RNJ (*disabled).
 
@@ -49,8 +49,7 @@ MrRogers usage:
   options:
     -j, --jukes              Use Jukes-Cantor correction (*disabled).
     -k, --kimura             Use Kimura correction (*disabled).
-    -l, --logdet             Use LogDet correction (*disabled).  (Clearcut does
-                               not support this option.)
+    -l, --logdet             Use LogDet/paralinear correction (*disabled).
 
   Output options:
     -O, --stdout             Write to standard output (*enabled).
@@ -58,10 +57,8 @@ MrRogers usage:
     -m, --matrixout=<file>   Write distance matrix to <file> (*disabled).
     -n, --ntrees=<int>       Generate <int> trees (*1).
     -c, --collapse           Collapse negative-/zero-length branches
-                               (*disabled).  (Clearcut does not support this
-                               option.)
-    -C, --canonize           Canonize trees (*disabled).  (Clearcut does not
-                               support this option.)
+                               (*disabled).
+    -C, --canonize           Canonize trees (*disabled).
     -e, --expblen            Write branch lengths using exponential notation
                                (*disabled).
     -E, --expdist            Write pairwise distances using exponential notation
@@ -73,6 +70,54 @@ Examples:
 
   Create an RNJ tree from a DNA alignment:
     MrRogers --alignment --DNA -in=alignment.fasta --out=treefile.tre
+
+Clearcut compatibility:
+  MrRogers is intended to provide a compatible superset of Clearcut's
+  functionality.  However, Clearcut and MrRogers are independent
+  implementations, so results do vary slightly due to differing algorithms and
+  numerical methods.  The implementations differ in at least the following ways:
+
+  * When computing pairwise distances, Clearcut either ignores ambiguities, or
+    treats them as distinct character states.  MrRogers interprets ambiguities
+    as meaning all encoded states are equally likely.
+
+  * MrRogers uses computational methods described by Tajima (1993) to improve
+    the accuracy and stability of certain pairwise distance computation methods
+    (--jukes, --DNA --kimura) , which is especially relevant for short
+    sequences.  As a result, MrRogers is slower for these operations than
+    Clearcut is, especially so in the --DNA --kimura case.
+
+  * Clearcut bases floating point equality testing on relative error.  MrRogers
+    uses absolute error.  Thus, the implementations may disagree on whether a
+    distance matrix is additive.
+
+  * Clearcut never randomizes joins for NJ, but MrRogers does, unless
+    --norandom is enabled.
+
+  * MrRogers adds the following options:
+    + --noadditive
+    + --logdet
+    + --collapse
+    + --canonize
+
+References:
+  Evans, J., L. Sheneman, J.A. Foster (2006) Relaxed neighbor joining: A fast
+  distance-based phylogenetic tree construction method.  J Mol Evol 62:785-792.
+
+  Kimura, M. (1983) The neutral theory of molecular evolution.  p. 75,
+  Cambridge University Press, Cambridge, England.
+
+  Lake, J.A. (1994) Reconstructing evolutionary trees from DNA and protein
+  sequences: Paralinear distances.  Proc. Natl. Acad. Sci. 91:1455-1459.
+
+  Saitou, N., M. Nei (1987) The neighbor-joining method: A new method for
+  reconstructing phylogenetic trees.  Mol Biol Evol 4:406-425.
+
+  Sheneman, L., J. Evans, J.A. Foster (2006) Clearcut: A fast implementation of
+  relaxed neighbor joining.  Bioinformatics 22(22):2823-2824.
+
+  Tajima, F. (1993) Unbiased estimation of evolutionary distance between
+  nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
 """
 
 # Process the command line.

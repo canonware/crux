@@ -13,16 +13,16 @@ AA--CC--GG--TT--
 === logdetDists(scoreGaps=True) ===
 5
 one
-two        5.545177e+00
-three      7.624619e+00 7.624619e+00
-four       7.624619e+00 7.624619e+00 7.624619e+00
+two        0.000000e+00
+three      3.744665e-01 3.744665e-01
+four       5.198604e-01 5.198604e-01 3.744665e-01
 five       nan nan nan nan
 === logdetDists(scoreGaps=False) ===
 5
 one
-two        5.545177e+00
-three      7.624619e+00 7.624619e+00
-four       5.545177e+00 5.545177e+00 5.545177e+00
+two        0.000000e+00
+three      3.744665e-01 3.744665e-01
+four       0.000000e+00 0.000000e+00 0.000000e+00
 five       nan nan nan nan
 >Euglena_gracilis
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -53,10 +53,10 @@ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 === logdetDists(scoreGaps=True) ===
 2
 Euglena gracilis
-Olithodiscus luteus 6.216022e+00
+Olithodiscus luteus 1.530623e-01
 === logdetDists(scoreGaps=False) ===
 2
 Euglena gracilis
-Olithodiscus luteus 6.216022e+00
+Olithodiscus luteus 1.530623e-01
 === charType: <type 'Crux.Character.Protein'> ===
 Test end

@@ -2,6 +2,13 @@
 # This file implements the neigbhor joining (NJ) and relaxed neighbor joining
 # (RNJ) algorithms.
 #
+#   Evans, J., L. Sheneman, J.A. Foster (2006) Relaxed neighbor joining: A
+#   fast distance-based phylogenetic tree construction method.  J Mol Evol
+#   62:785-792.
+#
+#   Saitou, N., M. Nei (1987) The neighbor-joining method: A new method for
+#   reconstructing phylogenetic trees.  Mol Biol Evol 4:406-425.
+#
 # Matrices are stored as upper-half matrices, which means that addressing is a
 # bit tricky.  The following matrix shows how addressing logically works, as
 # well as the order in which matrix elements are stored in memory:

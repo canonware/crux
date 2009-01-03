@@ -22,6 +22,7 @@ from Crux.DistMatrix cimport DistMatrix
 from libc cimport *
 from libm cimport *
 from atlas cimport *
+from CxMat cimport CxMatLogDet
 from CxMath cimport pop, gcd
 
 cdef extern from "Python.h":
@@ -171,7 +172,7 @@ cdef class PctIdent:
 
     # Compute comparison statistics for a vs. b.
     cdef void stats(self, char *a, char *b, unsigned seqlen,
-      float *fident, unsigned *nvalid):
+      float *fident, unsigned *nvalid) except *:
         cdef float ident
         cdef unsigned valid, j, elm
         cdef int aC, bC
@@ -207,7 +208,7 @@ cdef class K2p:
             self.code2val[iCode] = dna.code2val(code)
 
     cdef void stats(self, char *a, char *b, unsigned len, unsigned *rN,
-      unsigned *rKs, unsigned *rKv):
+      unsigned *rKs, unsigned *rKv) except *:
         cdef unsigned j
         cdef int aC, bC, aI, bI
         cdef int ambiguous, aVal, bVal, aOff, bOff
@@ -298,8 +299,8 @@ cdef class K2p:
     #  /     2 i n     ------
     #  ------          j=min
     #   i=1
-    cdef double dist1(self, n, ks, kv):
-        cdef double ret, t0, t, u
+    cdef double dist1(self, unsigned n, unsigned ks, unsigned kv) except -1.0:
+        cdef double ret, t, u
         cdef unsigned h, i, j, k, min, max
 
         ret = 0.0
@@ -309,7 +310,7 @@ cdef class K2p:
             for 1 <= h <= i:
                 t *= <double>h / <double>n
 
-            min = (0 if i - kv < 0 else i - kv)
+            min = (0 if i < kv else i - kv)
             max = (i if i < ks else ks)
             # Compute first iteration.
             j = min
@@ -346,7 +347,7 @@ cdef class K2p:
     #
     # Reduce the chances of numerical overflow by computing the numerator and
     # denominator separately, trying to cancel common factors at each step.
-    cdef double dist2(self, n, kv):
+    cdef double dist2(self, unsigned n, unsigned kv) except -1.0:
         cdef double ret, t, u
         cdef unsigned h, i
 
@@ -366,13 +367,13 @@ cdef class K2p:
 
         return ret
 
-    cdef double dist(self, char *a, char *b, unsigned len):
+    cdef double dist(self, char *a, char *b, unsigned len) except -1.0:
         cdef unsigned n, ks, kv
 
         self.stats(a, b, len, &n, &ks, &kv)
 
         if n == 0:
-            return 1e10000 / 1e10000 # NaN
+            return NAN
 
         return self.dist1(n, ks, kv) + self.dist2(n, kv)
 
@@ -411,12 +412,12 @@ cdef class LogDet:
         if self.A == NULL:
             raise MemoryError("Matrix allocation failed")
 
-    # Compute determinant of the pairwise frequency matrix for a vs. b.
-    cdef double det(self, char *a, char *b, unsigned seqlen):
-        cdef unsigned j, popA, bPop
+    # Compute LogDet/paralinear distance for a vs. b.
+    cdef double dist(self, char *a, char *b, unsigned seqlen) except -1.0:
+        cdef unsigned j, aPop, bPop
         cdef int aC, bC, aI, bI
         cdef int ambiguous, aVal, bVal, aOff, bOff
-        cdef double sum, p
+        cdef double p, sum
 
         ambiguous = self.char_.any
         memset(self.A, 0, self.n * self.n * sizeof(double))
@@ -463,12 +464,12 @@ cdef class LogDet:
                             if (aVal & (1 << aI)) and (bVal & (1 << bI)):
                                 self.A[aI*self.n + bI] += p
 
-        # Normalize matrix, such that the elements sum to 1.0.
+        # If the matrix is empty, there are no data on which to base a distance.
         sum = cblas_dasum(self.n * self.n, self.A, 1)
-        if sum > 0.0:
-            cblas_dscal(self.n * self.n, <double>1.0 / sum, self.A, 1)
+        if sum == 0.0:
+            return NAN
 
-        return CxMatDdet(self.n, self.A)
+        return CxMatLogDet(self.n, self.A) / <double>self.n
 
 cdef class Alignment:
     def __cinit__(self):
@@ -703,7 +704,7 @@ missing.
         cdef int nstates, i, j
         cdef char *iRow, *jRow
         cdef unsigned n, x
-        cdef float NaN, fident, k, b, p, d, t
+        cdef float fident, k, b, p, d, t
 
         assert self.rows != NULL
 
@@ -711,7 +712,6 @@ missing.
 
         if self.ntaxa > 1:
             tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
-            NaN = 1e10000 / 1e10000
             nstates = self.charType.get().nstates()
             b = <float>(nstates - 1) / <float>nstates
 
@@ -734,7 +734,7 @@ missing.
                                 # so there's no point in continuing.
                                 break
                     else:
-                        d = NaN
+                        d = NAN
                     ret.distanceSet(i, j, d)
 
         return ret
@@ -759,7 +759,7 @@ missing.
         cdef int a, b
         cdef char *aRow, *bRow
         cdef unsigned n, iud
-        cdef float NaN, fident, ud, d
+        cdef float fident, ud, d
         cdef list dayhoff_pams = [ # PAMs, [75.0% .. 93.0%] in 0.1% increments.
           195, 196, 197, 198, 199, 200, 200, 201, 202, 203,
           204, 205, 206, 207, 208, 209, 209, 210, 211, 212,
@@ -781,7 +781,6 @@ missing.
           719, 736, 754, 775, 796, 819, 845, 874, 907, 945,
           988]
 
-        NaN = 1e10000 / 1e10000
         tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
         for 0 <= a < self.ntaxa:
             aRow = self.getRow(a)
@@ -789,7 +788,7 @@ missing.
                 bRow = self.getRow(b)
                 tab.stats(aRow, bRow, self.nchars, &fident, &n)
                 if n == 0:
-                    m.distanceSet(a, b, NaN)
+                    m.distanceSet(a, b, NAN)
                     continue
 
                 ud = 1.0 - (fident / <float>n)
@@ -873,7 +872,16 @@ unlikely mutations being highly represented.
     cpdef DistMatrix logdetDists(self, bint scoreGaps=False):
         """
 Calculate pairwise distances, corrected for unequal state frequencies using the
-LogDet method described by:
+LogDet/paralinear method described by:
+
+  Lake, J.A. (1994) Reconstructing evolutionary trees from DNA and protein
+  sequences: Paralinear distances.  Proc. Natl. Acad. Sci. 91:1455-1459.
+
+The distances are scaled such that they represent the mean number of
+substitutions per site.
+
+Note that the Lake (1994) method differs from the Lockhart et al. (1994) method
+primarily in that it converges on additive distances for consistent data.
 
   Lockhart, P.J., M.A. Steel, M.D. Hendy, and D. Penny (1994) Recovering
   evolutionary trees under a more Realistic model of sequence evolution.  Mol.
@@ -889,10 +897,9 @@ to treat ambiguities as unique states.
 """
         cdef DistMatrix ret
         cdef LogDet logDet
-        cdef int nstates, i, j
+        cdef int i, j
         cdef char *iRow, *jRow
-        cdef unsigned n, x
-        cdef float NaN
+        cdef double d
 
         assert self.rows != NULL
 
@@ -900,17 +907,12 @@ to treat ambiguities as unique states.
 
         if self.ntaxa > 1:
             logDet = LogDet(self.charType, scoreGaps)
-            NaN = 1e10000 / 1e10000
 
             for 0 <= i < self.ntaxa:
                 iRow = self.getRow(i)
                 for i + 1 <= j < self.ntaxa:
                     jRow = self.getRow(j)
-                    det = logDet.det(iRow, jRow, self.nchars)
-                    if det > 0.0:
-                        d = -log(det)
-                    elif det == 0.0:
-                        d = NaN
+                    d = logDet.dist(iRow, jRow, self.nchars)
                     ret.distanceSet(i, j, d)
 
         return ret

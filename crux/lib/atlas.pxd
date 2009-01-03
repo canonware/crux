@@ -8,6 +8,3 @@ cdef extern from "cblas.h":
 cdef extern from "clapack.h":
     cdef int clapack_dgetrf(CBLAS_ORDER Order, int M, int N, double *A, int lda,
       int *ipiv)
-
-cdef extern from "CxMat.h":
-    cdef inline double CxMatDdet(unsigned N, double *A)
