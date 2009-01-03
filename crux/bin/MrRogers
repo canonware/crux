@@ -83,7 +83,7 @@ Clearcut compatibility:
 
   * MrRogers uses computational methods described by Tajima (1993) to improve
     the accuracy and stability of certain pairwise distance computation methods
-    (--jukes, --DNA --kimura) , which is especially relevant for short
+    (--jukes, --DNA --kimura), which is especially relevant for short
     sequences.  As a result, MrRogers is slower for these operations than
     Clearcut is, especially so in the --DNA --kimura case.
 
