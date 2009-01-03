@@ -472,6 +472,18 @@ cdef class LogDet:
         return CxMatLogDet(self.n, self.A) / <double>self.n
 
 cdef class Alignment:
+    """
+Create an alignment, optionally from a CTMatrix.  Unless a pad symbol is
+specified, all sequences must be of equal length.
+
+If no CTMatrix is specified, create an empty alignment for the taxa in taxaMap,
+with space for nchars characters.
+
+By default, create only a row-major matrix, but support row-major and/or
+column-major format.  The get{Row,Seq}() methods are only supported if rowMajor
+is enabled.  Likewise, the get{Col,Char}() methods are only supported if
+colMajor is enabled.
+"""
     def __cinit__(self):
         self.rows = NULL
         self.cols = NULL
@@ -487,17 +499,6 @@ cdef class Alignment:
     def __init__(self, CTMatrix matrix=None, str pad=None,
       Taxa.Map taxaMap=None, int nchars=-1, type charType=Dna,
       bint rowMajor=True, bint colMajor=False):
-        """
-Create an alignment, optionally from a CTMatrix.  Unless a pad symbol is
-specified, all sequences must be of equal length.
-
-If no CTMatrix is specified, create an empty alignment for the taxa in taxaMap, with space for nchars characters.
-
-By default, create only a row-major matrix, but support row-major and/or
-column-major format.  The get{Row,Seq}() methods are only supported if rowMajor
-is enabled.  Likewise, the get{Col,Char}() methods are only supported if
-colMajor is enabled.
-"""
         cdef int ntaxa, i
         cdef list taxa
         cdef Taxon taxon

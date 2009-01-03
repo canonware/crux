@@ -197,7 +197,7 @@ endif
 # not always needed.
 ifeq (@enable_cython@, 1)
 @srcroot@%.c : @srcroot@%.pyx @srcroot@%.pxd
-	@PYTHON@ @CYTHON@ -I@srcroot@pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) @python_config_includes@ -o $@ $<
+	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@srcroot@pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) @python_config_includes@ -o $@ $<
 	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@srcroot@pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,--infile=%,$+) --targetfile=$@ --depfile=$(@:@srcroot@pkg/%.c=@objroot@build/pkg/%.d)
 endif
 

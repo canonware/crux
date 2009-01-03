@@ -1328,7 +1328,7 @@ verbose : If true, print progress information while generating the
 
         if startSym is not None and issubclass(startSym, Nonterm):
             if type(startSym.__doc__) != str \
-              or startSym.__doc__.split(" ")[0] != "%start":
+              or startSym.__doc__.split("\n")[-1].split(" ")[0] != "%start":
                 raise SpecError("Invalid start symbol %r: %r" % \
                   (startSym, startSym.__doc__))
 
@@ -1651,7 +1651,7 @@ the Parser class for parsing.
             for k in d:
                 v = d[k]
                 if type(v) is types.TypeType and type(v.__doc__) is str:
-                    dirtoks = v.__doc__.split(" ")
+                    dirtoks = v.__doc__.split("\n")[-1].split(" ")
 
                     #===========================================================
                     # Precedence.
@@ -1920,7 +1920,7 @@ the Parser class for parsing.
                 for k in d:
                     v = d[k]
                     if inspect.isroutine(v) and type(v.__doc__) is str:
-                        dirtoks = v.__doc__.split(" ")
+                        dirtoks = v.__doc__.split("\n")[-1].split(" ")
                         if dirtoks[0] == "%reduce":
                             if k in meth2prod:
                                 raise SpecError("Production exists in " \

@@ -21,7 +21,6 @@ from Crux.CTMatrix cimport CTMatrix
 cimport Crux.Newick as Newick
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
-cimport Parsing
 
 import Crux.Config
 
