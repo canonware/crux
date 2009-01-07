@@ -130,14 +130,9 @@ if not Crux.Config.batch and not opts.execed:
 if Crux.Config.verbose:
     print "Crux, version @crux_version@"
 
-    print "Start batch processing, %s" \
+    print "Begin batch processing, %s" \
           % time.strftime("%Y/%m/%d %H:%M:%S (%Z)",
                           time.localtime(time.time()))
-
-    if Crux.Config.batch:
-        print "Batch mode"
-    else:
-        print "Interactive mode"
 
     print "Process ID: %d" % os.getpid()
 
@@ -159,8 +154,7 @@ elif Crux.Config.batch:
 
 # Print various info if in verbose mode.
 if Crux.Config.verbose:
-    print "Stop batch processing, %s" \
+    print "End batch processing, %s" \
       % time.strftime("%Y/%m/%d %H:%M:%S (%Z)", time.localtime(time.time()))
-    if not Crux.Config.batch:
-        print "Interactive mode."
+    if not Crux.Config.batch and Crux.Config.verbose:
         print "For Crux documentation, type: help(Crux)"

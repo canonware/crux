@@ -1,3 +1,4 @@
+#define Cx_c
 #include "Cx.h"
 
 void

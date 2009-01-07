@@ -14,7 +14,8 @@ cdef class Tree:
     cdef list _renderList
     cdef file _renderFile
     cdef int _sn # Incremented every time the tree is modified.
-    cdef int _cacheSn, _cachedNtaxa, _cachedNnodes, _cachedNedges
+    cdef int _cacheSn
+    cdef list _cachedTaxa, _cachedNodes, _cachedEdges
     cdef public bint rooted
 
     cdef void _randomNew(self, int ntaxa, Taxa.Map taxaMap) except *
@@ -22,15 +23,24 @@ cdef class Tree:
 
     cdef Node _dup(self, Tree newTree, Node node, Ring prevRing)
     cpdef Tree dup(self)
-    # property taxa
-    # property nodes
-    # property edges
-    cpdef rf(self, Tree other)
+    cpdef double rf(self, Tree other)
+    cpdef list rfs(self, list others)
     cdef void _recacheRecurse(self, Ring ring)
     cdef void _recache(self)
+    cdef int getNtaxa(self)
     # property ntaxa
+    cdef int getNnodes(self) except *
     # property nnodes
+    cdef int getNedges(self) except *
     # property nedges
+    cdef list getTaxa(self)
+    # property taxa
+    cdef list getNodes(self)
+    # property nodes
+    cdef list getEdges(self)
+    # property edges
+    cdef Node getBase(self)
+    cdef void setBase(self, Node base)
     # property base
 
     cpdef deroot(self)
@@ -61,8 +71,11 @@ cdef class Node:
     cdef Taxon _taxon
     cdef int _degree
 
+    cdef Taxon getTaxon(self)
+    cdef void setTaxon(self, Taxon taxon) except *
     # property taxon
     cpdef int _degreeGet(self, bint calculate=*) except -1
+    cdef int getDegree(self)
     # property degree
     cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
       bint zeroLength=*, bint noLength=*)
@@ -71,9 +84,11 @@ cdef class Node:
 cdef class Edge:
     cdef object __weakref__
     cdef readonly Tree tree
-    cdef float _length
+    cdef double _length
     cdef readonly Ring ring
 
+    cdef double getLength(self)
+    cdef void setLength(self, double length)
     # property length
     cpdef attach(self, Node nodeA, Node nodeB)
     cpdef detach(self)

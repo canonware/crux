@@ -100,4 +100,30 @@ typedef unsigned char bool;
 void
 CxInit(void);
 
+#ifndef CxmUseInlines
+int
+CxCmp2Richcmp(int cmp, int op);
+#endif
+
+#if (defined(CxmUseInlines) || defined(Cx_c))
+// Convert {-1,0,1} for the __richcmp__ special method.
+int CxCmp2Richcmp(int cmp, int op) {
+    static const int tab[] = {
+	/*
+	-1, 0, 1, x */
+	1, 0, 0, -1, // <
+	1, 1, 0, -1, // <=
+	0, 1, 0, -1, // ==
+	1, 0, 1, -1, // !=
+	0, 0, 1, -1, // >
+	0, 1, 1, -1  // >=
+    };
+
+    CxmAssert(cmp >= -1 && cmp <= 1);
+    CxmAssert(op >= 0 && op < 6);
+
+    return tab[(op << 2) + (cmp + 1)];
+}
+#endif
+
 #endif // Cx_h

@@ -31,5 +31,5 @@ Test begin
 0.00
 0.00
 0.00
-Exception <class 'C_Tree.TypeError'>: Wrong number of taxa (2), 1 expected
+1.00
 Test end

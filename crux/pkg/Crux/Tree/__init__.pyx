@@ -21,6 +21,7 @@ from Crux.CTMatrix cimport CTMatrix
 cimport Crux.Newick as Newick
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
+cimport Crux.Tree.Rf
 
 import Crux.Config
 
@@ -151,105 +152,176 @@ cdef class Tree:
 
         return newTree
 
-    property taxa:
+    cpdef double rf(self, Tree other):
         """
-            Alphabetized list of taxa.  If taxa are removed, this property may
-            not be immediately updated.
-        """
-        def __get__(self):
-            cdef list ret
-            ret = self._taxa.keys()
-            ret.sort()
-            return ret
+            Compute the Robinson-Foulds distance between trees, precisely as
+            defined in:
 
-    property nodes:
+              Moret B.M.E., L. Nakhleh, T. Warnow, C.R. Linder, A. Tholse, A.
+              Padolina, J. Sun, and R. Timme.  2004.  Phylogenetic Networks:
+              Modeling, Reconstructibility, and Accuracy.  IEEE/ACM
+              Transactions on Computational Biology and Bioinformatics
+              1(1):13-23.
         """
-            List of nodes.  If nodes are removed, this property may not be
-            immediately updated.
-        """
-        def __get__(self):
-            cdef list ret
-            ret = self._nodes.keys()
-            return ret
+        return Crux.Tree.Rf.rf(self, other)
 
-    property edges:
+    cpdef list rfs(self, list others):
         """
-            List of edges.  If edges are removed, this property may not be
-            immediately updated.
+            Compute the Robinson-Foulds distance to each tree in a list.  This
+            method does the same computation as the rf() method, but it is more
+            efficient than a series of rf() calls.
         """
-        def __get__(self):
-            cdef list ret
-            ret = self._edges.keys()
-            return ret
-
-    cpdef rf(self, Tree other):
-        if type(other) == Tree:
-            return self._rfPair(other)
-        else:
-            return self._rfSequence(other)
+        return Crux.Tree.Rf.rfs(self, others)
 
     cdef void _recacheRecurse(self, Ring ring):
         cdef Ring r
         cdef Node node
+        cdef Taxon taxon
 
         node = ring.node
-        if node._taxon is not None:
-            self._cachedNtaxa += 1
-        self._cachedNnodes += 1
+        taxon = node._taxon
+        if taxon is not None:
+            self._cachedTaxa.append(taxon)
+        self._cachedNodes.append(node)
 
         node._degree = 1
         for r in ring.siblings():
-            self._cachedNedges += 1
+            self._cachedEdges.append(r.edge)
             self._recacheRecurse(r.other)
             node._degree += 1
 
     cdef void _recache(self):
         cdef Ring ring, r
         cdef Node node
+        cdef Taxon taxon
 
-        self._cachedNtaxa = 0
-        self._cachedNnodes = 0
-        self._cachedNedges = 0
+        self._cachedTaxa = []
+        self._cachedNodes = []
+        self._cachedEdges = []
 
         if self._base != None:
             node = self._base
-            if node._taxon is not None:
-                self._cachedNtaxa += 1
-            self._cachedNnodes += 1
+            taxon = node._taxon
+            if taxon is not None:
+                self._cachedTaxa.append(taxon)
+            self._cachedNodes.append(node)
             node._degree = 0
             ring = node.ring
             if ring != None:
                 for r in ring:
-                    self._cachedNedges += 1
+                    self._cachedEdges.append(r.edge)
                     self._recacheRecurse(r.other)
                     node._degree += 1
 
+        self._cachedTaxa.sort()
+
         self._cacheSn = self._sn
 
+    cdef int getNtaxa(self) except *:
+        """
+            Get the number of taxa in the tree.
+        """
+        if self._cacheSn != self._sn:
+            self._recache()
+        return len(self._cachedTaxa)
     property ntaxa:
+        """
+            Get the number of taxa in the tree.
+        """
         def __get__(self):
-            if self._cacheSn != self._sn:
-                self._recache()
-            return self._cachedNtaxa
+            return self.getNtaxa()
 
+    cdef int getNnodes(self) except *:
+        """
+            Get the number of nodes in the tree.
+        """
+        if self._cacheSn != self._sn:
+            self._recache()
+        return len(self._cachedNodes)
     property nnodes:
+        """
+            Get the number of nodes in the tree.
+        """
         def __get__(self):
-            if self._cacheSn != self._sn:
-                self._recache()
-            return self._cachedNnodes
+            return self.getNnodes()
 
+    cdef int getNedges(self) except *:
+        """
+            Get the number of edges in the tree.
+        """
+        if self._cacheSn != self._sn:
+            self._recache()
+        return len(self._cachedEdges)
     property nedges:
+        """
+            Get the number of edges in the tree.
+        """
         def __get__(self):
-            if self._cacheSn != self._sn:
-                self._recache()
-            return self._cachedNedges
+            return self.getNedges()
 
-    property base:
+    cdef list getTaxa(self):
+        """
+            Get an alphabetized list of all taxa in the tree.  Do not modify
+            the list.
+        """
+        if self._cacheSn != self._sn:
+            self._recache()
+        return self._cachedTaxa
+    property taxa:
+        """
+            Get an alphabetized list of all taxa in the tree.  Do not modify
+            the list.
+        """
         def __get__(self):
-            return self._base
+            return self.getTaxa()
+
+    cdef list getNodes(self):
+        """
+            Get a list of all nodes in the tree.  Do not modify the list.
+        """
+        if self._cacheSn != self._sn:
+            self._recache()
+        return self.cachedNodes
+    property nodes:
+        """
+            Get a list of all nodes in the tree.  Do not modify the list.
+        """
+        def __get__(self):
+            return self.getNodes()
+
+    cdef list getEdges(self):
+        """
+            Get a list of all edges in the tree.  Do not modify the list.
+        """
+        if self._cacheSn != self._sn:
+            self._recache()
+        return self._cachedEdges
+    property edges:
+        """
+            Get a list of all edges in the tree.  Do not modify the list.
+        """
+        def __get__(self):
+            return self.getEdges()
+
+    cdef Node getBase(self):
+        """
+            Get the base node in the tree.
+        """
+        return self._base
+    cdef void setBase(self, Node base):
+        """
+            get the base node in the tree.
+        """
+        self._base = base
+        self._sn += 1
+    property base:
+        """
+            Base node in the tree.
+        """
+        def __get__(self):
+            return self.getBase()
         def __set__(self, Node base):
-            self._base = base
-            self._sn += 1
+            self.setBase(base)
 
     cpdef deroot(self):
         cdef Node node
@@ -525,22 +597,35 @@ cdef class Node:
 
         tree._nodes[self] = None
 
-    property taxon:
-        def __get__(self):
-            return self._taxon
-        def __set__(self, Taxon taxon):
-            if __debug__:
-                if taxon is not self._taxon and taxon in self.tree._taxa \
-                  and self.tree._base is not None:
-                    node = self.tree._taxa[taxon]
-                    if node.separation(self.tree._base) != -1:
-                        raise Malformed("Taxon already in use: %r" % \
-                          taxon.label)
+    cdef Taxon getTaxon(self):
+        """
+            Get taxon associated with node (or None).
+        """
+        return self._taxon
+    cdef void setTaxon(self, Taxon taxon) except *:
+        """
+            Set taxon associated with node (or None).
+        """
+        IF @enable_debug@:
+            if taxon is not self._taxon and taxon in self.tree._taxa \
+              and self.tree._base is not None:
+                node = self.tree._taxa[taxon]
+                if node.separation(self.tree._base) != -1:
+                    raise Malformed("Taxon already in use: %r" % \
+                      taxon.label)
 
-            if self._taxon is not None:
-                self.tree._taxa.pop(self._taxon)
-            self.tree._taxa[taxon] = self
-            self._taxon = taxon
+        if self._taxon is not None:
+            self.tree._taxa.pop(self._taxon)
+        self.tree._taxa[taxon] = self
+        self._taxon = taxon
+    property taxon:
+        """
+            Taxon associated with node (or None).
+        """
+        def __get__(self):
+            return self.getTaxon()
+        def __set__(self, Taxon taxon):
+            self.setTaxon(taxon)
 
     cpdef int _degreeGet(self, bint calculate=False) except -1:
         """
@@ -567,9 +652,17 @@ cdef class Node:
                     ret += 1
             return ret
 
+    cdef int getDegree(self):
+        """
+            Get node degree (number of attached edges).
+        """
+        return self._degreeGet(calculate=False)
     property degree:
+        """
+            Node degree (number of attached edges).
+        """
         def __get__(self):
-            return self._degreeGet(calculate=False)
+            return self.getDegree()
 
     cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
       bint zeroLength=False, bint noLength=False):
@@ -659,12 +752,25 @@ cdef class Edge:
 
         tree._edges[self] = None
 
+    cdef double getLength(self):
+        """
+            Get edge length.
+        """
+        return self._length
+    cdef void setLength(self, double length):
+        """
+            Set edge length.
+        """
+        self._length = length
+        self.tree._sn += 1
     property length:
+        """
+            Edge length.
+        """
         def __get__(self):
-            return self._length
+            return self.getLength()
         def __set__(self, float length):
-            self._length = length
-            self.tree._sn += 1
+            self.setLength(length)
 
     cpdef attach(self, Node nodeA, Node nodeB):
         cdef Ring ring, nRing, pRing

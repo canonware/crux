@@ -14,6 +14,7 @@ cdef extern from "stdlib.h":
 cdef extern from "string.h":
     cdef void *memset(void *s, int c, size_t n)
     cdef void *memcpy(void *dest, void *src, size_t n)
+    cdef int memcmp(void *s1, void *s2, size_t n)
 
 cdef extern from "strings.h":
     cdef int ffs(int i)
