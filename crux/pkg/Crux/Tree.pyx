@@ -153,9 +153,9 @@ cdef class Tree:
 
     property taxa:
         """
-Alphabetized list of taxa.  If taxa are removed, this property may not be
-immediately updated.
-"""
+            Alphabetized list of taxa.  If taxa are removed, this property may
+            not be immediately updated.
+        """
         def __get__(self):
             cdef list ret
             ret = self._taxa.keys()
@@ -164,9 +164,9 @@ immediately updated.
 
     property nodes:
         """
-List of nodes.  If nodes are removed, this property may not be immediately
-updated.
-"""
+            List of nodes.  If nodes are removed, this property may not be
+            immediately updated.
+        """
         def __get__(self):
             cdef list ret
             ret = self._nodes.keys()
@@ -174,9 +174,9 @@ updated.
 
     property edges:
         """
-List of edges.  If edges are removed, this property may not be immediately
-updated.
-"""
+            List of edges.  If edges are removed, this property may not be
+            immediately updated.
+        """
         def __get__(self):
             cdef list ret
             ret = self._edges.keys()
@@ -552,11 +552,11 @@ cdef class Node:
 
     cpdef int _degreeGet(self, bint calculate=False) except -1:
         """
-Return the number of attached edges.  If the node is reachable via the tree
-base (self.separation(self.tree.base) != -1), it is possible to use a
-cached value.  For an unreachable node, or in order to avoid computing the
-cache, set calculate to True.
-"""
+            Return the number of attached edges.  If the node is reachable via
+            the tree base (self.separation(self.tree.base) != -1), it is
+            possible to use a cached value.  For an unreachable node, or in
+            order to avoid computing the cache, set calculate to True.
+        """
         cdef int ret
         cdef Ring ring
 
@@ -637,8 +637,10 @@ cache, set calculate to True.
                 self._tree._renderAppend((":" + lengthFormat) % \
                   (ring._edge._length))
 
-    """Compute the number of edges that separate self and other."""
     cpdef int separation(self, Node other):
+        """
+            Compute the number of edges that separate self and other.
+        """
         cdef int ret
         cdef Ring ring, r
 
@@ -771,12 +773,16 @@ cdef class Ring:
         self._next = self
         self._prev = self
 
-    """Iterate over "sibling" ring, including self."""
     def __iter__(self):
+        """
+            Iterate over "sibling" ring, including self.
+        """
         return _RingIterHelper(self, True)
 
-    """Iterate over "sibling" ring, excluding self."""
     cpdef siblings(self):
+        """
+            Iterate over "sibling" ring, excluding self.
+        """
         return _RingIterHelper(self, False)
 
     cdef Node _minTaxon(self, Taxa.Map taxaMap):

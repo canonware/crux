@@ -377,9 +377,10 @@ cdef class DistMatrix:
 
     cdef Tree _nj(self, bint random):
         """
-Construct a tree using the neighbor joining (NJ) algorithm.  This operation
-discards the matrix contents, so maintain a duplicate matrix if needed.
-"""
+            Construct a tree using the neighbor joining (NJ) algorithm.  This
+            operation discards the matrix contents, so maintain a duplicate
+            matrix if needed.
+        """
         cdef Nj.Nj nj
 
         nj = Nj.Nj()
@@ -392,10 +393,10 @@ discards the matrix contents, so maintain a duplicate matrix if needed.
 
     cdef Tree _rnj(self, bint random, bint additive):
         """
-Construct a tree using the relaxed neighbor joining (RNJ) algorithm.  This
-operation discards the matrix contents, so maintain a duplicate matrix if
-needed.
-"""
+            Construct a tree using the relaxed neighbor joining (RNJ)
+            algorithm.  This operation discards the matrix contents, so
+            maintain a duplicate matrix if needed.
+        """
         cdef Tree ret
         cdef Nj.Rnj rnj
 

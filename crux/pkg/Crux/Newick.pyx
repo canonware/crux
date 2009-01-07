@@ -515,8 +515,9 @@ cdef class Parser(Parsing.Lr):
 
     cdef str expandInput(self, str input, int pos, int line, int col):
         """
-Called when end of input is reached.  By default a SyntaxError is raised.
-"""
+            Called when end of input is reached.  By default a SyntaxError is
+            raised.
+        """
         raise SyntaxError(line, col, "Invalid token or end of input reached")
 
     cpdef parse(self, str input, int begPos=0, int line=1, int col=0,

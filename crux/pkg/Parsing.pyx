@@ -41,84 +41,84 @@
 #
 #===============================================================================
 """
-The Parsing module implements an LR(1) parser generator, as well as the
-runtime support for using a generated parser, via the Lr and Glr parser
-drivers.  There is no special parser generator input file format, but the
-parser generator still needs to know what classes/methods correspond to
-various aspects of the parser.  This information is specified via
-docstrings, which the parser generator introspects in order to generate a
-parser.  It is simplest to embed only one parser specification in each
-module, but it is possible to embed multiple parsers, split one or more
-parsers across multiple modules, and even nest parsers.
+    The Parsing module implements an LR(1) parser generator, as well as the
+    runtime support for using a generated parser, via the Lr and Glr parser
+    drivers.  There is no special parser generator input file format, but the
+    parser generator still needs to know what classes/methods correspond to
+    various aspects of the parser.  This information is specified via
+    docstrings, which the parser generator introspects in order to generate a
+    parser.  It is simplest to embed only one parser specification in each
+    module, but it is possible to embed multiple parsers, split one or more
+    parsers across multiple modules, and even nest parsers.
 
-The parsing tables are LR(1), but they are generated using a fast algorithm
-that avoids creating duplicate states that result when using the generic
-LR(1) algorithm.  Creation time and table size are on par with the LALR(1)
-algorithm.  However, LALR(1) can create reduce/reduce conflicts that don't
-exist in a true LR(1) parser.  For more information on the algorithm, see:
+    The parsing tables are LR(1), but they are generated using a fast algorithm
+    that avoids creating duplicate states that result when using the generic
+    LR(1) algorithm.  Creation time and table size are on par with the LALR(1)
+    algorithm.  However, LALR(1) can create reduce/reduce conflicts that don't
+    exist in a true LR(1) parser.  For more information on the algorithm, see:
 
-    A Practical General Method for Constructing LR(k) Parsers
-    David Pager
-    Acta Informatica 7, 249-268 (1977)
+        A Practical General Method for Constructing LR(k) Parsers
+        David Pager
+        Acta Informatica 7, 249-268 (1977)
 
-Parsing table generation requires non-trivial amounts of time for large
-grammars.  Internal pickling support makes it possible to cache the most
-recent version of the parsing table on disk, and use the table if the
-current parser specification is still compatible with the one that was used
-to generate the pickled parsing table.  Since the compatibility checking is
-quite fast, even for large grammars, this removes the need to use the
-standard code generation method that is used by most parser generators.
+    Parsing table generation requires non-trivial amounts of time for large
+    grammars.  Internal pickling support makes it possible to cache the most
+    recent version of the parsing table on disk, and use the table if the
+    current parser specification is still compatible with the one that was used
+    to generate the pickled parsing table.  Since the compatibility checking is
+    quite fast, even for large grammars, this removes the need to use the
+    standard code generation method that is used by most parser generators.
 
-Parser specifications are encapsulated by the Spec class.  Parser instances
-use Spec instances, but are themselves based on separate classes.  This
-allows multiple parser instances to exist simultaneously, without requiring
-multiple copies of the parsing tables.  There are two separate parser driver
-classes:
+    Parser specifications are encapsulated by the Spec class.  Parser instances
+    use Spec instances, but are themselves based on separate classes.  This
+    allows multiple parser instances to exist simultaneously, without requiring
+    multiple copies of the parsing tables.  There are two separate parser
+    driver classes:
 
-  Lr : Standard Characteristic Finite State Machine (CFSM) driver, based on
-       unambiguous LR(1) parsing tables.  This driver is faster than the Glr
-       driver, but it cannot deal with all parsing tables that the Glr
-       driver can.
+      Lr : Standard Characteristic Finite State Machine (CFSM) driver, based on
+           unambiguous LR(1) parsing tables.  This driver is faster than the
+           Glr driver, but it cannot deal with all parsing tables that the Glr
+           driver can.
 
-  Glr : Generalized LR driver, capable of tracking multiple parse trees
-        simultaneously, if the %split precedence is used to mark ambiguous
-        actions.  This driver is closely based on Elkhound's design, which
-        is described in a technical report:
+      Glr : Generalized LR driver, capable of tracking multiple parse trees
+            simultaneously, if the %split precedence is used to mark ambiguous
+            actions.  This driver is closely based on Elkhound's design, which
+            is described in a technical report:
 
-            Elkhound: A Fast, Practical GLR Parser Generator
-            Scott McPeak
-            Report No. UCB/CSD-2-1214 (December 2002)
-            http://www.cs.berkeley.edu/~smcpeak/elkhound/
+                Elkhound: A Fast, Practical GLR Parser Generator
+                Scott McPeak
+                Report No. UCB/CSD-2-1214 (December 2002)
+                http://www.cs.berkeley.edu/~smcpeak/elkhound/
 
-Parser generator directives are embedded in docstrings, and must begin with
-a '%' character, followed immediately by one of several keywords:
+    Parser generator directives are embedded in docstrings, and must begin with
+    a '%' character, followed immediately by one of several keywords:
 
-    Precedence : %fail %nonassoc %left %right %split
-         Token : %token %extend
-  Non-terminal : %start %nonterm %extend
-    Production : %reduce %accept %amend %suppress
+        Precedence : %fail %nonassoc %left %right %split
+             Token : %token %extend
+      Non-terminal : %start %nonterm %extend
+        Production : %reduce %accept %amend %suppress
 
-All of these directives are associated with classes except for the
-production directives.  Productions are associated with methods within
-non-terminal classes.  The Parsing module provides base classes from which
-precedences, tokens, and non-terminals must be derived.  This is not as
-restrictive as it sounds, since there is nothing preventing, for example, a
-master Token class that subclasses Parsing.Token, which all of the actual
-token types then subclass.  Also, nothing prevents using multiple
-inheritance.
+    All of these directives are associated with classes except for the
+    production directives.  Productions are associated with methods within
+    non-terminal classes.  The Parsing module provides base classes from which
+    precedences, tokens, and non-terminals must be derived.  This is not as
+    restrictive as it sounds, since there is nothing preventing, for example, a
+    master Token class that subclasses Parsing.Token, which all of the actual
+    token types then subclass.  Also, nothing prevents using multiple
+    inheritance.
 
-Following are the base classes to be subclassed by parser specifications:
+    Following are the base classes to be subclassed by parser specifications:
 
-  * Precedence
-  * Token
-  * Nonterm
+      * Precedence
+      * Token
+      * Nonterm
 
-The Parsing module implements the following exception classes:
+    The Parsing module implements the following exception classes:
 
-  * Exception
-  * AttributeError
-  * SpecError
-  * SyntaxError
+      * Exception
+      * AttributeError
+      * SpecError
+      * SyntaxError
 """
 __all__ = ["Exception", "SpecError", "SyntaxError", "AttributeError",
            "Nonterm", "Parser", "Precedence", "Spec", "Token", "Lr", "Glr"]
@@ -166,15 +166,15 @@ cdef class Glr(Lr)
 
 class Exception(exceptions.Exception):
     """
-Top level Parsing exception class, from which all other Parsing
-exception classes inherit.
-"""
+        Top level Parsing exception class, from which all other Parsing
+        exception classes inherit.
+    """
 
 class AttributeError(Exception, exceptions.AttributeError):
     """
-Attribute error, no different from the builtin exception, except that it
-also derives from Parsing.Exception.
-"""
+        Attribute error, no different from the builtin exception, except that
+        it also derives from Parsing.Exception.
+    """
     def __init__(self, str):
         self._str = str
 
@@ -183,10 +183,10 @@ also derives from Parsing.Exception.
 
 class SpecError(Exception):
     """
-Specification error exception.  SpecError arises when the Spec
-introspection machinery detects an error either during docstring parsing
-or parser specification generation.
-"""
+        Specification error exception.  SpecError arises when the Spec
+        introspection machinery detects an error either during docstring
+        parsing or parser specification generation.
+    """
     def __init__(self, str):
         self._str = str
 
@@ -195,10 +195,10 @@ or parser specification generation.
 
 class SyntaxError(Exception, exceptions.SyntaxError):
     """
-Parser syntax error.  SyntaxError arises when a Parser instance detects
-a syntax error according to the Spec it is using, for the input being
-fed to it.
-"""
+        Parser syntax error.  SyntaxError arises when a Parser instance detects
+        a syntax error according to the Spec it is using, for the input being
+        fed to it.
+    """
     def __init__(self, str):
         self._str = str
 
@@ -211,74 +211,75 @@ fed to it.
 
 cdef class Precedence:
     """
-Precedences can be associated with tokens, non-terminals, and
-productions.  Precedence isn't as important for GLR parsers as for LR
-parsers, since GLR parsing allows for parse-time resolution of
-ambiguity.  Still, precedence can be useful for reducing the volume of
-ambiguities that must be dealt with at run-time.
+        Precedences can be associated with tokens, non-terminals, and
+        productions.  Precedence isn't as important for GLR parsers as for LR
+        parsers, since GLR parsing allows for parse-time resolution of
+        ambiguity.  Still, precedence can be useful for reducing the volume of
+        ambiguities that must be dealt with at run-time.
 
-There are five precedence types: %fail, %nonassoc, %left, %right, and
-%split.  Each precedence can have relationships with other precedences:
-<, >, or =.  These relationships specify a directed acyclic graph (DAG),
-which is used to compute the transitive closures of relationships among
-precedences.  If no path exists between two precedences that are
-compared during conflict resolution, parser generation fails.  < and >
-are reflexive; it does not matter which is used.  Conceptually, the =
-relationship causes precedences to share a node in the DAG.
+        There are five precedence types: %fail, %nonassoc, %left, %right, and
+        %split.  Each precedence can have relationships with other precedences:
+        <, >, or =.  These relationships specify a directed acyclic graph
+        (DAG), which is used to compute the transitive closures of
+        relationships among precedences.  If no path exists between two
+        precedences that are compared during conflict resolution, parser
+        generation fails.  < and > are reflexive; it does not matter which is
+        used.  Conceptually, the = relationship causes precedences to share a
+        node in the DAG.
 
-During conflict resolution, an error results if no path exists in the
-DAG between the precedences under consideration.  When such a path
-exists, the highest precedence non-terminal or production takes
-precedence.  Associativity only comes into play for shift/reduce
-conflicts, where the terminal and the production have equivalent
-precedences (= relationship).  In this case, the non-terminal's
-associativity determines how the conflict is resolved.
+        During conflict resolution, an error results if no path exists in the
+        DAG between the precedences under consideration.  When such a path
+        exists, the highest precedence non-terminal or production takes
+        precedence.  Associativity only comes into play for shift/reduce
+        conflicts, where the terminal and the production have equivalent
+        precedences (= relationship).  In this case, the non-terminal's
+        associativity determines how the conflict is resolved.
 
-The %fail and %split associativities are special because they can be
-mixed with other associativities.  During conflict resolution, if
-another action has non-%fail associativity, then the %fail (lack of)
-associativity is overridden.  Similarly, %split associativity overrides
-any other associativity.  In contrast, any mixture of associativity
-between %nonassoc/%left/%right causes an unresolvable conflict.
+        The %fail and %split associativities are special because they can be
+        mixed with other associativities.  During conflict resolution, if
+        another action has non-%fail associativity, then the %fail (lack of)
+        associativity is overridden.  Similarly, %split associativity overrides
+        any other associativity.  In contrast, any mixture of associativity
+        between %nonassoc/%left/%right causes an unresolvable conflict.
 
-       %fail : Any conflict is a parser-generation-time error.
+               %fail : Any conflict is a parser-generation-time error.
 
-               A pre-defined precedence, [none], is provided.  It has
-               %fail associativity, and has no pre-defined precedence
-               relationships.
+                       A pre-defined precedence, [none], is provided.  It has
+                       %fail associativity, and has no pre-defined precedence
+                       relationships.
 
-   %nonassoc : Resolve shift/reduce conflicts by removing both
-               possibilities, thus making conflicts a parse-time error.
+           %nonassoc : Resolve shift/reduce conflicts by removing both
+                       possibilities, thus making conflicts a parse-time error.
 
-       %left : Resolve shift/reduce conflicts by reducing.
+               %left : Resolve shift/reduce conflicts by reducing.
 
-      %right : Resolve shift/reduce conflicts by shifting.
+              %right : Resolve shift/reduce conflicts by shifting.
 
-      %split : Do not resolve conflicts; the GLR algorithm will split
-               the parse stack when necessary.
+              %split : Do not resolve conflicts; the GLR algorithm will split
+                       the parse stack when necessary.
 
-               A pre-defined precedence, [split], is provided.  It has
-               %split associativity, and has no pre-defined precedence
-               relationships.
+                       A pre-defined precedence, [split], is provided.  It has
+                       %split associativity, and has no pre-defined precedence
+                       relationships.
 
-By default, all symbols have [none] precedence.  Each production
-inherits the precedence of its left-hand-side nonterminal's precedence
-unless a precedence is manually specified for the production.
+        By default, all symbols have [none] precedence.  Each production
+        inherits the precedence of its left-hand-side nonterminal's precedence
+        unless a precedence is manually specified for the production.
 
-Following are some examples of how to specify precedence classes:
+        Following are some examples of how to specify precedence classes:
 
-  class P1(Parsing.Precedence):
-      "%split p1"
+          class P1(Parsing.Precedence):
+              "%split p1"
 
-  class p2(Parsing.Precedence):
-      "%left" # Name implicitly same as class name.
+          class p2(Parsing.Precedence):
+              "%left" # Name implicitly same as class name.
 
-  class P3(Parsing.Precedence):
-      "%left p3 >p2" # No whitespace is allowed between > and p2.
+          class P3(Parsing.Precedence):
+              "%left p3 >p2" # No whitespace is allowed between > and p2.
 
-  class P4(Parsing.Precedence):
-      "%left p4 =p3" # No whitespace is allowed between = and p3.
-"""
+          class P4(Parsing.Precedence):
+              "%left p4 =p3" # No whitespace is allowed between = and p3.
+    """
     def __init__(self, str name=None, str assoc=None, dict relationships=None):
         if name is None:
             return
@@ -501,112 +502,113 @@ cdef class Symbol:
 
 cdef class Nonterm(Symbol):
     """
-Non-terminal symbols have sets of productions associated with them.  The
-productions induce a parse forest on an input token stream.  There is
-typically one special non-terminal, which is denoted via the %start
-directive.  If there is more than one %start directive, the Parsing.Spec
-constructor must be explicitly told which one to use as the start
-symbol.
+        Non-terminal symbols have sets of productions associated with them.
+        The productions induce a parse forest on an input token stream.  There
+        is typically one special non-terminal, which is denoted via the %start
+        directive.  If there is more than one %start directive, the
+        Parsing.Spec constructor must be explicitly told which one to use as
+        the start symbol.
 
-All other non-terminals are denoted via the %nonterm and %extend
-directives.  %nonterm is used to declare non-terminals with associated
-%reduce production methods.  %extend is used to modify existing
-non-terminals (including those declared via %start), with associated
-%reduce/%accept/%amend/%suppress production methods.  %extend can be
-used to create arbitrarily long chains of non-terminal modifications,
-but no forks are allowed.
+        All other non-terminals are denoted via the %nonterm and %extend
+        directives.  %nonterm is used to declare non-terminals with associated
+        %reduce production methods.  %extend is used to modify existing
+        non-terminals (including those declared via %start), with associated
+        %reduce/%accept/%amend/%suppress production methods.  %extend can be
+        used to create arbitrarily long chains of non-terminal modifications,
+        but no forks are allowed.
 
-In addition to production methods, the merge() method may be called
-during resolution of ambiguous parses.  See the merge() documentation
-for further details.
+        In addition to production methods, the merge() method may be called
+        during resolution of ambiguous parses.  See the merge() documentation
+        for further details.
 
-Following are examples of how to specify non-terminal classes and their
-associated productions:
+        Following are examples of how to specify non-terminal classes and their
+        associated productions:
 
-  class E(Parsing.Nonterm):
-      "%start E"
-      def __init__(self):
-          Parsing.Nonterm.__init__(self)
-          # ...
+          class E(Parsing.Nonterm):
+              "%start E"
+              def __init__(self):
+                  Parsing.Nonterm.__init__(self)
+                  # ...
 
-      # Productions.
-      def reduceA(self, E, plus, T):
-          "%reduce E plus T [split]"
-          print "%r ::= %r %r %r." % (self, E, plus, T)
+              # Productions.
+              def reduceA(self, E, plus, T):
+                  "%reduce E plus T [split]"
+                  print "%r ::= %r %r %r." % (self, E, plus, T)
 
-      def reduceB(self, T):
-          "%reduce T"
+              def reduceB(self, T):
+                  "%reduce T"
 
-  class T(Parsing.Nonterm):
-      "%nonterm" # Name implicitly same as class name.
-      def reduceA(self, T, star, F):
-          "%reduce T star F"
+          class T(Parsing.Nonterm):
+              "%nonterm" # Name implicitly same as class name.
+              def reduceA(self, T, star, F):
+                  "%reduce T star F"
 
-      def reduceB(self, F):
-          "%reduce F [p1]"
+              def reduceB(self, F):
+                  "%reduce F [p1]"
 
-  class F(Parsing.Nonterm):
-      "%nonterm F [p2]"
-      def reduceA(self, lparen, E, rparen):
-          "%reduce lparen E rparen"
+          class F(Parsing.Nonterm):
+              "%nonterm F [p2]"
+              def reduceA(self, lparen, E, rparen):
+                  "%reduce lparen E rparen"
 
-      def reduceB(self, id):
-          "%reduce id"
+              def reduceB(self, id):
+                  "%reduce id"
 
-      def reduceC(self, x):
-          "%reduce x"
+              def reduceC(self, x):
+                  "%reduce x"
 
-  # Extend F.  Both subclassing F and the %extend directive are
-  # required.
-  class Fsub(F):
-      "%extend F [p3]"
-      def reduceA(self, lparen, E, rparen):
-          "%accept"
-          # Leave the production associated with F.reduceA intact, but
-          # provide a different method to call when the production
-          # accepts.
+          # Extend F.  Both subclassing F and the %extend directive are
+          # required.
+          class Fsub(F):
+              "%extend F [p3]"
+              def reduceA(self, lparen, E, rparen):
+                  "%accept"
+                  # Leave the production associated with F.reduceA intact, but
+                  # provide a different method to call when the production
+                  # accepts.
 
-      def reduceB(self, x):
-          "%amend x"
-          # Replace F.reduceB.
+              def reduceB(self, x):
+                  "%amend x"
+                  # Replace F.reduceB.
 
-  # Extend F again.
-  class Fsubsub(Fsub):
-      "%extend F"
-      def reduceB(self, id):
-          "%reduce id"
+          # Extend F again.
+          class Fsubsub(Fsub):
+              "%extend F"
+              def reduceB(self, id):
+                  "%reduce id"
 
-      def reduceC(self, x):
-          "%suppress"
-          # Do not use F.reduceC.
-"""
+              def reduceC(self, x):
+                  "%suppress"
+                  # Do not use F.reduceC.
+    """
     def __init__(self, Lr parser):
         Symbol.__init__(self, parser.spec._sym2spec[type(self)], parser)
 
     cpdef merge(self, Nonterm other):
         """
-Merging happens when there is an ambiguity in the input that allows
-non-terminals to be part of multiple overlapping series of
-reductions.  If no merge() method is specified, the parser will
-raise a SyntaxError upon encountering an ambiguity that confounds
-reduction processing.  However, it may be useful to either discard
-one of the possible parses, or to explicitly record the ambiguity in
-the data structures being created during parsing.  In both of these
-cases, the non-terminal-specific merge() is the place to do the
-work; merge() returns an object that is stored by the parser onto
-the parse stack.  In the case where merge() discards one of the
-possible parses, it need only return the parse that is to be
-preserved (self or other).
+            Merging happens when there is an ambiguity in the input that allows
+            non-terminals to be part of multiple overlapping series of
+            reductions.  If no merge() method is specified, the parser will
+            raise a SyntaxError upon encountering an ambiguity that confounds
+            reduction processing.  However, it may be useful to either discard
+            one of the possible parses, or to explicitly record the ambiguity
+            in the data structures being created during parsing.  In both of
+            these cases, the non-terminal-specific merge() is the place to do
+            the work; merge() returns an object that is stored by the parser
+            onto the parse stack.  In the case where merge() discards one of
+            the possible parses, it need only return the parse that is to be
+            preserved (self or other).
 
-If multiple merges are necessary, they cause a series of merge()
-calls.  The first alternative (self) may be the result of a previous
-merge() call, whereas other will not have not been merged yet
-(unless as the result of merging further down in the parse forest).
+            If multiple merges are necessary, they cause a series of merge()
+            calls.  The first alternative (self) may be the result of a
+            previous merge() call, whereas other will not have not been merged
+            yet (unless as the result of merging further down in the parse
+            forest).
 
-The alternative that is discarded is never touched by the parser
-again, so if any immediate cleanup is necessary, it should be done
-in merge().
-"""
+            The alternative that is discarded is never touched by the parser
+            again, so if any immediate cleanup is necessary, it should be done
+            in merge().
+        """
         raise SyntaxError("No merge() for %r; merging %r <--> %r" % \
           (type(self), self, other))
 
@@ -651,39 +653,39 @@ cdef class NontermSpec(SymbolSpec):
 
 cdef class Token(Symbol):
     """
-Tokens are terminal symbols.  The parser is fed Token instances, which
-is what drives parsing.  Typically, the user will define a class that
-subclasses Parsing.Token and implement parser-specific machinery there,
-then derive all actual token types from that class.
+        Tokens are terminal symbols.  The parser is fed Token instances, which
+        is what drives parsing.  Typically, the user will define a class that
+        subclasses Parsing.Token and implement parser-specific machinery there,
+        then derive all actual token types from that class.
 
-The %extend directive can be used to modify existing tokens, in a
-similar fashion to how non-terminals can be modified.  The primary
-reason to extend a token is to add some behavior during token creation
-in an extended parser.  Note, however, that the extended token type
-must be used when feeding tokens to the parser, so the original
-tokenizer must either be replaced or somehow modified for extended
-tokens to work properly.
+        The %extend directive can be used to modify existing tokens, in a
+        similar fashion to how non-terminals can be modified.  The primary
+        reason to extend a token is to add some behavior during token creation
+        in an extended parser.  Note, however, that the extended token type
+        must be used when feeding tokens to the parser, so the original
+        tokenizer must either be replaced or somehow modified for extended
+        tokens to work properly.
 
-  class Token(Parsing.Token):
-      def __init__(self, Lr parser):
-          Parsing.Token.__init__(self, parser)
-          # ...
+          class Token(Parsing.Token):
+              def __init__(self, Lr parser):
+                  Parsing.Token.__init__(self, parser)
+                  # ...
 
-  class Plus(Token):
-      "%token plus [p1]"
+          class Plus(Token):
+              "%token plus [p1]"
 
-  class star(Token):
-      "%token star [p2]" # Name implicitly same as class name.
+          class star(Token):
+              "%token star [p2]" # Name implicitly same as class name.
 
-  class lparen(Token):
-      "%token [split]"
+          class lparen(Token):
+              "%token [split]"
 
-  class rparen(Token):
-      "%token [none]" # [none] not necessary, since it's the default.
+          class rparen(Token):
+              "%token [none]" # [none] not necessary, since it's the default.
 
-  class id(Token):
-      "%token"
-"""
+          class id(Token):
+              "%token"
+    """
     def __init__(self, Lr parser):
         Symbol.__init__(self, parser.spec._sym2spec[type(self)], parser)
 
@@ -1171,8 +1173,8 @@ cdef class ItemSet:
 
 cdef class Action:
     """
-Abstract base class, subclassed by {Shift,Reduce}Action.
-"""
+        Abstract base class, subclassed by {Shift,Reduce}Action.
+    """
     def __init__(self): pass
 
     def __reduce__(self):
@@ -1186,8 +1188,8 @@ Abstract base class, subclassed by {Shift,Reduce}Action.
 
 cdef class ShiftAction(Action):
     """
-Shift action, with assocated nextState.
-"""
+        Shift action, with assocated nextState.
+    """
     def __init__(self, nextState=None):
         if nextState is None:
             return
@@ -1229,8 +1231,8 @@ Shift action, with assocated nextState.
 
 cdef class ReduceAction(Action):
     """
-Reduce action, with associated production.
-"""
+        Reduce action, with associated production.
+    """
     def __init__(self, production=None):
         if production is None:
             return
@@ -1272,51 +1274,47 @@ Reduce action, with associated production.
 
 cdef class Spec:
     """
-The Spec class contains the read-only data structures that the Parser
-class needs in order to parse input.  Parser generation results in a
-Spec instance, which can then be shared by multiple Parser instances.
+        The Spec class contains the read-only data structures that the Parser
+        class needs in order to parse input.  Parser generation results in a
+        Spec instance, which can then be shared by multiple Parser instances.
 
-Constructor documentation:
-=====================================================================
-__init__(self, modules, startSym=None, pickleFile=None,
-         pickleMode="rw", skinny=True, logFile=None, graphFile=None,
-         verbose=False)
+        Constructor argument documentation:
+        =====================================================================
+        modules : Either a single module, or a list of modules, wherein to
+                  look for parser generator directives in docstrings.
 
-modules : Either a single module, or a list of modules, wherein to
-          look for parser generator directives in docstrings.
+        startSym : Start symbol.  This argument must be specified when there
+                   are multiple non-terminals that use the %start directive.
+                   This can happen if there are multiple parser
+                   specifications embedded in the same set of modules, or if
+                   parser specifications are nested.
 
-startSym : Start symbol.  This argument must be specified when there
-           are multiple non-terminals that use the %start directive.
-           This can happen if there are multiple parser
-           specifications embedded in the same set of modules, or if
-           parser specifications are nested.
+        pickleFile : The path of a file to use for Spec pickling/unpickling.
+                     The file will be created if necessary, but the
+                     containing directory must already exist.
 
-pickleFile : The path of a file to use for Spec pickling/unpickling.
-             The file will be created if necessary, but the
-             containing directory must already exist.
+        pickleMode :  "r" : Unpickle from pickleFile.
+                      "w" : Pickle to pickleFile.
+                      "rw" : Unpickle/pickle from/to pickleFile.
 
-pickleMode :  "r" : Unpickle from pickleFile.
-              "w" : Pickle to pickleFile.
-              "rw" : Unpickle/pickle from/to pickleFile.
+        skinny : If true, discard all data that are only strictly necessary
+                 while constructing the parsing tables.  This reduces
+                 available debugging context, but substantially reduces
+                 pickle size.
 
-skinny : If true, discard all data that are only strictly necessary
-         while constructing the parsing tables.  This reduces
-         available debugging context, but substantially reduces
-         pickle size.
+        logFile : The path of a file to store a human-readable copy of the
+                  parsing tables in.  The file will be created if necessary,
+                  but the containing directory must already exist.
 
-logFile : The path of a file to store a human-readable copy of the
-          parsing tables in.  The file will be created if necessary,
-          but the containing directory must already exist.
+        graphFile : The path of a file to store a graphviz representation
+                    (dot format) of the precedence relationship graph.  The
+                    file will be created if necessary, but the containing
+                    directory must already exist.
 
-graphFile : The path of a file to store a graphviz representation
-            (dot format) of the precedence relationship graph.  The
-            file will be created if necessary, but the containing
-            directory must already exist.
-
-verbose : If true, print progress information while generating the
-          parsing tables.
-=====================================================================
-"""
+        verbose : If true, print progress information while generating the
+                  parsing tables.
+        =====================================================================
+    """
     def __init__(self, modules=None, type startSym=None,
       str pickleFile=None, str pickleMode="rw", bint skinny=True,
       str logFile=None, str graphFile=None, bint verbose=False):
@@ -1539,9 +1537,9 @@ verbose : If true, print progress information while generating the
     cdef void _prepare(self, list modules, str pickleFile, str pickleMode,
       str logFile, str graphFile) except *:
         """
-Compile the specification into data structures that can be used by
-the Parser class for parsing.
-"""
+            Compile the specification into data structures that can be used by
+            the Parser class for parsing.
+        """
         cdef int ntokens, nnonterms, nproductions
         cdef str compat
 
@@ -2905,10 +2903,10 @@ the Parser class for parsing.
 
 cdef class Lr:
     """
-LR(1) parser.  The Lr class uses a Spec instance in order to parse
-input that is fed to it via the token() method, and terminated via the
-eoi() method.
-"""
+        LR(1) parser.  The Lr class uses a Spec instance in order to parse
+        input that is fed to it via the token() method, and terminated via the
+        eoi() method.
+    """
     def __init__(self, Spec spec):
         if __debug__:
             if type(self) == Lr:
@@ -2920,15 +2918,15 @@ eoi() method.
 
     cpdef reset(self):
         """
-Reset the parser in preparation for parsing new input.
-"""
+            Reset the parser in preparation for parsing new input.
+        """
         self.start = None
         self._stack = [(Epsilon(self), 0)]
 
     cpdef token(self, Token token):
         """
-Feed a token to the parser.
-"""
+            Feed a token to the parser.
+        """
         cdef TokenSpec tokenSpec
 
         tokenSpec = self.spec._sym2spec[type(token)]
@@ -2936,8 +2934,8 @@ Feed a token to the parser.
 
     cpdef eoi(self):
         """
-Signal end-of-input to the parser.
-"""
+            Signal end-of-input to the parser.
+        """
         cdef Token token
 
         token = EndOfInput(self)
@@ -3032,7 +3030,9 @@ Signal end-of-input to the parser.
 #
 
 cdef class Gsse:
-    """Graph-structured stack edge."""
+    """
+        Graph-structured stack edge.
+    """
     def __init__(self, Gssn below, Gssn above, Symbol value):
         self.node = below
         above._edges.append(self)
@@ -3131,7 +3131,9 @@ cdef class _GssnPathsIterHelper:
         path.pop(0)
 
 cdef class Gssn:
-    """Graph-structured stack node."""
+    """
+        Graph-structured stack node.
+    """
     def __init__(self, Gssn below, Symbol value, int nextState):
         assert isinstance(below, Gssn) or below is None
 
@@ -3173,17 +3175,17 @@ cdef class Gssn:
 
 cdef class Glr(Lr):
     """
-GLR parser.  The Glr class uses a Spec instance in order to parse input
-that is fed to it via the token() method, and terminated via the eoi()
-method.
-"""
+        GLR parser.  The Glr class uses a Spec instance in order to parse input
+        that is fed to it via the token() method, and terminated via the eoi()
+        method.
+    """
     def __init__(self, spec):
         Lr.__init__(self, spec)
 
     cpdef reset(self):
         """
-Reset the parser in preparation for parsing new input.
-"""
+            Reset the parser in preparation for parsing new input.
+        """
         cdef Gssn top
 
         self.start = None
@@ -3197,8 +3199,8 @@ Reset the parser in preparation for parsing new input.
 
     cpdef token(self, Token token):
         """
-Feed a token to the parser.
-"""
+            Feed a token to the parser.
+        """
         cdef TokenSpec tokenSpec
 
         if self.verbose:
@@ -3211,8 +3213,8 @@ Feed a token to the parser.
 
     cpdef eoi(self):
         """
-Signal end-of-input to the parser.
-"""
+            Signal end-of-input to the parser.
+        """
         cdef Token token
         cdef Gssn top
         cdef list path

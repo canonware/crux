@@ -1,5 +1,7 @@
 """
-Classes for phylogenetic inference.
+    Toolkit for molecular phylogenetic inference.
+
+    XXX Description docs here.
 """
 
 from Cx cimport *

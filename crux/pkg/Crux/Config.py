@@ -11,6 +11,7 @@ datadir = "@DATADIR@"
 mandir = "@MANDIR@"
 
 debug = (True if @enable_debug@ else False)
+mpi = (True if @enable_mpi@ else False)
 
 # Defaults for when Crux is imported by an application other than the crux
 # front end.

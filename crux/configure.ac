@@ -7,6 +7,7 @@ dnl
 PYTHON_VERSION_MIN=2.6.0
 CYTHON_VERSION_MIN=0.10.2
 FLEX_VERSION_MIN=2.5.35
+MPI4PY_VERSION_MIN=1.0.0
 
 srcroot=$srcdir
 if test "x${srcroot}" = "x." ; then
@@ -164,19 +165,6 @@ enable_autogen="0"
 )
 AC_SUBST([enable_autogen])
 
-dnl Disable Cython code generation by default.
-AC_ARG_ENABLE([cython],
-  [AS_HELP_STRING([--enable-cython], [Compile .pyx/.pxd sources to .c outputs])],
-if test "x$enable_cython" = "xyes" ; then
-  enable_cython="1"
-else
-  enable_cython="0"
-fi
-,
-enable_cython="0"
-)
-AC_SUBST([enable_cython])
-
 dnl Disable flex code generation by default.
 AC_ARG_ENABLE([flex],
   [AS_HELP_STRING([--enable-flex], [Compile .l sources to C outputs])],
@@ -199,6 +187,23 @@ AC_PATH_PROG([ECHO], [echo], , [$PATH])
 AC_PATH_PROG([grep], [grep], , [$PATH])
 AC_PATH_PROG([AUTOCONF], [autoconf], , [$PATH])
 
+dnl Do not silence irrelevant compiler warnings by default, since enabling this
+dnl option incurs a performance penalty.
+AC_ARG_ENABLE([cc-silence],
+  [AS_HELP_STRING([--enable-cc-silence], [Silence irrelevant compiler warnings])],
+[if test "x$enable_cc_silence" = "xno" ; then
+  enable_cc_silence="0"
+else
+  enable_cc_silence="1"
+fi
+],
+[enable_cc_silence="0"]
+)
+if test "x$enable_cc_silence" = "x1" ; then
+  AC_DEFINE([CxmCcSilence])
+fi
+AC_SUBST([enable_cc_silence])
+
 dnl Do not compile with debugging by default.
 AC_ARG_ENABLE([debug],
   [AS_HELP_STRING([--enable-debug], [Build debugging code])],
@@ -216,26 +221,14 @@ if test "x$enable_debug" = "x1" ; then
   AC_DEFINE([CxmAssertions])
 else
   python_opts=" -O"
-  CPPFLAGS="${CPPFLAGS} -DPYREX_WITHOUT_ASSERTIONS"
+  dnl Disabling assertions causes Cython-generated C sources to contain unused
+  dnl labels, which causes compiler warnings.  Therefore, leave assertions
+  dnl enabled if --enable-cc-silence was specified.
+  if test "x$enable_cc_silence" = "x0" ; then
+    CPPFLAGS="${CPPFLAGS} -DPYREX_WITHOUT_ASSERTIONS"
+  fi
 fi
 AC_SUBST([enable_debug])
-
-dnl Do not silence irrelevant compiler warnings by default, since enabling this
-dnl option incurs a slight performance penalty.
-AC_ARG_ENABLE([cc-silence],
-  [AS_HELP_STRING([--enable-cc-silence], [Silence irrelevant compiler warnings])],
-[if test "x$enable_cc_silence" = "xno" ; then
-  enable_cc_silence="0"
-else
-  enable_cc_silence="1"
-fi
-],
-[enable_cc_silence="0"]
-)
-if test "x$enable_cc_silence" = "x1" ; then
-  AC_DEFINE([CxmCcSilence])
-fi
-AC_SUBST([enable_cc_silence])
 
 dnl Only optimize if not debugging.
 if test "x$enable_debug" = "x0" -a "x$no_CFLAGS" = "xyes" ; then
@@ -351,43 +344,114 @@ AC_MSG_CHECKING([python site-packages path])
 import distutils.sysconfig
 print distutils.sysconfig.get_python_lib()
 EOF
-site_packages=`${PYTHON} conftest`
+site_packages="`${PYTHON} conftest`"
 rm -f conftest
 AC_MSG_RESULT([${site_packages}])
 AC_SUBST([site_packages])
 
 dnl ============================================================================
 dnl Make sure the version of cython found is sufficient.
-if test "x${enable_cython}" = "x1" ; then
-  dnl Get path to cython.
-  AC_ARG_WITH([cython], [AS_HELP_STRING([--with-cython], [cython program])],
-  if test "x$with_cython" = "xno" ; then
-    CYTHON=
+
+dnl Get path to cython.
+AC_ARG_WITH([cython], [AS_HELP_STRING([--with-cython], [cython program])],
+if test "x$with_cython" = "xno" ; then
+  CYTHON=
+else
+  CYTHON="$with_cython"
+fi
+,
+  CYTHON=
+)
+if test "x$CYTHON" != "x" ; then
+   if test ! -x "${CYTHON}" ; then
+     AC_MSG_ERROR([Unusable or missing cython: ${CYTHON}])
+   fi
+else
+  if test -x "${objroot}contrib/cython/bin/cython" ; then
+    dnl Use the Cython that is shipped with Crux releases.
+    CYTHON="${abs_objroot}cython"
   else
-    CYTHON="$with_cython"
-  fi
-  ,
-    CYTHON=
-  )
-  if test "x$CYTHON" != "x" ; then
-     if test ! -x "${CYTHON}" ; then
-       AC_MSG_ERROR([Unusable or missing cython: ${CYTHON}])
-     fi
-  else
+    dnl Try to find an installed version of Cython.
     AC_PATH_PROG([CYTHON], [cython], , [$PATH])
     if test "x$CYTHON" = "x" ; then
       AC_MSG_ERROR([Cannot build without cython])
     fi
   fi
+fi
 
+dnl Avoid testing the version if using contrib/cython, since the wrapper script
+dnl hasn't been created yet.
+if test "x${CYTHON}" != "x${abs_objroot}cython" ; then
   CYTHON_FOUND=`2>&1 $CYTHON -V | awk '{print $3}'`
   CX_VERSION_CHECK([cython], [$CYTHON_FOUND], [$CYTHON_VERSION_MIN],
     [have_cython])
   if test "x$have_cython" = "x0" ; then
-    AC_MSG_ERROR([Cannot build without cython])
+    AC_MSG_ERROR([Incompatible cython])
   fi
-  AC_SUBST([CYTHON])
 fi
+AC_SUBST([CYTHON])
+
+dnl ============================================================================
+dnl Use mpi4py by default, if it can be found.
+AC_ARG_ENABLE([mpi],
+  [AS_HELP_STRING([--disable-mpi], [Do not use MPI])],
+[if test "x$enable_mpi" = "xno" ; then
+  enable_mpi="0"
+else
+  enable_mpi="1"
+fi
+],
+[enable_mpi="1"]
+)
+mpi4py_includes=""
+if test "x$enable_mpi" = "x1" ; then
+  dnl Check whether mpi4py is installed.
+  AC_MSG_CHECKING([for mpi4py])
+  [
+  1>conftest cat << EOF
+try:
+    import mpi4py
+    print "1"
+except:
+    print "0"
+EOF
+]
+  enable_mpi="`${PYTHON} conftest`"
+  rm -f conftest
+  if test "x$enable_mpi" = "x1" ; then
+    AC_MSG_RESULT([yes])
+    dnl Get the mpi4py version.
+    [
+    1>conftest cat << EOF
+import mpi4py
+print mpi4py.__version__
+EOF
+]
+    MPI4PY_FOUND="`${PYTHON} conftest`"
+    rm -f conftest
+    CX_VERSION_CHECK([mpi4py], [$MPI4PY_FOUND], [$MPI4PY_VERSION_MIN],
+      [enable_mpi])
+  else
+    AC_MSG_RESULT([no])
+  fi
+
+  if test "x$enable_mpi" = "x1" ; then
+    dnl Get the include path.
+    AC_MSG_CHECKING([mpi4py include path])
+    [
+    1>conftest cat << EOF
+import mpi4py
+import sys
+print "%s/include" % sys.modules['mpi4py'].__path__[0]
+EOF
+]
+    mpi4py_includes="`${PYTHON} conftest`"
+    rm -f conftest
+    AC_MSG_RESULT([$mpi4py_includes])
+  fi
+fi
+AC_SUBST([enable_mpi])
+AC_SUBST([mpi4py_includes])
 
 dnl ============================================================================
 dnl Make sure the version of flex found is sufficient.
@@ -537,6 +601,7 @@ cfgoutputs="${cfgoutputs} $1"
 ])
 CX_CONFIG_BINS([cfg])
 CX_CONFIG_BINS([cydep])
+CX_CONFIG_BINS([cython])
 AC_SUBST([cfgoutputs])
 AC_OUTPUT
 
@@ -569,9 +634,9 @@ AC_MSG_RESULT([objroot       : ${objroot}])
 AC_MSG_RESULT([abs_objroot   : ${abs_objroot}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([autogen       : ${enable_autogen}])
-AC_MSG_RESULT([cython        : ${enable_cython}])
 AC_MSG_RESULT([flex          : ${enable_flex}])
 AC_MSG_RESULT([debug         : ${enable_debug}])
 AC_MSG_RESULT([cc-silence    : ${enable_cc_silence}])
 AC_MSG_RESULT([inlines       : ${enable_inlines}])
+AC_MSG_RESULT([mpi           : ${enable_mpi}])
 AC_MSG_RESULT([===============================================================================])

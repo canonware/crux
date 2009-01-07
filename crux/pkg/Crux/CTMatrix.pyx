@@ -473,17 +473,17 @@ cdef class LogDet:
 
 cdef class Alignment:
     """
-Create an alignment, optionally from a CTMatrix.  Unless a pad symbol is
-specified, all sequences must be of equal length.
+        Create an alignment, optionally from a CTMatrix.  Unless a pad symbol
+        is specified, all sequences must be of equal length.
 
-If no CTMatrix is specified, create an empty alignment for the taxa in taxaMap,
-with space for nchars characters.
+        If no CTMatrix is specified, create an empty alignment for the taxa in
+        taxaMap, with space for nchars characters.
 
-By default, create only a row-major matrix, but support row-major and/or
-column-major format.  The get{Row,Seq}() methods are only supported if rowMajor
-is enabled.  Likewise, the get{Col,Char}() methods are only supported if
-colMajor is enabled.
-"""
+        By default, create only a row-major matrix, but support row-major
+        and/or column-major format.  The get{Row,Seq}() methods are only
+        supported if rowMajor is enabled.  Likewise, the get{Col,Char}()
+        methods are only supported if colMajor is enabled.
+    """
     def __cinit__(self):
         self.rows = NULL
         self.cols = NULL
@@ -651,14 +651,15 @@ colMajor is enabled.
 
     cpdef DistMatrix dists(self, bint avgAmbigs=True, bint scoreGaps=True):
         """
-Calculate uncorrected pairwise distances.
+            Calculate uncorrected pairwise distances.
 
-If scoreGaps is enabled, gaps are treated as being ambiguous, rather than as
-missing.
+            If scoreGaps is enabled, gaps are treated as being ambiguous,
+            rather than as missing.
 
-If avgAmbigs is enabled, ambiguity codes are handled by equal-weight averaging
-of all the cases that the ambiguities could possibly resolve to.
-"""
+            If avgAmbigs is enabled, ambiguity codes are handled by
+            equal-weight averaging of all the cases that the ambiguities could
+            possibly resolve to.
+        """
         cdef DistMatrix ret
         cdef PctIdent tab
         cdef int i, j
@@ -688,18 +689,19 @@ of all the cases that the ambiguities could possibly resolve to.
     cpdef DistMatrix jukesDists(self, bint avgAmbigs=True,
       bint scoreGaps=False):
         """
-Calculate pairwise distances, corrected for multiple hits using the
-Jukes-Cantor method, and the computational methods described by:
+            Calculate pairwise distances, corrected for multiple hits using the
+            Jukes-Cantor method, and the computational methods described by:
 
-  Tajima, F. (1993) Unbiased estimation of evolutionary distance between
-  nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
+              Tajima, F. (1993) Unbiased estimation of evolutionary distance
+              between nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
 
-If avgAmbigs is enabled, ambiguity codes are handled by equal-weight averaging
-of all the cases that the ambiguities could possibly resolve to.
+            If avgAmbigs is enabled, ambiguity codes are handled by
+            equal-weight averaging of all the cases that the ambiguities could
+            possibly resolve to.
 
-If scoreGaps is enabled, gaps are treated as being ambiguous, rather than as
-missing.
-"""
+            If scoreGaps is enabled, gaps are treated as being ambiguous,
+            rather than as missing.
+        """
         cdef DistMatrix ret
         cdef PctIdent tab
         cdef int nstates, i, j
@@ -812,47 +814,50 @@ missing.
     cpdef DistMatrix kimuraDists(self, bint avgAmbigs=True,
       bint scoreGaps=False):
         """
-Calculate corrected pairwise distances.
+            Calculate corrected pairwise distances.
 
-DNA:
-  Correct for multiple hits using the Kimura two-parameter method, and the
-  computational methods described by:
+            DNA:
+              Correct for multiple hits using the Kimura two-parameter method,
+              and the computational methods described by:
 
-    Tajima, F. (1993) Unbiased estimation of evolutionary distance between
-    nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
+                Tajima, F. (1993) Unbiased estimation of evolutionary distance
+                between nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
 
-Protein:
-  Correct for multiple hits using the empirical formula presented as equation
-  (4.8) in:
+            Protein:
+              Correct for multiple hits using the empirical formula presented
+              as equation (4.8) in:
 
-    Kimura, M. (1983) The neutral theory of molecular evolution.  p. 75,
-    Cambridge University Press, Cambridge, England.
+                Kimura, M. (1983) The neutral theory of molecular evolution.
+                p. 75, Cambridge University Press, Cambridge, England.
 
-  Starting at ~75% divergence, this formula is inadequate, so use a method
-  based on Dayhoff PAM matrices, as developed in CLUSTAL W.
+              Starting at ~75% divergence, this formula is inadequate, so use a
+              method based on Dayhoff PAM matrices, as developed in CLUSTAL W.
 
-    Dayhoff, M.O., R.M. Schwartz, B.C. Orcutt (1978) "A model of evolutionary
-    change in proteins." In "Atlas of Protein Sequence and Structure, vol. 5,
-    suppl. 3." M.O. Dayhoff (ed.), pp. 345-352, Natl.  Biomed. Res. Found.,
-    Washington, DC.
+                Dayhoff, M.O., R.M. Schwartz, B.C. Orcutt (1978) "A model of
+                evolutionary change in proteins." In "Atlas of Protein Sequence
+                and Structure, vol. 5, suppl. 3." M.O. Dayhoff (ed.), pp.
+                345-352, Natl.  Biomed. Res. Found., Washington, DC.
 
-    Thompson, J.D., D.G. Higgins, T.J. Gibson (1994) CLUSTAL W: improving the
-    sensitivity of progressive multiple sequence alignment through sequence
-    weighting, position specific gap penalties and weight matrix choice.
-    Nucleic Acids Res. 22:4673-4680.
+                Thompson, J.D., D.G. Higgins, T.J. Gibson (1994) CLUSTAL W:
+                improving the sensitivity of progressive multiple sequence
+                alignment through sequence weighting, position specific gap
+                penalties and weight matrix choice.  Nucleic Acids Res.
+                22:4673-4680.
 
-For DNA, ambiguity codes are handled by equal-weight averaging of all the cases
-that the ambiguities could possibly resolve to.  Unlike for some of the other
-distance correction methods (such as jukesDists()), it would be completely
-non-sensical to treat DNA ambiguities as unique states.  For protein, if
-avgAmbigs is enabled, ambiguity codes are handled by equal-weight averaging of
-all the cases that the ambiguities could possibly resolve to.
+            For DNA, ambiguity codes are handled by equal-weight averaging of
+            all the cases that the ambiguities could possibly resolve to.
+            Unlike for some of the other distance correction methods (such as
+            jukesDists()), it would be completely non-sensical to treat DNA
+            ambiguities as unique states.  For protein, if avgAmbigs is
+            enabled, ambiguity codes are handled by equal-weight averaging of
+            all the cases that the ambiguities could possibly resolve to.
 
-If scoreGaps is enabled, gaps are treated as being ambiguous, rather than as
-missing.  Ambiguity is interpreted to mean that all states are equally likely,
-so enabling this option tends to substantially increase distance, due to
-unlikely mutations being highly represented.
-"""
+            If scoreGaps is enabled, gaps are treated as being ambiguous,
+            rather than as missing.  Ambiguity is interpreted to mean that all
+            states are equally likely, so enabling this option tends to
+            substantially increase distance, due to unlikely mutations being
+            highly represented.
+        """
         cdef DistMatrix ret
 
         assert self.rows != NULL
@@ -872,30 +877,33 @@ unlikely mutations being highly represented.
 
     cpdef DistMatrix logdetDists(self, bint scoreGaps=False):
         """
-Calculate pairwise distances, corrected for unequal state frequencies using the
-LogDet/paralinear method described by:
+            Calculate pairwise distances, corrected for unequal state
+            frequencies using the LogDet/paralinear method described by:
 
-  Lake, J.A. (1994) Reconstructing evolutionary trees from DNA and protein
-  sequences: Paralinear distances.  Proc. Natl. Acad. Sci. 91:1455-1459.
+              Lake, J.A. (1994) Reconstructing evolutionary trees from DNA and
+              protein sequences: Paralinear distances.  Proc. Natl. Acad. Sci.
+              91:1455-1459.
 
-The distances are scaled such that they represent the mean number of
-substitutions per site.
+            The distances are scaled such that they represent the mean number
+            of substitutions per site.
 
-Note that the Lake (1994) method differs from the Lockhart et al. (1994) method
-primarily in that it converges on additive distances for consistent data.
+            Note that the Lake (1994) method differs from the Lockhart et al.
+            (1994) method primarily in that it converges on additive distances
+            for consistent data.
 
-  Lockhart, P.J., M.A. Steel, M.D. Hendy, and D. Penny (1994) Recovering
-  evolutionary trees under a more Realistic model of sequence evolution.  Mol.
-  Biol. Evol. 11(4):605-612.
+              Lockhart, P.J., M.A. Steel, M.D. Hendy, and D. Penny (1994)
+              Recovering evolutionary trees under a more Realistic model of
+              sequence evolution.  Mol.  Biol. Evol. 11(4):605-612.
 
-If scoreGaps is enabled, gaps are treated as being ambiguous, rather than as
-missing.
+            If scoreGaps is enabled, gaps are treated as being ambiguous,
+            rather than as missing.
 
-Ambiguity codes are handled by equal-weight averaging of all the cases that the
-ambiguities could possibly resolve to.  Unlike for some of the other distance
-correction methods (such as jukesDists()), it would be completely non-sensical
-to treat ambiguities as unique states.
-"""
+            Ambiguity codes are handled by equal-weight averaging of all the
+            cases that the ambiguities could possibly resolve to.  Unlike for
+            some of the other distance correction methods (such as
+            jukesDists()), it would be completely non-sensical to treat
+            ambiguities as unique states.
+        """
         cdef DistMatrix ret
         cdef LogDet logDet
         cdef int i, j

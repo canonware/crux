@@ -194,13 +194,16 @@ one or more of the following may be required:
 
   configure.ac --> configure
 
-* Cython (http://cython.org/).
-
-  pkg/Foo.{pyx,pxd} --> pkg/Foo.c
-
 * Flex (http://flex.sourceforge.net/).
 
   lib/Foo.l --> lib/Foo.{c,h}
+
+* Cython (http://cython.org/).  Cython is required when building Crux, but Crux
+  releases include it in contrib/cython, so you will only need to get a copy of
+  Cython if using a Mercurial checkout.  You can either install Cython, or
+  simply place the Cython source tree in contrib/cython.
+
+  pkg/Foo.{pyx,pxd} --> pkg/Foo.c
 
 === Simple installation ========================================================
 
@@ -233,6 +236,10 @@ list) to 'configure':
 --with-python=<path-to-python>
     Use the indicated Python interpreter, rather than using the PATH shell
     variable to search for Python.
+
+--with-cython=<path-to-cython>
+    Use the indicated Cython compiler, rather than using the the included
+    version, or using the PATH shell variable to search for Cython.
 
 --enable-debug
     Enable assertions and validation code.  This incurs a substantial

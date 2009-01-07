@@ -34,6 +34,8 @@ PYS := @pys@
 BINS := @bins@
 TESTS := @tests@
 
+.PHONY: all dist run inst pickles install check clean distclean flclean relclean
+
 # Default target.
 all: inst
 
@@ -42,29 +44,57 @@ FLHS := $(FSRCS:%.l=%.h)
 FLCS := $(FSRCS:%.l=%.c)
 CSRCS += $(FLCS)
 
-# Cython-generated .c files.
-CYCS := $(PYXS:%.pyx=%.c) $(PKGS:%.pyx=%.c)
+# Cython headers.
+INST_SITE_PXDS := \
+    $(PYXS:@srcroot@pkg/%.pyx=@objroot@build/inst/site-packages/Crux/include/%.pxd) \
+    $(PKGS:@srcroot@pkg/%.pyx=@objroot@build/inst/site-packages/Crux/include/%.pxd)
+RUN_PXDS := $(PYXS:@srcroot@%.pyx=@objroot@build/run/%.pxd) \
+	$(PKGS:@srcroot@%.pyx=@objroot@build/run/%.pxd)
+INST_PXDS := $(PYXS:@srcroot@%.pyx=@objroot@build/inst/%.pxd) \
+	$(PKGS:@srcroot@%.pyx=@objroot@build/inst/%.pxd)
 
-# Prevent make from deleting .o files, since each .o can be used for linking
-# multiple targets, potentially across make invocations (ex: make run; make
-# inst).
-.SECONDARY: $(CYCS:@srcroot@pkg/%.c=@objroot@build/pkg/%.o) \
-		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+# Cython sources.
+RUN_PYXS := $(PYXS:@srcroot@%.pyx=@objroot@build/run/%.pyx) \
+	$(PKGS:@srcroot@%.pyx=@objroot@build/run/%.pyx)
+INST_PYXS := $(PYXS:@srcroot@%.pyx=@objroot@build/inst/%.pyx) \
+	$(PKGS:@srcroot@%.pyx=@objroot@build/inst/%.pyx)
+
+# Python sources.
+RUN_SITE_PYS := $(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%)
+INST_SITE_PYS := $(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)
+RUN_PYS := $(PYS:@srcroot@pkg/%=@objroot@build/run/pkg/%)
+INST_PYS := $(PYS:@srcroot@pkg/%=@objroot@build/inst/pkg/%)
+
+# Cython-generated .c files.
+RUN_CYCS := $(RUN_PYXS:%.pyx=%.c)
+INST_CYCS := $(INST_PYXS:%.pyx=%.c)
+
+# Shared objects.
+RUN_SOS := $(RUN_CYCS:@objroot@build/run/pkg/%.c=@objroot@build/run/site-packages/%.so)
+INST_SOS := $(INST_CYCS:@objroot@build/inst/pkg/%.c=@objroot@build/inst/site-packages/%.so)
+
+# Prevent make from deleting various intermediate files.
+.SECONDARY: \
+	$(INST_SITE_PXDS) $(RUN_PXDS) $(INST_PXDS) \
+	$(RUN_PYXS) $(INST_PYXS) \
+	$(RUN_SITE_PYS) $(INST_SITE_PYS) \
+	$(RUN_PYS) $(INST_PYS) \
+	$(RUN_CYCS) $(RUN_CYCS:%.c=%.o) \
+	$(INST_CYCS) $(INST_CYCS:%.c=%.o)
+	$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 
 # Include generated dependency files.
--include $(CYCS:@srcroot@pkg/%.c=@objroot@build/pkg/%.d) \
+-include $(RUN_PYXS:%.pyx=%.d) $(INST_PYXS:%.pyx=%.d) \
 	$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.d)
 
-dist: $(FLHS) $(FLCS) $(CYCS)
+dist: $(FLHS) $(FLCS)
 
-run: $(CYCS:@srcroot@pkg/%.c=@objroot@build/run/site-packages/%.so) \
-    $(PYS:@srcroot@pkg/%=@objroot@build/run/site-packages/%) \
+run: $(RUN_SOS) $(RUN_SITE_PYS) \
     $(BINS:@srcroot@bin/%=@objroot@build/run/bin/%)
 	@mkdir -p @objroot@build/run/share/Crux/parsers
 
 inst: pickles \
-    $(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) \
-    $(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%) \
+    $(INST_SITE_PXDS) $(INST_SOS) $(INST_SITE_PYS) \
     $(BINS:@srcroot@bin/%=@objroot@build/inst/bin/%)
 
 pickles: run
@@ -83,11 +113,11 @@ done
 	echo "install -m 644 $$f $(DATADIR)/Crux/parsers"; \
 	install -m 644 $$f $(DATADIR)/Crux/parsers; \
 done
-	@for d in $(patsubst @objroot@build/inst/site-packages/%,@site_packages@/%,$(sort $(dir $(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) $(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)))); do \
+	@for d in $(patsubst @objroot@build/inst/site-packages/%,@site_packages@/%,$(sort $(dir $(INST_SITE_PXDS) $(INST_SOS) $(INST_SITE_PYS)))); do \
 	echo "install -d $$d"; \
 	install -d $$d; \
 done
-	@for f in $(patsubst @objroot@build/inst/site-packages/%,%,$(CYCS:@srcroot@pkg/%.c=@objroot@build/inst/site-packages/%.so) $(PYS:@srcroot@pkg/%=@objroot@build/inst/site-packages/%)); do \
+	@for f in $(patsubst @objroot@build/inst/site-packages/%,%,$(INST_SITE_PXDS) $(INST_SOS) $(INST_SITE_PYS)); do \
 	echo "install -m 755 @objroot@build/inst/site-packages/$$f @site_packages@/`dirname $$f`"; \
 	install -m 755 @objroot@build/inst/site-packages/$$f @site_packages@/`dirname $$f`; \
 done
@@ -142,12 +172,7 @@ ifeq (@enable_flex@, 1)
 	rm -f $(FLCS)
 endif
 
-cyclean:
-ifeq (@enable_cython@, 1)
-	rm -f $(CYCS)
-endif
-
-relclean: distclean flclean cyclean
+relclean: distclean flclean
 	rm -rf @objroot@autom4te.cache
 	rm -f @objroot@configure
 
@@ -168,20 +193,20 @@ relclean: distclean flclean cyclean
 		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
-	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
+	$(CC) -shared -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS) $(LIBS)
 endif
 ifeq (macho, @abi@)
-	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @abs_objroot@build/run/shard/Crux/lib/libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
+	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @abs_objroot@build/run/shard/Crux/lib/libCx.so -o $@ $^ $(LDFLAGS) $(LIBS)
 endif
 
 @objroot@build/inst/share/Crux/lib/libCx.so : \
 		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
-	$(CC) -shared -Wl,-soname,libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
+	$(CC) -shared -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS) $(LIBS)
 endif
 ifeq (macho, @abi@)
-	$(CC) -undefined dynamic_lookup -dynamiclib -install_name $(DATADIR)/share/Crux/lib/libCx.so -o $@ $+ $(LDFLAGS) $(LIBS)
+	$(CC) -undefined dynamic_lookup -dynamiclib -install_name $(DATADIR)/share/Crux/lib/libCx.so -o $@ $^ $(LDFLAGS) $(LIBS)
 endif
 
 #===============================================================================
@@ -193,48 +218,91 @@ ifeq (@enable_flex@, 1)
 endif
 
 #===============================================================================
-# Cython-generated files are shipped with releases, so the following rule is
-# not always needed.
-ifeq (@enable_cython@, 1)
-@srcroot@%.c : @srcroot@%.pyx @srcroot@%.pxd
-	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@srcroot@pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) @python_config_includes@ -o $@ $<
-	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@srcroot@pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,--infile=%,$+) --targetfile=$@ --depfile=$(@:@srcroot@pkg/%.c=@objroot@build/pkg/%.d)
-endif
+@objroot@build/inst/site-packages/Crux/include/%.pxd : @srcroot@pkg/%.pxd
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -i --infile=$< --outfile=$@
+
+@objroot@build/run/pkg/%.pxd : @srcroot@pkg/%.pxd
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -r --infile=$< --outfile=$@
+
+@objroot@build/inst/pkg/%.pxd : @srcroot@pkg/%.pxd
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -i --infile=$< --outfile=$@
+
+@objroot@build/run/pkg/%.pyx : @srcroot@pkg/%.pyx
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -r --infile=$< --outfile=$@
+
+@objroot@build/inst/pkg/%.pyx : @srcroot@pkg/%.pyx
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -i --infile=$< --outfile=$@
+
+@objroot@build/run/pkg/%.py : @srcroot@pkg/%.py
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -r --infile=$< --outfile=$@
+
+@objroot@build/inst/pkg/%.py : @srcroot@pkg/%.py
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -i --infile=$< --outfile=$@
 
 #===============================================================================
-@objroot@build/pkg/%.o : @srcroot@pkg/%.c
+# The order-only prerequisites are necessary in order to assure that:
+#
+# 1) The .pxd files are in place, so that Cython can use them during
+#    compilation.
+# 2) The package __init__.py files are in place, so that directories are
+#    considered packages for the purposes of import/cimport.
+@objroot@build/run/pkg/%.c : @objroot@build/run/pkg/%.pyx \
+			@objroot@build/run/pkg/%.pxd \
+			| $(RUN_PXDS) $(RUN_PYS)
+	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@objroot@build/run/pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(patsubst %,-I%,@mpi4py_includes@) @python_config_includes@ -o $@ $<
+	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@objroot@build/run/pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,-P%,@mpi4py_includes@) $(patsubst %,--infile=%,$^) --targetfile=$@ --depfile=$(@:%.c=%.d)
+
+@objroot@build/inst/pkg/%.c : @objroot@build/inst/pkg/%.pyx \
+			@objroot@build/inst/pkg/%.pxd \
+			| $(INST_PXDS) $(INST_PYS)
+	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@objroot@build/inst/pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(patsubst %,-I%,@mpi4py_includes@) @python_config_includes@ -o $@ $<
+	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@objroot@build/inst/pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,-P%,@mpi4py_includes@) $(patsubst %,--infile=%,$^) --targetfile=$@ --depfile=$(@:%.c=%.d)
+
+#===============================================================================
+@objroot@build/run/pkg/%.o : @objroot@build/run/pkg/%.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) @python_config_cflags@ -c $< -o$@
+
+@objroot@build/inst/pkg/%.o : @objroot@build/inst/pkg/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) @python_config_cflags@ -c $< -o$@
 
 #===============================================================================
 # Rules for building packages/modules that link against libCx.  These rules
 # must come before the more generic rules that follow.
-@objroot@build/run/site-packages/Crux/%.so : @objroot@build/pkg/Crux/%.o \
+@objroot@build/run/site-packages/Crux/%.so : @objroot@build/run/pkg/Crux/%.o \
 				@objroot@build/run/share/Crux/lib/libCx.so
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
+	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
 else
-	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
+	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
 endif
 
-@objroot@build/inst/site-packages/Crux/%.so : @objroot@build/pkg/Crux/%.o \
+@objroot@build/inst/site-packages/Crux/%.so : @objroot@build/inst/pkg/Crux/%.o \
 				@objroot@build/inst/share/Crux/lib/libCx.so
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) -shared @RPATH@$(DATADIR)/Crux/lib $(RPATH_EXTRA:%=@RPATH@%)$(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
+	$(CC) -shared @RPATH@$(DATADIR)/Crux/lib $(RPATH_EXTRA:%=@RPATH@%)$(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
 else
-	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
+	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
 endif
 
 #===============================================================================
-@objroot@build/run/site-packages/%.so : @objroot@build/pkg/%.o
+@objroot@build/run/site-packages/%.so : @objroot@build/run/pkg/%.o
 	@mkdir -p $(@D)
-	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
+	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
 
-@objroot@build/inst/site-packages/%.so : @objroot@build/pkg/%.o
+@objroot@build/inst/site-packages/%.so : @objroot@build/inst/pkg/%.o
 	@mkdir -p $(@D)
-	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $+ $(LIBS)
+	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
 
 #===============================================================================
 @objroot@build/run/site-packages/%.py : @srcroot@pkg/%.py
@@ -283,6 +351,11 @@ ifeq (@enable_autogen@, 1)
 			    @srcroot@configure
 	./@objroot@config.status
 	@touch $@
+
+$(INST_SITE_PXDS) $(RUN_PXDS) $(INST_PXDS) \
+$(RUN_PYXS) $(INST_PYXS) \
+$(RUN_SITE_PYS) $(INST_SITE_PYS) \
+$(RUN_PYS) $(INST_PYS): @objroot@cfgoutputs.stamp
 
 # There must be some action in order for make to re-read Makefile when it is
 # out of date.

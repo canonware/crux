@@ -129,8 +129,8 @@ cdef Dna dna
 
 cdef class Dna(Character):
     """
-Character codes for DNA/RNA nucleotides.
-"""
+        Character codes for DNA/RNA nucleotides.
+    """
     def __init__(self):
         global dna
 
@@ -191,8 +191,8 @@ cdef Protein protein
 
 cdef class Protein(Character):
     """
-Character codes for protein amino acids.
-"""
+        Character codes for protein amino acids.
+    """
     def __init__(self):
         global protein
 

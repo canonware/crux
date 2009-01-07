@@ -5,11 +5,13 @@ syntax: regexp
 ^crux/bin/crux$
 ^crux/bin/cruxo$
 ^crux/build
+^crux/cfg$
 ^crux/cfg(hdrs|outputs)\.stamp$
 ^crux/config\.(log|status)$
 ^crux/configure$
-^crux/cfg$
+^crux/contrib$
 ^crux/cydep$
+^crux/cython$
 ^crux/Makefile$
 ^crux/lib/Cx_defs\.h$
 ^crux/lib/DistMatrix/CxDistMatrixLexer.[ch]$

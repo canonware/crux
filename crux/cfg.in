@@ -116,7 +116,8 @@ dAtAt = {
     "abi": "@abi@",
     "RPATH": "@RPATH@",
     "enable_autogen": "@enable_autogen@",
-    "enable_cython": "@enable_cython@",
+    "enable_mpi": "@enable_mpi@",
+    "mpi4py_includes": "@mpi4py_includes@",
     "enable_flex": "@enable_flex@",
     "enable_debug": "@enable_debug@",
     "enable_cc_silence": "@enable_cc_silence@",
@@ -173,6 +174,9 @@ for inline in lines:
     prevPos = 0
     for m in reAtAt.finditer(inline):
         outline.append(inline[prevPos:m.start(1)-1])
+        if m.group(1) not in dAtAt:
+            print >> sys.stderr, "Non-existent key: @%s" % m.group(1)
+            sys.exit(1)
         outline.append(dAtAt[m.group(1)])
         prevPos = m.end(1) + 1
     outline.append(inline[prevPos:])

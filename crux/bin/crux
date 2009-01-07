@@ -112,12 +112,15 @@ if not Crux.Config.batch and not opts.execed:
     # it is necessary to exec the python interpreter, such that interactive mode
     # is enabled via python's '-i' flag.
     args = sys.argv[:]
-    args.insert(0, "@PYTHON@")
-    args.insert(1, "-i")
 
     # Insert --__execed as the first command line argument.  Appending doesn't
     # work correctly when there are trailing script arguments.
-    args.insert(3, "--__execed")
+    args.insert(1, "--__execed")
+
+    args.insert(0, "@PYTHON@")
+    args.insert(1, "-i")
+    if len("@python_opts@".strip()) > 0:
+        args.insert(1, "@python_opts@".strip())
 
     # Re-launch python.
     os.execv("@PYTHON@", args)
@@ -160,3 +163,4 @@ if Crux.Config.verbose:
       % time.strftime("%Y/%m/%d %H:%M:%S (%Z)", time.localtime(time.time()))
     if not Crux.Config.batch:
         print "Interactive mode."
+        print "For Crux documentation, type: help(Crux)"

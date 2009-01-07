@@ -306,8 +306,8 @@ cdef class Nj:
         cdef float *d, *rScaled
         cdef float transMin, transCur, rScaledX
 
-        # Silence compiler warnings.
-#        xMin = yMin = 0
+        IF @enable_cc_silence@:
+            xMin = yMin = 0
 
         # Calculate the transformed distance for each pairwise distance.  Keep
         # track of the minimum transformed distance, so that the corresponding
@@ -350,8 +350,8 @@ cdef class Nj:
         cdef float *d, *rScaled
         cdef float transMin, transCur, rScaledX
 
-        # Silence compiler warnings.
-#        xMin = yMin = 0
+        IF @enable_cc_silence@:
+            xMin = yMin = 0
 
         # Calculate the transformed distance for each pairwise distance.  Keep
         # track of the minimum transformed distance, so that the corresponding
@@ -597,6 +597,10 @@ cdef class Rnj(Nj):
         cdef float *d, *rScaled
         cdef float dist, minDist
 
+        IF @enable_cc_silence@:
+            ret = <size_t>-1
+            nmins = 0
+
         d = self.d
         rScaled = self.rScaled
         n = self.n
@@ -683,6 +687,9 @@ cdef class Rnj(Nj):
         cdef size_t ret, n, y, i
         cdef float *d, *rScaled
         cdef float dist, minDist
+
+        IF @enable_cc_silence@:
+            ret = <size_t>-1
 
         d = self.d
         rScaled = self.rScaled
