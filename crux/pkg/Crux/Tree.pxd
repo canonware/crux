@@ -56,14 +56,12 @@ cdef class Tree:
 
 cdef class Node:
     cdef object __weakref__
-    cdef Tree _tree
-    cdef Ring _ring
+    cdef readonly Tree tree
+    cdef readonly Ring ring
     cdef Taxon _taxon
     cdef int _degree
 
-    # property tree
     # property taxon
-    # property ring
     cpdef int _degreeGet(self, bint calculate=*) except -1
     # property degree
     cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
@@ -72,21 +70,20 @@ cdef class Node:
 
 cdef class Edge:
     cdef object __weakref__
-    cdef Tree _tree
+    cdef readonly Tree tree
     cdef float _length
-    cdef Ring _ring
+    cdef readonly Ring ring
 
-    # property tree
-    # property ring
     # property length
     cpdef attach(self, Node nodeA, Node nodeB)
     cpdef detach(self)
 
 cdef class Ring:
-    cdef Node _node
-    cdef Edge _edge
-    cdef Ring _other
-    cdef Ring _next, _prev
+    cdef readonly Node node
+    cdef readonly Edge edge
+    cdef readonly Ring other
+    cdef readonly Ring next
+    cdef readonly Ring prev
 
     cpdef siblings(self) # Iterator.
 
@@ -96,10 +93,3 @@ cdef class Ring:
     cdef void _collapsable(self, list collapsable, list clampable) except *
     cdef void _collapse(self)
     cdef int _separation(self, Node other, int sep)
-
-    # property tree
-    # property node
-    # property edge
-    # property other
-    # property next
-    # property prev

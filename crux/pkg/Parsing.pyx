@@ -3145,11 +3145,10 @@ cdef class Gssn:
     def __repr__(self):
         return "[%d]" % self.nextState
 
-    def __getEdge(self):
-        assert len(self._edges) == 1
-        return self._edges[0]
-    def __setEdge(self): raise AttributeError
-    edge = property(__getEdge, __setEdge)
+    property edge:
+        def __get__(self):
+            assert len(self._edges) == 1
+            return self._edges[0]
 
     def edges(self):
         return _GssnEdgesIterHelper(self)
