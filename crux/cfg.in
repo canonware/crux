@@ -106,6 +106,7 @@ dAtAt = {
     "DATADIR": DATADIR,
     "MANDIR": MANDIR,
 
+    "sizeof_ptr": "@sizeof_ptr@",
     "CPPFLAGS": "@CPPFLAGS@",
     "MTCPPFLAGS": "@MTCPPFLAGS@",
     "CFLAGS": "@CFLAGS@",
@@ -118,6 +119,7 @@ dAtAt = {
     "enable_autogen": "@enable_autogen@",
     "enable_mpi": "@enable_mpi@",
     "mpi4py_includes": "@mpi4py_includes@",
+    "enable_sys_linalg": "@enable_sys_linalg@",
     "enable_flex": "@enable_flex@",
     "enable_debug": "@enable_debug@",
     "enable_cc_silence": "@enable_cc_silence@",

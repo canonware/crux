@@ -20,7 +20,8 @@ MTCFLAGS := @MTCFLAGS@
 ifeq (macho, @abi@)
 CFLAGS += -dynamic
 endif
-LDFLAGS := @LDFLAGS@
+LDFLAGS_RUN := -L@abs_objroot@build/run/share/Crux/lib @LDFLAGS@
+LDFLAGS_INST := -L@abs_objroot@build/inst/share/Crux/lib @LDFLAGS@
 LIBS := @LIBS@
 RPATH_EXTRA := @RPATH_EXTRA@
 
@@ -34,7 +35,9 @@ PYS := @pys@
 BINS := @bins@
 TESTS := @tests@
 
-.PHONY: all dist run inst pickles install check clean distclean flclean relclean
+.PHONY: all dist run inst pickles install check \
+	clean distclean flclean relclean \
+	linalg
 
 # Default target.
 all: inst
@@ -108,6 +111,12 @@ install: inst
 done
 	install -d $(DATADIR)/Crux/lib
 	install -m 755 @objroot@build/inst/share/Crux/lib/libCx.so $(DATADIR)/Crux/lib
+ifeq (@enable_sys_linalg@,0)
+	@for l in $(ATLAS_LIBS_INST) ; do \
+	echo "install -m 755 $$l $(DATADIR)/Crux/lib"; \
+	install -m 755 $$l $(DATADIR)/Crux/lib; \
+done
+endif
 	install -d $(DATADIR)/Crux/parsers
 	@for f in `find @abs_objroot@build/run/share/Crux/parsers -type f`; do \
 	echo "install -m 644 $$f $(DATADIR)/Crux/parsers"; \
@@ -124,12 +133,12 @@ done
 
 check: run
 	@mkdir -p @objroot@test
-	@sh -c 'total=0; \
+	@$(SHELL) -c 'total=0; \
 		failures=0; \
-		@ECHO@ "========================================="; \
+		echo "========================================="; \
 		for t in $(TESTS); do \
 			total=`expr $$total + 1`; \
-			@ECHO@ -n "$$t ... "; \
+			echo -n "$$t ... "; \
 			2>&1 @objroot@build/run/bin/crux @srcroot@$$t - \
 			  @abs_srcroot@ @abs_objroot@ \
 			  | @GREP@ -v "\[[1-9][0-9]* refs\]" \
@@ -140,17 +149,17 @@ check: run
 				fail=$$?; \
 				if @TEST@ "$$fail" -eq "1" ; then \
 					failures=`expr $$failures + 1`; \
-					@ECHO@ "*** FAIL ***"; \
+					echo "*** FAIL ***"; \
 				else \
-					@ECHO@ "pass"; \
+					echo "pass"; \
 				fi; \
 			else \
-				@ECHO@ "*** FAIL *** (.exp file is missing)"; \
+				echo "*** FAIL *** (.exp file is missing)"; \
 				failures=`expr $$failures + 1`; \
 			fi; \
 		done; \
-		@ECHO@ "========================================="; \
-		@ECHO@ "Failures: $$failures/$$total"'
+		echo "========================================="; \
+		echo "Failures: $$failures/$$total"'
 
 clean:
 	rm -rf @objroot@build
@@ -183,30 +192,40 @@ relclean: distclean flclean
 	$(CC) $(CFLAGS) $(MTCFLAGS) $(CPPFLAGS) $(MTCPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -c $< -o$@
 	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $(MTCPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
 
-@objroot@build/lib/%.o : @srcroot@lib/%.c
+@objroot@build/lib/%.o : @srcroot@lib/%.c | linalg_include
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -c $< -o$@
 	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
 
 #===============================================================================
 @objroot@build/run/share/Crux/lib/libCx.so : \
-		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
+		| linalg_run
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
-	$(CC) -shared -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS) $(LIBS)
+ifneq ($(words "" @RPATH@), 1)
+	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS_RUN) $(LIBS)
+else
+	$(CC) -shared -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS_RUN) $(LIBS)
+endif
 endif
 ifeq (macho, @abi@)
-	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @abs_objroot@build/run/shard/Crux/lib/libCx.so -o $@ $^ $(LDFLAGS) $(LIBS)
+	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @abs_objroot@build/run/shard/Crux/lib/libCx.so -o $@ $^ $(LDFLAGS_RUN) $(LIBS)
 endif
 
 @objroot@build/inst/share/Crux/lib/libCx.so : \
-		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
+		| linalg_inst
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
-	$(CC) -shared -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS) $(LIBS)
+ifneq ($(words "" @RPATH@), 1)
+	$(CC) -shared @RPATH@$(DATADIR)/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS_INST) $(LIBS)
+else
+	$(CC) -shared -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS_INST) $(LIBS)
+endif
 endif
 ifeq (macho, @abi@)
-	$(CC) -undefined dynamic_lookup -dynamiclib -install_name $(DATADIR)/share/Crux/lib/libCx.so -o $@ $^ $(LDFLAGS) $(LIBS)
+	$(CC) -undefined dynamic_lookup -dynamiclib -install_name $(DATADIR)/Crux/lib/libCx.so -o $@ $^ $(LDFLAGS_INST) $(LIBS)
 endif
 
 #===============================================================================
@@ -247,6 +266,19 @@ endif
 	@abs_objroot@cfg -i --infile=$< --outfile=$@
 
 #===============================================================================
+# If using the contrib Cython, add a dependency that causes it to be copied to
+# build/contrib/cython before any compilation takes place.
+@objroot@build/contrib/cython/bin/cython :
+	@mkdir -p @objroot@build/contrib
+	cp -R @srcroot@contrib/cython @objroot@build/contrib
+
+ifeq (@CYTHON@,@abs_objroot@cython)
+@CYTHON@ : @objroot@build/contrib/cython/bin/cython
+else
+@CYTHON@ :
+endif
+
+#===============================================================================
 # The order-only prerequisites are necessary in order to assure that:
 #
 # 1) The .pxd files are in place, so that Cython can use them during
@@ -255,22 +287,88 @@ endif
 #    considered packages for the purposes of import/cimport.
 @objroot@build/run/pkg/%.c : @objroot@build/run/pkg/%.pyx \
 			@objroot@build/run/pkg/%.pxd \
-			| $(RUN_PXDS) $(RUN_PYS)
+			| $(RUN_PXDS) $(RUN_PYS) @CYTHON@ linalg_include
 	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@objroot@build/run/pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(patsubst %,-I%,@mpi4py_includes@) @python_config_includes@ -o $@ $<
 	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@objroot@build/run/pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,-P%,@mpi4py_includes@) $(patsubst %,--infile=%,$^) --targetfile=$@ --depfile=$(@:%.c=%.d)
 
 @objroot@build/inst/pkg/%.c : @objroot@build/inst/pkg/%.pyx \
 			@objroot@build/inst/pkg/%.pxd \
-			| $(INST_PXDS) $(INST_PYS)
+			| $(INST_PXDS) $(INST_PYS) @CYTHON@ linalg_include
 	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@objroot@build/inst/pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(patsubst %,-I%,@mpi4py_includes@) @python_config_includes@ -o $@ $<
 	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@objroot@build/inst/pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,-P%,@mpi4py_includes@) $(patsubst %,--infile=%,$^) --targetfile=$@ --depfile=$(@:%.c=%.d)
 
 #===============================================================================
-@objroot@build/run/pkg/%.o : @objroot@build/run/pkg/%.c
+# If using the contrib ATLAS/LAPACK, add dependencies that cause them to be
+# built before any C compilation takes place.
+
+LAPACK_LIB := @objroot@build/contrib/lapack/lapack.a
+
+ATLAS_INCS := @objroot@build/include/cblas.h @objroot@build/include/clapack.h
+
+ATLAS_LIBS := @objroot@build/contrib/ATLAS/obj/lib/liblapack.so \
+	@objroot@build/contrib/ATLAS/obj/lib/libcblas.so \
+	@objroot@build/contrib/ATLAS/obj/lib/libf77blas.so \
+	@objroot@build/contrib/ATLAS/obj/lib/libatlas.so
+
+ATLAS_LIBS_RUN := $(ATLAS_LIBS:@objroot@build/contrib/ATLAS/obj/lib/%=@objroot@build/run/share/Crux/lib/%)
+ATLAS_LIBS_INST := $(ATLAS_LIBS:@objroot@build/contrib/ATLAS/obj/lib/%=@objroot@build/inst/share/Crux/lib/%)
+
+ifeq (@sizeof_ptr@,8)
+LAPACK_FLAGS := -fPIC -m64
+ATLAS_FLAGS := -b 64 -Fa alg -fPIC
+else
+LAPACK_FLAGS := -fPIC
+ATLAS_FLAGS := -Fa alg -fPIC
+endif
+
+@objroot@build/contrib/lapack/lapack.a :
+	@mkdir -p @objroot@build/contrib
+	cp -R @srcroot@contrib/lapack @objroot@build/contrib
+	cat @objroot@build/contrib/lapack/INSTALL/make.inc.gfortran | sed -e "s/^PLAT .*$$/PLAT =/" -e "s/^\(\(OPTS\|NOOPT\).*\)$$/\1 $(LAPACK_FLAGS)/" > @objroot@build/contrib/lapack/make.inc
+	$(MAKE) -C @objroot@build/contrib/lapack/SRC
+
+# MAKELEVEL must be unset because the ATLAS configuration code runs sub-makes
+# and parses the output.  If make prints out messages about make recursion,
+# the configuration code gets confused and consequently ATLAS doesn't link
+# against libgfortran.
+$(ATLAS_LIBS) : $(LAPACK_LIB)
+	@mkdir -p @objroot@build/contrib
+	cp -R @srcroot@contrib/ATLAS @objroot@build/contrib
+	mkdir -p @objroot@build/contrib/ATLAS/obj
+	(cd @objroot@build/contrib/ATLAS/obj; MAKELEVEL= ../configure $(ATLAS_FLAGS) --with-netlib-lapack=@abs_objroot@build/contrib/lapack/lapack.a --prefix=@abs_objroot@build/contrib/atlas_installed)
+	$(MAKE) -C @objroot@build/contrib/ATLAS/obj
+	$(MAKE) -C @objroot@build/contrib/ATLAS/obj/lib shared
+
+# This depends on ATLAS_LIBS because there is no simple way to install just the
+# headers.
+$(ATLAS_INCS) : $(ATLAS_LIBS)
+	$(MAKE) -C @objroot@build/contrib/ATLAS/obj install
+	cp -R @objroot@build/contrib/atlas_installed/include build
+
+$(ATLAS_LIBS_RUN) : $(ATLAS_LIBS)
+	@mkdir -p @objroot@build/run/share/Crux/lib
+	cp $(ATLAS_LIBS) @objroot@build/run/share/Crux/lib
+
+$(ATLAS_LIBS_INST) : $(ATLAS_LIBS)
+	@mkdir -p @objroot@build/inst/share/Crux/lib
+	cp $(ATLAS_LIBS) @objroot@build/inst/share/Crux/lib
+
+ifeq (@enable_sys_linalg@,0)
+linalg_include : $(ATLAS_INCS)
+linalg_run : $(ATLAS_LIBS_RUN) $(ATLAS_INCS)
+linalg_inst : $(ATLAS_LIBS_INST) $(ATLAS_INCS)
+else
+linalg_include:
+linalg_run:
+linalg_inst:
+endif
+
+#===============================================================================
+@objroot@build/run/pkg/%.o : @objroot@build/run/pkg/%.c | linalg_include
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) @python_config_cflags@ -c $< -o$@
 
-@objroot@build/inst/pkg/%.o : @objroot@build/inst/pkg/%.c
+@objroot@build/inst/pkg/%.o : @objroot@build/inst/pkg/%.c | linalg_include
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) @python_config_cflags@ -c $< -o$@
 
@@ -278,31 +376,35 @@ endif
 # Rules for building packages/modules that link against libCx.  These rules
 # must come before the more generic rules that follow.
 @objroot@build/run/site-packages/Crux/%.so : @objroot@build/run/pkg/Crux/%.o \
-				@objroot@build/run/share/Crux/lib/libCx.so
+				@objroot@build/run/share/Crux/lib/libCx.so \
+				| linalg_run
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
+	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) $(LDFLAGS_RUN) @python_config_ldflags@ -o $@ $^ $(LIBS)
 else
-	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
+	$(CC) -shared $(LDFLAGS_RUN) @python_config_ldflags@ -o $@ $^ $(LIBS)
 endif
 
 @objroot@build/inst/site-packages/Crux/%.so : @objroot@build/inst/pkg/Crux/%.o \
-				@objroot@build/inst/share/Crux/lib/libCx.so
+				@objroot@build/inst/share/Crux/lib/libCx.so \
+				| linalg_inst
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) -shared @RPATH@$(DATADIR)/Crux/lib $(RPATH_EXTRA:%=@RPATH@%)$(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
+	$(CC) -shared @RPATH@$(DATADIR)/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) $(LDFLAGS_INST) @python_config_ldflags@ -o $@ $^ $(LIBS)
 else
-	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
+	$(CC) -shared $(LDFLAGS_INST) @python_config_ldflags@ -o $@ $^ $(LIBS)
 endif
 
 #===============================================================================
-@objroot@build/run/site-packages/%.so : @objroot@build/run/pkg/%.o
+@objroot@build/run/site-packages/%.so : @objroot@build/run/pkg/%.o \
+					| linalg_run
 	@mkdir -p $(@D)
-	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
+	$(CC) -shared $(LDFLAGS_RUN) @python_config_ldflags@ -o $@ $^ $(LIBS)
 
-@objroot@build/inst/site-packages/%.so : @objroot@build/inst/pkg/%.o
+@objroot@build/inst/site-packages/%.so : @objroot@build/inst/pkg/%.o \
+					| linalg_inst
 	@mkdir -p $(@D)
-	$(CC) -shared $(LDFLAGS) @python_config_ldflags@ -o $@ $^ $(LIBS)
+	$(CC) -shared $(LDFLAGS_INST) @python_config_ldflags@ -o $@ $^ $(LIBS)
 
 #===============================================================================
 @objroot@build/run/site-packages/%.py : @srcroot@pkg/%.py
@@ -334,7 +436,7 @@ ifeq (@enable_autogen@, 1)
 
 # cfghdrs rules.
 @srcroot@cfghdrs.stamp.in : @srcroot@configure.ac
-	@ECHO@ stamp > @srcroot@cfghdrs.stamp.in
+	echo stamp > @srcroot@cfghdrs.stamp.in
 
 @objroot@cfghdrs.stamp : $(patsubst %, %.in, @cfghdrs@) \
 			 @srcroot@configure
@@ -345,7 +447,7 @@ ifeq (@enable_autogen@, 1)
 
 # cfgoutputs rules.
 @srcroot@cfgoutputs.stamp.in : @srcroot@configure.ac
-	@ECHO@ stamp > @srcroot@cfgoutputs.stamp.in
+	echo stamp > @srcroot@cfgoutputs.stamp.in
 
 @objroot@cfgoutputs.stamp : $(patsubst %, @srcroot@%.in, @cfgoutputs@) \
 			    @srcroot@configure

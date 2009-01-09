@@ -6,16 +6,14 @@ into the following sections:
     === Overview
     === Required software
     === Optional software
-    === Simple installation
+    === Basic installation
     === Advanced configuration
     === Advanced compilation
     === Advanced installation
     === Development
 
 In the common case, you should be able to simply verify that you have the
-required software installed, then follow the simple installation instructions.
-However, if you intend to put Crux to serious use, pay particular attention to
-the quality of your ATLAS installation.
+required software installed, then follow the basic installation instructions.
 
 ==== Required software =========================================================
 
@@ -23,189 +21,65 @@ Building Crux requires all of the following software.  Once installed, Crux only
 requires the Python runtime and any shared libraries that were linked against
 during compilation.
 
-* gcc (http://gcc.gnu.org/).  In principle, any C99-conforming C compiler can be
-  used, but Crux has not recently been tested with any others.
+* gcc and gfortran (http://gcc.gnu.org/).  gfortran is only used if ATLAS and
+  LAPACK need to be built (see below).
 
-* GNU make (http://www.gnu.org/software/make/make.html).  There are many
-  implementations of make, but Crux can only be built with GNU make, since the
-  build system uses numerous advanced features that are either missing or
-  incompatible in other implementations.
-
-* ATLAS (http://math-atlas.sourceforge.net/), ideally with integrated LAPACK
-  (http://www.netlib.org/lapack/).  ATLAS is "Automatically Tuned Linear Algebra
-  Software", which means that it tunes itself to each computer when it is built.
-  Since pre-built software packages must be rather generic in nature, most
-  operating systems do not provide well tuned ATLAS packages.  For this reason,
-  you are strongly advised to go to the (considerable) trouble of building ATLAS
-  yourself.
-
-  ATLAS can be compiled such that LAPACK is integrated.  This is preferrable
-  to a completely separate LAPACK build because it allows ATLAS to cleanly
-  replace portions of LAPACK with its more optimal implementations.  Another
-  option (used by Debian-based systems) is to rename the ATLAS-based LAPACK
-  library, so that it can be linked to in addition to the standard LAPACK
-  library.
-
-  The following instructions describe how to build shared ATLAS libraries with
-  LAPACK integrated, on a Linux system.  It is possible to use static
-  ATLAS/LAPACK libraries in Crux, but this results in multiple copies of
-  some functions being compiled into Crux.  This is because Crux is structured
-  as multiple Python modules, each of which is actually a separate shared
-  library.
-
-   1) Create a build directory in which to work.
-
-        $ mkdir ~/ATLAS
-        $ cd ~/ATLAS
-
-   2) Download LAPACK from:
-
-        http://www.netlib.org/lapack/
-
-      These instructions are based on version 3.2.
-
-   3) Extract the LAPACK source code.
-
-        $ tar xvzf lapack.tgz
-        $ cd lapack-3.2
-
-   4) Copy a gfortran-specific make.inc .
-
-        $ cp INSTALL/make.inc.gfortran make.inc
-
-   5) Modify make.inc such that:
-
-        OPTS = -O2 -fPIC -m64
-        NOOPT = -O0 -fPIC -m64
-
-      Leave off the -m64 argument if building on a 32-bit system.
-
-      Note that subsequent instructions assume:
-
-        PLAT = _LINUX
-
-      If this is not the case, either modify PLAT or adjust the instructions
-      accordingly.
-
-   6) Build LAPACK.
-
-        $ cd SRC
-        $ make
-
-   7) Change back to the working directory.
-
-        $ cd ~/ATLAS
-
-   8) Download ATLAS from:
-
-        http://downloads.sourceforge.net/math-atlas/
-
-      These instructions are based on version 3.8.2.
-
-   9) Extract the ATLAS source code.
-
-        $ tar xvjf atlas3.8.2.tar.bz2
-        $ cd ATLAS
-
-  10) Create an object directory in which to build ATLAS.
-
-        $ mkdir ATLAS_LINUX
-        $ cd ATLAS_LINUX
-
-  11) If your system uses some sort of CPU power-saving functionality, disable
-      it before building ATLAS.  The following assumes two CPUs; be sure to
-      disable power saving on all CPUs.
-
-        $ sudo cpufreq-selector -c 0 -g performance
-        $ sudo cpufreq-selector -c 1 -g performance
-
-  12) Configure ATLAS.  Leave off the '-b 64' argument if building on a 32-bit
-      system.
-
-        $ ../configure -b 64 -Fa alg -fPIC \
-          --with-netlib-lapack=$HOME/ATLAS/lapack-3.2/lapack_LINUX.a \
-          --prefix=/usr/local/atlas
-
-      IMPORTANT: When you build Crux, you will need to specify configure
-      arguments to tell the build system where to find ATLAS/LAPACK.  Use
-      something like the following:
-
-        $ CPPFLAGS="-I/usr/local/atlas/include" \
-          LDFLAGS="-L/usr/local/atlas/lib" ./configure
-
-  13) Build ATLAS.
-
-        $ make
-        $ cd lib
-        $ make shared
-        $ make ptshared
-        $ cd ..
-
-  14) Install ATLAS/LAPACK.
-
-        $ sudo make install
-        $ sudo cp -p lib/*.so /usr/local/atlas/lib
-
-  15) Configure ld.so to be able to find the shared libraries.  Add the
-      following line to the bottom of /etc/ld.so.conf:
-
-        /usr/local/atlas/lib
-
-      Then update ld.so's library cache:
-
-        $ sudo ldconfig -v
-
-      If you skip ld.so configuration, you will have to do one of the following:
-
-      + Configure Crux to embed the appropriate library path into the shared
-        libraries it generates (works only on ELF systems).
-
-        $ CPPFLAGS="-I/usr/local/atlas/include" \
-          LDFLAGS="-L/usr/local/atlas/lib" ./configure \
-          --with-rpath=/usr/local/atlas/lib
-
-      + Set LD_LIBRARY_PATH in the environment when running Crux.  For example
-        (assuming Bourne shell syntax):
-
-          $ LD_LIBRARY_PATH=/usr/local/atlas/lib crux
-
-        If another version of ATLAS/LAPACK is installed earlier in ld.so's
-        search path, you may have to set LD_LIBRARY_PATH in order to get
-        Crux to use the correct libraries, even if ld.so is configured as
-        described above.
-
-* LAPACK (http://www.netlib.org/lapack/).  The directions for ATLAS (above)
-  describe how to integrate LAPACK and ATLAS, which is the preferred method.
-  However, Crux's build system can cope with a separate LAPACK, as long as
-  ATLAS's LAPACK subset library has a name other than liblapack, which allows
-  both the full LAPACK and ATLAS's subset library to be linked to.  For example,
-  the following link options will work:
-
-      -llapack_atlas -llapack -lcblas -lf77blas -latlas
+* GNU make (http://www.gnu.org/software/make/make.html).
 
 ==== Optional software =========================================================
 
-Crux releases include various pre-generated files, in order to reduce the
-number of software build dependencies for the typical user.  However, if you
+The following software must be pre-installed in order for optional features to
+be built in to Crux:
+
+* mpi4py (http://code.google.com/p/mpi4py/).  This is a Cython-based module
+  that makes MPI available in Cython/Python code.  mpi4py requires an
+  underlying MPI implementation.  One of the following is recommended, since
+  they are used during Crux development:
+
+    + MPICH2 (http://www.mcs.anl.gov/research/projects/mpich2/).
+
+    + Open MPI (http://www.open-mpi.org/).
+
+Crux releases include various third-party software and pre-generated files, in
+order to streamline the build process for the typical user.  However, if you
 build using a Mercurial checkout, or if you need to generate modified outputs,
 one or more of the following may be required:
 
-* autoconf (http://www.gnu.org/software/autoconf/autoconf.html).
+* autoconf (http://www.gnu.org/software/autoconf/autoconf.html).  autoconf
+  creates the configure script, based on configure.ac.
 
-  configure.ac --> configure
+* Flex (http://flex.sourceforge.net/).  Flex generates C code that implements
+  lexical analyzers.  For example, lib/CxDistMatrixLexer.[ch] are created from
+  lib/CxDistMatrixLexer.l .
 
-* Flex (http://flex.sourceforge.net/).
+* Cython (http://cython.org/).  Crux releases include a copy in contrib/cython.
+  If using a Mercurial checkout, either install Cython, or place the Cython
+  source tree in contrib/cython.
 
-  lib/Foo.l --> lib/Foo.{c,h}
+* ATLAS (http://math-atlas.sourceforge.net/).  Crux releases include a copy in
+  contrib/ATLAS.  If using a Mercurial checkout, either make sure ATLAS is
+  installed, or place the ATLAS (and LAPACK; see below) sources in contrib/ATLAS
+  (and contrib/lapack).
 
-* Cython (http://cython.org/).  Cython is required when building Crux, but Crux
-  releases include it in contrib/cython, so you will only need to get a copy of
-  Cython if using a Mercurial checkout.  You can either install Cython, or
-  simply place the Cython source tree in contrib/cython.
+  ATLAS is "Automatically Tuned Linear Algebra Software", which means that it
+  tunes itself to each computer when it is built.  Since pre-built software
+  packages must be rather generic in nature, pre-packaged ATLAS libraries are
+  not optimally tuned.  For this reason, you are advised to use ATLAS libraries
+  that were built on a machine very similar to the one you will run Crux on.
 
-  pkg/Foo.{pyx,pxd} --> pkg/Foo.c
+  If your system uses some sort of CPU power saving functionality, disable it
+  before building ATLAS.  For example, on Linux, use something like the
+  following to disable power saving on all CPUs:
 
-=== Simple installation ========================================================
+    $ sudo cpufreq-selector -c 0 -g performance
+    $ sudo cpufreq-selector -c 1 -g performance
+    ...
+
+* LAPACK (http://www.netlib.org/lapack/).  Crux releases include a copy in
+  contrib/lapack.  If using a Mercurial checkout, either make sure LAPACK is
+  installed, or place the sources in contrib/lapack.
+
+=== Basic installation =========================================================
 
 Building and installing Crux can be as simple as typing the following while in
 the root directory of the source tree:
@@ -213,6 +87,9 @@ the root directory of the source tree:
     ./configure
     make
     make install
+
+Note that if ATLAS is not already installed, you need to disable CPU power
+saving before building Crux.  See ATLAS notes above for more details.
 
 === Advanced Configuration =====================================================
 
@@ -234,12 +111,21 @@ list) to 'configure':
     installs its packages and modules Python's site-packages directory.
 
 --with-python=<path-to-python>
-    Use the indicated Python interpreter, rather than using the PATH shell
-    variable to search for Python.
+    Use the indicated Python interpreter, rather than using the shell PATH
+    to search for Python.
 
 --with-cython=<path-to-cython>
-    Use the indicated Cython compiler, rather than using the the included
-    version, or using the PATH shell variable to search for Cython.
+    Use the indicated Cython compiler.  Ordinarily, configure looks for the
+    included version in contrib/cython, and if it is missing (as for a
+    Mercurial checkout), a usable version is searched for using the shell PATH.
+
+--disable-mpi
+    Do not build in MPI support, even if the mpi4py module is available.
+
+--disable-sys-linalg
+    Do not use system ATLAS/LAPACK libraries.  Instead, build from the source
+    code that is included with Crux releases.  Be sure to read the ATLAS notes
+    about disabling CPU power saving during the build.
 
 --enable-debug
     Enable assertions and validation code.  This incurs a substantial
@@ -346,7 +232,7 @@ directory, issue configuration and build commands:
 
     autoconf
     mkdir obj
-    ../configure --enable-autogen --enable-cython --enable-flex
+    ../configure --enable-autogen --enable-flex
     make
 
 In practice, using a separate object directory is of limited utility, since the

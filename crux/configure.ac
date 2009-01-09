@@ -62,6 +62,11 @@ if test "x$EXTRA_CFLAGS" != "x" ; then
 fi
 AC_PROG_CPP
 
+dnl sizeof_ptr is needed by the build system.
+AC_CHECK_SIZEOF([void *])
+sizeof_ptr="${ac_cv_sizeof_void_p}"
+AC_SUBST([sizeof_ptr])
+
 AC_CANONICAL_HOST
 dnl CPU-specific settings.
 MTCPPFLAGS="-DMEXP=19937"
@@ -142,7 +147,7 @@ AC_SUBST([RPATH])
 
 dnl Support optional additions to rpath.
 AC_ARG_WITH([rpath],
-  [AS_HELP_STRING([--with-rpath], [colon-separated rpath (ELF systems only)])],
+  [AS_HELP_STRING([--with-rpath=<rpath>], [colon-separated rpath (ELF systems only)])],
 if test "x$with_rpath" = "xno" ; then
   RPATH_EXTRA=
 else
@@ -183,9 +188,9 @@ AC_PROG_RANLIB
 AC_PATH_PROG([AR], [ar], , [$PATH])
 AC_PATH_PROG([LD], [ld], , [$PATH])
 AC_PATH_PROG([TEST], [test], , [$PATH])
-AC_PATH_PROG([ECHO], [echo], , [$PATH])
 AC_PATH_PROG([grep], [grep], , [$PATH])
 AC_PATH_PROG([AUTOCONF], [autoconf], , [$PATH])
+AC_PATH_PROG([GFORTRAN], [gfortran], , [$PATH])
 
 dnl Do not silence irrelevant compiler warnings by default, since enabling this
 dnl option incurs a performance penalty.
@@ -267,7 +272,7 @@ dnl ============================================================================
 dnl Make sure the version of python found is sufficient.
 
 dnl Get path to python.
-AC_ARG_WITH([python], [AS_HELP_STRING([--with-python], [python program])],
+AC_ARG_WITH([python], [AS_HELP_STRING([--with-python=<path>], [python program])],
 if test "x$with_python" = "xno" ; then
   PYTHON=
 else
@@ -353,7 +358,7 @@ dnl ============================================================================
 dnl Make sure the version of cython found is sufficient.
 
 dnl Get path to cython.
-AC_ARG_WITH([cython], [AS_HELP_STRING([--with-cython], [cython program])],
+AC_ARG_WITH([cython], [AS_HELP_STRING([--with-cython=<path>], [cython program])],
 if test "x$with_cython" = "xno" ; then
   CYTHON=
 else
@@ -457,7 +462,7 @@ dnl ============================================================================
 dnl Make sure the version of flex found is sufficient.
 if test "x${enable_flex}" = "x1" ; then
   dnl Get path to flex.
-  AC_ARG_WITH([flex], [AS_HELP_STRING([--with-flex], [flex program])],
+  AC_ARG_WITH([flex], [AS_HELP_STRING([--with-flex=<path>], [flex program])],
   if test "x$with_flex" = "xno" ; then
     FLEX=
   else
@@ -570,25 +575,73 @@ dnl ============================================================================
 dnl Check for typedefs, structures, and compiler characteristics.
 AC_C_BIGENDIAN
 AC_HEADER_STDBOOL
-AC_CHECK_HEADERS([cblas.h], [], [AC_MSG_ERROR([Cannot build without cblas.h])])
-AC_CHECK_HEADERS([clapack.h], [],
-  [AC_MSG_ERROR([Cannot build without clapack.h])])
 
-dnl Check for library functions.
-AC_CHECK_LIB([atlas], [ATL_dscal], [],
-  [AC_MSG_ERROR([Cannot build without libatlas])])
-AC_CHECK_LIB([f77blas], [dscal_], [],
-  [AC_MSG_ERROR([Cannot build without libf77blas (ATLAS)])])
-AC_CHECK_LIB([cblas], [cblas_dscal], [],
-  [AC_MSG_ERROR([Cannot build without libcblas (ATLAS)])])
-AC_CHECK_LIB([lapack], [clapack_dgetrf], [],
-  [AC_CHECK_LIB([lapack], [dgetrf_], [
-    AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
-      [LIBS="-llapack_atlas -llapack $LIBS"],
-      [AC_MSG_ERROR([Cannot build without ATLAS liblapack or liblapack_atlas])])
-  ])]
-)
 AC_CHECK_LIB([m], [log], [], [AC_MSG_ERROR([Cannot build without libm])])
+
+dnl ============================================================================
+dnl Use system ATLAS/LAPACK by default.
+AC_ARG_ENABLE([sys_linalg],
+  [AS_HELP_STRING([--disable-sys-linalg],
+   [Do not use system ATLAS/LAPACK libraries])],
+[if test "x$enable_sys_linalg" = "xno" ; then
+  enable_sys_linalg="0"
+else
+  enable_sys_linalg="1"
+fi
+],
+[enable_sys_linalg="1"]
+)
+if test "x$enable_sys_linalg" = "x1" ; then
+  TLIBS="${LIBS}"
+
+  AC_CHECK_HEADERS([cblas.h], [], [enable_sys_linalg="0"])
+
+  if test "x$enable_sys_linalg" = "x1" ; then
+    AC_CHECK_HEADERS([clapack.h], [], [enable_sys_linalg="0"])
+  fi
+
+  if test "x$enable_sys_linalg" = "x1" ; then
+    AC_CHECK_LIB([atlas], [ATL_dscal], [], [enable_sys_linalg="0"])
+  fi
+
+  if test "x$enable_sys_linalg" = "x1" ; then
+    AC_CHECK_LIB([f77blas], [dscal_], [], [enable_sys_linalg="0"])
+  fi
+
+  if test "x$enable_sys_linalg" = "x1" ; then
+    AC_CHECK_LIB([cblas], [cblas_dscal], [], [enable_sys_linalg="0"])
+  fi
+
+  if test "x$enable_sys_linalg" = "x1" ; then
+    AC_CHECK_LIB([lapack], [clapack_dgetrf], [],
+      [AC_CHECK_LIB([lapack], [dgetrf_], [
+        AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
+          [LIBS="-llapack_atlas -llapack $LIBS"],
+          [enable_sys_linalg="0"])
+      ])]
+    )
+  fi
+
+  if test "x$enable_sys_linalg" = "x0" ; then
+    dnl Restore LIBS.
+    LIBS="${TLIBS}"
+  fi
+fi
+
+if test "x$enable_sys_linalg" = "x0" ; then
+  dnl Check whether contrib/{ATLAS,lapack} are present.
+  if test \( ! -d "contrib/ATLAS" \) -o \( ! -d "contrib/lapack" \) ; then
+    AC_MSG_ERROR([contrib/{ATLAS,lapack} missing])
+  fi
+  dnl Check whether gfortran is available.
+  if test "x$GFORTRAN" = "x" ; then
+    AC_MSG_ERROR([gfortran required to build ATLAS/LAPACK])
+  fi
+  dnl Add appropriate build flags.
+  CPPFLAGS="-I${abs_objroot}build/include ${CPPFLAGS}"
+  LIBS="-llapack -lcblas -lf77blas -latlas ${LIBS}"
+fi
+AC_SUBST([enable_sys_linalg])
 
 dnl Process .in files.
 AC_SUBST([cfghdrs])
@@ -638,5 +691,6 @@ AC_MSG_RESULT([flex          : ${enable_flex}])
 AC_MSG_RESULT([debug         : ${enable_debug}])
 AC_MSG_RESULT([cc-silence    : ${enable_cc_silence}])
 AC_MSG_RESULT([inlines       : ${enable_inlines}])
+AC_MSG_RESULT([sys-linalg    : ${enable_sys_linalg}])
 AC_MSG_RESULT([mpi           : ${enable_mpi}])
 AC_MSG_RESULT([===============================================================================])

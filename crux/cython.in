@@ -7,15 +7,15 @@ import os
 import sys
 
 if 'PYTHONPATH' not in os.environ:
-    os.environ['PYTHONPATH'] = "@abs_srcroot@contrib/cython"
+    os.environ['PYTHONPATH'] = "@abs_srcroot@build/contrib/cython"
 else:
-    os.environ['PYTHONPATH'] = "@abs_srcroot@contrib/cython:" + \
+    os.environ['PYTHONPATH'] = "@abs_srcroot@build/contrib/cython:" + \
       os.environ['PYTHONPATH']
 
 args = []
 args.append("@PYTHON@")
 if len("@python_opts@".strip()) > 0:
     args.append("@python_opts@".strip())
-args.append("@abs_srcroot@contrib/cython/bin/cython")
+args.append("@abs_srcroot@build/contrib/cython/bin/cython")
 args += sys.argv[1:]
 os.execv("@PYTHON@", args)
