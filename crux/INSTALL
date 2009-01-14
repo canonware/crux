@@ -57,8 +57,8 @@ one or more of the following may be required:
   source tree in contrib/cython.
 
 * ATLAS (http://math-atlas.sourceforge.net/).  Crux releases include a copy in
-  contrib/ATLAS.  If using a Mercurial checkout, either make sure ATLAS is
-  installed, or place the ATLAS (and LAPACK; see below) sources in contrib/ATLAS
+  contrib/atlas.  If using a Mercurial checkout, either make sure ATLAS is
+  installed, or place the ATLAS (and LAPACK; see below) sources in contrib/atlas
   (and contrib/lapack).
 
   ATLAS is "Automatically Tuned Linear Algebra Software", which means that it

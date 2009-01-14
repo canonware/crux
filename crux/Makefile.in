@@ -162,12 +162,16 @@ check: run
 		echo "Failures: $$failures/$$total"'
 
 clean:
-	rm -rf @objroot@build
+	rm -rf @objroot@build/include
+	rm -rf @objroot@build/lib
+	rm -rf @objroot@build/run
+	rm -rf @objroot@build/inst
 	rm -f @objroot@test/*.out
 	rm -f @objroot@test/*.log
 	rm -f @objroot@test/*.pickle
 
 distclean: clean
+	rm -rf @objroot@build
 	rm -f @objroot@config.log
 	rm -f @objroot@config.status
 	rm -f @objroot@cfghdrs.stamp
@@ -305,13 +309,13 @@ LAPACK_LIB := @objroot@build/contrib/lapack/lapack.a
 
 ATLAS_INCS := @objroot@build/include/cblas.h @objroot@build/include/clapack.h
 
-ATLAS_LIBS := @objroot@build/contrib/ATLAS/obj/lib/liblapack.so \
-	@objroot@build/contrib/ATLAS/obj/lib/libcblas.so \
-	@objroot@build/contrib/ATLAS/obj/lib/libf77blas.so \
-	@objroot@build/contrib/ATLAS/obj/lib/libatlas.so
+ATLAS_LIBS := @objroot@build/contrib/atlas/obj/lib/liblapack.so \
+	@objroot@build/contrib/atlas/obj/lib/libcblas.so \
+	@objroot@build/contrib/atlas/obj/lib/libf77blas.so \
+	@objroot@build/contrib/atlas/obj/lib/libatlas.so
 
-ATLAS_LIBS_RUN := $(ATLAS_LIBS:@objroot@build/contrib/ATLAS/obj/lib/%=@objroot@build/run/share/Crux/lib/%)
-ATLAS_LIBS_INST := $(ATLAS_LIBS:@objroot@build/contrib/ATLAS/obj/lib/%=@objroot@build/inst/share/Crux/lib/%)
+ATLAS_LIBS_RUN := $(ATLAS_LIBS:@objroot@build/contrib/atlas/obj/lib/%=@objroot@build/run/share/Crux/lib/%)
+ATLAS_LIBS_INST := $(ATLAS_LIBS:@objroot@build/contrib/atlas/obj/lib/%=@objroot@build/inst/share/Crux/lib/%)
 
 ifeq (@sizeof_ptr@,8)
 LAPACK_FLAGS := -fPIC -m64
@@ -333,16 +337,16 @@ endif
 # against libgfortran.
 $(ATLAS_LIBS) : $(LAPACK_LIB)
 	@mkdir -p @objroot@build/contrib
-	cp -R @srcroot@contrib/ATLAS @objroot@build/contrib
-	mkdir -p @objroot@build/contrib/ATLAS/obj
-	(cd @objroot@build/contrib/ATLAS/obj; MAKELEVEL= ../configure $(ATLAS_FLAGS) --with-netlib-lapack=@abs_objroot@build/contrib/lapack/lapack.a --prefix=@abs_objroot@build/contrib/atlas_installed)
-	$(MAKE) -C @objroot@build/contrib/ATLAS/obj
-	$(MAKE) -C @objroot@build/contrib/ATLAS/obj/lib shared
+	cp -R @srcroot@contrib/atlas @objroot@build/contrib
+	mkdir -p @objroot@build/contrib/atlas/obj
+	(cd @objroot@build/contrib/atlas/obj; MAKELEVEL= ../configure $(ATLAS_FLAGS) --with-netlib-lapack=@abs_objroot@build/contrib/lapack/lapack.a --prefix=@abs_objroot@build/contrib/atlas_installed)
+	$(MAKE) -C @objroot@build/contrib/atlas/obj
+	$(MAKE) -C @objroot@build/contrib/atlas/obj/lib shared
 
 # This depends on ATLAS_LIBS because there is no simple way to install just the
 # headers.
 $(ATLAS_INCS) : $(ATLAS_LIBS)
-	$(MAKE) -C @objroot@build/contrib/ATLAS/obj install
+	$(MAKE) -C @objroot@build/contrib/atlas/obj install
 	cp -R @objroot@build/contrib/atlas_installed/include build
 
 $(ATLAS_LIBS_RUN) : $(ATLAS_LIBS)

@@ -614,11 +614,12 @@ if test "x$enable_sys_linalg" = "x1" ; then
 
   if test "x$enable_sys_linalg" = "x1" ; then
     AC_CHECK_LIB([lapack], [clapack_dgetrf], [],
-      [AC_CHECK_LIB([lapack], [dgetrf_], [
-        AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
+      [AC_CHECK_LIB([lapack], [dgetrf_], [],
+        [AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
           [LIBS="-llapack_atlas -llapack $LIBS"],
           [enable_sys_linalg="0"])
-      ])]
+        ])
+      ]
     )
   fi
 
@@ -629,9 +630,10 @@ if test "x$enable_sys_linalg" = "x1" ; then
 fi
 
 if test "x$enable_sys_linalg" = "x0" ; then
-  dnl Check whether contrib/{ATLAS,lapack} are present.
-  if test \( ! -d "contrib/ATLAS" \) -o \( ! -d "contrib/lapack" \) ; then
-    AC_MSG_ERROR([contrib/{ATLAS,lapack} missing])
+  dnl Check whether contrib/{atlas,lapack} are present.
+  if test \( ! -d "${srcroot}contrib/atlas" \) \
+       -o \( ! -d "${srcroot}contrib/lapack" \) ; then
+    AC_MSG_ERROR([contrib/{atlas,lapack} missing])
   fi
   dnl Check whether gfortran is available.
   if test "x$GFORTRAN" = "x" ; then
