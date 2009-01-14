@@ -107,7 +107,8 @@ CxCmp2Richcmp(int cmp, int op);
 
 #if (defined(CxmUseInlines) || defined(Cx_c))
 // Convert {-1,0,1} for the __richcmp__ special method.
-int CxCmp2Richcmp(int cmp, int op) {
+CxmInline int
+CxCmp2Richcmp(int cmp, int op) {
     static const int tab[] = {
 	/*
 	-1, 0, 1, x */
