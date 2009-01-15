@@ -614,7 +614,7 @@ if test "x$enable_sys_linalg" = "x1" ; then
 
   if test "x$enable_sys_linalg" = "x1" ; then
     AC_CHECK_LIB([lapack], [clapack_dgetrf], [],
-      [AC_CHECK_LIB([lapack], [dgetrf_], [],
+      [AC_CHECK_LIB([lapack], [dgetrf_],
         [AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
           [LIBS="-llapack_atlas -llapack $LIBS"],
           [enable_sys_linalg="0"])
