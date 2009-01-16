@@ -796,7 +796,7 @@ cdef class Alignment:
         """
             Convert all character aliases to their equivalent primary codes.
             If 'fitch' is True, canonize site patterns such that (for example)
-            the characters within each of the sets below are equivalent:
+            the DNA characters within each of the sets below are equivalent:
 
               AaCG BV
               AACg AT
@@ -806,8 +806,6 @@ cdef class Alignment:
         cdef int trans[128]
         cdef unsigned ij
         cdef Character char_
-
-        assert not fitch or self.charType is Dna
 
         # Create translation key.
         char_ = self.charType.get()
