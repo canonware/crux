@@ -10,13 +10,13 @@ cimport Crux.Taxa as Taxa
 
 cdef class Tree:
     cdef Node _base
-    cdef _taxa, _nodes, _edges
     cdef list _renderList
     cdef file _renderFile
     cdef int _sn # Incremented every time the tree is modified.
     cdef int _cacheSn
     cdef list _cachedTaxa, _cachedNodes, _cachedEdges
     cdef public bint rooted
+    cdef public object aux
 
     cdef void _randomNew(self, int ntaxa, Taxa.Map taxaMap) except *
     cdef void _newickNew(self, str input, Taxa.Map taxaMap) except *
@@ -43,6 +43,8 @@ cdef class Tree:
     cdef void setBase(self, Node base)
     # property base
 
+    cdef void _clearAuxRecurse(self, Ring ring)
+    cpdef clearAux(self)
     cpdef deroot(self)
     cpdef canonize(self, Taxa.Map taxaMap)
     cpdef int collapse(self) except -1
@@ -65,11 +67,11 @@ cdef class Tree:
       file outFile=*)
 
 cdef class Node:
-    cdef object __weakref__
     cdef readonly Tree tree
     cdef readonly Ring ring
     cdef Taxon _taxon
     cdef int _degree
+    cdef public object aux
 
     cdef Taxon getTaxon(self)
     cdef void setTaxon(self, Taxon taxon) except *
@@ -82,10 +84,10 @@ cdef class Node:
     cpdef int separation(self, Node other)
 
 cdef class Edge:
-    cdef object __weakref__
     cdef readonly Tree tree
     cdef double _length
     cdef readonly Ring ring
+    cdef public object aux
 
     cdef double getLength(self)
     cdef void setLength(self, double length)
@@ -99,6 +101,7 @@ cdef class Ring:
     cdef readonly Ring other
     cdef readonly Ring next
     cdef readonly Ring prev
+    cdef public object aux
 
     cpdef siblings(self) # Iterator.
 

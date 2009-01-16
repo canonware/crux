@@ -15,7 +15,6 @@ class Malformed(Exception, exceptions.SyntaxError):
 import random
 import re
 import sys
-import weakref
 
 from Crux.CTMatrix cimport CTMatrix
 cimport Crux.Newick as Newick
@@ -35,9 +34,6 @@ cdef class Ring
 
 cdef class Tree:
     def __init__(self, with_=None, Taxa.Map taxaMap=None, bint rooted=True):
-        self._taxa = weakref.WeakValueDictionary()
-        self._nodes = weakref.WeakKeyDictionary()
-        self._edges = weakref.WeakKeyDictionary()
         self._sn = 0
         self._cacheSn = -1
         self.rooted = rooted
@@ -323,6 +319,35 @@ cdef class Tree:
         def __set__(self, Node base):
             self.setBase(base)
 
+    cdef void _clearAuxRecurse(self, Ring ring):
+        cdef Ring r
+        cdef Node node
+
+        ring.aux = None
+
+        node = ring.node
+        node.Aux = None
+        for r in ring.siblings():
+            r.aux = None
+            r.edge.aux = None
+            self._clearAuxRecurse(r.other)
+
+    cpdef clearAux(self):
+        cdef Ring ring, r
+        cdef Node node
+
+        self.aux = None
+
+        if self._base != None:
+            node = self._base
+            node.aux = None
+            ring = node.ring
+            if ring != None:
+                for r in ring:
+                    r.aux = None
+                    r.edge.aux = None
+                    self._clearAuxRecurse(r.other)
+
     cpdef deroot(self):
         cdef Node node
         cdef Edge edge
@@ -463,10 +488,10 @@ cdef class Tree:
         cdef Taxon taxon
 
         # Make sure that cTMatrix.taxaMap is compatible.
-        if cTMatrix.taxaMap.ntaxa != len(self._taxa):
+        if cTMatrix.taxaMap.ntaxa != len(self.getTaxa()):
             raise Tree.ValueError(
                 "Taxa.Map for Tree and CTMatrix must be equal")
-        for taxon in self._taxa:
+        for taxon in self.getTaxa():
             if cTMatrix.taxaMap.indGet(taxon) == -1:
                 raise Tree.ValueError(
                   "Taxa.Map for CTMatrix does not contain taxon: %s" %
@@ -595,8 +620,6 @@ cdef class Node:
         self.ring = None
         self._taxon = None
 
-        tree._nodes[self] = None
-
     cdef Taxon getTaxon(self):
         """
             Get taxon associated with node (or None).
@@ -606,18 +629,13 @@ cdef class Node:
         """
             Set taxon associated with node (or None).
         """
-        IF @enable_debug@:
-            if taxon is not self._taxon and taxon in self.tree._taxa \
-              and self.tree._base is not None:
-                node = self.tree._taxa[taxon]
-                if node.separation(self.tree._base) != -1:
-                    raise Malformed("Taxon already in use: %r" % \
-                      taxon.label)
+#        # Expensive.
+#        IF @enable_debug@:
+#            if taxon is not self._taxon and taxon in self.tree.getTaxa():
+#                raise Malformed("Taxon already in use: %r" % taxon.label)
 
-        if self._taxon is not None:
-            self.tree._taxa.pop(self._taxon)
-        self.tree._taxa[taxon] = self
         self._taxon = taxon
+        self.tree._sn += 1
     property taxon:
         """
             Taxon associated with node (or None).
@@ -749,8 +767,6 @@ cdef class Edge:
         self.ring = Ring(self, None)
         other = Ring(self, self.ring)
         self.ring.other = other
-
-        tree._edges[self] = None
 
     cdef double getLength(self):
         """
