@@ -63,4 +63,11 @@ for s in dnaTestStrs:
     print
     print alignment.fastaPrint()
 
+    alignment.pad('-', 4)
+
+    for j in xrange(alignment.nchars):
+        print alignment.getFreq(j),
+    print
+    print alignment.fastaPrint()
+
 print "Test end"

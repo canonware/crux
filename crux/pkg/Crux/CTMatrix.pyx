@@ -517,6 +517,8 @@ cdef class Alignment:
         cdef Taxon taxon
 
         assert issubclass(charType, Character)
+        assert pad is None or \
+          (len(pad) == 1 and pad[0] in charType.get().codes())
 
         if not rowMajor and not colMajor:
             raise ValueError("Enable at least one of {rowMajor,colMajor}")
@@ -605,6 +607,59 @@ cdef class Alignment:
             for 0 <= j < self.nchars:
                 self.cols[i + j*self.ntaxa] = self.rows[i*self.nchars + j]
         self.colMajor = True
+
+    cpdef pad(self, str pad, int npad):
+        """
+            Append 'npad' copies of the 'pad' character to each row.
+        """
+        cdef char *rows, *cols
+        cdef unsigned *freqs
+        cdef unsigned i, j
+
+        assert len(pad) == 1
+        assert pad[0] in self.charType.get().codes()
+        assert npad > 0
+
+        # Re-allocate.
+        rows = cols = freqs = NULL
+        try:
+            if self.rowMajor:
+                rows = self._allocMatrix(self.ntaxa, self.nchars + npad, pad)
+            if self.colMajor:
+                cols = self._allocMatrix(self.ntaxa, self.nchars + npad, pad)
+            freqs = <unsigned *>malloc((self.nchars + npad) * sizeof(unsigned))
+            if freqs == NULL:
+                raise MemoryError()
+        except:
+            if rows != NULL:
+                free(rows)
+            if cols != NULL:
+                free(cols)
+            assert freqs == NULL
+            raise MemoryError("Matrix allocation failed")
+
+        # Copy rows, if necessary.
+        if self.rowMajor:
+            for 0 <= i < self.ntaxa:
+                memcpy(&rows[i * (self.nchars + npad)], \
+                  &self.rows[i * self.nchars], self.nchars)
+            free(self.rows)
+            self.rows = rows
+
+        # Copy columns, if necessary.
+        if self.colMajor:
+            memcpy(cols, self.cols, self.ntaxa * self.nchars)
+            free(self.cols)
+            self.cols = cols
+
+        # Copy and extend frequency vector.
+        memcpy(freqs, self.freqs, self.nchars * sizeof(unsigned))
+        for self.nchars <= j < self.nchars + npad:
+            freqs[j] = 1
+        free(self.freqs)
+        self.freqs = freqs
+
+        self.nchars += npad
 
     cpdef deRow(self):
         """
@@ -825,7 +880,67 @@ cdef class Alignment:
         if fitch:
             self._fitchCanonize(char_)
 
-    cpdef compact(self, bint fitch=False):
+    # Discard parsimony-uninformative sites.
+    cdef int _fitchCompact(self, list deco) except -1:
+        cdef ret
+        cdef Character char_
+        cdef int freqs[sizeof(int) << 3]
+        cdef unsigned nstates, i, j, fSeen, fMult
+        cdef int val, bit
+
+        char_ = self.charType.get()
+        nstates = char_.nstates()
+
+        ret = 0
+        j = 0
+        while j < len(deco):
+            # Scan down the column and count the number of times each character
+            # state appears.
+            for 0 <= i < nstates:
+                freqs[i] = 0
+            fSeen = 0
+            col = deco[j][0]
+            informative = False
+            i = 0
+            while not informative and i < self.ntaxa:
+                val = char_.code2val(col[i])
+                while val != 0:
+                    bit = ffs(val) - 1
+                    val ^= 1 << bit
+                    freqs[bit] += 1
+                    if freqs[bit] == 1:
+                        fSeen += 1
+                        if fSeen > 2:
+                            informative = True
+                            break
+                i += 1
+            if not informative and fSeen == 2:
+                # This site is actually informative if both states occur more
+                # than once.
+                fMult = 0
+                i = 0
+                while fMult < 2 and i < nstates:
+                    if freqs[i] != 0:
+                        if freqs[i] == 1:
+                            break
+                        fMult += 1
+                    i += 1
+                if fMult == 2:
+                    informative = True
+
+            if informative:
+                j += 1
+            else:
+                # Only count changes for variable sites.
+                if fSeen == 2:
+                    # Count one change per multiple of the site frequency.
+                    ret += deco[j][1]
+                # Discard the uninformative site.
+                deco.pop(j)
+
+        return ret
+
+    cpdef int compact(self, bint fitch=False):
         """
             Compact the alignment such that each site pattern is stored at most
             once, and use a frequency vector to track how many times each site
@@ -835,10 +950,18 @@ cdef class Alignment:
             that equivalent character codes do not prevent otherwise valid
             compaction.  See the canonize() documentation for algorithmic
             details.
+
+            If 'fitch' is True, discard parsimony-uninformative sites are
+            discarded (in addition to the transformation made by the canonize()
+            method).  Return the number of discarded changes, so that they can
+            be included when computing total tree length.
         """
+        cdef int ret
         cdef bint wasColMajor
         cdef list deco
         cdef unsigned j
+        cdef char *rows, *cols
+        cdef unsigned *freqs
 
         # Column-major storage is implicitly triggered by method calls below,
         # so keep track of whether to discard it afterwards.
@@ -860,17 +983,37 @@ cdef class Alignment:
             else:
                 j += 1
 
+        if fitch:
+            ret = self._fitchCompact(deco)
+        else:
+            ret = 0
+
         # Re-initialize.
+        rows = cols = freqs = NULL
+        try:
+            if self.rowMajor:
+                rows = self._allocMatrix(self.ntaxa, len(deco), None)
+            if self.colMajor:
+                cols = self._allocMatrix(self.ntaxa, len(deco), None)
+            freqs = <unsigned *>malloc(len(deco) * sizeof(unsigned))
+            if freqs == NULL:
+                raise MemoryError()
+        except:
+            if rows != NULL:
+                free(rows)
+            if cols != NULL:
+                free(cols)
+            assert freqs == NULL
+            raise MemoryError("Matrix allocation failed")
+
         if self.rowMajor:
             free(self.rows)
-            self.rows = self._allocMatrix(self.ntaxa, len(deco), None)
+            self.rows = rows
         assert self.colMajor
         free(self.cols)
-        self.cols = self._allocMatrix(self.ntaxa, len(deco), None)
+        self.cols = cols
         free(self.freqs)
-        self.freqs = <unsigned *>malloc(len(deco) * sizeof(unsigned))
-        if self.freqs == NULL:
-            raise MemoryError("Frequency vector allocation failed")
+        self.freqs = freqs
 
         self.nchars = len(deco)
         for 0 <= j < len(deco):
@@ -879,6 +1022,8 @@ cdef class Alignment:
 
         if not wasColMajor:
             self.deCol()
+
+        return ret
 
     cpdef str fastaPrint(self, file outFile=None):
         """

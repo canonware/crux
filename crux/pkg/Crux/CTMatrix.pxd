@@ -33,6 +33,8 @@ cdef class Alignment:
     cdef void _initRowMajor(self) except *
     cdef void _initColMajor(self) except *
 
+    cpdef pad(self, str pad, int npad)
+
     cpdef deRow(self)
     cpdef deCol(self)
 
@@ -51,7 +53,8 @@ cdef class Alignment:
 
     cdef void _fitchCanonize(self, Character char_) except *
     cpdef canonize(self, bint fitch=*)
-    cpdef compact(self, bint fitch=*)
+    cdef int _fitchCompact(self, list deco) except -1
+    cpdef int compact(self, bint fitch=*)
 
     cpdef str fastaPrint(self, file outFile=*)
 

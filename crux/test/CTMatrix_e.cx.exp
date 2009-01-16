@@ -13,13 +13,17 @@ ACGGT
 ACGGT
 >three
 ACGTT
-4 2
+
 >one
-AA
 >two
-AA
 >three
-AC
+1 1 1 1
+>one
+----
+>two
+----
+>three
+----
 1 1 1 1 1 1 1 1 1 1 1
 >one
 aACGTGtGkK-
@@ -34,13 +38,20 @@ aACTTGtTSsn
 NACGGYT
 >three
 NACGTST
-1 6 2 2
+1 2
 >one
--AAM
+-M
 >two
-NAAR
+NR
 >three
-NACS
+NS
+1 2 1 1 1 1
+>one
+-M----
+>two
+NR----
+>three
+NS----
 1 1 1 1 1 1 1 1 1 1 1
 >one
 TTTTTTTTTTT
@@ -55,13 +66,17 @@ T
 T
 >three
 T
-11
+
 >one
-A
 >two
-A
 >three
-A
+1 1 1 1
+>one
+----
+>two
+----
+>three
+----
 1 1 1 1 1 1 1 1 1 1 1 1
 >one
 AaCtYKBVacGT
@@ -80,13 +95,22 @@ ACAACAKATTY
 CCAAGAHACTR
 >four
 CCAAGAHACTR
-4 4 1 1 2
+4 1 1 2
 >one
-AAMMV
+AMMV
 >two
-ACMMT
+AMMT
 >three
-CCDKT
+CDKT
 >four
-CCDKT
+CDKT
+4 1 1 2 1 1 1 1
+>one
+AMMV----
+>two
+AMMT----
+>three
+CDKT----
+>four
+CDKT----
 Test end
