@@ -23,7 +23,7 @@ from libc cimport *
 from libm cimport *
 from atlas cimport *
 from CxMat cimport CxMatLogDet
-from CxMath cimport pop, gcd
+from CxMath cimport pop
 
 cdef extern from "Python.h":
     cdef object PyString_FromStringAndSize(char *s, Py_ssize_t len)
@@ -62,6 +62,10 @@ cdef class CTMatrix:
         parser.parse(input, charType)
 
     cpdef str fastaPrint(self, file outFile=None):
+        """
+            Print the alignment in FASTA format.  If 'outFile' is not
+            specified, return a string that contains the FASTA representation.
+        """
         cdef list lines, taxa
         cdef Taxon taxon
         cdef str s, taxonData
@@ -101,8 +105,10 @@ cdef class CTMatrix:
         else:
             return None
 
-    # Return the character data for a taxon.
     cpdef str dataGet(self, Taxon taxon):
+        """
+            Return the character data for a taxon.
+        """
         if not self._taxonData.has_key(self.taxaMap.indGet(taxon)):
             rVal = None
         else:
@@ -110,8 +116,10 @@ cdef class CTMatrix:
 
         return rVal
 
-    # Set the character data for a taxon.
     cpdef dataSet(self, Taxon taxon, str data):
+        """
+            Set the character data for a taxon.
+        """
         if (self.taxaMap.indGet(taxon) == None):
             raise ValueError("Taxon %r not in taxa map" % taxon.label)
 
@@ -480,13 +488,15 @@ cdef class Alignment:
         taxaMap, with space for nchars characters.
 
         By default, create only a row-major matrix, but support row-major
-        and/or column-major format.  The get{Row,Seq}() methods are only
-        supported if rowMajor is enabled.  Likewise, the get{Col,Char}()
-        methods are only supported if colMajor is enabled.
+        and/or column-major format.  Any calls to the get{Row,Seq}() methods
+        will implicitly enable row-major storage.  Likewise, any calls to the
+        the get{Col,Char}() methods will implicitly enable column-major
+        storage.
     """
     def __cinit__(self):
         self.rows = NULL
         self.cols = NULL
+        self.freqs = NULL
 
     def __dealloc__(self):
         if self.rows != NULL:
@@ -495,11 +505,14 @@ cdef class Alignment:
         if self.cols != NULL:
             free(self.cols)
             self.cols = NULL
+        if self.freqs != NULL:
+            free(self.freqs)
+            self.freqs = NULL
 
     def __init__(self, CTMatrix matrix=None, str pad=None,
       Taxa.Map taxaMap=None, int nchars=-1, type charType=Dna,
       bint rowMajor=True, bint colMajor=False):
-        cdef int ntaxa, i
+        cdef int ntaxa, i, j
         cdef list taxa
         cdef Taxon taxon
 
@@ -540,10 +553,17 @@ cdef class Alignment:
         self.taxaMap = taxaMap
         self.ntaxa = ntaxa
         self.nchars = nchars
+        self.rowMajor = rowMajor
+        self.colMajor = colMajor
         if rowMajor:
             self.rows = self._allocMatrix(ntaxa, nchars, pad)
         if colMajor:
             self.cols = self._allocMatrix(ntaxa, nchars, pad)
+        self.freqs = <unsigned *>malloc(nchars * sizeof(unsigned))
+        if self.freqs == NULL:
+            raise MemoryError("Frequency vector allocation failed")
+        for 0 <= j < nchars:
+            self.freqs[j] = 1
 
         if matrix is not None:
             # Fill in matrix.
@@ -566,50 +586,310 @@ cdef class Alignment:
 
         return ret
 
-    cdef void setRow(self, int row, int col, char *chars, unsigned len):
+    cdef void _initRowMajor(self) except *:
+        assert not self.rowMajor
+        assert self.rows == NULL
+
+        self.rows = self._allocMatrix(self.ntaxa, self.nchars, None)
+        for 0 <= i < self.ntaxa:
+            for 0 <= j < self.nchars:
+                self.rows[i*self.nchars + j] = self.cols[i + j*self.ntaxa]
+        self.rowMajor = True
+
+    cdef void _initColMajor(self) except *:
+        assert not self.colMajor
+        assert self.cols == NULL
+
+        self.cols = self._allocMatrix(self.ntaxa, self.nchars, None)
+        for 0 <= i < self.ntaxa:
+            for 0 <= j < self.nchars:
+                self.cols[i + j*self.ntaxa] = self.rows[i*self.nchars + j]
+        self.colMajor = True
+
+    cpdef deRow(self):
+        """
+            Discard row-major matrix.
+        """
+        assert self.rowMajor
+
+        free(self.rows)
+        self.rows = NULL
+        self.rowMajor = False
+
+    cpdef deCol(self):
+        """
+            Discard column-major matrix.
+        """
+        assert self.colMajor
+
+        free(self.cols)
+        self.cols = NULL
+        self.colMajor = False
+
+    cdef void setRow(self, int row, int col, char *chars, unsigned len) \
+      except *:
         cdef unsigned j
 
         assert row < self.ntaxa
         assert col + len <= self.nchars
 
-        if self.rows != NULL:
+        if self.rowMajor:
             memcpy(&self.rows[(self.nchars * row) + col], chars, len)
 
-        if self.cols != NULL:
+        if self.colMajor:
             for 0 <= j < len:
-                self.cols[(self.ntaxa * (col + j)) + row] = chars[col + j]
+                self.cols[row + (self.ntaxa * (col + j))] = chars[col + j]
 
-    cdef char *getRow(self, int row):
-        assert self.rows != NULL
+    cdef void setCol(self, int row, int col, char *chars, unsigned len) \
+      except *:
+        cdef unsigned i
+
+        assert row + len <= self.ntaxa
+        assert col < self.nchars
+
+        if self.colMajor:
+            memcpy(&self.cols[row + (self.ntaxa * col)], chars, len)
+
+        if self.rowMajor:
+            for 0 <= i < len:
+                self.rows[(self.nchars * (row + i)) + col] = chars[row + i]
+
+    cdef char *getRow(self, int row) except NULL:
         assert row < self.ntaxa
+
+        if not self.rowMajor:
+            self._initRowMajor()
 
         return &self.rows[row * self.nchars]
 
-    cdef char *getCol(self, int col):
-        assert self.cols != NULL
+    cdef char *getCol(self, int col) except NULL:
         assert col < self.nchars
+
+        if not self.colMajor:
+            self._initColMajor()
 
         return &self.cols[col * self.ntaxa]
 
-    cpdef setSeq(self, int seq, int col, str chars):
+    cpdef setSeq(self, int seq, int char_, str chars):
+        """
+            Set characters for sequence (row) 'seq', starting at column 'char_',
+            to the characters in 'chars'.
+        """
         cdef char *s = chars
-        self.setRow(seq, col, s, len(chars))
+        self.setRow(seq, char_, s, len(chars))
+
+    cpdef setChar(self, int seq, int char_, str chars):
+        """
+            Set characters for character (column) 'char_', starting at sequence
+            (row) 'seq', to the characters in 'chars'.
+        """
+        cdef char *s = chars
+        self.setCol(seq, char_, s, len(chars))
 
     cpdef str getSeq(self, int seq):
-        assert self.rows != NULL
+        """
+            Get the characters for sequence (row) 'seq'.
+        """
         assert seq < self.ntaxa
+
+        if not self.rowMajor:
+            self._initRowMajor()
 
         return PyString_FromStringAndSize(&self.rows[seq * self.nchars],
           self.nchars)
 
     cpdef str getChar(self, int char_):
-        assert self.cols != NULL
+        """
+            Get the characters for column 'char_'.
+        """
         assert char_ < self.nchars
 
-        return PyString_FromStringAndSize(&self.cols[char_ * self.ntaxa],
-          self.taxa)
+        if not self.colMajor:
+            self._initColMajor()
+
+        if self.colMajor:
+            return PyString_FromStringAndSize(&self.cols[char_ * self.ntaxa],
+              self.ntaxa)
+
+    cpdef unsigned getFreq(self, int col):
+        assert col < self.nchars
+
+        return self.freqs[col]
+
+    cpdef setFreq(self, int col, unsigned freq):
+        assert col < self.nchars
+
+        self.freqs[col] = freq
+
+    cdef void _fitchCanonize(self, Character char_) except *:
+        cdef int trans[128], fTrans[sizeof(int) << 3]
+        cdef unsigned nstates, i, j, fSeen
+        cdef bint wasColMajor
+        cdef char *col
+        cdef int val, bit
+
+        # Column-major storage is used below, so keep track of whether to
+        # discard it afterwards.
+        wasColMajor = self.colMajor
+        if not self.colMajor:
+            self._initColMajor()
+
+        nstates = char_.nstates()
+
+        for 0 <= j < self.nchars:
+            # Scan down the column and track the order in which the
+            # character states first appear.
+            for 0 <= i < nstates:
+                fTrans[i] = -1
+            fSeen = 0
+            col = self.getCol(j)
+            i = 0
+            while i < self.ntaxa and fSeen < nstates:
+                val = char_.code2val(chr(col[i]))
+                while val != 0:
+                    bit = ffs(val) - 1
+                    val ^= 1 << bit
+                    if fTrans[bit] == -1:
+                        fTrans[bit] = 1 << (nstates - fSeen - 1)
+                        fSeen += 1
+                        if fSeen == nstates:
+                            break
+                i += 1
+
+            # Finish filling in fTrans for characters that do not appear in the
+            # column.
+            if fSeen < nstates:
+                i = 0
+                while fSeen < nstates:
+                    assert i < nstates
+                    if fTrans[i] == -1:
+                        fTrans[i] = 1 << (nstates - fSeen - 1)
+                        fSeen += 1
+                    i += 1
+
+            # Create translation key, such that the first state seen becomes A,
+            # the next C, etc.
+            for code in char_.codes():
+                val = char_.code2val(code)
+                result = 0
+                while val != 0:
+                    bit = ffs(val) - 1
+                    val ^= 1 << bit
+                    result |= fTrans[bit]
+                trans[ord(code[0])] = ord(char_.val2code(result))
+
+            # Finally, translate the column, using the custom key.
+            for 0 <= i < self.ntaxa:
+                self.cols[i + (self.ntaxa * j)] = \
+                  trans[<int>self.cols[i + (self.ntaxa * j)]]
+
+        # Copy to row-major matrix, if it exists.
+        if self.rowMajor:
+            for 0 <= i < self.ntaxa:
+                for 0 <= j < self.nchars:
+                    self.rows[i*self.nchars + j] = self.cols[i + j*self.ntaxa]
+
+        if not wasColMajor:
+            self.deCol()
+
+    cpdef canonize(self, bint fitch=False):
+        """
+            Convert all character aliases to their equivalent primary codes.
+            If 'fitch' is True, canonize site patterns such that (for example)
+            the characters within each of the sets below are equivalent:
+
+              AaCG BV
+              AACg AT
+              CcGc AT
+              CCGc at
+        """
+        cdef int trans[128]
+        cdef unsigned ij
+        cdef Character char_
+
+        assert not fitch or self.charType is Dna
+
+        # Create translation key.
+        char_ = self.charType.get()
+        for code in char_.codes():
+            trans[ord(code[0])] = ord(char_.val2code(char_.code2val(code)))
+
+        # Canonize rows.
+        if self.rowMajor:
+            for 0 <= ij < self.ntaxa * self.nchars:
+                self.rows[ij] = trans[<int>self.rows[ij]]
+
+        # Canonize cols.
+        if self.colMajor:
+            for 0 <= ij < self.ntaxa * self.nchars:
+                self.cols[ij] = trans[<int>self.rows[ij]]
+
+        if fitch:
+            self._fitchCanonize(char_)
+
+    cpdef compact(self, bint fitch=False):
+        """
+            Compact the alignment such that each site pattern is stored at most
+            once, and use a frequency vector to track how many times each site
+            pattern occurred in the original alignment.
+
+            The canonize() method is called in preparation for compaction, so
+            that equivalent character codes do not prevent otherwise valid
+            compaction.  See the canonize() documentation for algorithmic
+            details.
+        """
+        cdef bint wasColMajor
+        cdef list deco
+        cdef unsigned j
+
+        # Column-major storage is implicitly triggered by method calls below,
+        # so keep track of whether to discard it afterwards.
+        wasColMajor = self.colMajor
+
+        self.canonize(fitch)
+
+        # Create an association of chars/freqs, so that they can be sorted
+        # together.
+        deco = [[self.getChar(j), self.freqs[j]] for j in xrange(self.nchars)]
+        deco.sort()
+
+        # Merge adjacent equivalent characters.
+        j = 1
+        while j < len(deco):
+            if deco[j][0] == deco[j-1][0]:
+                deco[j-1][1] += deco[j][1]
+                deco.pop(j)
+            else:
+                j += 1
+
+        # Re-initialize.
+        if self.rowMajor:
+            free(self.rows)
+            self.rows = self._allocMatrix(self.ntaxa, len(deco), None)
+        assert self.colMajor
+        free(self.cols)
+        self.cols = self._allocMatrix(self.ntaxa, len(deco), None)
+        free(self.freqs)
+        self.freqs = <unsigned *>malloc(len(deco) * sizeof(unsigned))
+        if self.freqs == NULL:
+            raise MemoryError("Frequency vector allocation failed")
+
+        self.nchars = len(deco)
+        for 0 <= j < len(deco):
+            self.setChar(0, j, deco[j][0])
+            self.freqs[j] = deco[j][1]
+
+        if not wasColMajor:
+            self.deCol()
 
     cpdef str fastaPrint(self, file outFile=None):
+        """
+            Print the alignment in FASTA format.  If 'outFile' is not
+            specified, return a string that contains the FASTA representation.
+
+            Compact alignments can be printed, but the frequency vector is in no
+            way represented by the output, which can be misleading.
+        """
         cdef list lines, taxa
         cdef Taxon taxon
         cdef str s, taxonData
@@ -667,8 +947,6 @@ cdef class Alignment:
         cdef unsigned nvalid
         cdef float fident, dist
 
-        assert self.rows != NULL
-
         ret = DistMatrix(self.taxaMap)
 
         if self.ntaxa > 1:
@@ -708,8 +986,6 @@ cdef class Alignment:
         cdef char *iRow, *jRow
         cdef unsigned n, x
         cdef float fident, k, b, p, d, t
-
-        assert self.rows != NULL
 
         ret = DistMatrix(self.taxaMap)
 
@@ -860,8 +1136,6 @@ cdef class Alignment:
         """
         cdef DistMatrix ret
 
-        assert self.rows != NULL
-
         ret = DistMatrix(self.taxaMap)
 
         if self.ntaxa > 1:
@@ -909,8 +1183,6 @@ cdef class Alignment:
         cdef int i, j
         cdef char *iRow, *jRow
         cdef double d
-
-        assert self.rows != NULL
 
         ret = DistMatrix(self.taxaMap)
 

@@ -1,0 +1,66 @@
+dnaTestStrs = (
+    """\
+>one
+ACGTGG
+>two
+ACGTGG
+>three
+ACTTGT
+""",
+
+    """\
+>one
+aACGTGtGkK-
+>two
+aAcGTGtGyYN
+>three
+aACTTGtTSsn
+""",
+
+    """\
+>one
+TTTTTTTTTTT
+>two
+ttttttttttt
+>three
+TtTtTtTtTtT
+""",
+
+    """\
+>one
+        AaCt Y K BV acGT
+>two
+        AACt Y K AT caAA
+>three
+        CcGc R H AT cAaa
+>four
+        CCGC R H AT cAaA
+"""
+
+)
+
+print "Test begin"
+for s in dnaTestStrs:
+    matrix = Crux.CTMatrix.CTMatrix(s, Crux.Character.Dna)
+    alignment = Crux.CTMatrix.Alignment(matrix)
+
+    for j in xrange(alignment.nchars):
+        print alignment.getFreq(j),
+    print
+    print alignment.fastaPrint()
+
+    alignment.compact()
+
+    for j in xrange(alignment.nchars):
+        print alignment.getFreq(j),
+    print
+    print alignment.fastaPrint()
+
+    alignment.compact(fitch=True)
+
+    for j in xrange(alignment.nchars):
+        print alignment.getFreq(j),
+    print
+    print alignment.fastaPrint()
+
+print "Test end"

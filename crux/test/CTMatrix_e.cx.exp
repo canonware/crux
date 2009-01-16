@@ -1,0 +1,92 @@
+Test begin
+1 1 1 1 1 1
+>one
+ACGTGG
+>two
+ACGTGG
+>three
+ACTTGT
+1 1 1 2 1
+>one
+ACGGT
+>two
+ACGGT
+>three
+ACGTT
+4 2
+>one
+AA
+>two
+AA
+>three
+AC
+1 1 1 1 1 1 1 1 1 1 1
+>one
+aACGTGtGkK-
+>two
+aAcGTGtGyYN
+>three
+aACTTGtTSsn
+1 2 1 1 2 2 2
+>one
+-ACGGKT
+>two
+NACGGYT
+>three
+NACGTST
+1 6 2 2
+>one
+-AAM
+>two
+NAAR
+>three
+NACS
+1 1 1 1 1 1 1 1 1 1 1
+>one
+TTTTTTTTTTT
+>two
+ttttttttttt
+>three
+TtTtTtTtTtT
+11
+>one
+T
+>two
+T
+>three
+T
+11
+>one
+A
+>two
+A
+>three
+A
+1 1 1 1 1 1 1 1 1 1 1 1
+>one
+AaCtYKBVacGT
+>two
+AACtYKATcaAA
+>three
+CcGcRHATcAaa
+>four
+CCGCRHATcAaA
+2 1 1 1 1 1 1 1 1 1 1
+>one
+AABCCGKTTVY
+>two
+ACAACAKATTY
+>three
+CCAAGAHACTR
+>four
+CCAAGAHACTR
+4 4 1 1 2
+>one
+AAMMV
+>two
+ACMMT
+>three
+CCDKT
+>four
+CCDKT
+Test end

@@ -2,6 +2,7 @@
 cdef class CTMatrix
 cdef class Alignment
 
+from Crux.Character cimport Character
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
 from Crux.DistMatrix cimport DistMatrix
@@ -22,18 +23,35 @@ cdef class Alignment:
     cdef readonly Taxa.Map taxaMap
     cdef readonly int ntaxa
     cdef readonly int nchars
+    cdef readonly bint rowMajor
+    cdef readonly bint colMajor
     cdef char *rows
     cdef char *cols
+    cdef unsigned *freqs
 
     cdef char *_allocMatrix(self, int ntaxa, int nchars, str pad) except NULL
+    cdef void _initRowMajor(self) except *
+    cdef void _initColMajor(self) except *
 
-    cdef void setRow(self, int row, int col, char *chars, unsigned len)
-    cdef char *getRow(self, int row)
-    cdef char *getCol(self, int col)
+    cpdef deRow(self)
+    cpdef deCol(self)
+
+    cdef void setRow(self, int row, int col, char *chars, unsigned len) except *
+    cdef void setCol(self, int row, int col, char *chars, unsigned len) except *
+    cdef char *getRow(self, int row) except NULL
+    cdef char *getCol(self, int col) except NULL
 
     cpdef setSeq(self, int seq, int col, str chars)
+    cpdef setChar(self, int seq, int char_, str chars)
     cpdef str getSeq(self, int seq)
     cpdef str getChar(self, int char_)
+
+    cpdef unsigned getFreq(self, int col)
+    cpdef setFreq(self, int col, unsigned freq)
+
+    cdef void _fitchCanonize(self, Character char_) except *
+    cpdef canonize(self, bint fitch=*)
+    cpdef compact(self, bint fitch=*)
 
     cpdef str fastaPrint(self, file outFile=*)
 
