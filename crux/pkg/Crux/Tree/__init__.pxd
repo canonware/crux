@@ -12,7 +12,8 @@ cdef class Tree:
     cdef Node _base
     cdef list _renderList
     cdef file _renderFile
-    cdef int _sn # Incremented every time the tree is modified.
+    # Incremented every time the tree is modified.
+    cdef readonly unsigned long long sn
     cdef int _cacheSn
     cdef list _cachedTaxa, _cachedNodes, _cachedEdges
     cdef public bint rooted
@@ -85,13 +86,10 @@ cdef class Node:
 
 cdef class Edge:
     cdef readonly Tree tree
-    cdef double _length
     cdef readonly Ring ring
+    cdef public double length
     cdef public object aux
 
-    cdef double getLength(self)
-    cdef void setLength(self, double length)
-    # property length
     cpdef attach(self, Node nodeA, Node nodeB)
     cpdef detach(self)
 

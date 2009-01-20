@@ -1,6 +1,7 @@
 cdef extern from "math.h":
     cdef double HUGE_VALF
     cdef double NAN
+    cdef double INFINITY
 
     cdef double log(double x)
     cdef float logf(float x)

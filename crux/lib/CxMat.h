@@ -6,11 +6,6 @@
 #include <clapack.h>
 #include <math.h>
 
-void
-CxMatQDecomp(int n, double *Q, double *eigVecCube, double *eigVals);
-void
-CxMatPt(int n, double *P, double *eigVecCube, double *eigVals, double muT);
-
 #ifndef CxmUseInlines
 double
 CxMatDdet(unsigned n, double *A);

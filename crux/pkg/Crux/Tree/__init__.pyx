@@ -20,6 +20,7 @@ from Crux.CTMatrix cimport CTMatrix
 cimport Crux.Newick as Newick
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
+cimport Crux.Tree.Lik
 cimport Crux.Tree.Rf
 
 import Crux.Config
@@ -34,7 +35,7 @@ cdef class Ring
 
 cdef class Tree:
     def __init__(self, with_=None, Taxa.Map taxaMap=None, bint rooted=True):
-        self._sn = 0
+        self.sn = 0
         self._cacheSn = -1
         self.rooted = rooted
         if type(with_) == int:
@@ -211,13 +212,13 @@ cdef class Tree:
 
         self._cachedTaxa.sort()
 
-        self._cacheSn = self._sn
+        self._cacheSn = self.sn
 
     cdef int getNtaxa(self) except *:
         """
             Get the number of taxa in the tree.
         """
-        if self._cacheSn != self._sn:
+        if self._cacheSn != self.sn:
             self._recache()
         return len(self._cachedTaxa)
     property ntaxa:
@@ -231,7 +232,7 @@ cdef class Tree:
         """
             Get the number of nodes in the tree.
         """
-        if self._cacheSn != self._sn:
+        if self._cacheSn != self.sn:
             self._recache()
         return len(self._cachedNodes)
     property nnodes:
@@ -245,7 +246,7 @@ cdef class Tree:
         """
             Get the number of edges in the tree.
         """
-        if self._cacheSn != self._sn:
+        if self._cacheSn != self.sn:
             self._recache()
         return len(self._cachedEdges)
     property nedges:
@@ -260,7 +261,7 @@ cdef class Tree:
             Get an alphabetized list of all taxa in the tree.  Do not modify
             the list.
         """
-        if self._cacheSn != self._sn:
+        if self._cacheSn != self.sn:
             self._recache()
         return self._cachedTaxa
     property taxa:
@@ -275,7 +276,7 @@ cdef class Tree:
         """
             Get a list of all nodes in the tree.  Do not modify the list.
         """
-        if self._cacheSn != self._sn:
+        if self._cacheSn != self.sn:
             self._recache()
         return self.cachedNodes
     property nodes:
@@ -289,7 +290,7 @@ cdef class Tree:
         """
             Get a list of all edges in the tree.  Do not modify the list.
         """
-        if self._cacheSn != self._sn:
+        if self._cacheSn != self.sn:
             self._recache()
         return self._cachedEdges
     property edges:
@@ -309,7 +310,7 @@ cdef class Tree:
             get the base node in the tree.
         """
         self._base = base
-        self._sn += 1
+        self.sn += 1
     property base:
         """
             Base node in the tree.
@@ -370,14 +371,14 @@ cdef class Tree:
                 ring = node.ring
                 self.base = ring.other.node
                 edge = ring.edge
-                removedLength = edge._length
+                removedLength = edge.length
                 edge.detach()
                 ring = node.ring
                 edge = ring.edge
                 node = ring.other.node
                 edge.detach()
                 edge.attach(self._base, node)
-                edge.length = edge._length + removedLength
+                edge.length = edge.length + removedLength
                 # Change ring header/order in order to avoid disturbing
                 # canonical order.
                 self._base.ring = self._base.ring.next
@@ -460,7 +461,7 @@ cdef class Tree:
 
     cpdef tbr(self, Edge bisect, Edge reconnectA, Edge reconnectB):
         pass # XXX
-        self._sn += 1
+        self.sn += 1
 
     # XXX Make a property.
     cpdef int tbrNNeigbhorsGet(self):
@@ -472,7 +473,7 @@ cdef class Tree:
 
     cpdef nni(self, Edge edge, Edge reconnectA, Edge reconnectB):
         pass # XXX
-        self._sn += 1
+        self.sn += 1
 
     # XXX Make a property.
     cpdef nniNNeigbhorsGet(self):
@@ -635,7 +636,7 @@ cdef class Node:
 #                raise Malformed("Taxon already in use: %r" % taxon.label)
 
         self._taxon = taxon
-        self.tree._sn += 1
+        self.tree.sn += 1
     property taxon:
         """
             Taxon associated with node (or None).
@@ -659,7 +660,7 @@ cdef class Node:
             assert self.tree._base != None
 #            assert self.separation(self.tree._base) != -1 # Expensive.
 
-            if self.tree._cacheSn != self.tree._sn:
+            if self.tree._cacheSn != self.tree.sn:
                 self.tree._recache()
 
             return self._degree
@@ -738,7 +739,7 @@ cdef class Node:
                 self.tree._renderAppend((":" + lengthFormat) % 0.0)
             elif not noLength:
                 self.tree._renderAppend((":" + lengthFormat) % \
-                  (ring.edge._length))
+                  (ring.edge.length))
 
     cpdef int separation(self, Node other):
         """
@@ -763,30 +764,10 @@ cdef class Edge:
         cdef Ring other
 
         self.tree = tree
-        self._length = 0.0
         self.ring = Ring(self, None)
         other = Ring(self, self.ring)
         self.ring.other = other
-
-    cdef double getLength(self):
-        """
-            Get edge length.
-        """
-        return self._length
-    cdef void setLength(self, double length):
-        """
-            Set edge length.
-        """
-        self._length = length
-        self.tree._sn += 1
-    property length:
-        """
-            Edge length.
-        """
-        def __get__(self):
-            return self.getLength()
-        def __set__(self, float length):
-            self.setLength(length)
+        self.length = 0.0
 
     cpdef attach(self, Node nodeA, Node nodeB):
         cdef Ring ring, nRing, pRing
@@ -817,7 +798,7 @@ cdef class Edge:
             pRing.next = ring
         nodeB.ring = ring
 
-        self.tree._sn += 1
+        self.tree.sn += 1
 #        assert nodeA.separation(nodeB) == 1 # Expensive.
 
     cpdef detach(self):
@@ -843,7 +824,7 @@ cdef class Edge:
                 ring.prev = ring
             ring.node = None
 
-        self.tree._sn += 1
+        self.tree.sn += 1
 
 cdef class _RingIterHelper:
     cdef Ring _start, _next
@@ -965,7 +946,7 @@ cdef class Ring:
             ring.other._collapsable(collapsable, clampable)
 
         edge = self.edge
-        if edge._length <= 0.0:
+        if edge.length <= 0.0:
             if self.node._degreeGet() > 1 and \
               self.other.node._degreeGet() > 1:
                 collapsable.append(self)
