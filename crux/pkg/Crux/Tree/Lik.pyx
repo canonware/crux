@@ -134,7 +134,7 @@ cdef class Lik:
             self.lik = NULL
 
     def __init__(self, Tree tree, Alignment alignment, unsigned nmodels=1,
-      unsigned ncat=4, JobQ jobQ=None, unsigned stripe=0):
+      unsigned ncat=4, JobQ jobQ=None, unsigned stripeWidth=0):
         cdef unsigned stepsMax, i
 
         if tree.rooted:
@@ -163,8 +163,9 @@ cdef class Lik:
         self.lik.dim = self.char_.nstates()
         self.lik.ncat = ncat
         self.lik.nchars = self.alignment.nchars
-        self.lik.stripe = stripe
-        self.lik.nstripes = self.lik.nchars / self.lik.stripe
+        self.lik.charFreqs = self.alignment.freqs
+        self.lik.stripeWidth = stripeWidth
+        self.lik.nstripes = self.lik.nchars / self.lik.stripeWidth
 
         self.lik.models = <CxtLikModel *>calloc(nmodels, sizeof(CxtLikModel))
         if self.lik.models == NULL:
@@ -198,10 +199,9 @@ cdef class Lik:
         if model.rMat == NULL:
             raise MemoryError("Error allocating rMat")
 
-        model.piMat = <double *>calloc(self.lik.dim * self.lik.dim, \
-          sizeof(double))
-        if model.piMat == NULL:
-            raise MemoryError("Error allocating piMat")
+        model.piDiag = <double *>calloc(self.lik.dim, sizeof(double))
+        if model.piDiag == NULL:
+            raise MemoryError("Error allocating piDiag")
 
         model.qEigVecCube = <double *>malloc(self.lik.dim * self.lik.dim * \
           self.lik.dim * sizeof(double))
@@ -237,7 +237,7 @@ cdef class Lik:
 
         # Initialize to default equal frequencies.
         for 0 <= i < self.lik.dim:
-            model.piMat[i*self.lik.dim + i] = 1.0 / <double>self.lik.dim
+            model.piDiag[i] = 1.0 / <double>self.lik.dim
 
         model.alpha = INFINITY
 
@@ -245,7 +245,7 @@ cdef class Lik:
         model.sn = self._assignSn()
 
         # Rescale R and Pi as needed, and decompose Q.
-        if CxLikQDecomp(self.lik.dim, model.rMat, model.piMat, \
+        if CxLikQDecomp(self.lik.dim, model.rMat, model.piDiag, \
           model.qEigVecCube, model.qEigVals):
             raise ValueError("Error decomposing Q")
 
@@ -255,9 +255,9 @@ cdef class Lik:
         if model.rMat != NULL:
             free(model.rMat)
             model.rMat = NULL
-        if model.piMat != NULL:
-            free(model.piMat)
-            model.piMat = NULL
+        if model.piDiag != NULL:
+            free(model.piDiag)
+            model.piDiag = NULL
         if model.qEigVecCube != NULL:
             free(model.qEigVecCube)
             model.qEigVecCube = NULL
@@ -335,8 +335,7 @@ cdef class Lik:
         toP.sn = frP.sn
         toP.reassign = frP.reassign
         memcpy(toP.rMat, frP.rMat, self.lik.dim * self.lik.dim * sizeof(double))
-        memcpy(toP.piMat, frP.piMat, self.lik.dim * self.lik.dim * \
-          sizeof(double))
+        memcpy(toP.piDiag, frP.piDiag, self.lik.dim * sizeof(double))
         memcpy(toP.qEigVecCube, frP.qEigVecCube, self.lik.dim * self.lik.dim * \
           self.lik.dim * sizeof(double))
         memcpy(toP.qEigVals, frP.qEigVals, self.lik.dim * self.lik.dim * \
@@ -450,7 +449,7 @@ cdef class Lik:
         modelP = &self.lik.models[model]
         assert i < self.lik.dim
 
-        return modelP.piMat[i * self.lik.dim + i]
+        return modelP.piDiag[i]
 
     cpdef setFreq(self, unsigned model, unsigned i, double freq):
         """
@@ -465,7 +464,7 @@ cdef class Lik:
         assert i < self.lik.dim
         assert freq > 0.0
 
-        modelP.piMat[i * self.lik.dim + i] = freq
+        modelP.piDiag[i] = freq
         modelP.reassign = True
 
     cpdef double getAlpha(self, unsigned model):
@@ -498,13 +497,20 @@ cdef class Lik:
         modelP.reassign = True
 
     cdef void _planAppend(self, unsigned model, CxeLikStep variant, \
-      CL parentCL, CL childCL, double edgeLen):
+      CL parentCL, CL childCL, double edgeLen) except *:
         cdef CxtLikStep *step
+        cdef CxtLikModel *modelP
 
         step = &self.lik.steps[self.lik.stepsLen]
         self.lik.stepsLen += 1
 
+        modelP = &self.lik.models[model]
+        # Clear the 'entire' attribute, in order to force re-aggregation of
+        # conditional likelihoods for the model.
+        modelP.entire = False
+
         step.variant = variant
+        step.model = modelP
         step.parentMat = parentCL.vec[model].mat
         if childCL.vecMax == 1:
             # Be careful with leaf nodes to always use the first (and only)
@@ -512,6 +518,8 @@ cdef class Lik:
             step.childMat = childCL.vec[0].mat
         else:
             step.childMat = childCL.vec[model].mat
+        if edgeLen < 0.0:
+            raise ValueError("Negative branch length")
         step.edgeLen = edgeLen
 
     cdef void _planRecurse(self, Ring ring, CL parent, unsigned nSibs,
@@ -626,18 +634,12 @@ cdef class Lik:
                           <CL>r.other.aux, r.edge.length)
                     self.rootCL.vec[i].sn = self.lik.models[i].sn
 
-    cdef void _execute(self):
-        assert False # XXX
-
-    cdef double _collect(self):
-        assert False # XXX
-
     cpdef double lnL(self, Node root=None) except 1.0:
         """
             Compute the log-likelihood.  Use the tree's base node as the root
             for computation, unless a root is specified.
         """
-        cdef double wsum
+        cdef double ret, wsum
         cdef unsigned i, stepsMax
         cdef CxtLikModel *modelP
         cdef CxtLikStep *steps
@@ -659,8 +661,14 @@ cdef class Lik:
         # Make sure that the mixture models are up to date.
         for 0 <= i < self.lik.modelsLen:
             modelP = &self.lik.models[i]
-            if modelP.reassign and modelP.weight != 0.0:
-                self._reassignModel(modelP)
+            if modelP.weight != 0.0:
+                # Optimistically set the model's 'entire' attribute.
+                # _planAppend() clears the attribute if any computation at all
+                # is necessary to determine the tree's lnL under the model.
+                modelP.entire = True
+                # Update model parameters, if necessary.
+                if modelP.reassign:
+                    self._reassignModel(modelP)
 
         # Expand steps, if necessary.
         stepsMax = ((2 * self.alignment.ntaxa) - 3) * self.lik.modelsMax
@@ -676,7 +684,7 @@ cdef class Lik:
         self._plan(root)
 
         # Execute the plan.
-        self._execute()
+        if CxLikExecute(self.lik, &ret):
+            raise Exception("Error during plan execution")
 
-        # Collect the stripe results.
-        return self._collect()
+        return ret

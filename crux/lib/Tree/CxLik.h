@@ -44,10 +44,10 @@ typedef struct {
     // Mixture model weight.  This is 1.0 if only a single model is in use.
     double weight;
 
-    // R, and Pi matrices, where Q = R*Pi (with diagonal set such that each row
-    // sums to 0).
+    // R matrix and the diagonal of the Pi matrix, where Q = R*Pi (with
+    // diagonal set such that each row sums to 0).
     double *rMat;
-    double *piMat;
+    double *piDiag;
 
     // Q matrix eigenvector/eigenvalue decomposition.
     double *qEigVecCube;
@@ -60,6 +60,12 @@ typedef struct {
 
     // Site-specific conditional likelihoods for the root node.
     CxtLikCL cL;
+
+    // False if execution planning finds any places where conditional
+    // likelihoods have to be recomputed.  If true, then the contents of
+    // stripeLnL and lnL are valid, which means that absolutely no computation
+    // is necessary to determine the lnL under this model.
+    bool entire;
 
     // Array in which to place the sum of each stripe's log-likelihoods.
     double *stripeLnL;
@@ -91,6 +97,7 @@ typedef enum {
 //       child
 typedef struct {
     CxeLikStep variant;
+    CxtLikModel *model;
     double *parentMat;
     double *childMat;
     double edgeLen;
@@ -106,8 +113,11 @@ typedef struct {
     // Number of characters.
     unsigned nchars;
 
+    // Character frequencies for the compact alignment.
+    unsigned *charFreqs;
+
     // Stripe width and number of stripes (stripe*nstripes == nchars).
-    unsigned stripe;
+    unsigned stripeWidth;
     unsigned nstripes;
 
     // Mixture models vector.  modelsLen indicates how many models are
@@ -140,5 +150,7 @@ CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
   double *qEigVals);
 void
 CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double muT);
+bool
+CxLikExecute(CxtLik *lik, double *rLnL);
 
 #endif // CxLik_h

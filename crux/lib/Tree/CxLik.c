@@ -27,11 +27,11 @@ CxLikQ(int n, double *Q, double *R, double *Pi) {
     // Rescale Pi, if necessary.
     piSum = 0.0;
     for (i = 0; i < n; i++) {
-	piSum += Pi[i*n + i];
+	piSum += Pi[i];
     }
     if (piSum != 1.0) {
 	for (i = 0; i < n; i++) {
-	    Pi[i*n + i] /= piSum;
+	    Pi[i] /= piSum;
 	}
     }
 
@@ -41,7 +41,7 @@ CxLikQ(int n, double *Q, double *R, double *Pi) {
     }
     for (i = 0; i < n; i++) {
 	for (j = i + 1; j < n; j++) {
-	    elm =  R[i*n + j] * Pi[j*n + j];
+	    elm =  R[i*n + j] * Pi[j];
 	    Q[i*n + j] = elm;
 	    Q[i*n + i] -= elm;
 	    Q[j*n + j] -= elm;
@@ -145,4 +145,105 @@ CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double muT) {
 	    P[i*n + j] = p;
 	}
     }
+}
+
+// XXX Add support for Gamma-distributed rates.
+CxmpInline void
+CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
+    double cL, stripeLnL;
+    unsigned dim, cMin, cLim;
+    double P[lik->dim * lik->dim];
+
+    dim = lik->dim;
+    cMin = lik->stripeWidth * stripe;
+    cLim = cMin + lik->stripeWidth;
+
+    // Iteratively process the execution plan.
+    for (unsigned s = 0; s < lik->stepsLen; s++) {
+	CxtLikStep *step = &lik->steps[s];
+	CxLikPt(dim, P, step->model->qEigVecCube, step->model->qEigVals,
+	  step->edgeLen);
+	switch (step->variant) {
+	    case CxeLikStepComputeCL: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    for (unsigned iP = 0; iP < dim; iP++) {
+			cL = 0.0;
+			for (unsigned iC = 0; iC < dim; iC++) {
+			    cL += P[iP*dim + iC] * step->childMat[c*dim + iC];
+			}
+			step->parentMat[c*dim + iP] = cL;
+		    }
+		}
+		break;
+	    } case CxeLikStepMergeCL: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    for (unsigned iP = 0; iP < dim; iP++) {
+			cL = 0.0;
+			for (unsigned iC = 0; iC < dim; iC++) {
+			    cL += P[iP*dim + iC] * step->childMat[c*dim + iC];
+			}
+			step->parentMat[c*dim + iP] *= cL;
+		    }
+		}
+		break;
+	    } default: {
+		CxmNotReached();
+	    }
+	}
+    }
+
+    // For each model in the mixture, aggregrate conditional likelihoods and
+    // weight them according to frequency priors, in order to compute
+    // site-specific lnL's.
+    for (unsigned m = 0; m < lik->modelsLen; m++) {
+	CxtLikModel *model = &lik->models[m];
+	if (model->weight == 0.0 || model->entire) {
+	    // Model is not part of the mixture, or its lnL is already computed.
+	    continue;
+	}
+	stripeLnL = 0.0;
+	for (unsigned c = cMin; c < cLim; c++) {
+	    double L = 0.0;
+	    for (unsigned i = 0; i < dim; i++) {
+		L += model->piDiag[i] * model->cL.mat[c*dim + i];
+	    }
+	    stripeLnL += log(L) * (double)lik->charFreqs[c];
+	}
+	model->stripeLnL[stripe] = stripeLnL;
+    }
+}
+
+// XXX Generalize to handle threads.
+bool
+CxLikExecute(CxtLik *lik, double *rLnL) {
+    unsigned stripe;
+    double lnL;
+
+    if (lik->stepsLen > 0) {
+	// Compute log-likelihoods for each model in the mixture, stripewise.
+	for (stripe = 0; stripe < lik->nstripes; stripe++) {
+	    CxLikExecuteStripe(lik, stripe);
+	}
+    }
+
+    // Sum stripeLnL for each model, and compute the weighted log-likelihood.
+    lnL = 0.0;
+    for (unsigned m = 0; m < lik->modelsLen; m++) {
+	CxtLikModel *model = &lik->models[m];
+	if (model->weight == 0.0) {
+	    // Model is not part of the mixture.
+	    continue;
+	}
+	if (model->entire == false) {
+	    double modelLnL = 0.0;
+	    for (unsigned s = 0; s < lik->nstripes; s++) {
+		modelLnL += model->stripeLnL[s];
+	    }
+	    model->lnL = modelLnL;
+	}
+	lnL += model->lnL * model->weight;
+    }
+    *rLnL = lnL;
+
+    return false;
 }

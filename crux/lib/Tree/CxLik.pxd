@@ -9,12 +9,13 @@ cdef extern from "CxLik.h":
         bint reassign
         double weight
         double *rMat
-        double *piMat
+        double *piDiag
         double *qEigVecCube
         double *qEigVals
         double alpha
         double *gammas
         CxtLikCL cL
+        bint entire
         double *stripeLnL
         double lnL
     ctypedef enum CxeLikStep:
@@ -22,6 +23,7 @@ cdef extern from "CxLik.h":
         CxeLikStepMergeCL   = 1
     ctypedef struct CxtLikStep:
         CxeLikStep variant
+        CxtLikModel *model
         double *parentMat
         double *childMat
         double edgeLen
@@ -29,7 +31,8 @@ cdef extern from "CxLik.h":
         unsigned dim
         unsigned ncat
         unsigned nchars
-        unsigned stripe
+        unsigned *charFreqs
+        unsigned stripeWidth
         unsigned nstripes
         CxtLikModel *models
         unsigned modelsLen
@@ -41,4 +44,5 @@ cdef extern from "CxLik.h":
     cdef bint CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
       double *qEigVals)
     cdef void CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals,
-      double muT)
+      double muRT)
+    cdef bint CxLikExecute(CxtLik *lik, double *rLnL)
