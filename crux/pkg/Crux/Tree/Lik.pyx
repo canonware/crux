@@ -270,9 +270,6 @@ cdef class Lik:
         if model.gammas != NULL:
             free(model.gammas)
             model.gammas = NULL
-        if model.cL.mat != NULL:
-            free(model.cL.mat)
-            model.cL.mat = NULL
         if model.stripeLnL != NULL:
             free(model.stripeLnL)
             model.stripeLnL = NULL
@@ -608,7 +605,8 @@ cdef class Lik:
         # Make sure rootCL has space for all the mixture models.
         if self.rootCL.vecMax < self.lik.modelsMax:
             i = self.rootCL.vecMax
-            self.rootCL.prepare(self.lik.nchars, self.lik.dim, self.lik.modelsMax)
+            self.rootCL.prepare(self.lik.nchars, self.lik.dim, \
+              self.lik.modelsMax)
             # Set each model's pointer to the CxtLikCL that is actually stored
             # in rootCL, so that lnL computation can be completed in the C
             # code.  This done for the initial models in __init__().
