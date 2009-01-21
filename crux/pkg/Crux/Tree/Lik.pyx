@@ -140,18 +140,20 @@ cdef class Lik:
         if tree.rooted:
             raise ValueError("Tree must not be rooted")
 
-        self.char_ = self.alignment.charType.get()
+        self.char_ = alignment.charType.get()
 
         # Configure striping (disabled unless using a JobQ to parallelize cL
         # computation).
         self.jobQ = jobQ
-        if jobQ is None or stripe == 0:
-            stripe = alignment.nchars
+        if jobQ is None or stripeWidth == 0:
+            stripeWidth = alignment.nchars
 
         # Pad the alignment, if necessary.
-        if alignment.nchars % stripe != 0:
-            alignment.pad(self.char_.code2val(0), stripe - \
-              (alignment.nchars % stripe))
+        if alignment.nchars % stripeWidth != 0:
+            alignment.pad(self.char_.code2val(0), stripeWidth - \
+              (alignment.nchars % stripeWidth))
+
+        self.sn = 0
 
         self.tree = tree
         self.alignment = alignment
@@ -172,10 +174,11 @@ cdef class Lik:
             raise MemoryError("Error allocating models")
         self.lik.modelsLen = nmodels
         self.lik.modelsMax = nmodels
-        for 0 < i < self.lik.modelsMax:
+        for 0 <= i < self.lik.modelsMax:
+            self._allocModel(&self.lik.models[i])
             self._initModel(&self.lik.models[i])
 
-        stepsMax = ((2 * self.alignment.ntaxa) - 3) * self.lik.modelsMax
+        stepsMax = ((2 * self.alignment.ntaxa) - 2) * self.lik.modelsMax
         self.lik.steps = <CxtLikStep *>malloc(stepsMax * sizeof(CxtLikStep))
         if self.lik.steps == NULL:
             raise MemoryError("Error allocating steps")
@@ -183,13 +186,15 @@ cdef class Lik:
         self.lik.stepsMax = stepsMax
 
         self.rootCL = CL(self.lik.nchars, self.lik.dim, self.lik.modelsMax)
+        # Set each model's pointer to the CxtLikCL that is actually stored in
+        # rootCL, so that lnL computation can be completed in the C code.  This
+        # is also done in _plan() for models that are added later on.
+        for 0 <= i < self.lik.modelsMax:
+            self.lik.models[i].cL = &self.rootCL.vec[i]
 
     cdef uint64_t _assignSn(self):
-        cdef uint64_t ret
-
-        ret = self.sn
         self.sn += 1
-        return ret
+        return self.sn
 
     cdef void _allocModel(self, CxtLikModel *model) except *:
         cdef unsigned i
@@ -217,11 +222,9 @@ cdef class Lik:
             if model.gammas == NULL:
                 raise MemoryError("Error allocating gammas")
 
-        model.cL.sn = 0
-        model.cL.mat = <double *>malloc(self.lik.nchars * self.lik.dim * \
-          sizeof(double))
-        if model.cL.mat == NULL:
-            raise MemoryError("Error allocating CL")
+        model.stripeLnL = <double *>malloc(self.lik.nstripes * sizeof(double))
+        if model.stripeLnL == NULL:
+            raise MemoryError("Error allocating stripeLnL")
 
     cdef void _initModel(self, CxtLikModel *model):
         cdef unsigned i
@@ -558,7 +561,7 @@ cdef class Lik:
                 for 0 <= i < self.lik.nchars:
                     val = self.char_.code2val(chr(chars[i]))
                     for 0 <= j < self.lik.dim:
-                        if val & (1 << i):
+                        if val & (1 << j):
                             mat[i*self.lik.dim + j] = 1.0
                         else:
                             mat[i*self.lik.dim + j] = 0.0
@@ -580,6 +583,9 @@ cdef class Lik:
             for 0 <= i < self.lik.modelsLen:
                 if self.lik.models[i].weight != 0.0:
                     parent.vec[i].sn = 0
+            cL.parent = parent
+            cL.nSibs = nSibs
+            cL.edgeLen = edgeLen
 
         # Check cache validity for each model.
         for 0 <= i < self.lik.modelsLen:
@@ -600,17 +606,25 @@ cdef class Lik:
         cdef unsigned degree, i
 
         # Make sure rootCL has space for all the mixture models.
-        self.rootCL.prepare(self.lik.nchars, self.lik.dim, self.lik.modelsMax)
+        if self.rootCL.vecMax < self.lik.modelsMax:
+            i = self.rootCL.vecMax
+            self.rootCL.prepare(self.lik.nchars, self.lik.dim, self.lik.modelsMax)
+            # Set each model's pointer to the CxtLikCL that is actually stored
+            # in rootCL, so that lnL computation can be completed in the C
+            # code.  This done for the initial models in __init__().
+            for i <= i < self.lik.modelsMax:
+                self.lik.models[i].cL = &self.rootCL.vec[i]
 
         if root is None:
             root = self.tree.base
-        degree = root.degreeGet()
+        degree = root.getDegree()
+        ring = root.ring
         if degree == 1:
             # The root is a leaf node, which requires special handling.  Treat
             # the root as if it were a child separated from the root by a
             # 0-length branch.
             self._planRecurse(ring.other, self.rootCL, 2, ring.edge.length)
-            self._planRecurse(ring, self.root, 2, 0.0)
+            self._planRecurse(ring, self.rootCL, 2, 0.0)
 
             for 0 <= i < self.lik.modelsLen:
                 if self.lik.models[i].weight != 0.0 and \
@@ -671,7 +685,7 @@ cdef class Lik:
                     self._reassignModel(modelP)
 
         # Expand steps, if necessary.
-        stepsMax = ((2 * self.alignment.ntaxa) - 3) * self.lik.modelsMax
+        stepsMax = ((2 * self.alignment.ntaxa) - 2) * self.lik.modelsMax
         if self.lik.stepsMax < stepsMax:
             steps = <CxtLikStep *>realloc(self.lik.steps, stepsMax * \
               sizeof(CxtLikStep))

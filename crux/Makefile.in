@@ -319,10 +319,10 @@ ATLAS_LIBS_INST := $(ATLAS_LIBS:@objroot@build/contrib/atlas/obj/lib/%=@objroot@
 
 ifeq (@sizeof_ptr@,8)
 LAPACK_FLAGS := -fPIC -m64
-ATLAS_FLAGS := -b 64 -Fa alg -fPIC
+ATLAS_FLAGS := -b 64 -Fa alg "-g -fPIC"
 else
 LAPACK_FLAGS := -fPIC
-ATLAS_FLAGS := -Fa alg -fPIC
+ATLAS_FLAGS := -Fa alg "-g -fPIC"
 endif
 
 @objroot@build/contrib/lapack/lapack.a :

@@ -1,4 +1,5 @@
 Test begin
+# Basic
 1 1 1 1 1 1
 >one
 ACGTGG
@@ -6,6 +7,7 @@ ACGTGG
 ACGTGG
 >three
 ACTTGT
+# Compact
 1 1 1 2 1
 >one
 ACGGT
@@ -13,10 +15,12 @@ ACGGT
 ACGGT
 >three
 ACGTT
+# Fitch compact
 
 >one
 >two
 >three
+# Fitch compact plus pad
 1 1 1 1
 >one
 ----
@@ -24,6 +28,7 @@ ACGTT
 ----
 >three
 ----
+# Basic
 1 1 1 1 1 1 1 1 1 1 1
 >one
 aACGTGtGkK-
@@ -31,6 +36,7 @@ aACGTGtGkK-
 aAcGTGtGyYN
 >three
 aACTTGtTSsn
+# Compact
 1 2 1 1 2 2 2
 >one
 -ACGGKT
@@ -38,20 +44,23 @@ aACTTGtTSsn
 NACGGYT
 >three
 NACGTST
+# Fitch compact
 1 2
 >one
 -M
 >two
-NR
->three
 NS
+>three
+NR
+# Fitch compact plus pad
 1 2 1 1 1 1
 >one
 -M----
 >two
-NR----
->three
 NS----
+>three
+NR----
+# Basic
 1 1 1 1 1 1 1 1 1 1 1
 >one
 TTTTTTTTTTT
@@ -59,6 +68,7 @@ TTTTTTTTTTT
 ttttttttttt
 >three
 TtTtTtTtTtT
+# Compact
 11
 >one
 T
@@ -66,10 +76,12 @@ T
 T
 >three
 T
+# Fitch compact
 
 >one
 >two
 >three
+# Fitch compact plus pad
 1 1 1 1
 >one
 ----
@@ -77,6 +89,7 @@ T
 ----
 >three
 ----
+# Basic
 1 1 1 1 1 1 1 1 1 1 1 1
 >one
 AaCtYKBVacGT
@@ -86,6 +99,7 @@ AACtYKATcaAA
 CcGcRHATcAaa
 >four
 CCGCRHATcAaA
+# Compact
 2 1 1 1 1 1 1 1 1 1 1
 >one
 AABCCGKTTVY
@@ -95,22 +109,24 @@ ACAACAKATTY
 CCAAGAHACTR
 >four
 CCAAGAHACTR
+# Fitch compact
 4 1 1 2
 >one
 AMMV
 >two
 AMMT
 >three
-CDKT
+CBKT
 >four
-CDKT
+CBKT
+# Fitch compact plus pad
 4 1 1 2 1 1 1 1
 >one
 AMMV----
 >two
 AMMT----
 >three
-CDKT----
+CBKT----
 >four
-CDKT----
+CBKT----
 Test end

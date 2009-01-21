@@ -275,10 +275,10 @@ cdef class K2p:
         # C| v - v s  |  4  5  6  7
         # G| s v - v  |  8  9 10 11
         # T| v s v -  | 12 13 14 15
-        assert self.code2val[c'A'] == 8
-        assert self.code2val[c'C'] == 4
-        assert self.code2val[c'G'] == 2
-        assert self.code2val[c'T'] == 1
+        assert self.code2val[c'A'] == 1
+        assert self.code2val[c'C'] == 2
+        assert self.code2val[c'G'] == 4
+        assert self.code2val[c'T'] == 8
         ks = A[2] + A[7] + A[8] + A[13]
         kv = A[1] + A[3] + A[4] + A[6] + A[9] + A[11] + A[12] + A[14]
         k = ks + kv
@@ -805,7 +805,7 @@ cdef class Alignment:
                     bit = ffs(val) - 1
                     val ^= 1 << bit
                     if fTrans[bit] == -1:
-                        fTrans[bit] = 1 << (nstates - fSeen - 1)
+                        fTrans[bit] = 1 << fSeen
                         fSeen += 1
                         if fSeen == nstates:
                             break
@@ -818,7 +818,7 @@ cdef class Alignment:
                 while fSeen < nstates:
                     assert i < nstates
                     if fTrans[i] == -1:
-                        fTrans[i] = 1 << (nstates - fSeen - 1)
+                        fTrans[i] = 1 << fSeen
                         fSeen += 1
                     i += 1
 

@@ -1,0 +1,21 @@
+import sys
+
+print "Test begin"
+
+fastaStr = """\
+>one
+ACGT
+>two
+AAAA
+"""
+
+alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(fastaStr))
+alignment.fastaPrint(outFile=sys.stdout)
+distMatrix = alignment.jukesDists(avgAmbigs=False, scoreGaps=True)
+t = distMatrix.rnj()
+t.render(lengths=True, outFile=sys.stdout)
+
+lik = Crux.Tree.Lik.Lik(t, alignment)
+print "lnL: %.4f" % lik.lnL()
+
+print "Test end"

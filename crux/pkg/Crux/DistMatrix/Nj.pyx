@@ -964,10 +964,11 @@ cdef class Rnj(Nj):
     cdef rnj(self, bint random, bint additive):
         assert self.tree is not None # Was self.prepare() called?
 
-        if random:
-            additive = self._rnjRandomCluster(additive)
-        else:
-            additive = self._rnjDeterministicCluster(additive)
+        if self.n > 2:
+            if random:
+                additive = self._rnjRandomCluster(additive)
+            else:
+                additive = self._rnjDeterministicCluster(additive)
 
         # Join last two nodes.
 #        self._njDump()

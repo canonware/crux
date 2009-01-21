@@ -14,7 +14,7 @@ cdef extern from "CxLik.h":
         double *qEigVals
         double alpha
         double *gammas
-        CxtLikCL cL
+        CxtLikCL *cL
         bint entire
         double *stripeLnL
         double lnL

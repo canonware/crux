@@ -44,6 +44,7 @@ for s in dnaTestStrs:
     matrix = Crux.CTMatrix.CTMatrix(s, Crux.Character.Dna)
     alignment = Crux.CTMatrix.Alignment(matrix)
 
+    print "# Basic"
     for j in xrange(alignment.nchars):
         print alignment.getFreq(j),
     print
@@ -51,6 +52,7 @@ for s in dnaTestStrs:
 
     alignment.compact()
 
+    print "# Compact"
     for j in xrange(alignment.nchars):
         print alignment.getFreq(j),
     print
@@ -58,6 +60,7 @@ for s in dnaTestStrs:
 
     alignment.compact(fitch=True)
 
+    print "# Fitch compact"
     for j in xrange(alignment.nchars):
         print alignment.getFreq(j),
     print
@@ -65,6 +68,7 @@ for s in dnaTestStrs:
 
     alignment.pad('-', 4)
 
+    print "# Fitch compact plus pad"
     for j in xrange(alignment.nchars):
         print alignment.getFreq(j),
     print

@@ -84,6 +84,8 @@ CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
     int worksize, info;
     int ipiv[n];
 
+    // Q and V are operated on as column-major matrices in this function, in
+    // order to interface cleanly with Fortran conventions.
     CxLikQ(n, Q, R, Pi);
 
     // Get the optimal work size.
@@ -94,8 +96,6 @@ CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
     {
 	double work[worksize];
 
-	// From C's perspective, the upper triangle of Q is valid, which makes
-	// it the lower triangle from Fortran's perspective.
 	dsyev_("V", "L", &n, Q, &n, qEigVals, work, &worksize, &info);
 	if (info != 0) {
 	    return true;
@@ -103,9 +103,13 @@ CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
 	// Q now contains the orthonormal eigenvectors of Q.
     }
 
-    // Compute Q's inverse, and store the result in V.
+    // Compute Q's inverse eigenvectors, and store the result in V.
     memcpy(V, Q, nSq * sizeof(double));
-    info = clapack_dgetri(CblasRowMajor, n, V, n, ipiv);
+    info = clapack_dgetrf(CblasColMajor, n, n, V, n, ipiv);
+    if (info != 0) {
+	return true;
+    }
+    info = clapack_dgetri(CblasColMajor, n, V, n, ipiv);
     if (info != 0) {
 	return true;
     }
@@ -113,7 +117,7 @@ CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
     for (int i = 0; i < n; i++) {
 	for (int j = 0; j < n; j++) {
 	    for (int k = 0; k < n; k++) {
-		qEigVecCube[i*nSq + j*n + k] = Q[i*n + k] * V[k*n + j];
+		qEigVecCube[i*nSq + j*n + k] = Q[k*n + i] * V[j*n + k];
 	    }
 	}
     }
@@ -139,8 +143,11 @@ CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double muT) {
     for (int i = 0; i < n; i++) {
 	for (int j = 0; j < n; j++) {
 	    p = 0.0;
-	    for (int x = 0; x < n; x++) {
-		p += qEigVecCube[i*nSq + j*n + x] * qEigValsExp[x];
+	    for (int k = 0; k < n; k++) {
+		p += qEigVecCube[i*nSq + j*n + k] * qEigValsExp[k];
+	    }
+	    if (p < 0.0) {
+		p = 0.0;
 	    }
 	    P[i*n + j] = p;
 	}
@@ -205,7 +212,7 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 	for (unsigned c = cMin; c < cLim; c++) {
 	    double L = 0.0;
 	    for (unsigned i = 0; i < dim; i++) {
-		L += model->piDiag[i] * model->cL.mat[c*dim + i];
+		L += model->piDiag[i] * model->cL->mat[c*dim + i];
 	    }
 	    stripeLnL += log(L) * (double)lik->charFreqs[c];
 	}

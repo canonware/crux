@@ -136,19 +136,19 @@ cdef class Dna(Character):
 
         assert dna is None
         Character.__init__(self,
-          states=['T', 'G', 'C', 'A'],
+          states=['A', 'C', 'G', 'T'],
           ambiguities={
-            'K' : ['T', 'G'          ],
-            'Y' : ['T',      'C'     ],
-            'S' : [     'G', 'C'     ],
-            'B' : ['T', 'G', 'C'     ],
-            'W' : ['T',           'A'],
-            'R' : [     'G',      'A'],
-            'D' : ['T', 'G',      'A'],
-            'M' : [          'C', 'A'],
-            'H' : ['T',      'C', 'A'],
-            'V' : [     'G', 'C', 'A'],
-            'N' : ['T', 'G', 'C', 'A'],
+            'K' : [          'G', 'T'],
+            'Y' : [     'C',      'T'],
+            'S' : [     'C', 'G'     ],
+            'B' : [     'C', 'G', 'T'],
+            'W' : ['A',           'T'],
+            'R' : ['A',      'G'     ],
+            'D' : ['A',      'G', 'T'],
+            'M' : ['A', 'C'          ],
+            'H' : ['A', 'C',      'T'],
+            'V' : ['A', 'C', 'G'     ],
+            'N' : ['A', 'C', 'G', 'T'],
             '-' : [                  ]
           },
           aliases={

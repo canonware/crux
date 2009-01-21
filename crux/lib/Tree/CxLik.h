@@ -59,7 +59,7 @@ typedef struct {
     double *gammas;
 
     // Site-specific conditional likelihoods for the root node.
-    CxtLikCL cL;
+    CxtLikCL *cL;
 
     // False if execution planning finds any places where conditional
     // likelihoods have to be recomputed.  If true, then the contents of
@@ -137,9 +137,10 @@ typedef struct {
     //
     // The steps array size is incrementally increased as necessary so that
     // there is always enough space in the steps array to store the full update
-    // plan.  At most, we require ((2*ntaxa - 3) * nmodels) steps (one per
-    // branch per model).  stepsLen records the length of the current update
-    // plan, and stepsMax records how much space is available.
+    // plan.  At most, we require ((2*ntaxa - 2) * nmodels) steps (one per
+    // branch per model, keeping in mind that we may need one extra per model
+    // for the synthetic root).  stepsLen records the length of the current
+    // update plan, and stepsMax records how much space is available.
     CxtLikStep *steps;
     unsigned stepsLen;
     unsigned stepsMax;
