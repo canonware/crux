@@ -12,17 +12,28 @@ dsyev_(char *jobz, char *uplo, int *n, double *A, int *lda, double *w,
 // each row (of the corresponding full matrix) sums to 0.
 CxmpInline void
 CxLikQ(int n, double *Q, double *R, double *Pi) {
-    double fixedRate, piSum, elm;
+    double fixedRate, rSum, rScale, piSum, elm;
     unsigned i, j;
 
     // Rescale R, if necessary.
     fixedRate = R[(n-1)*n - 1];
-    if (fixedRate != 1.0)
+    if (fixedRate != 1.0) {
 	for (i = 0; i < n; i++) {
 	    for (j = i + 1; j < n; j++) {
 		R[i*n + j] /= fixedRate;
 	    }
 	}
+    }
+
+    // Compute the scaling factor for R that adjusts the mean instantaneous
+    // mutation rate to 1.
+    rSum = 0.0;
+    for (i = 0; i < n; i++) {
+	for (j = i + 1; j < n; j++) {
+	    rSum += R[i*n + j];
+	}
+    }
+    rScale = ((double)n*n) / (rSum * 2.0);
 
     // Rescale Pi, if necessary.
     piSum = 0.0;
@@ -41,7 +52,7 @@ CxLikQ(int n, double *Q, double *R, double *Pi) {
     }
     for (i = 0; i < n; i++) {
 	for (j = i + 1; j < n; j++) {
-	    elm =  R[i*n + j] * Pi[j];
+	    elm =  R[i*n + j] * rScale * Pi[j];
 	    Q[i*n + j] = elm;
 	    Q[i*n + i] -= elm;
 	    Q[j*n + j] -= elm;
@@ -146,10 +157,19 @@ CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double muT) {
 	    for (int k = 0; k < n; k++) {
 		p += qEigVecCube[i*nSq + j*n + k] * qEigValsExp[k];
 	    }
-	    if (p < 0.0) {
-		p = 0.0;
-	    }
 	    P[i*n + j] = p;
+	}
+    }
+
+    // Eigen decomposition can result in slightly negative probabilities, due
+    // to rounding error.  Clamp such aberrant values in symmetric pairs, such
+    // that slightly positive probabilities are also rounded to 0.0.
+    for (int i = 0; i < n; i++) {
+	for (int j = 0; j < n; j++) {
+	    if (P[i*n + j] <= 0.0) {
+		P[i*n + j] = 0.0;
+		P[j*n + i] = 0.0;
+	    }
 	}
     }
 }

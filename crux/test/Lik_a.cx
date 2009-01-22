@@ -2,20 +2,38 @@ import sys
 
 print "Test begin"
 
-fastaStr = """\
+fastaStrs = [
+    """\
 >one
 ACGT
 >two
 AAAA
+""",
+
+    """\
+>A
+    ata
+>B
+    cta
+>C
+    cat
+>D
+    gat
+>E
+    gtr
 """
+]
 
-alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(fastaStr))
-alignment.fastaPrint(outFile=sys.stdout)
-distMatrix = alignment.jukesDists(avgAmbigs=False, scoreGaps=True)
-t = distMatrix.rnj()
-t.render(lengths=True, outFile=sys.stdout)
+for s in fastaStrs:
+    print "==============================================="
+    alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(s))
+    alignment.fastaPrint(outFile=sys.stdout)
+    distMatrix = alignment.jukesDists(avgAmbigs=False, scoreGaps=True)
+    t = distMatrix.rnj()
+    t.canonize(distMatrix.taxaMap)
+    t.render(lengths=True, outFile=sys.stdout)
 
-lik = Crux.Tree.Lik.Lik(t, alignment)
-print "lnL: %.4f" % lik.lnL()
+    lik = Crux.Tree.Lik.Lik(t, alignment)
+    print "lnL: %.4f" % lik.lnL()
 
 print "Test end"

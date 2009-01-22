@@ -278,7 +278,7 @@ cdef class Tree:
         """
         if self._cacheSn != self.sn:
             self._recache()
-        return self.cachedNodes
+        return self._cachedNodes
     property nodes:
         """
             Get a list of all nodes in the tree.  Do not modify the list.

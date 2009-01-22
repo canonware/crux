@@ -138,7 +138,7 @@ cdef class Lik:
         cdef unsigned stepsMax, i
 
         if tree.rooted:
-            raise ValueError("Tree must not be rooted")
+            raise ValueError("Tree must be unrooted")
 
         self.char_ = alignment.charType.get()
 

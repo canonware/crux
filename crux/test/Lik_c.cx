@@ -1,0 +1,31 @@
+import sys
+
+print "Test begin"
+
+fastaStr = """\
+>one
+ACGT
+>two
+ACGT
+>three
+AAAA
+"""
+
+trees = [
+    "(one:0.0,two:0.0,three:1.25);"
+]
+
+alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(fastaStr))
+alignment.fastaPrint(outFile=sys.stdout)
+distMatrix = alignment.jukesDists(avgAmbigs=False, scoreGaps=True)
+for newickStr in trees:
+    t = Crux.Tree.Tree(newickStr)
+    t.deroot()
+    t.canonize(distMatrix.taxaMap)
+    t.render(lengths=True, outFile=sys.stdout)
+    lik = Crux.Tree.Lik.Lik(t, alignment)
+    for n in t.nodes:
+        print "lnL: %.4f" % lik.lnL(n)
+
+print "Test end"
+
