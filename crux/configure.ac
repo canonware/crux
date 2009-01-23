@@ -100,21 +100,25 @@ dnl definitions need to be seen before any headers are included, which is a pain
 dnl to make happen otherwise.
 case "${host}" in
   *-*-darwin*)
+	AC_DEFINE([CxmOsDarwin])
 	CFLAGS="$CFLAGS -fno-common -no-cpp-precomp"
 	abi="macho"
 	RPATH=""
 	;;
   *-*-freebsd*)
+	AC_DEFINE([CxmOsBSD])
 	CFLAGS="$CFLAGS"
 	abi="elf"
 	RPATH="-Wl,-rpath,"
 	;;
   *-*-linux*)
+	AC_DEFINE([CxmOsLinux])
 	CFLAGS="$CFLAGS"
 	abi="elf"
 	RPATH="-Wl,-rpath,"
 	;;
   *-*-netbsd*)
+	AC_DEFINE([CxmOsBSD])
 	AC_MSG_CHECKING([ABI])
         AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
 [[#ifdef __ELF__
@@ -129,6 +133,7 @@ case "${host}" in
 	RPATH="-Wl,-rpath,"
 	;;
   *-*-solaris2*)
+	AC_DEFINE([CxmOsSolaris])
 	CFLAGS="$CFLAGS"
 	abi="elf"
 	RPATH="-Wl,-R,"
@@ -267,6 +272,17 @@ if test "x$enable_inlines" = "x1" ; then
   AC_DEFINE([CxmUseInlines])
 fi
 AC_SUBST([enable_inlines])
+
+dnl ============================================================================
+dnl Configure pthreads.
+
+AC_CHECK_HEADERS([pthread.h], , [AC_MSG_ERROR([pthread.h is missing])])
+AC_CHECK_LIB([pthread], [pthread_create], [LIBS="$LIBS -lpthread"],
+  [AC_CHECK_LIB([c_r], [pthread_create], 
+    [LIBS="$LIBS -pthread"],
+    [AC_MSG_ERROR([libpthread appears non-functional])])])
+
+CPPFLAGS="$CPPFLAGS -D_REENTRANT"
 
 dnl ============================================================================
 dnl Make sure the version of python found is sufficient.

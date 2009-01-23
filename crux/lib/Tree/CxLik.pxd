@@ -45,4 +45,4 @@ cdef extern from "CxLik.h":
       double *qEigVals)
     cdef void CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals,
       double muRT)
-    cdef bint CxLikExecute(CxtLik *lik, double *rLnL)
+    cdef void CxLikExecute(CxtLik *lik, double *rLnL)

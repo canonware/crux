@@ -151,7 +151,7 @@ CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
   double *qEigVals);
 void
 CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double muT);
-bool
+void
 CxLikExecute(CxtLik *lik, double *rLnL);
 
 #endif // CxLik_h

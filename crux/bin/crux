@@ -25,6 +25,8 @@ class CruxHelpFormatter(optparse.IndentedHelpFormatter):
     -i, --interactive          | Run in interactive mode.
     -v, --verbose              | Enable verbose output.
     -q, --quiet                | Disable verbose output.
+    -t, --threaded             | Enable thread parallelism (default).
+    -u, --unthreaded           | Disable thread parallelism.
     -s <int>, --seed=<int>     | Set pseudo-random number generator seed.
     -f <file>, --file=<file>   | Read input from <file>.
 
@@ -52,6 +54,10 @@ def parse_options():
     parser.add_option("-q", "--quiet", dest="verbose", action="store_false")
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
       default=None)
+    parser.add_option("-t", "--threaded", dest="threaded", action="store_true",
+      default=True)
+    parser.add_option("-u", "--unthreaded", dest="threaded",
+      action="store_false")
     parser.add_option("-s", "--seed", dest="seed", type="int", default=None)
     parser.add_option("-f", "--file", dest="infile", default=None)
     parser.add_option("--__execed", dest="execed", action="store_true",
@@ -97,15 +103,7 @@ def parse_options():
 # Parse command line options.
 opts = parse_options()
 
-# Copy configuration to Crux.Config.
-Crux.Config.batch = opts.batch
-Crux.Config.verbose = opts.verbose
-if opts.seed is not None:
-    Crux.seed(opts.seed)
-Crux.Config.infile = opts.infile
-Crux.Config.scriptargs = opts.scriptargs
-
-if not Crux.Config.batch and not opts.execed:
+if not opts.batch and not opts.execed:
     # Precursor to interactive mode.
     #
     # In order for interactive command line editing to work in its full glory,
@@ -126,6 +124,16 @@ if not Crux.Config.batch and not opts.execed:
     os.execv("@PYTHON@", args)
     # Not reached.
 
+# Copy configuration to Crux.Config.
+Crux.Config.batch = opts.batch
+Crux.Config.verbose = opts.verbose
+if opts.threaded:
+    Crux.threaded()
+if opts.seed is not None:
+    Crux.seed(opts.seed)
+Crux.Config.infile = opts.infile
+Crux.Config.scriptargs = opts.scriptargs
+
 # Print various info if in verbose mode.
 if Crux.Config.verbose:
     print "Crux, version @crux_version@"
@@ -135,6 +143,8 @@ if Crux.Config.verbose:
                           time.localtime(time.time()))
 
     print "Process ID: %d" % os.getpid()
+
+    print "Threaded: %r" % Crux.Config.threaded
 
     print "Random number seed: %d" % Crux.Config.seed
 

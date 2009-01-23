@@ -17,6 +17,7 @@ mpi = (True if @enable_mpi@ else False)
 # front end.
 batch = True
 verbose = True
+threaded = False
 Crux.seed(int(time.time() * 1000000) & 0xffffffff) # Sets Config.seed.
 infile = None
 scriptargs = []

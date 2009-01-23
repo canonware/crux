@@ -1,14 +1,18 @@
+import Crux.Config as Config
 from Crux.Character cimport Character
 from Crux.Taxa cimport Taxon
 from Crux.Tree cimport Tree, Node, Edge, Ring
 from Crux.CTMatrix cimport Alignment
-from Crux.JobQ cimport JobQ
 
+from Cx cimport CxNcpus
 from libc cimport *
 from libm cimport *
 from CxLik cimport *
 
-# XXX Move somewhere more appropriate?
+# Conditional likelihoods are allocated such that they are aligned to cacheline
+# boundaries, and striping is configured to avoid false cacheline sharing among
+# worker threads.  Over-estimating cacheline size is okay (within reason), as
+# long as the estimate is a multiple of the true cacheline size.
 cdef enum:
     cacheLine = 64
 
@@ -134,23 +138,30 @@ cdef class Lik:
             self.lik = NULL
 
     def __init__(self, Tree tree, Alignment alignment, unsigned nmodels=1,
-      unsigned ncat=4, JobQ jobQ=None, unsigned stripeWidth=0):
-        cdef unsigned stepsMax, i
+      unsigned ncat=4):
+        cdef unsigned stripeWidth, stepsMax, i
 
         if tree.rooted:
             raise ValueError("Tree must be unrooted")
 
         self.char_ = alignment.charType.get()
 
-        # Configure striping (disabled unless using a JobQ to parallelize cL
-        # computation).
-        self.jobQ = jobQ
-        if jobQ is None or stripeWidth == 0:
+        # Configure striping.
+        if Config.threaded:
+            # Stripe width should always be a multiple of 2 (assuming 64-byte
+            # cachelines) in order to avoid false cacheline sharing between
+            # threads.
+            stripeWidth = cacheLine / (4 * sizeof(double))
+
+            # Limit the number of stripes to the number of CPUs.
+            while alignment.nchars / stripeWidth > CxNcpus:
+                stripeWidth *= 2
+        else:
             stripeWidth = alignment.nchars
 
         # Pad the alignment, if necessary.
         if alignment.nchars % stripeWidth != 0:
-            alignment.pad(self.char_.code2val(0), stripeWidth - \
+            alignment.pad(self.char_.val2code(self.char_.any), stripeWidth - \
               (alignment.nchars % stripeWidth))
 
         self.sn = 0
@@ -168,6 +179,7 @@ cdef class Lik:
         self.lik.charFreqs = self.alignment.freqs
         self.lik.stripeWidth = stripeWidth
         self.lik.nstripes = self.lik.nchars / self.lik.stripeWidth
+        assert self.lik.nstripes <= CxNcpus
 
         self.lik.models = <CxtLikModel *>calloc(nmodels, sizeof(CxtLikModel))
         if self.lik.models == NULL:
@@ -696,7 +708,6 @@ cdef class Lik:
         self._plan(root)
 
         # Execute the plan.
-        if CxLikExecute(self.lik, &ret):
-            raise Exception("Error during plan execution")
+        CxLikExecute(self.lik, &ret)
 
         return ret

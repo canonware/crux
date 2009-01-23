@@ -22,4 +22,9 @@
 #undef CxmCpuAmd64
 #undef CxmCpuPpc
 
+#undef CxmOsBSD
+#undef CxmOsLinux
+#undef CxmOsDarwin
+#undef CxmOsSolaris
+
 #undef HAVE_STDBOOL_H

@@ -1,7 +1,6 @@
 from Crux.Character cimport Character
 from Crux.Tree cimport Tree, Node, Ring
 from Crux.CTMatrix cimport Alignment
-from Crux.JobQ cimport JobQ
 
 from CxLik cimport *
 
@@ -33,12 +32,6 @@ cdef class CL:
 
 cdef class Lik:
     cdef readonly Character char_
-
-    # Jobs can be submitted to the jobQ, which has a pool of worker threads
-    # doing the work.  The stripe size is used to determine how finely the
-    # alignment is divided into independent jobs when computing conditional
-    # likelihoods.
-    cdef JobQ jobQ
 
     # Every model of evolution is assigned a unique serial number, so that
     # cached conditional likelihoods can be associated with them.  This field

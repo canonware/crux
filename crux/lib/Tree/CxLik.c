@@ -1,7 +1,35 @@
 #include "CxLik.h"
+#include "../CxMq.h"
 
 #include <clapack.h>
 #include <math.h>
+
+// Worker thread context.
+typedef struct {
+    unsigned id;
+    pthread_t pthread;
+} CxtLikWorkerCtx;
+
+// Message structure, passed through message queues.
+typedef struct {
+    CxtLik *lik;
+    unsigned stripe;
+} CxtLikMsg;
+
+// Thread initialization control variable.
+static pthread_once_t CxpLikOnce = PTHREAD_ONCE_INIT;
+
+// Set to non-zero if threading is enabled, and initialization has occurred.
+static unsigned CxpLikNThreads = 0;
+
+// Array of CxpLikNThreads extant thread contexts.
+static CxtLikWorkerCtx *CxpLikThreads;
+
+// Message queues, used to communicate with worker threads.  Jobs are enqueued
+// in CxpLikTodoMq, and the workers indicate job completion by sending the same
+// message structures back through CxpLikDoneMq.
+static CxtMq CxpLikTodoMq;
+static CxtMq CxpLikDoneMq;
 
 // C-compatible prototype for the Fortran-based DSYEV in LAPACK.
 extern void
@@ -240,16 +268,115 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
     }
 }
 
-// XXX Generalize to handle threads.
-bool
+// Worker thread entry function.
+void *
+CxpLikWorker(void *arg) {
+//    CxtLikWorkerCtx *ctx = (CxtLikWorkerCtx *)arg;
+    CxtLikMsg *msg;
+
+    // Iteratively get a job, perform it, then send a return message to
+    // indicate completion status.
+    while (CxMqGet(&CxpLikTodoMq, &msg) == false) {
+	CxLikExecuteStripe(msg->lik, msg->stripe);
+	CxMqPut(&CxpLikDoneMq, &msg);
+    }
+
+    return NULL;
+}
+
+// Perform worker thread pool cleanup.
+static void
+CxpLikAtexit(void) {
+    void *result;
+
+    CxMqGetStop(&CxpLikTodoMq);
+    for (unsigned i = 0; i < CxpLikNThreads; i++) {
+	pthread_join(CxpLikThreads[i].pthread, &result);
+    }
+    free(CxpLikThreads);
+    CxpLikThreads = NULL;
+}
+
+// Initialize the worker thread pool.  Since no errors are propagated from this
+// function, perform initialization in an order that allows correct function
+// (though degraded performance) even if an error occurs.
+static void
+CxpLikThreaded(void) {
+    CxpLikThreads = (CxtLikWorkerCtx *)malloc(CxNcpus *
+      sizeof(CxtLikWorkerCtx));
+    if (CxpLikThreads == NULL) {
+	return;
+    }
+
+    atexit(CxpLikAtexit);
+
+    // Properly set the minimum number of message slots, so that the CxMq code
+    // will never suffer from allocation failures after CxMqNew().
+    if (CxMqNew(&CxpLikTodoMq, sizeof(CxtLikMsg *), CxNcpus)) {
+	return;
+    }
+    if (CxMqNew(&CxpLikDoneMq, sizeof(CxtLikMsg *), CxNcpus)) {
+	return;
+    }
+
+    for (unsigned i = 0; i < CxNcpus; i++) {
+	CxpLikThreads[i].id = i;
+	int err = pthread_create(&CxpLikThreads[i].pthread, NULL, CxpLikWorker,
+	  (void *)&CxpLikThreads[i]);
+	if (err) {
+	    return;
+	}
+	CxpLikNThreads++;
+    }
+}
+
+void
 CxLikExecute(CxtLik *lik, double *rLnL) {
-    unsigned stripe;
     double lnL;
 
     if (lik->stepsLen > 0) {
+	if (CxNcpus > 1) {
+	    pthread_once(&CxpLikOnce, CxpLikThreaded);
+	}
+
 	// Compute log-likelihoods for each model in the mixture, stripewise.
-	for (stripe = 0; stripe < lik->nstripes; stripe++) {
-	    CxLikExecuteStripe(lik, stripe);
+	if (CxpLikNThreads > 0 && lik->nstripes > 1) {
+	    CxtLikMsg msgs[CxNcpus];
+	    CxtLikMsg *msg;
+	    unsigned stripe, lim, ndone;
+
+	    // Stuff as many jobs as possible into the message queue.
+	    if (lik->nstripes < sizeof(msgs) / sizeof(CxtLikMsg)) {
+		lim = lik->nstripes;
+	    } else {
+		lim = sizeof(msgs) / sizeof(CxtLikMsg);
+	    }
+	    for (stripe = 0; stripe < lim; stripe++) {
+		msgs[stripe].lik = lik;
+		msgs[stripe].stripe = stripe;
+		CxMqPut(&CxpLikTodoMq, &msgs[stripe]);
+	    }
+
+	    ndone = 0;
+	    // Receive status messages and re-use the msg data structures to
+	    // send more work messages.
+	    for (; stripe < lik->nstripes; stripe++) {
+		CxMqGet(&CxpLikDoneMq, &msg);
+		msg->stripe = stripe;
+		CxMqPut(&CxpLikTodoMq, msg);
+		ndone++;
+	    }
+
+	    // Receive remaining status messages.
+	    while (ndone < lik->nstripes) {
+		CxMqGet(&CxpLikDoneMq, &msg);
+		ndone++;
+	    }
+	} else {
+	    // No worker threads; do all computations in the main thread.
+	    for (unsigned stripe = 0; stripe < lik->nstripes; stripe++) {
+		CxLikExecuteStripe(lik, stripe);
+	    }
 	}
     }
 
@@ -271,6 +398,4 @@ CxLikExecute(CxtLik *lik, double *rLnL) {
 	lnL += model->lnL * model->weight;
     }
     *rLnL = lnL;
-
-    return false;
 }

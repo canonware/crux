@@ -23,6 +23,7 @@ typedef unsigned char bool;
 #include <string.h>
 #include <strings.h>
 #include <sys/types.h>
+#include <pthread.h>
 
 // assert()-alike.  It's a bit prettier and cleaner, but the same idea.
 #define CxmError(a)							\
@@ -57,8 +58,7 @@ typedef unsigned char bool;
 #define CxmCheckPtr(x)							\
     do									\
     {									\
-	if (((x) == NULL) || ((x) == (void *) 0xa5a5a5a5)		\
-	    || ((x) == (void *) 0x5a5a5a5a))				\
+	if ((x) == NULL)						\
 	{								\
 	    fprintf(stderr, "%s:%d:%s(): Invalid pointer: %s (%p)\n",	\
 		    __FILE__, __LINE__, __func__, #x, (x));		\
@@ -97,8 +97,12 @@ typedef unsigned char bool;
 #include "CxAmd64.h"
 #include "CxPpc.h"
 
+extern unsigned CxNcpus;
+
 void
 CxInit(void);
+void
+CxThreaded(void);
 
 #ifndef CxmUseInlines
 int
