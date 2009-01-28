@@ -1,14 +1,13 @@
 Test begin
->A
-ata
->B
-cta
->C
-cat
->D
-gat
->E
-gtr
+  111
+  ===
+A ata
+B cta
+C cat
+D gat
+E gtr
+  ===
+  0
 (A:1.0000000e-01,B:1.0000000e-01,(C:2.5000000e-01,(D:2.0000000e-01,E:3.0000001e-01):1.0000000e-01):4.0000001e-01);
 catMedian: False
   lnL(alpha=0.500000): -21.91979

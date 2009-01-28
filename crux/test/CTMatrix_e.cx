@@ -45,33 +45,21 @@ for s in dnaTestStrs:
     alignment = Crux.CTMatrix.Alignment(matrix)
 
     print "# Basic"
-    for j in xrange(alignment.nchars):
-        print alignment.getFreq(j),
-    print
-    print alignment.fastaPrint()
+    print alignment.render()
 
     alignment.compact()
 
     print "# Compact"
-    for j in xrange(alignment.nchars):
-        print alignment.getFreq(j),
-    print
-    print alignment.fastaPrint()
+    print alignment.render()
 
     alignment.compact(fitch=True)
 
     print "# Fitch compact"
-    for j in xrange(alignment.nchars):
-        print alignment.getFreq(j),
-    print
-    print alignment.fastaPrint()
+    print alignment.render()
 
     alignment.pad('-', 4)
 
     print "# Fitch compact plus pad"
-    for j in xrange(alignment.nchars):
-        print alignment.getFreq(j),
-    print
-    print alignment.fastaPrint()
+    print alignment.render()
 
 print "Test end"

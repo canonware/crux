@@ -1,10 +1,11 @@
 Test begin
->one
-ACGT
->two
-ACGT
->three
-AAAA
+      1111
+      ====
+one   ACGT
+two   ACGT
+three AAAA
+      ====
+      0
 (one:0.0000000e+00,two:0.0000000e+00,three:1.2500000e+00);
 lnL: -11.2694
 lnL: -11.2694

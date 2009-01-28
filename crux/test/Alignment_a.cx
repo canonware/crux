@@ -1,0 +1,10 @@
+import os.path
+
+print "Test begin"
+
+alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix( \
+  open(os.path.join(Crux.Config.scriptargs[0], "test/rinehart.fasta"))))
+alignment.compact()
+print alignment.render()
+
+print "Test end"

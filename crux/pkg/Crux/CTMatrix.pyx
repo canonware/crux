@@ -1025,6 +1025,105 @@ cdef class Alignment:
 
         return ret
 
+    cpdef str render(self, unsigned interleave=50, file outFile=None):
+        """
+            Render the alignment in a human-readable format that includes
+            site frequencies.  Interleave data, unless 'interleave' is 0.  If
+            'outFile' is not specified, return a string rather than printing.
+        """
+        cdef unsigned i, j, k, freq, lim
+        cdef int labelWidth
+        cdef list taxa, line, lines
+        cdef Taxon taxon
+        cdef str label, taxonData
+
+        if outFile is None:
+            lines = []
+
+        taxa = self.taxaMap.taxaGet()
+
+        if self.nchars > 0:
+            labelWidth = 0
+            for taxon in taxa:
+                if len(taxon.label) > labelWidth:
+                    labelWidth = len(taxon.label)
+
+            if interleave == 0:
+                interleave = self.nchars
+            elif interleave % 5 != 0:
+                # interleave must be a multiple of 5, due to how spacing is
+                # implemented.
+                interleave += 5 - (interleave % 5)
+
+            for 0 <= i < self.nchars by interleave:
+                if i + interleave < self.nchars:
+                    lim = i + interleave
+                else:
+                    lim = self.nchars
+
+                # Place a gap between interleavings.
+                if i > 0:
+                    lines.append("\n")
+
+                # Render site frequencies.
+                line = []
+                line.append("%-*s" % (labelWidth, ""))
+                for i <= j < lim:
+                    if j % 5 == 0:
+                        line.append(" ")
+                    freq = self.freqs[j]
+                    if freq < 10:
+                        line.append("%d" % freq)
+                    else:
+                        line.append("(%d)" % freq)
+                line.append("\n")
+                lines.append("".join(line))
+
+                # Render top === line.
+                line = []
+                line.append("%-*s " % (labelWidth, ""))
+                line.append("=" * ((lim-i) + (lim-1-i)/5))
+                line.append("\n")
+                lines.append("".join(line))
+
+                # Render labels and character data.
+                for 0 <= k < len(taxa):
+                    taxon = taxa[k]
+                    line = []
+                    line.append("%-*s" % (labelWidth, taxon.label))
+                    taxonData = self.getSeq(k)
+                    for i <= j < lim by 5:
+                        line.append(" %s" % taxonData[j:j+5])
+                    line.append("\n")
+                    lines.append("".join(line))
+
+                # Render bottom === line.
+                line = []
+                line.append("%-*s " % (labelWidth, ""))
+                line.append("=" * ((lim-i) + (lim-1-i)/5))
+                line.append("\n")
+                lines.append("".join(line))
+
+                # Render offsets.
+                line = []
+                line.append("%-*s " % (labelWidth, ""))
+                for i <= j < lim by 5:
+                    line.append("%-6d" % j)
+                lines.append(("".join(line)).rstrip() + "\n")
+        else:
+            # No character data.
+            for 0 <= k < len(taxa):
+                taxon = taxa[k]
+                lines.append("%s\n" % taxon.label)
+
+        if outFile is None:
+            if len(lines) > 0:
+                # Chop off the last '\n'.
+                lines[-1] = lines[-1][:-1]
+            return "".join(lines)
+        else:
+            return None
+
     cpdef str fastaPrint(self, file outFile=None):
         """
             Print the alignment in FASTA format.  If 'outFile' is not

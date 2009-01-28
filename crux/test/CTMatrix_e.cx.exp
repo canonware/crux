@@ -1,132 +1,126 @@
 Test begin
 # Basic
-1 1 1 1 1 1
->one
-ACGTGG
->two
-ACGTGG
->three
-ACTTGT
+      11111 1
+      =======
+one   ACGTG G
+two   ACGTG G
+three ACTTG T
+      =======
+      0     5
 # Compact
-1 1 1 2 1
->one
-ACGGT
->two
-ACGGT
->three
-ACGTT
+      11121
+      =====
+one   ACGGT
+two   ACGGT
+three ACGTT
+      =====
+      0
 # Fitch compact
-
->one
->two
->three
+one
+two
+three
 # Fitch compact plus pad
-1 1 1 1
->one
-----
->two
-----
->three
-----
+      1111
+      ====
+one   ----
+two   ----
+three ----
+      ====
+      0
 # Basic
-1 1 1 1 1 1 1 1 1 1 1
->one
-aACGTGtGkK-
->two
-aAcGTGtGyYN
->three
-aACTTGtTSsn
+      11111 11111 1
+      =============
+one   aACGT GtGkK -
+two   aAcGT GtGyY N
+three aACTT GtTSs n
+      =============
+      0     5     10
 # Compact
-1 2 1 1 2 2 2
->one
--ACGGKT
->two
-NACGGYT
->three
-NACGTST
+      12112 22
+      ========
+one   -ACGG KT
+two   NACGG YT
+three NACGT ST
+      ========
+      0     5
 # Fitch compact
-1 2
->one
--M
->two
-NS
->three
-NR
+      12
+      ==
+one   -M
+two   NS
+three NR
+      ==
+      0
 # Fitch compact plus pad
-1 2 1 1 1 1
->one
--M----
->two
-NS----
->three
-NR----
+      12111 1
+      =======
+one   -M--- -
+two   NS--- -
+three NR--- -
+      =======
+      0     5
 # Basic
-1 1 1 1 1 1 1 1 1 1 1
->one
-TTTTTTTTTTT
->two
-ttttttttttt
->three
-TtTtTtTtTtT
+      11111 11111 1
+      =============
+one   TTTTT TTTTT T
+two   ttttt ttttt t
+three TtTtT tTtTt T
+      =============
+      0     5     10
 # Compact
-11
->one
-T
->two
-T
->three
-T
+      (11)
+      =
+one   T
+two   T
+three T
+      =
+      0
 # Fitch compact
-
->one
->two
->three
+one
+two
+three
 # Fitch compact plus pad
-1 1 1 1
->one
-----
->two
-----
->three
-----
+      1111
+      ====
+one   ----
+two   ----
+three ----
+      ====
+      0
 # Basic
-1 1 1 1 1 1 1 1 1 1 1 1
->one
-AaCtYKBVacGT
->two
-AACtYKATcaAA
->three
-CcGcRHATcAaa
->four
-CCGCRHATcAaA
+      11111 11111 11
+      ==============
+one   AaCtY KBVac GT
+two   AACtY KATca AA
+three CcGcR HATcA aa
+four  CCGCR HATcA aA
+      ==============
+      0     5     10
 # Compact
-2 1 1 1 1 1 1 1 1 1 1
->one
-AABCCGKTTVY
->two
-ACAACAKATTY
->three
-CCAAGAHACTR
->four
-CCAAGAHACTR
+      21111 11111 1
+      =============
+one   AABCC GKTTV Y
+two   ACAAC AKATT Y
+three CCAAG AHACT R
+four  CCAAG AHACT R
+      =============
+      0     5     10
 # Fitch compact
-4 1 1 2
->one
-AMMV
->two
-AMMT
->three
-CBKT
->four
-CBKT
+      4112
+      ====
+one   AMMV
+two   AMMT
+three CBKT
+four  CBKT
+      ====
+      0
 # Fitch compact plus pad
-4 1 1 2 1 1 1 1
->one
-AMMV----
->two
-AMMT----
->three
-CBKT----
->four
-CBKT----
+      41121 111
+      =========
+one   AMMV- ---
+two   AMMT- ---
+three CBKT- ---
+four  CBKT- ---
+      =========
+      0     5
 Test end

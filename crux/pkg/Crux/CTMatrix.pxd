@@ -56,6 +56,7 @@ cdef class Alignment:
     cdef int _fitchCompact(self, list deco) except -1
     cpdef int compact(self, bint fitch=*)
 
+    cpdef str render(self, unsigned interleave=*, file outFile=*)
     cpdef str fastaPrint(self, file outFile=*)
 
     cpdef DistMatrix dists(self, bint avgAmbigs=*, bint scoreGaps=*)
