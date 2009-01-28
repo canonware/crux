@@ -40,30 +40,20 @@ dsyev_(char *jobz, char *uplo, int *n, double *A, int *lda, double *w,
 // each row (of the corresponding full matrix) sums to 0.
 CxmpInline void
 CxLikQ(int n, double *Q, double *R, double *Pi) {
-    double fixedRate, rSum, rScale, piSum, elm;
+    double rSum, rNorm, piSum, elm;
     unsigned i, j;
 
-    // Rescale R, if necessary.
-    fixedRate = R[(n-1)*n - 1];
-    if (fixedRate != 1.0) {
-	for (i = 0; i < n; i++) {
-	    for (j = i + 1; j < n; j++) {
-		R[i*n + j] /= fixedRate;
-	    }
-	}
-    }
-
-    // Compute the scaling factor for R that adjusts the mean instantaneous
-    // mutation rate to 1.
+    // Compute the normalization factor for R that adjusts the mean
+    // instantaneous mutation rate to 1.
     rSum = 0.0;
     for (i = 0; i < n; i++) {
 	for (j = i + 1; j < n; j++) {
 	    rSum += R[i*n + j];
 	}
     }
-    rScale = ((double)n*n) / (rSum * 2.0);
+    rNorm = ((double)n*n) / (rSum * 2.0);
 
-    // Rescale Pi, if necessary.
+    // Normalize Pi such that the frequencies sum to 1.
     piSum = 0.0;
     for (i = 0; i < n; i++) {
 	piSum += Pi[i];
@@ -80,7 +70,7 @@ CxLikQ(int n, double *Q, double *R, double *Pi) {
     }
     for (i = 0; i < n; i++) {
 	for (j = i + 1; j < n; j++) {
-	    elm =  R[i*n + j] * rScale * Pi[j];
+	    elm = (R[i*n + j] * rNorm) * Pi[j];
 	    Q[i*n + j] = elm;
 	    Q[i*n + i] -= elm;
 	    Q[j*n + j] -= elm;
@@ -92,6 +82,14 @@ CxLikQ(int n, double *Q, double *R, double *Pi) {
 // products conceptually defined as:
 //
 //   qEigVecCube[i][j][k] = qEigVecs[i][k] * qEigVecsInv[k][j]
+//
+// This cube is used when exponentiating Q, based on the fact that
+//
+//    Q      D  -1
+//   e  = V*e *V  ,
+//
+// where V is the matrix of eigenvectors, and D is the diagonal matrix of
+// eigenvalues.
 //
 //                    ___j
 //                   /
@@ -164,19 +162,20 @@ CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
     return false;
 }
 
-// Compute substitution probabilities, based on the eigenvector/eigenvalue
-// decomposition of a Q matrix, mu, and t (muT == mu * t).
+// Compute substitution probabilities, based on the eigen decomposition of a Q
+// matrix, and branch length.  (Mutation rate is normalized in CxLikQ(), so
+// that branch length has a standardized interpretation.)
 //
-//           Q*mu*t
-//   P(t) = e
+//             Q*v
+//   P(Q,v) = e
 void
-CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double muT) {
+CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double v) {
     int nSq = n*n;
     double qEigValsExp[n];
-    double p;
+    double p, elmA, elmB;
 
     for (int i = 0; i < n; i++) {
-	qEigValsExp[i] = exp(qEigVals[i] * muT);
+	qEigValsExp[i] = exp(qEigVals[i] * v);
     }
 
     for (int i = 0; i < n; i++) {
@@ -192,57 +191,97 @@ CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double muT) {
     // Eigen decomposition can result in slightly negative probabilities, due
     // to rounding error.  Clamp such aberrant values in symmetric pairs, such
     // that slightly positive probabilities are also rounded to 0.0.
+    // Additionally, average unequal pairs in order to achieve a truly
+    // symmetric matrix.
     for (int i = 0; i < n; i++) {
-	for (int j = 0; j < n; j++) {
-	    if (P[i*n + j] <= 0.0) {
+	for (int j = i + 1; j < n; j++) {
+	    if (P[i*n + j] <= 0.0 || P[j*n + i] <= 0.0) {
 		P[i*n + j] = 0.0;
 		P[j*n + i] = 0.0;
+	    } else if ((elmA = P[i*n + j]) != (elmB = P[j*n + i])) {
+		double elm = (elmA + elmB) / 2.0;
+		P[i*n + j] = elm;
+		P[j*n + i] = elm;
 	    }
 	}
     }
 }
 
-// XXX Add support for Gamma-distributed rates.
 CxmpInline void
 CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
-    double cL, stripeLnL;
-    unsigned dim, cMin, cLim;
-    double P[lik->dim * lik->dim];
+    unsigned dim = lik->dim;
+    unsigned dimSq = dim * dim;
+    unsigned ncat = lik->ncat;
+    unsigned dn = dim * ncat;
+    unsigned cMin = lik->stripeWidth * stripe;
+    unsigned cLim = cMin + lik->stripeWidth;
+    double P[ncat][dimSq];
 
-    dim = lik->dim;
-    cMin = lik->stripeWidth * stripe;
-    cLim = cMin + lik->stripeWidth;
-
-    // Iteratively process the execution plan.
+    // Iteratively process the execution plan.  At each step, rescale
+    // likelihoods to avoid underflow.  Keep track of the total amount of
+    // rescaling performed (in lnScale vectors), so that the scalers can be
+    // used during cL aggregation to accurately compute full-tree site
+    // log-likelihoods.
     for (unsigned s = 0; s < lik->stepsLen; s++) {
 	CxtLikStep *step = &lik->steps[s];
-	CxLikPt(dim, P, step->model->qEigVecCube, step->model->qEigVals,
-	  step->edgeLen);
-	switch (step->variant) {
-	    case CxeLikStepComputeCL: {
-		for (unsigned c = cMin; c < cLim; c++) {
+	double *parentMat = step->parentCL->cLMat;
+	double *parentLnScale = step->parentCL->lnScale;
+	double *childMat = step->childCL->cLMat;
+	double *childLnScale = step->childCL->lnScale;
+	unsigned glen = step->model->glen;
+
+	// Compute P matrices, one for each gamma-distributed rate.
+	for (unsigned g = 0; g < glen; g++) {
+	    CxLikPt(dim, P[g], step->model->qEigVecCube, step->model->qEigVals,
+	      step->edgeLen * step->model->gammas[g]);
+	}
+
+	if (step->variant == CxeLikStepComputeCL) {
+	    for (unsigned c = cMin; c < cLim; c++) {
+		double scale = 0.0;
+		for (unsigned g = 0; g < glen; g++) {
 		    for (unsigned iP = 0; iP < dim; iP++) {
-			cL = 0.0;
+			double cL = 0.0;
 			for (unsigned iC = 0; iC < dim; iC++) {
-			    cL += P[iP*dim + iC] * step->childMat[c*dim + iC];
+			    cL += P[g][iP*dim + iC] * childMat[c*dn + g*dim
+			      + iC];
 			}
-			step->parentMat[c*dim + iP] = cL;
+			if (cL > scale) {
+			    scale = cL;
+			}
+			parentMat[c*dn + g*dim + iP] = cL;
 		    }
 		}
-		break;
-	    } case CxeLikStepMergeCL: {
-		for (unsigned c = cMin; c < cLim; c++) {
-		    for (unsigned iP = 0; iP < dim; iP++) {
-			cL = 0.0;
-			for (unsigned iC = 0; iC < dim; iC++) {
-			    cL += P[iP*dim + iC] * step->childMat[c*dim + iC];
-			}
-			step->parentMat[c*dim + iP] *= cL;
+		if (scale != 1.0) {
+		    for (unsigned iP = 0; iP < dn; iP++) {
+			parentMat[c*dn + iP] /= scale;
 		    }
 		}
-		break;
-	    } default: {
-		CxmNotReached();
+		parentLnScale[c] = log(scale) + childLnScale[c];
+	    }
+	} else {
+	    CxmAssert(step->variant == CxeLikStepMergeCL);
+	    for (unsigned c = cMin; c < cLim; c++) {
+		double scale = 0.0;
+		for (unsigned g = 0; g < glen; g++) {
+		    for (unsigned iP = 0; iP < dim; iP++) {
+			double cL = 0.0;
+			for (unsigned iC = 0; iC < dim; iC++) {
+			    cL += P[g][iP*dim + iC] * childMat[c*dn + g*dim
+			      + iC];
+			}
+			if (cL > scale) {
+			    scale = cL;
+			}
+			parentMat[c*dn + g*dim + iP] *= cL;
+		    }
+		}
+		if (scale != 1.0) {
+		    for (unsigned iP = 0; iP < dn; iP++) {
+			parentMat[c*dn + iP] /= scale;
+		    }
+		}
+		parentLnScale[c] += log(scale) + childLnScale[c];
 	    }
 	}
     }
@@ -252,17 +291,30 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
     // site-specific lnL's.
     for (unsigned m = 0; m < lik->modelsLen; m++) {
 	CxtLikModel *model = &lik->models[m];
+	unsigned glen = model->glen;
+
 	if (model->weight == 0.0 || model->entire) {
 	    // Model is not part of the mixture, or its lnL is already computed.
 	    continue;
 	}
-	stripeLnL = 0.0;
+
+	// Pre-compute state-specific weights, taking into account discretized
+	// gamma-distributed rates.
+	double pn[dim];
+	for (unsigned i = 0; i < dim; i++) {
+	    pn[i] = model->piDiag[i] / (double)glen;
+	}
+
+	double stripeLnL = 0.0;
 	for (unsigned c = cMin; c < cLim; c++) {
 	    double L = 0.0;
-	    for (unsigned i = 0; i < dim; i++) {
-		L += model->piDiag[i] * model->cL->mat[c*dim + i];
+	    for (unsigned g = 0; g < glen; g++) {
+		for (unsigned i = 0; i < dim; i++) {
+		    L += pn[i] * model->cL->cLMat[c*dn + g*dim + i];
+		}
 	    }
-	    stripeLnL += log(L) * (double)lik->charFreqs[c];
+	    stripeLnL += (model->cL->lnScale[c] + log(L)) *
+	      (double)lik->charFreqs[c];
 	}
 	model->stripeLnL[stripe] = stripeLnL;
     }
@@ -278,7 +330,7 @@ CxpLikWorker(void *arg) {
     // indicate completion status.
     while (CxMqGet(&CxpLikTodoMq, &msg) == false) {
 	CxLikExecuteStripe(msg->lik, msg->stripe);
-	CxMqPut(&CxpLikDoneMq, &msg);
+	CxMqPut(&CxpLikDoneMq, msg);
     }
 
     return NULL;
@@ -312,10 +364,10 @@ CxpLikThreaded(void) {
 
     // Properly set the minimum number of message slots, so that the CxMq code
     // will never suffer from allocation failures after CxMqNew().
-    if (CxMqNew(&CxpLikTodoMq, sizeof(CxtLikMsg *), CxNcpus)) {
+    if (CxMqNew(&CxpLikTodoMq, sizeof(CxtLikMsg *), CxNcpus * CxmLikMqMult)) {
 	return;
     }
-    if (CxMqNew(&CxpLikDoneMq, sizeof(CxtLikMsg *), CxNcpus)) {
+    if (CxMqNew(&CxpLikDoneMq, sizeof(CxtLikMsg *), CxNcpus * CxmLikMqMult)) {
 	return;
     }
 
@@ -330,8 +382,8 @@ CxpLikThreaded(void) {
     }
 }
 
-void
-CxLikExecute(CxtLik *lik, double *rLnL) {
+double
+CxLikExecute(CxtLik *lik) {
     double lnL;
 
     if (lik->stepsLen > 0) {
@@ -341,7 +393,7 @@ CxLikExecute(CxtLik *lik, double *rLnL) {
 
 	// Compute log-likelihoods for each model in the mixture, stripewise.
 	if (CxpLikNThreads > 0 && lik->nstripes > 1) {
-	    CxtLikMsg msgs[CxNcpus];
+	    CxtLikMsg msgs[CxNcpus * CxmLikMqMult];
 	    CxtLikMsg *msg;
 	    unsigned stripe, lim, ndone;
 
@@ -362,6 +414,7 @@ CxLikExecute(CxtLik *lik, double *rLnL) {
 	    // send more work messages.
 	    for (; stripe < lik->nstripes; stripe++) {
 		CxMqGet(&CxpLikDoneMq, &msg);
+		CxmAssert(msg->lik == lik);
 		msg->stripe = stripe;
 		CxMqPut(&CxpLikTodoMq, msg);
 		ndone++;
@@ -397,5 +450,6 @@ CxLikExecute(CxtLik *lik, double *rLnL) {
 	}
 	lnL += model->lnL * model->weight;
     }
-    *rLnL = lnL;
+
+    return lnL;
 }

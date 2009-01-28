@@ -327,7 +327,7 @@ cdef class Tree:
         ring.aux = None
 
         node = ring.node
-        node.Aux = None
+        node.aux = None
         for r in ring.siblings():
             r.aux = None
             r.edge.aux = None

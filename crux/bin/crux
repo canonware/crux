@@ -103,26 +103,30 @@ def parse_options():
 # Parse command line options.
 opts = parse_options()
 
-if not opts.batch and not opts.execed:
-    # Precursor to interactive mode.
-    #
-    # In order for interactive command line editing to work in its full glory,
-    # it is necessary to exec the python interpreter, such that interactive mode
-    # is enabled via python's '-i' flag.
-    args = sys.argv[:]
+if not opts.batch:
+    if not opts.execed:
+        # Precursor to interactive mode.
+        #
+        # In order for interactive command line editing to work in its full
+        # glory, it is necessary to exec the python interpreter, such that
+        # interactive mode is enabled via python's '-i' flag.
+        args = sys.argv[:]
 
-    # Insert --__execed as the first command line argument.  Appending doesn't
-    # work correctly when there are trailing script arguments.
-    args.insert(1, "--__execed")
+        # Insert --__execed as the first command line argument.  Appending
+        # doesn't work correctly when there are trailing script arguments.
+        args.insert(1, "--__execed")
 
-    args.insert(0, "@PYTHON@")
-    args.insert(1, "-i")
-    if len("@python_opts@".strip()) > 0:
-        args.insert(1, "@python_opts@".strip())
+        args.insert(0, "@PYTHON@")
+        args.insert(1, "-i")
+        if len("@python_opts@".strip()) > 0:
+            args.insert(1, "@python_opts@".strip())
 
-    # Re-launch python.
-    os.execv("@PYTHON@", args)
-    # Not reached.
+        # Re-launch python.
+        os.execv("@PYTHON@", args)
+        # Not reached.
+
+    # Set the prompt.
+    sys.ps1 = "crux> "
 
 # Copy configuration to Crux.Config.
 Crux.Config.batch = opts.batch

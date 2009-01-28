@@ -3,7 +3,8 @@ from libc cimport uint64_t
 cdef extern from "CxLik.h":
     ctypedef struct CxtLikCL:
         uint64_t sn
-        double *mat
+        double *cLMat
+        double *lnScale
     ctypedef struct CxtLikModel:
         uint64_t sn
         bint reassign
@@ -14,6 +15,7 @@ cdef extern from "CxLik.h":
         double *qEigVals
         double alpha
         double *gammas
+        unsigned glen
         CxtLikCL *cL
         bint entire
         double *stripeLnL
@@ -24,12 +26,13 @@ cdef extern from "CxLik.h":
     ctypedef struct CxtLikStep:
         CxeLikStep variant
         CxtLikModel *model
-        double *parentMat
-        double *childMat
+        CxtLikCL *parentCL
+        CxtLikCL *childCL
         double edgeLen
     ctypedef struct CxtLik:
         unsigned dim
         unsigned ncat
+        bint catMedian
         unsigned nchars
         unsigned *charFreqs
         unsigned stripeWidth
@@ -41,8 +44,10 @@ cdef extern from "CxLik.h":
         unsigned stepsLen
         unsigned stepsMax
 
+    cdef unsigned CxmLikMqMult
+
     cdef bint CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
       double *qEigVals)
     cdef void CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals,
-      double muRT)
-    cdef void CxLikExecute(CxtLik *lik, double *rLnL)
+      double v)
+    cdef double CxLikExecute(CxtLik *lik)

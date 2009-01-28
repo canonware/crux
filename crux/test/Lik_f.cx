@@ -1,0 +1,15 @@
+import os.path
+
+print "Test begin"
+
+alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix( \
+  open(os.path.join(Crux.Config.scriptargs[0], "test/treezilla.fasta"))))
+alignment.compact()
+distMatrix = alignment.logdetDists(scoreGaps=True)
+t = distMatrix.rnj()
+t.collapse()
+lik = Crux.Tree.Lik.Lik(t, alignment)
+
+print "%.4f" % lik.lnL()
+
+print "Test end"

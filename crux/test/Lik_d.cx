@@ -1,0 +1,64 @@
+import sys
+
+print "Test begin"
+
+fastaStrs = [
+    """\
+>one
+ACGT
+>two
+AAAA
+""",
+
+    """\
+>A
+    ata
+>B
+    cta
+>C
+    cat
+>D
+    gat
+>E
+    gtr
+"""
+]
+
+for s in fastaStrs:
+    print "==============================================="
+    alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(s))
+    alignment.fastaPrint(outFile=sys.stdout)
+    distMatrix = alignment.jukesDists(avgAmbigs=False, scoreGaps=True)
+    t = distMatrix.rnj()
+    t.canonize(distMatrix.taxaMap)
+    t.render(lengths=True, outFile=sys.stdout)
+
+    lik = Crux.Tree.Lik.Lik(t, alignment)
+    print "lnL: %.4f" % lik.lnL()
+
+    # Make sure that rate and frequency normalization do the right thing.
+    for i in xrange(4):
+        for j in xrange(i+1, 4):
+            lik.setRate(0, i, j, 0.75)
+    for i in xrange(4):
+        lik.setFreq(0, i, 0.20)
+    print "lnL: %.4f" % lik.lnL()
+
+    # Make sure that mixtures work:
+    lik.addModel()
+    lik.dupModel(1, 0, True)
+    lik.setWeight(0, 0.5)
+    lik.setWeight(1, 0.5)
+    print "lnL: %.4f" % lik.lnL()
+    lik.addModel()
+    lik.dupModel(2, 1, False)
+    lik.setWeight(0, 0.0)
+    lik.setWeight(1, 0.5)
+    lik.setWeight(2, 0.5)
+    print "lnL: %.4f" % lik.lnL()
+    lik.setWeight(0, 0.0)
+    lik.setWeight(1, 0.0)
+    lik.setWeight(2, 0.0)
+    print "lnL: %.4f" % lik.lnL()
+
+print "Test end"

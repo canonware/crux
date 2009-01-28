@@ -25,10 +25,10 @@ cdef class CL:
     cdef CxtLikCL *vec
     cdef unsigned vecMax # Number of usable elements.
 
-    cdef void prepare(self, unsigned nchars, unsigned dim, unsigned nmodels) \
-      except *
-    cdef void dupModel(self, unsigned nchars, unsigned dim, unsigned to,
-      unsigned fr) except *
+    cdef void prepare(self, unsigned nchars, unsigned dim, unsigned ncat, \
+      unsigned nmodels) except *
+    cdef void dupModel(self, unsigned nchars, unsigned dim, unsigned ncat, \
+      unsigned to, unsigned fr) except *
 
 cdef class Lik:
     cdef readonly Character char_

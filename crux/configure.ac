@@ -5,7 +5,7 @@ dnl
 dnl Version requirements for external software we depend on.
 dnl 
 PYTHON_VERSION_MIN=2.6.0
-CYTHON_VERSION_MIN=0.10.2
+CYTHON_VERSION_MIN=0.11.0
 FLEX_VERSION_MIN=2.5.35
 MPI4PY_VERSION_MIN=1.0.0
 

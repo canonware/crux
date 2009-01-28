@@ -13,7 +13,7 @@ typedef struct {
 
     // Conditional likelihood matrix, stored in row-major form, such that each
     // row contains conditional likelihoods for a single site.  For example,
-    // assuming DNA:
+    // assuming DNA and no gamma-distributed rate categories:
     //
     //     A C G T
     //   -----------
@@ -23,7 +23,35 @@ typedef struct {
     //   | ....... | ...
     //   | x x x x | n-1
     //   -----------
-    double *mat;
+    //
+    // If gamma-distributed rate categories are enabled, the matrix contains
+    // multiple rows for each site (one per rate category).  For example, with
+    // 4 rate categories:
+    //
+    //     A C G T
+    //   -----------
+    //   | x x x x | 0 (cat 0
+    //   | x x x x | 0      1
+    //   | x x x x | 0      2
+    //   | x x x x | 0      3)
+    //   | x x x x | 1 (cat 0
+    //   | x x x x | 1      1
+    //   | x x x x | 1      2
+    //   | x x x x | 1      3)
+    //   | ....... | ...
+    //   | x x x x | n-1 (cat 0
+    //   | x x x x | n-1      1
+    //   | x x x x | n-1      2
+    //   | x x x x | n-1      3)
+    //   -----------
+    double *cLMat;
+
+    // Vector of character-specific log-scale factors.  The conditional
+    // likelihoods for each character are rescaled such that the largest
+    // conditional likelihood is 1.0.  This avoids floating point underflow
+    // issues, but the rescaling has to be tracked so that it can be accounted
+    // for in final lnL computation.
+    double *lnScale;
 } CxtLikCL;
 
 // One or more mixture models are used to compute a tree's lnL.  Each model is
@@ -54,9 +82,12 @@ typedef struct {
     double *qEigVals;
 
     // Gamma-distributed mutation rates parameter, with discretization.  If
-    // alpha is INFINITY, variable rates are disabled for this model.
+    // alpha is INFINITY, variable rates are disabled for this model, glen is
+    // 1, and gammas[0] is 1.0.  Otherwise, (glen == ncat) and gammas[...] is
+    // set appropriately.
     double alpha;
     double *gammas;
+    unsigned glen;
 
     // Site-specific conditional likelihoods for the root node.
     CxtLikCL *cL;
@@ -98,8 +129,8 @@ typedef enum {
 typedef struct {
     CxeLikStep variant;
     CxtLikModel *model;
-    double *parentMat;
-    double *childMat;
+    CxtLikCL *parentCL;
+    CxtLikCL *childCL;
     double edgeLen;
 } CxtLikStep;
 
@@ -109,6 +140,8 @@ typedef struct {
 
     // Number of discrete Gamma-distributed rate categories.
     unsigned ncat;
+    // Use category means if catMedian is false, category medians if true.
+    bool catMedian;
 
     // Number of characters.
     unsigned nchars;
@@ -146,12 +179,16 @@ typedef struct {
     unsigned stepsMax;
 } CxtLik;
 
+// Use message queues to communicate with worker threads that have CxNcpus *
+// CxmLikMqMult slots.
+#define CxmLikMqMult 8
+
 bool
 CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
   double *qEigVals);
 void
-CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double muT);
-void
-CxLikExecute(CxtLik *lik, double *rLnL);
+CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double v);
+double
+CxLikExecute(CxtLik *lik);
 
 #endif // CxLik_h
