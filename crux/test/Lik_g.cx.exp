@@ -1,0 +1,14 @@
+Test begin
+      1111
+      ====
+one   ACGT
+two   ACGT
+three AAAA
+      ====
+      0
+(one:0.0000000e+00,two:0.0000000e+00,three:0.0000000e+00);
+lnL: -inf
+lnL: -inf
+lnL: -inf
+lnL: -inf
+Test end

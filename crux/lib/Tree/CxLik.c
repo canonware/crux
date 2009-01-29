@@ -451,5 +451,11 @@ CxLikExecute(CxtLik *lik) {
 	lnL += model->lnL * model->weight;
     }
 
+    // The lnScale rescaling can cause a NaN result for a 0-probability tree.
+    // Convert such spurious NaN results to -INFINITY.
+    if (isnan(lnL)) {
+	lnL = -INFINITY;
+    }
+
     return lnL;
 }
