@@ -17,6 +17,7 @@ two        0.000000e+00
 three      3.744665e-01 3.744665e-01
 four       5.198604e-01 5.198604e-01 3.744665e-01
 five       nan nan nan nan
+Exception <type 'exceptions.OverflowError'>: NaN at (0,4)
 === logdetDists(scoreGaps=False) ===
 5
 one
@@ -24,6 +25,7 @@ two        0.000000e+00
 three      3.744665e-01 3.744665e-01
 four       0.000000e+00 0.000000e+00 0.000000e+00
 five       nan nan nan nan
+Exception <type 'exceptions.OverflowError'>: NaN at (0,4)
 >Euglena_gracilis
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -54,9 +56,29 @@ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 2
 Euglena gracilis
 Olithodiscus luteus 1.530623e-01
+2
+Euglena gracilis
+Olithodiscus luteus 1.530623e-01
 === logdetDists(scoreGaps=False) ===
 2
 Euglena gracilis
 Olithodiscus luteus 1.530623e-01
+2
+Euglena gracilis
+Olithodiscus luteus 1.530623e-01
+>one
+ACG
+>two
+CAG
+=== logdetDists(scoreGaps=True) ===
+2
+one
+two        nan
+Exception <type 'exceptions.OverflowError'>: NaN at (0,1)
+=== logdetDists(scoreGaps=False) ===
+2
+one
+two        nan
+Exception <type 'exceptions.OverflowError'>: NaN at (0,1)
 === charType: <type 'Crux.Character.Protein'> ===
 Test end

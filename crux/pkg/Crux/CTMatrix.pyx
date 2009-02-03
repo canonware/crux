@@ -1390,7 +1390,8 @@ cdef class Alignment:
 
         return ret
 
-    cpdef DistMatrix logdetDists(self, bint scoreGaps=False):
+    cpdef DistMatrix logdetDists(self, bint scoreGaps=False, \
+      bint allowNan=False):
         """
             Calculate pairwise distances, corrected for unequal state
             frequencies using the LogDet/paralinear method described by:
@@ -1435,6 +1436,8 @@ cdef class Alignment:
                 for i + 1 <= j < self.ntaxa:
                     jRow = self.getRow(j)
                     d = logDet.dist(iRow, jRow, self.nchars)
+                    if not allowNan and isnan(d):
+                        raise OverflowError("NaN at (%d,%d)" % (i, j))
                     ret.distanceSet(i, j, d)
 
         return ret

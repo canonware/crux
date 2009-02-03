@@ -104,6 +104,13 @@ TTTTTTTTTT TTTTTTTTTT TTTTTTTTTT TTTTTTTTTT TTTTTTTTTT
 TTTTTTTTTT TTTTTTTTTT TTTTTTTTTT TTTTTTTTTT TTTTTTTTTT
 TTTTTTTTTT TTTTTTTTTT TTTTTTTTTT TTTTTTTTTT TTTTTTTTTT
 TTTTTTTTTT TTTTTTTTTT TTTTT
+""",
+
+"""
+>one
+ACG
+>two
+CAG
 """
 ]
 
@@ -122,7 +129,14 @@ for (matrixStrs, charType) in ((dna, Crux.Character.Dna),
 
         for scoreGaps in (True, False):
             print "=== logdetDists(scoreGaps=%r) ===" % (scoreGaps)
-            m = a.logdetDists(scoreGaps=scoreGaps)
-            m.render(distFormat="%.6e", outFile=sys.stdout)
+            try:
+                for allowNan in (True, False):
+                    m = a.logdetDists(scoreGaps=scoreGaps, allowNan=allowNan)
+                    m.render(distFormat="%.6e", outFile=sys.stdout)
+            except:
+                import sys
+
+                error = sys.exc_info()
+                print "Exception %s: %s" % (error[0], error[1])
 
 print "Test end"

@@ -67,4 +67,4 @@ cdef class Alignment:
     cdef void _kimuraDistsProtein(self, DistMatrix m, bint avgAmbigs,
       bint scoreGaps)
     cpdef DistMatrix kimuraDists(self, bint avgAmbigs=*, bint scoreGaps=*)
-    cpdef DistMatrix logdetDists(self, bint scoreGaps=*)
+    cpdef DistMatrix logdetDists(self, bint scoreGaps=*, bint allowNan=*)
