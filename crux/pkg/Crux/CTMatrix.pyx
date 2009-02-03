@@ -61,6 +61,12 @@ cdef class CTMatrix:
         parser = Fasta.Parser(self, self.taxaMap)
         parser.parse(input, charType)
 
+    cdef void _renderLine(self, str line, list lines, file outFile) except *:
+        if outFile is not None:
+            outFile.write(line)
+        else:
+            lines.append(line)
+
     cpdef str fastaPrint(self, file outFile=None):
         """
             Print the alignment in FASTA format.  If 'outFile' is not
@@ -79,10 +85,7 @@ cdef class CTMatrix:
         for taxon in taxa:
             if self.dataGet(taxon) != None:
                 s = ">%s\n" % taxon.label.replace(' ', '_')
-                if outFile is None:
-                    lines.append(s)
-                else:
-                    outFile.write(s)
+                self._renderLine(s, lines, outFile)
 
                 # Break into lines of length 75.
                 taxonData = self.dataGet(taxon)
@@ -91,11 +94,7 @@ cdef class CTMatrix:
                         s = "%s\n" % taxonData[i:i+75]
                     else:
                         s = "%s\n" % taxonData[i:]
-
-                    if outFile is None:
-                        lines.append(s)
-                    else:
-                        outFile.write(s)
+                    self._renderLine(s, lines, outFile)
 
         if outFile is None:
             if len(lines) > 0:
@@ -1025,6 +1024,12 @@ cdef class Alignment:
 
         return ret
 
+    cdef void _renderLine(self, str line, list lines, file outFile) except *:
+        if outFile is not None:
+            outFile.write(line)
+        else:
+            lines.append(line)
+
     cpdef str render(self, unsigned interleave=50, file outFile=None):
         """
             Render the alignment in a human-readable format that includes
@@ -1063,7 +1068,7 @@ cdef class Alignment:
 
                 # Place a gap between interleavings.
                 if i > 0:
-                    lines.append("\n")
+                    self._renderLine("\n", lines, outFile)
 
                 # Render site frequencies.
                 line = []
@@ -1077,14 +1082,14 @@ cdef class Alignment:
                     else:
                         line.append("(%d)" % freq)
                 line.append("\n")
-                lines.append("".join(line))
+                self._renderLine("".join(line), lines, outFile)
 
                 # Render top === line.
                 line = []
                 line.append("%-*s " % (labelWidth, ""))
                 line.append("=" * ((lim-i) + (lim-1-i)/5))
                 line.append("\n")
-                lines.append("".join(line))
+                self._renderLine("".join(line), lines, outFile)
 
                 # Render labels and character data.
                 for 0 <= k < len(taxa):
@@ -1095,26 +1100,27 @@ cdef class Alignment:
                     for i <= j < lim by 5:
                         line.append(" %s" % taxonData[j:j+5])
                     line.append("\n")
-                    lines.append("".join(line))
+                    self._renderLine("".join(line), lines, outFile)
 
                 # Render bottom === line.
                 line = []
                 line.append("%-*s " % (labelWidth, ""))
                 line.append("=" * ((lim-i) + (lim-1-i)/5))
                 line.append("\n")
-                lines.append("".join(line))
+                self._renderLine("".join(line), lines, outFile)
 
                 # Render offsets.
                 line = []
                 line.append("%-*s " % (labelWidth, ""))
                 for i <= j < lim by 5:
                     line.append("%-6d" % j)
-                lines.append(("".join(line)).rstrip() + "\n")
+                self._renderLine(("".join(line)).rstrip() + "\n", lines, \
+                  outFile)
         else:
             # No character data.
             for 0 <= k < len(taxa):
                 taxon = taxa[k]
-                lines.append("%s\n" % taxon.label)
+                self._renderLine("%s\n" % taxon.label, lines, outFile)
 
         if outFile is None:
             if len(lines) > 0:
@@ -1145,10 +1151,7 @@ cdef class Alignment:
         for 0 <= i < len(taxa):
             taxon = taxa[i]
             s = ">%s\n" % taxon.label.replace(' ', '_')
-            if outFile is None:
-                lines.append(s)
-            else:
-                outFile.write(s)
+            self._renderLine(s, lines, outFile)
 
             # Break into lines of length 75.
             taxonData = self.getSeq(i)
@@ -1157,11 +1160,7 @@ cdef class Alignment:
                     s = "%s\n" % taxonData[j:j+75]
                 else:
                     s = "%s\n" % taxonData[j:]
-
-                if outFile is None:
-                    lines.append(s)
-                else:
-                    outFile.write(s)
+                self._renderLine(s, lines, outFile)
 
         if outFile is None:
             if len(lines) > 0:

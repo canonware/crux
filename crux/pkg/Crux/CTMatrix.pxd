@@ -14,6 +14,7 @@ cdef class CTMatrix:
     cdef dict _taxonData
 
     cpdef _fastaNew(self, input, type charType)
+    cdef void _renderLine(self, str line, list lines, file outFile) except *
     cpdef str fastaPrint(self, file outFile=*)
     cpdef str dataGet(self, Taxon taxon)
     cpdef dataSet(self, Taxon taxon, str data)
@@ -56,6 +57,7 @@ cdef class Alignment:
     cdef int _fitchCompact(self, list deco) except -1
     cpdef int compact(self, bint fitch=*)
 
+    cdef void _renderLine(self, str line, list lines, file outFile) except *
     cpdef str render(self, unsigned interleave=*, file outFile=*)
     cpdef str fastaPrint(self, file outFile=*)
 
