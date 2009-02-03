@@ -24,7 +24,7 @@ trees = [
 
 alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(fastaStr))
 print alignment.render()
-distMatrix = alignment.jukesDists(avgAmbigs=False, scoreGaps=True)
+distMatrix = alignment.jukesDists(scoreGaps=True)
 for newickStr in trees:
     t = Crux.Tree.Tree(newickStr)
     t.deroot()

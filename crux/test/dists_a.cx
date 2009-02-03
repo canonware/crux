@@ -183,25 +183,19 @@ for (matrixStrs, charType) in ((dna, Crux.Character.Dna),
         matrix = Crux.CTMatrix.CTMatrix(s, charType)
         a = Crux.CTMatrix.Alignment(matrix=matrix)
 
-        for avgAmbigs in (True, False):
-            for scoreGaps in (True, False):
-                print "=== dists(avgAmbigs=%r, scoreGaps=%r) ===" % \
-                  (avgAmbigs, scoreGaps)
-                m = a.dists(avgAmbigs=avgAmbigs, scoreGaps=scoreGaps)
-                m.render(distFormat="%.2f", outFile=sys.stdout)
+        for scoreGaps in (True, False):
+            print "=== dists(scoreGaps=%r) ===" % scoreGaps
+            m = a.dists(scoreGaps=scoreGaps)
+            m.render(distFormat="%.2f", outFile=sys.stdout)
 
-        for avgAmbigs in (True, False):
-            for scoreGaps in (True, False):
-                print "=== jukesDists(avgAmbigs=%r, scoreGaps=%r) ===" % \
-                  (avgAmbigs, scoreGaps)
-                m = a.jukesDists(avgAmbigs=avgAmbigs, scoreGaps=scoreGaps)
-                m.render(distFormat="%.2f", outFile=sys.stdout)
+        for scoreGaps in (True, False):
+            print "=== jukesDists(scoreGaps=%r) ===" % scoreGaps
+            m = a.jukesDists(scoreGaps=scoreGaps)
+            m.render(distFormat="%.2f", outFile=sys.stdout)
 
-        for avgAmbigs in (True, False):
-            for scoreGaps in (True, False):
-                print "=== kimuraDists(avgAmbigs=%r, scoreGaps=%r) ===" % \
-                  (avgAmbigs, scoreGaps)
-                m = a.kimuraDists(avgAmbigs=avgAmbigs, scoreGaps=scoreGaps)
-                m.render(distFormat="%.2f", outFile=sys.stdout)
+        for scoreGaps in (True, False):
+            print "=== kimuraDists(scoreGaps=%r) ===" % scoreGaps
+            m = a.kimuraDists(scoreGaps=scoreGaps)
+            m.render(distFormat="%.2f", outFile=sys.stdout)
 
 print "Test end"

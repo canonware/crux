@@ -61,10 +61,9 @@ cdef class Alignment:
     cpdef str render(self, unsigned interleave=*, file outFile=*)
     cpdef str fastaPrint(self, file outFile=*)
 
-    cpdef DistMatrix dists(self, bint avgAmbigs=*, bint scoreGaps=*)
-    cpdef DistMatrix jukesDists(self, bint avgAmbigs=*, bint scoreGaps=*)
+    cpdef DistMatrix dists(self, bint scoreGaps=*)
+    cpdef DistMatrix jukesDists(self, bint scoreGaps=*)
     cdef void _kimuraDistsDNA(self, DistMatrix m, bint scoreGaps)
-    cdef void _kimuraDistsProtein(self, DistMatrix m, bint avgAmbigs,
-      bint scoreGaps)
-    cpdef DistMatrix kimuraDists(self, bint avgAmbigs=*, bint scoreGaps=*)
+    cdef void _kimuraDistsProtein(self, DistMatrix m, bint scoreGaps)
+    cpdef DistMatrix kimuraDists(self, bint scoreGaps=*)
     cpdef DistMatrix logdetDists(self, bint scoreGaps=*, bint allowNan=*)

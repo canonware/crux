@@ -134,7 +134,7 @@ cdef struct PctIdentRel:
 cdef class PctIdent:
     cdef PctIdentRel tab[128 * 128]
 
-    def __init__(self, type charType, bint avgAmbigs, bint scoreGaps):
+    def __init__(self, type charType, bint scoreGaps):
         cdef Character char_
         cdef list codes
         cdef str iCode, jCode
@@ -167,15 +167,8 @@ cdef class PctIdent:
                     self.tab[(iC << 7) + jC].isValid = False
                 else:
                     self.tab[(iC << 7) + jC].isValid = True
-                    if avgAmbigs:
-                        self.tab[(iC << 7) + jC].fident = \
-                          <float>pop(iVal & jVal) / <float>(pop(iVal) \
-                          * pop(jVal))
-                    else:
-                        if iVal == jVal:
-                            self.tab[(iC << 7) + jC].fident = 1.0
-                        else:
-                            self.tab[(iC << 7) + jC].fident = 0.0
+                    self.tab[(iC << 7) + jC].fident = \
+                      <float>pop(iVal & jVal) / <float>(pop(iVal) * pop(jVal))
 
     # Compute comparison statistics for a vs. b.
     cdef void stats(self, char *a, char *b, unsigned seqlen,
@@ -1170,16 +1163,15 @@ cdef class Alignment:
         else:
             return None
 
-    cpdef DistMatrix dists(self, bint avgAmbigs=True, bint scoreGaps=True):
+    cpdef DistMatrix dists(self, bint scoreGaps=True):
         """
             Calculate uncorrected pairwise distances.
 
+            Ambiguity codes are handled by equal-weight averaging of all the
+            cases that the ambiguities could possibly resolve to.
+
             If scoreGaps is enabled, gaps are treated as being ambiguous,
             rather than as missing.
-
-            If avgAmbigs is enabled, ambiguity codes are handled by
-            equal-weight averaging of all the cases that the ambiguities could
-            possibly resolve to.
         """
         cdef DistMatrix ret
         cdef PctIdent tab
@@ -1191,7 +1183,7 @@ cdef class Alignment:
         ret = DistMatrix(self.taxaMap)
 
         if self.ntaxa > 1:
-            tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
+            tab = PctIdent(self.charType, scoreGaps)
             for 0 <= i < self.ntaxa:
                 iRow = self.getRow(i)
                 for i + 1 <= j < self.ntaxa:
@@ -1205,8 +1197,7 @@ cdef class Alignment:
 
         return ret
 
-    cpdef DistMatrix jukesDists(self, bint avgAmbigs=True,
-      bint scoreGaps=False):
+    cpdef DistMatrix jukesDists(self, bint scoreGaps=True):
         """
             Calculate pairwise distances, corrected for multiple hits using the
             Jukes-Cantor method, and the computational methods described by:
@@ -1214,9 +1205,8 @@ cdef class Alignment:
               Tajima, F. (1993) Unbiased estimation of evolutionary distance
               between nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
 
-            If avgAmbigs is enabled, ambiguity codes are handled by
-            equal-weight averaging of all the cases that the ambiguities could
-            possibly resolve to.
+            Ambiguity codes are handled by equal-weight averaging of all the
+            cases that the ambiguities could possibly resolve to.
 
             If scoreGaps is enabled, gaps are treated as being ambiguous,
             rather than as missing.
@@ -1231,7 +1221,7 @@ cdef class Alignment:
         ret = DistMatrix(self.taxaMap)
 
         if self.ntaxa > 1:
-            tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
+            tab = PctIdent(self.charType, scoreGaps)
             nstates = self.charType.get().nstates()
             b = <float>(nstates - 1) / <float>nstates
 
@@ -1273,8 +1263,7 @@ cdef class Alignment:
                 d = k2p.dist(aRow, bRow, self.nchars)
                 m.distanceSet(a, b, d)
 
-    cdef void _kimuraDistsProtein(self, DistMatrix m, bint avgAmbigs,
-      bint scoreGaps):
+    cdef void _kimuraDistsProtein(self, DistMatrix m, bint scoreGaps):
         cdef PctIdent tab
         cdef int a, b
         cdef char *aRow, *bRow
@@ -1301,7 +1290,7 @@ cdef class Alignment:
           719, 736, 754, 775, 796, 819, 845, 874, 907, 945,
           988]
 
-        tab = PctIdent(self.charType, avgAmbigs, scoreGaps)
+        tab = PctIdent(self.charType, scoreGaps)
         for 0 <= a < self.ntaxa:
             aRow = self.getRow(a)
             for a + 1 <= b < self.ntaxa:
@@ -1328,8 +1317,7 @@ cdef class Alignment:
 
                 m.distanceSet(a, b, d)
 
-    cpdef DistMatrix kimuraDists(self, bint avgAmbigs=True,
-      bint scoreGaps=False):
+    cpdef DistMatrix kimuraDists(self, bint scoreGaps=True):
         """
             Calculate corrected pairwise distances.
 
@@ -1365,15 +1353,15 @@ cdef class Alignment:
             all the cases that the ambiguities could possibly resolve to.
             Unlike for some of the other distance correction methods (such as
             jukesDists()), it would be completely non-sensical to treat DNA
-            ambiguities as unique states.  For protein, if avgAmbigs is
-            enabled, ambiguity codes are handled by equal-weight averaging of
-            all the cases that the ambiguities could possibly resolve to.
+            ambiguities as unique states.  For protein, ambiguity codes are
+            handled by equal-weight averaging of all the cases that the
+            ambiguities could possibly resolve to.
 
             If scoreGaps is enabled, gaps are treated as being ambiguous,
             rather than as missing.  Ambiguity is interpreted to mean that all
-            states are equally likely, so enabling this option tends to
-            substantially increase distance, due to unlikely mutations being
-            highly represented.
+            states are equally likely, so this option tends to substantially
+            increase distance, due to unlikely mutations being highly
+            represented.
         """
         cdef DistMatrix ret
 
@@ -1383,14 +1371,14 @@ cdef class Alignment:
             if self.charType is Dna:
                 self._kimuraDistsDNA(ret, scoreGaps)
             elif self.charType is Protein:
-                self._kimuraDistsProtein(ret, avgAmbigs, scoreGaps)
+                self._kimuraDistsProtein(ret, scoreGaps)
             else:
                 raise ValueError(
                   "Unsupported character type for Kimura distance correction")
 
         return ret
 
-    cpdef DistMatrix logdetDists(self, bint scoreGaps=False, \
+    cpdef DistMatrix logdetDists(self, bint scoreGaps=True, \
       bint allowNan=False):
         """
             Calculate pairwise distances, corrected for unequal state

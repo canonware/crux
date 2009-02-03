@@ -28,7 +28,7 @@ for s in fastaStrs:
     print "==============================================="
     alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(s))
     print alignment.render()
-    distMatrix = alignment.jukesDists(avgAmbigs=False, scoreGaps=True)
+    distMatrix = alignment.jukesDists(scoreGaps=True)
     t = distMatrix.rnj()
     t.canonize(distMatrix.taxaMap)
     t.render(lengths=True, outFile=sys.stdout)
