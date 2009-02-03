@@ -140,35 +140,35 @@ Crux.Config.scriptargs = opts.scriptargs
 
 # Print various info if in verbose mode.
 if Crux.Config.verbose:
-    print "Crux, version @crux_version@"
+    print "Crux, version: @crux_version@, %s, PID: %d, PRNG seed: %d" % \
+      (("threaded" if Crux.Config.threaded else "unthreaded"), os.getpid(),
+      Crux.Config.seed)
 
+    if len(Crux.Config.scriptargs) != 0:
+        print "Script argument%s: %s" % \
+          (("s" if len(Crux.Config.scriptargs) != 1 else ""), \
+          Crux.Config.scriptargs)
+
+# Do batch processing.
+if Crux.Config.verbose and Crux.Config.batch:
     print "Begin batch processing, %s" \
           % time.strftime("%Y/%m/%d %H:%M:%S (%Z)",
                           time.localtime(time.time()))
 
-    print "Process ID: %d" % os.getpid()
-
-    print "Threaded: %r" % Crux.Config.threaded
-
-    print "Random number seed: %d" % Crux.Config.seed
-
-    if Crux.Config.infile == None:
+    if Crux.Config.infile is None:
         print "Input file: <stdin>"
     else:
         print "Input file: '%s'" % Crux.Config.infile
 
-    if len(Crux.Config.scriptargs) != 0:
-        print "Script argument(s): %s" % Crux.Config.scriptargs
 
-# Do batch processing.
-if Crux.Config.infile != None:
+if Crux.Config.infile is not None:
     execfile(Crux.Config.infile)
 elif Crux.Config.batch:
     exec(sys.stdin)
 
-# Print various info if in verbose mode.
 if Crux.Config.verbose:
-    print "End batch processing, %s" \
-      % time.strftime("%Y/%m/%d %H:%M:%S (%Z)", time.localtime(time.time()))
-    if not Crux.Config.batch and Crux.Config.verbose:
+    if Crux.Config.batch:
+        print "End batch processing, %s" \
+          % time.strftime("%Y/%m/%d %H:%M:%S (%Z)", time.localtime(time.time()))
+    else:
         print "For Crux documentation, type: help(Crux)"
