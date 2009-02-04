@@ -64,23 +64,21 @@ typedef struct W128_T w128_t;
 
 #endif
 
+struct sfmt_s {
+    /** the 128-bit internal state array */
+    w128_t sfmt[N];
+    /** index counter to the 32-bit internal state array */
+    int idx;
+    /** a flag: it is 0 if and only if the internal state is not yet
+     * initialized. */
+    int initialized;
+};
+
 /*--------------------------------------
   FILE GLOBAL VARIABLES
   internal state, index counter and flag 
   --------------------------------------*/
-/** the 128-bit internal state array */
-static w128_t sfmt[N];
-/** the 32bit integer pointer to the 128-bit internal state array */
-static uint32_t *psfmt32 = &sfmt[0].u[0];
-#if !defined(BIG_ENDIAN64) || defined(ONLY64)
-/** the 64bit integer pointer to the 128-bit internal state array */
-static uint64_t *psfmt64 = (uint64_t *)&sfmt[0].u[0];
-#endif
-/** index counter to the 32-bit internal state array */
-static int idx;
-/** a flag: it is 0 if and only if the internal state is not yet
- * initialized. */
-static int initialized = 0;
+
 /** a parity check vector which certificate the period of 2^{MEXP} */
 static uint32_t parity[4] = {PARITY1, PARITY2, PARITY3, PARITY4};
 
@@ -90,11 +88,11 @@ static uint32_t parity[4] = {PARITY1, PARITY2, PARITY3, PARITY4};
 inline static int idxof(int i);
 inline static void rshift128(w128_t *out,  w128_t const *in, int shift);
 inline static void lshift128(w128_t *out,  w128_t const *in, int shift);
-inline static void gen_rand_all(void);
-inline static void gen_rand_array(w128_t *array, int size);
+inline static void gen_rand_all(sfmt_t *ctx);
+inline static void gen_rand_array(sfmt_t *ctx, w128_t *array, int size);
 inline static uint32_t func1(uint32_t x);
 inline static uint32_t func2(uint32_t x);
-static void period_certification(void);
+static void period_certification(sfmt_t *ctx);
 #if defined(BIG_ENDIAN64) && !defined(ONLY64)
 inline static void swap(w128_t *array, int size);
 #endif
@@ -248,21 +246,23 @@ inline static void do_recursion(w128_t *r, w128_t *a, w128_t *b, w128_t *c,
  * This function fills the internal state array with pseudorandom
  * integers.
  */
-inline static void gen_rand_all(void) {
+inline static void gen_rand_all(sfmt_t *ctx) {
     int i;
     w128_t *r1, *r2;
 
-    r1 = &sfmt[N - 2];
-    r2 = &sfmt[N - 1];
+    r1 = &ctx->sfmt[N - 2];
+    r2 = &ctx->sfmt[N - 1];
     for (i = 0; i < N - POS1; i++) {
-	do_recursion(&sfmt[i], &sfmt[i], &sfmt[i + POS1], r1, r2);
+	do_recursion(&ctx->sfmt[i], &ctx->sfmt[i], &ctx->sfmt[i + POS1], r1,
+	  r2);
 	r1 = r2;
-	r2 = &sfmt[i];
+	r2 = &ctx->sfmt[i];
     }
     for (; i < N; i++) {
-	do_recursion(&sfmt[i], &sfmt[i], &sfmt[i + POS1 - N], r1, r2);
+	do_recursion(&ctx->sfmt[i], &ctx->sfmt[i], &ctx->sfmt[i + POS1 - N], r1,
+	  r2);
 	r1 = r2;
-	r2 = &sfmt[i];
+	r2 = &ctx->sfmt[i];
     }
 }
 
@@ -273,19 +273,19 @@ inline static void gen_rand_all(void) {
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pseudorandom numbers to be generated.
  */
-inline static void gen_rand_array(w128_t *array, int size) {
+inline static void gen_rand_array(sfmt_t *ctx, w128_t *array, int size) {
     int i, j;
     w128_t *r1, *r2;
 
-    r1 = &sfmt[N - 2];
-    r2 = &sfmt[N - 1];
+    r1 = &ctx->sfmt[N - 2];
+    r2 = &ctx->sfmt[N - 1];
     for (i = 0; i < N - POS1; i++) {
-	do_recursion(&array[i], &sfmt[i], &sfmt[i + POS1], r1, r2);
+	do_recursion(&array[i], &ctx->sfmt[i], &ctx->sfmt[i + POS1], r1, r2);
 	r1 = r2;
 	r2 = &array[i];
     }
     for (; i < N; i++) {
-	do_recursion(&array[i], &sfmt[i], &array[i + POS1 - N], r1, r2);
+	do_recursion(&array[i], &ctx->sfmt[i], &array[i + POS1 - N], r1, r2);
 	r1 = r2;
 	r2 = &array[i];
     }
@@ -295,13 +295,13 @@ inline static void gen_rand_array(w128_t *array, int size) {
 	r2 = &array[i];
     }
     for (j = 0; j < 2 * N - size; j++) {
-	sfmt[j] = array[j + size - N];
+	ctx->sfmt[j] = array[j + size - N];
     }
     for (; i < size; i++, j++) {
 	do_recursion(&array[i], &array[i - N], &array[i + POS1 - N], r1, r2);
 	r1 = r2;
 	r2 = &array[i];
-	sfmt[j] = array[i];
+	ctx->sfmt[j] = array[i];
     }
 }
 #endif
@@ -344,10 +344,11 @@ static uint32_t func2(uint32_t x) {
 /**
  * This function certificate the period of 2^{MEXP}
  */
-static void period_certification(void) {
+static void period_certification(sfmt_t *ctx) {
     int inner = 0;
     int i, j;
     uint32_t work;
+    uint32_t *psfmt32 = &ctx->sfmt[0].u[0];
 
     for (i = 0; i < 4; i++)
 	inner ^= psfmt32[idxof(i)] & parity[i];
@@ -407,25 +408,26 @@ int get_min_array_size64(void) {
  * init_gen_rand or init_by_array must be called before this function.
  * @return 32-bit pseudorandom number
  */
-uint32_t gen_rand32(void) {
+uint32_t gen_rand32(sfmt_t *ctx) {
     uint32_t r;
+    uint32_t *psfmt32 = &ctx->sfmt[0].u[0];
 
-    assert(initialized);
-    if (idx >= N32) {
-	gen_rand_all();
-	idx = 0;
+    assert(ctx->initialized);
+    if (ctx->idx >= N32) {
+	gen_rand_all(ctx);
+	ctx->idx = 0;
     }
-    r = psfmt32[idx++];
+    r = psfmt32[ctx->idx++];
     return r;
 }
 
 /* Generate a random integer in [0..limit). */
-uint32_t gen_rand32_range(uint32_t limit) {
+uint32_t gen_rand32_range(sfmt_t *ctx, uint32_t limit) {
     uint32_t ret, above;
 
     above = 0xffffffffU - (0xffffffffU % limit);
     while (1) {
-        ret = gen_rand32();
+        ret = gen_rand32(ctx);
         if (ret < above) {
             ret %= limit;
             break;
@@ -441,39 +443,41 @@ uint32_t gen_rand32_range(uint32_t limit) {
  * unless an initialization is again executed. 
  * @return 64-bit pseudorandom number
  */
-uint64_t gen_rand64(void) {
+uint64_t gen_rand64(sfmt_t *ctx) {
 #if defined(BIG_ENDIAN64) && !defined(ONLY64)
     uint32_t r1, r2;
+    uint32_t *psfmt32 = &ctx->sfmt[0].u[0];
 #else
     uint64_t r;
+    uint64_t *psfmt64 = (uint64_t *)&ctx->sfmt[0].u[0];
 #endif
 
-    assert(initialized);
-    assert(idx % 2 == 0);
+    assert(ctx->initialized);
+    assert(ctx->idx % 2 == 0);
 
-    if (idx >= N32) {
-	gen_rand_all();
-	idx = 0;
+    if (ctx->idx >= N32) {
+	gen_rand_all(ctx);
+	ctx->idx = 0;
     }
 #if defined(BIG_ENDIAN64) && !defined(ONLY64)
-    r1 = psfmt32[idx];
-    r2 = psfmt32[idx + 1];
-    idx += 2;
+    r1 = psfmt32[ctx->idx];
+    r2 = psfmt32[ctx->idx + 1];
+    ctx->idx += 2;
     return ((uint64_t)r2 << 32) | r1;
 #else
-    r = psfmt64[idx / 2];
-    idx += 2;
+    r = psfmt64[ctx->idx / 2];
+    ctx->idx += 2;
     return r;
 #endif
 }
 
 /* Generate a random integer in [0..limit). */
-uint64_t gen_rand64_range(uint64_t limit) {
+uint64_t gen_rand64_range(sfmt_t *ctx, uint64_t limit) {
     uint64_t ret, above;
 
     above = 0xffffffffffffffffLLU - (0xffffffffffffffffLLU  % limit);
     while (1) {
-        ret = gen_rand64();
+        ret = gen_rand64(ctx);
         if (ret < above) {
             ret %= limit;
             break;
@@ -508,14 +512,14 @@ uint64_t gen_rand64_range(uint64_t limit) {
  * memory. Mac OSX doesn't have these functions, but \b malloc of OSX
  * returns the pointer to the aligned memory block.
  */
-void fill_array32(uint32_t *array, int size) {
-    assert(initialized);
-    assert(idx == N32);
+void fill_array32(sfmt_t *ctx, uint32_t *array, int size) {
+    assert(ctx->initialized);
+    assert(ctx->idx == N32);
     assert(size % 4 == 0);
     assert(size >= N32);
 
-    gen_rand_array((w128_t *)array, size / 4);
-    idx = N32;
+    gen_rand_array(ctx, (w128_t *)array, size / 4);
+    ctx->idx = N32;
 }
 #endif
 
@@ -544,14 +548,14 @@ void fill_array32(uint32_t *array, int size) {
  * memory. Mac OSX doesn't have these functions, but \b malloc of OSX
  * returns the pointer to the aligned memory block.
  */
-void fill_array64(uint64_t *array, int size) {
-    assert(initialized);
-    assert(idx == N32);
+void fill_array64(sfmt_t *ctx, uint64_t *array, int size) {
+    assert(ctx->initialized);
+    assert(ctx->idx == N32);
     assert(size % 2 == 0);
     assert(size >= N64);
 
-    gen_rand_array((w128_t *)array, size / 2);
-    idx = N32;
+    gen_rand_array(ctx, (w128_t *)array, size / 2);
+    ctx->idx = N32;
 
 #if defined(BIG_ENDIAN64) && !defined(ONLY64)
     swap((w128_t *)array, size /2);
@@ -564,8 +568,15 @@ void fill_array64(uint64_t *array, int size) {
  *
  * @param seed a 32-bit integer used as the seed.
  */
-void init_gen_rand(uint32_t seed) {
+sfmt_t *init_gen_rand(uint32_t seed) {
+    sfmt_t *ctx;
     int i;
+    uint32_t *psfmt32;
+
+    if (posix_memalign((void **)&ctx, sizeof(w128_t), sizeof(sfmt_t)) != 0) {
+	return NULL;
+    }
+    psfmt32 = &ctx->sfmt[0].u[0];
 
     psfmt32[idxof(0)] = seed;
     for (i = 1; i < N32; i++) {
@@ -573,9 +584,11 @@ void init_gen_rand(uint32_t seed) {
 					    ^ (psfmt32[idxof(i - 1)] >> 30))
 	    + i;
     }
-    idx = N32;
-    period_certification();
-    initialized = 1;
+    ctx->idx = N32;
+    period_certification(ctx);
+    ctx->initialized = 1;
+
+    return ctx;
 }
 
 /**
@@ -584,12 +597,19 @@ void init_gen_rand(uint32_t seed) {
  * @param init_key the array of 32-bit integers, used as a seed.
  * @param key_length the length of init_key.
  */
-void init_by_array(uint32_t *init_key, int key_length) {
+sfmt_t *init_by_array(uint32_t *init_key, int key_length) {
+    sfmt_t *ctx;
     int i, j, count;
     uint32_t r;
     int lag;
     int mid;
     int size = N * 4;
+    uint32_t *psfmt32;
+
+    if (posix_memalign((void **)&ctx, sizeof(w128_t), sizeof(sfmt_t)) != 0) {
+	return NULL;
+    }
+    psfmt32 = &ctx->sfmt[0].u[0];
 
     if (size >= 623) {
 	lag = 11;
@@ -602,7 +622,7 @@ void init_by_array(uint32_t *init_key, int key_length) {
     }
     mid = (size - lag) / 2;
 
-    memset(sfmt, 0x8b, sizeof(sfmt));
+    memset(ctx->sfmt, 0x8b, sizeof(ctx->sfmt));
     if (key_length + 1 > N32) {
 	count = key_length + 1;
     } else {
@@ -644,7 +664,16 @@ void init_by_array(uint32_t *init_key, int key_length) {
 	i = (i + 1) % N32;
     }
 
-    idx = N32;
-    period_certification();
-    initialized = 1;
+    ctx->idx = N32;
+    period_certification(ctx);
+    ctx->initialized = 1;
+
+    return ctx;
+}
+
+void fini_gen_rand(sfmt_t *ctx) {
+    assert(ctx != NULL);
+
+    ctx->initialized = 0;
+    free(ctx);
 }

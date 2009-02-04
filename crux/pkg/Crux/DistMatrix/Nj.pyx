@@ -191,6 +191,7 @@ cdef inline bint distEq(float a, float b):
 
 cdef class Nj:
     def __cinit__(self):
+        self.prng = NULL
         self.dBase = NULL
         self.d = NULL
         self.rBase = NULL
@@ -199,6 +200,9 @@ cdef class Nj:
         self.rScaled = NULL
 
     def __dealloc__(self):
+        if self.prng != NULL:
+            fini_gen_rand(self.prng)
+            self.prng = NULL
         if self.dBase != NULL:
             free(self.dBase)
             self.dBase = NULL
@@ -208,6 +212,13 @@ cdef class Nj:
         if self.rScaledBase != NULL:
             free(self.rScaledBase)
             self.rScaledBase = NULL
+
+    def __init__(self):
+        import random
+
+        self.prng = init_gen_rand(random.randint(0, 0xffffffffU))
+        if self.prng == NULL:
+            raise MemoryError("Error initializing prng")
 
 #    cdef void _njDump(self) except *:
 #        cdef size_t i, x, y
@@ -332,7 +343,7 @@ cdef class Nj:
                     # Choose such that all tied distances have an equal
                     # probability of being chosen.
                     nmins += 1
-                    if gen_rand64_range(nmins) == 0:
+                    if gen_rand64_range(self.prng, nmins) == 0:
                         xMin = x
                         yMin = y
                         transMin = transCur
@@ -619,7 +630,7 @@ cdef class Rnj(Nj):
                     # Choose y such that all tied distances have an equal
                     # probability of being chosen.
                     nmins += 1
-                    if gen_rand64_range(nmins) == 0:
+                    if gen_rand64_range(self.prng, nmins) == 0:
                         ret = y
                 elif dist < minDist:
                     nmins = 1
@@ -639,7 +650,7 @@ cdef class Rnj(Nj):
                     # Choose y such that all tied distances have an equal
                     # probability of being chosen.
                     nmins += 1
-                    if gen_rand64_range(nmins) == 0:
+                    if gen_rand64_range(self.prng, nmins) == 0:
                         ret = y
                 elif dist < minDist:
                     nmins = 1
@@ -839,7 +850,7 @@ cdef class Rnj(Nj):
         cdef float dist, distX, distY
         cdef Node node
 
-        CxRiNew(&ri)
+        CxRiNew(&ri, self.prng)
         if CxRiInit(&ri, self.n):
             raise MemoryError("Error in CxRiInit(..., %d)" % self.n)
 

@@ -2,8 +2,11 @@
 #define CxRi_h
 
 #include "Cx.h"
+#include "SFMT/SFMT.h"
 
 typedef struct {
+    // PRNG context.
+    sfmt_t *prng;
     // Array of integers that is used for randomly iterating over all integers
     // from [0..nints).  The following algorithm is used for the random
     // iteration:
@@ -40,7 +43,7 @@ typedef struct {
 
 // Constructor.
 void
-CxRiNew(CxtRi *aRi);
+CxRiNew(CxtRi *aRi, sfmt_t *aPrng);
 
 // Destructor.
 void

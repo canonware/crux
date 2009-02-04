@@ -10,7 +10,6 @@
 """
 
 from Cx cimport *
-from SFMT cimport *
 
 # Initialize libCx.
 CxInit()
@@ -45,4 +44,3 @@ cpdef seed(unsigned s):
     Config.seed = s
     import random
     random.seed(s)
-    init_gen_rand(s)

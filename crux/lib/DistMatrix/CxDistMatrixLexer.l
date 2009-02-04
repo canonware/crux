@@ -72,6 +72,7 @@ typedef struct {
 %option reentrant
 %option extra-type="CxtDistMatrixLexerExtra *"
 %option nointeractive
+%option noinput
 %option nounput
 
 %%

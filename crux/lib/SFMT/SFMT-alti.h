@@ -65,21 +65,21 @@ inline static vector unsigned int vec_recursion(vector unsigned int a,
  * This function fills the internal state array with pseudorandom
  * integers.
  */
-inline static void gen_rand_all(void) {
+inline static void gen_rand_all(sfmt_t *ctx) {
     int i;
     vector unsigned int r, r1, r2;
 
-    r1 = sfmt[N - 2].s;
-    r2 = sfmt[N - 1].s;
+    r1 = ctx->sfmt[N - 2].s;
+    r2 = ctx->sfmt[N - 1].s;
     for (i = 0; i < N - POS1; i++) {
-	r = vec_recursion(sfmt[i].s, sfmt[i + POS1].s, r1, r2);
-	sfmt[i].s = r;
+	r = vec_recursion(ctx->sfmt[i].s, ctx->sfmt[i + POS1].s, r1, r2);
+	ctx->sfmt[i].s = r;
 	r1 = r2;
 	r2 = r;
     }
     for (; i < N; i++) {
-	r = vec_recursion(sfmt[i].s, sfmt[i + POS1 - N].s, r1, r2);
-	sfmt[i].s = r;
+	r = vec_recursion(ctx->sfmt[i].s, ctx->sfmt[i + POS1 - N].s, r1, r2);
+	ctx->sfmt[i].s = r;
 	r1 = r2;
 	r2 = r;
     }
@@ -92,20 +92,20 @@ inline static void gen_rand_all(void) {
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pesudorandom numbers to be generated.
  */
-inline static void gen_rand_array(w128_t *array, int size) {
+inline static void gen_rand_array(sfmt_t *ctx, w128_t *array, int size) {
     int i, j;
     vector unsigned int r, r1, r2;
 
-    r1 = sfmt[N - 2].s;
-    r2 = sfmt[N - 1].s;
+    r1 = ctx->sfmt[N - 2].s;
+    r2 = ctx->sfmt[N - 1].s;
     for (i = 0; i < N - POS1; i++) {
-	r = vec_recursion(sfmt[i].s, sfmt[i + POS1].s, r1, r2);
+	r = vec_recursion(ctx->sfmt[i].s, ctx->sfmt[i + POS1].s, r1, r2);
 	array[i].s = r;
 	r1 = r2;
 	r2 = r;
     }
     for (; i < N; i++) {
-	r = vec_recursion(sfmt[i].s, array[i + POS1 - N].s, r1, r2);
+	r = vec_recursion(ctx->sfmt[i].s, array[i + POS1 - N].s, r1, r2);
 	array[i].s = r;
 	r1 = r2;
 	r2 = r;
@@ -118,12 +118,12 @@ inline static void gen_rand_array(w128_t *array, int size) {
 	r2 = r;
     }
     for (j = 0; j < 2 * N - size; j++) {
-	sfmt[j].s = array[j + size - N].s;
+	ctx->sfmt[j].s = array[j + size - N].s;
     }
     for (; i < size; i++) {
 	r = vec_recursion(array[i - N].s, array[i + POS1 - N].s, r1, r2);
 	array[i].s = r;
-	sfmt[j++].s = r;
+	ctx->sfmt[j++].s = r;
 	r1 = r2;
 	r2 = r;
     }

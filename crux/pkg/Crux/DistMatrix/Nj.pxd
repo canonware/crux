@@ -2,8 +2,10 @@ from Crux.Tree cimport Tree, Node
 cimport Crux.Taxa as Taxa
 
 from libc cimport *
+from SFMT cimport sfmt_t
 
 cdef class Nj:
+    cdef sfmt_t *prng
     cdef float *dBase, *d # d is advanced as rows are removed.
     cdef size_t nBase, n
     cdef float *rBase, *r

@@ -2,7 +2,10 @@
 #include "SFMT/SFMT.h"
 
 void
-CxRiNew(CxtRi *aRi) {
+CxRiNew(CxtRi *aRi, sfmt_t *aPrng) {
+    CxmCheckPtr(aPrng);
+
+    aRi->prng = aPrng;
     aRi->arr = NULL;
     aRi->arrLen = 0;
     aRi->nints = 0;
@@ -109,7 +112,7 @@ CxRiRandomGet(CxtRi *aRi) {
     }
 
     // 2)
-    r = aRi->ind + gen_rand64_range(aRi->nints - aRi->ind);
+    r = aRi->ind + gen_rand64_range(aRi->prng, aRi->nints - aRi->ind);
     CxmAssert(r >= aRi->ind);
     CxmAssert(r < aRi->nints);
 
