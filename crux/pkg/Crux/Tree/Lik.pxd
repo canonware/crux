@@ -58,6 +58,7 @@ cdef class Lik:
     cdef void _reassignModel(self, CxtLikModel *model) except *
     cdef void _deallocModel(self, CxtLikModel *model)
 
+    cpdef Lik dup(self)
     cpdef unsigned getNcat(self)
     cpdef unsigned nmodels(self)
     cpdef unsigned addModel(self)

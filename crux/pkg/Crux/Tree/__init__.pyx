@@ -131,6 +131,7 @@ cdef class Tree:
                 newOtherNode = self._dup(newTree, otherRing.node, otherRing)
 
                 newEdge = Edge(newTree)
+                newEdge.length = ring.edge.length
                 newEdge.attach(newNode, newOtherNode)
 
             ring = ring.next

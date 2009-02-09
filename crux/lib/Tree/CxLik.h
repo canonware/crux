@@ -116,10 +116,10 @@ typedef enum {
 } CxeLikStep;
 
 // Each update step needs the same basic pieces of information.  The data that
-// vary among steps are stored using this data structure.  parentMat and
-// childMat are the conditional likelihood matrices associated with the node
-// being updated, and one of its children.  edgeLen is the length of the branch
-// separating the two nodes.
+// vary among steps are stored using this data structure.  parentCL and childCL
+// are the conditional likelihood data associated with the node being updated,
+// and one of its children.  edgeLen is the length of the branch separating the
+// two nodes.
 //
 //        node
 //         |
@@ -179,8 +179,8 @@ typedef struct {
     unsigned stepsMax;
 } CxtLik;
 
-// Use message queues to communicate with worker threads that have CxNcpus *
-// CxmLikMqMult slots.
+// Use message queues that have CxNcpus * CxmLikMqMult slots to communicate
+// with worker threads.
 #define CxmLikMqMult 8
 
 bool

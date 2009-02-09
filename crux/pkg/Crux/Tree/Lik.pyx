@@ -322,6 +322,37 @@ cdef class Lik:
             free(model.stripeLnL)
             model.stripeLnL = NULL
 
+    cpdef Lik dup(self):
+        """
+            Create a duplicate Lik object that can be manipulated independently
+            of the original (with the exception of sharing the same Alignment).
+            Copy all model parameters, and create a separate identical tree.
+            Do not copy cached conditional likelihood data; they can be
+            recomputed if necessary.
+        """
+        cdef Lik ret
+        cdef unsigned i
+        cdef CxtLikModel *toP, *frP
+
+        ret = Lik(self.tree.dup(), self.alignment, self.lik.modelsLen, \
+          self.lik.ncat, self.lik.catMedian)
+
+        for 0 <= i < self.lik.modelsLen:
+            toP = &ret.lik.models[i]
+            frP = &self.lik.models[i]
+            assert toP.sn == 0
+            assert toP.reassign
+            toP.weight = frP.weight
+            memcpy(toP.rMat, frP.rMat, self.lik.dim * self.lik.dim * \
+              sizeof(double))
+            memcpy(toP.piDiag, frP.piDiag, self.lik.dim * sizeof(double))
+            if self.lik.ncat != 0:
+                toP.alpha = frP.alpha
+                memcpy(toP.gammas, frP.gammas, frP.glen * sizeof(double))
+                toP.glen = frP.glen
+
+        return ret
+
     cpdef unsigned getNcat(self):
         """
             Get the number of discrete rates for Gamma-distributed mutation
