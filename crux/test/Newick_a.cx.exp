@@ -1190,11 +1190,11 @@ Exception <class 'Crux.Newick.SyntaxError'>: 1:13: Invalid token or end of input
 
 === '(A,B:42.43.44); [error]' ===
 Rooted:
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: unquotedLabel ('.44')
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: unquotedLabel ('42.43.44')
 
 === '(A:42.); [error]' ===
 Rooted:
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: unquotedLabel ('.')
+Exception <class 'Parsing.SyntaxError'>: Unexpected token: unquotedLabel ('42.')
 
 === '(B,(A,C,E),D);' ===
 Rooted:

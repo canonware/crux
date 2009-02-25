@@ -9,8 +9,10 @@ cdef extern from "CxLik.h":
         uint64_t sn
         bint reassign
         double weight
-        double *rMat
+        unsigned *rclass
+        double *rTri
         double *piDiag
+        double *piDiagNorm
         double *qEigVecCube
         double *qEigVals
         double alpha
@@ -31,9 +33,11 @@ cdef extern from "CxLik.h":
         double edgeLen
     ctypedef struct CxtLik:
         unsigned dim
+        unsigned rlen
         unsigned ncat
         bint catMedian
         unsigned nchars
+        unsigned npad
         unsigned *charFreqs
         unsigned stripeWidth
         unsigned nstripes
@@ -46,8 +50,9 @@ cdef extern from "CxLik.h":
 
     cdef unsigned CxmLikMqMult
 
-    cdef bint CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
-      double *qEigVals)
-    cdef void CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals,
+    cdef bint CxLikQDecomp(int n, double *RTri, double *PiDiag, \
+      double *PiDiagNorm, double *qEigVecCube, double *qEigVals)
+    cdef void CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, \
       double v)
-    cdef double CxLikExecute(CxtLik *lik)
+    cdef double CxLikExecuteLnL(CxtLik *lik)
+    cdef void CxLikExecuteSiteLnLs(CxtLik *lik, double *lnLs)

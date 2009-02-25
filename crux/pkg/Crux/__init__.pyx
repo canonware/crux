@@ -23,6 +23,7 @@ cimport Crux.Character as Character
 cimport Crux.CTMatrix as CTMatrix
 cimport Crux.DistMatrix as DistMatrix
 cimport Crux.Fasta as Fasta
+cimport Crux.Mc3 as Mc3
 cimport Crux.Newick as Newick
 cimport Crux.Taxa as Taxa
 cimport Crux.Tree as Tree

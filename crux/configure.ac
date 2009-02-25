@@ -74,12 +74,12 @@ MTCFLAGS="-fno-strict-aliasing"
 case "${host_cpu}" in
   i[[3456]]86)
 	AC_DEFINE([CxmCpuIa32])
-	CFLAGS="${CFLAGS} -msse2"
+	CFLAGS="${CFLAGS} -mfpmath=sse -msse2"
 	MTCPPFLAGS="${MTCPPFLAGS} -DHAVE_SSE2=1"
 	;;
   x86_64)
 	AC_DEFINE([CxmCpuAmd64])
-	CFLAGS="${CFLAGS} -msse2"
+	CFLAGS="${CFLAGS} -mfpmath=sse -msse2"
 	MTCPPFLAGS="${MTCPPFLAGS} -DHAVE_SSE2=1"
 	;;
   powerpc)

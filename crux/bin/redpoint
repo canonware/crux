@@ -1,0 +1,298 @@
+#!@PYTHON@@python_opts@
+
+import copy
+import optparse
+import sys
+import time
+
+if "@site_packages@" not in sys.path:
+    sys.path.insert(0, "@site_packages@")
+import Crux
+
+def check_uint(option, opt, value):
+    try:
+        ret = int(value)
+        if ret < 0:
+            raise ValueError()
+    except ValueError:
+        raise optparse.OptionValueError("Invalid value for %s: %r" % \
+          (opt, value))
+
+    return ret
+
+class RedpointOption(optparse.Option):
+    TYPES = optparse.Option.TYPES + ("uint",)
+    TYPE_CHECKER = copy.copy(optparse.Option.TYPE_CHECKER)
+    TYPE_CHECKER["uint"] = check_uint
+
+class RedpointHelpFormatter(optparse.IndentedHelpFormatter):
+    def format_usage(self, usage):
+        return """\
+redpoint is a script based on Crux (http://www.canonware.com/Crux/) that
+analyzes a DNA alignment using Markov chain Monte Carlo to create a
+representative sample (assuming convergence) of the stationary posterior
+distribution, based on the GTR+G family of sequence evolution models.  For more
+information on methods and configuration parameters, see the relevant Crux
+documentation (crux --doc=Crux.Mc3.Mc3).
+
+redpoint usage:
+  redpoint -h | --help
+  redpoint -V | --version
+  redpoint [<options>]
+
+  General options:
+    -h, --help                    Print usage and exit.
+    -V, --version                 Print version information and exit.
+    -v, --verbose                 Enable verbose output (*disabled).
+    -q, --quiet                   Disable verbose output (*enabled).
+    -t, --threaded                Enable thread parallelism (*enabled).
+    -u, --unthreaded              Disable thread parallelism.
+    -s <int>, --seed=<uint>       Set pseudo-random number generator seed
+                                    (*based on system time, microsecond
+                                    resolution).
+
+  Input/output options:
+    -i, --input-file=<file>       Input DNA alignment, in FASTA format.
+    -o, --output-prefix=<prefix>  Output path prefix, used as the base name for
+                                  output files.
+
+  MCMC options (see Crux.Mc3.Mc3.optName for documentation):
+
+    General:                            Model parameter priors:
+      --graphDelay=<float>                --rateShapeInvPrior=<float>
+      --cvgDelay=<float>                  --brlenPrior=<float>
+      --cvgAlpha=<float>                  --rateJumpPrior=<float>
+      --cvgEpsilon=<float>                --polytomyJumpPrior=<float>
+      --minStep=<uint>                    --rateShapeInvJumpPrior=<float>
+      --maxStep=<uint>
+      --stride=<uint>                   Proposal probabilities:
+      --nruns=<uint>                      --freqProp=<float>
+      --ncoupled=<uint>                   --rateProp=<float>
+      --heatDelta=<float>                 --rateShapeInvProp=<float>
+      --swapStride=<uint>                 --brlenProp=<float>
+                                          --etbrProp=<float>
+    Proposal parameters:                  --rateJumpProp=<float>
+      --ncat=<uint>                       --polytomyJumpProp=<float>
+      --catMedian=<bool>                  --rateShapeInvJumpProp=<float> 
+      --freqLambda=<float>
+      --rateLambda=<float>
+      --rateShapeInvLambda=<float>
+      --brlenLambda=<float>
+      --etbrPExt=<float>
+      --etbrLambda=<float>"""
+
+# Process the command line.
+def parse_options():
+    helpformatter = RedpointHelpFormatter()
+    parser = optparse.OptionParser(formatter=helpformatter,
+      option_class=RedpointOption, add_help_option=0)
+    parser.disable_interspersed_args()
+    parser.add_option("-h", "--help", dest="help", action="store_true",
+      default=False)
+    parser.add_option("-V", "--version", dest="version", action="store_true",
+      default=False)
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
+      default=False)
+    parser.add_option("-q", "--quiet", dest="verbose", action="store_false")
+    parser.add_option("-t", "--threaded", dest="threaded", action="store_true",
+      default=True)
+    parser.add_option("-u", "--unthreaded", dest="threaded",
+      action="store_false")
+    parser.add_option("-s", "--seed", dest="seed", type="uint",
+      default=int(time.time() * 1000000) & 0xffffffff)
+
+    parser.add_option("-i", "--input-file", dest="inFilename", default=None)
+    parser.add_option("-o", "--output-prefix", dest="outPrefix", default=None)
+
+    parser.add_option("--graphDelay", dest="graphDelay", type="float",
+      default=None)
+    parser.add_option("--cvgDelay", dest="cvgDelay", type="float",
+      default=None)
+    parser.add_option("--cvgAlpha", dest="cvgAlpha", type="float",
+      default=None)
+    parser.add_option("--cvgEpsilon", dest="cvgEpsilon", type="float",
+      default=None)
+    parser.add_option("--minStep", dest="minStep", type="uint", default=None)
+    parser.add_option("--maxStep", dest="maxStep", type="uint", default=None)
+    parser.add_option("--stride", dest="stride", type="uint", default=None)
+    parser.add_option("--nruns", dest="nruns", type="uint", default=None)
+    parser.add_option("--ncoupled", dest="ncoupled", type="uint", default=None)
+    parser.add_option("--heatDelta", dest="heatDelta", type="float",
+      default=None)
+    parser.add_option("--swapStride", dest="swapStride", type="uint",
+      default=None)
+    parser.add_option("--ncat", dest="ncat", type="uint", default=None)
+    parser.add_option("--catMedian", dest="catMedian", action="store_true",
+      default=None)
+    parser.add_option("--freqLambda", dest="freqLambda", type="float",
+      default=None)
+    parser.add_option("--rateLambda", dest="rateLambda", type="float",
+      default=None)
+    parser.add_option("--rateShapeInvLambda", dest="rateShapeInvLambda",
+      type="float", default=None)
+    parser.add_option("--brlenLambda", dest="brlenLambda", type="float",
+      default=None)
+    parser.add_option("--etbrPExt", dest="etbrPExt", type="float",
+      default=None)
+    parser.add_option("--etbrLambda", dest="etbrLambda", type="float",
+      default=None)
+    parser.add_option("--rateShapeInvPrior", dest="rateShapeInvPrior",
+      type="float", default=None)
+    parser.add_option("--brlenPrior", dest="brlenPrior", type="float",
+      default=None)
+    parser.add_option("--rateJumpPrior", dest="rateJumpPrior", type="float",
+      default=None)
+    parser.add_option("--polytomyJumpPrior", dest="polytomyJumpPrior",
+      type="float", default=None)
+    parser.add_option("--rateShapeInvJumpPrior", dest="rateShapeInvJumpPrior",
+      type="float", default=None)
+    parser.add_option("--freqProp", dest="freqProp", type="float",
+      default=None)
+    parser.add_option("--rateProp", dest="rateProp", type="float",
+      default=None)
+    parser.add_option("--rateShapeInvProp", dest="rateShapeInvProp",
+      type="float", default=None)
+    parser.add_option("--brlenProp", dest="brlenProp", type="float",
+      default=None)
+    parser.add_option("--etbrProp", dest="etbrProp", type="float",
+      default=None)
+    parser.add_option("--rateJumpProp", dest="rateJumpProp", type="float",
+      default=None)
+    parser.add_option("--polytomyJumpProp", dest="polytomyJumpProp",
+      type="float", default=None)
+    parser.add_option("--rateShapeInvJumpProp", dest="rateShapeInvJumpProp",
+      type="float", default=None)
+
+    (opts, extra) = parser.parse_args()
+    if (len(extra) > 0):
+        print >> sys.stderr, "Incorrect command line usage"
+        print >> sys.stderr, helpformatter.format_usage("")
+        sys.exit(1)
+
+    if opts.help:
+        print helpformatter.format_usage("")
+        sys.exit(0)
+
+    if opts.version:
+        print "redpoint, Crux version @crux_version@"
+        sys.exit(0)
+
+    if opts.inFilename is None:
+        print >> sys.stderr, "Input file must be specified"
+        print >> sys.stderr, helpformatter.format_usage("")
+        sys.exit(1)
+
+    if opts.outPrefix is None:
+        print >> sys.stderr, "Output prefix must be specified"
+        print >> sys.stderr, helpformatter.format_usage("")
+        sys.exit(1)
+
+    return opts
+
+#===============================================================================
+# Beginning of main execution.
+
+# Parse command line options.
+opts = parse_options()
+
+Crux.Config.verbose = opts.verbose
+
+# Set threading mode.
+if opts.threaded:
+    Crux.threaded()
+
+# Seed the PRNG.
+if opts.verbose:
+    print "PRNG seed: %d" % opts.seed
+Crux.seed(opts.seed)
+
+cTMatrix = Crux.CTMatrix.CTMatrix(open(opts.inFilename, "r"))
+alignment = Crux.CTMatrix.Alignment(matrix=cTMatrix)
+alignment.compact()
+if opts.verbose:
+    print "Compact alignment:"
+    alignment.render(outFile=sys.stdout)
+    print "outPrefix: %r" % opts.outPrefix
+mc3 = Crux.Mc3.Mc3(alignment, opts.outPrefix)
+
+# Set optional Mc3 configuration parameters.
+if opts.graphDelay is not None: mc3.graphDelay = opts.graphDelay
+if opts.cvgDelay is not None: mc3.cvgDelay = opts.cvgDelay
+if opts.cvgAlpha is not None: mc3.cvgAlpha = opts.cvgAlpha
+if opts.cvgEpsilon is not None: mc3.cvgEpsilon = opts.cvgEpsilon
+if opts.minStep is not None: mc3.minStep = opts.minStep
+if opts.maxStep is not None:
+    # Automatically reduce the default minStep if necessary to avoid a
+    # validation error.
+    if opts.minStep is None and mc3.minStep > opts.maxStep:
+        mc3.minStep = opts.maxStep
+    mc3.maxStep = opts.maxStep
+if opts.stride is not None: mc3.stride = opts.stride
+if opts.nruns is not None: mc3.nruns = opts.nruns
+if opts.ncoupled is not None: mc3.ncoupled = opts.ncoupled
+if opts.heatDelta is not None: mc3.heatDelta = opts.heatDelta
+if opts.swapStride is not None: mc3.swapStride = opts.swapStride
+if opts.ncat is not None: mc3.ncat = opts.ncat
+if opts.catMedian is not None: mc3.catMedian = opts.catMedian
+if opts.freqLambda is not None: mc3.freqLambda = opts.freqLambda
+if opts.rateLambda is not None: mc3.rateLambda = opts.rateLambda
+if opts.rateShapeInvLambda is not None:
+    mc3.rateShapeInvLambda = opts.rateShapeInvLambda
+if opts.brlenLambda is not None: mc3.brlenLambda = opts.brlenLambda
+if opts.etbrPExt is not None: mc3.etbrPExt = opts.etbrPExt
+if opts.etbrLambda is not None: mc3.etbrLambda = opts.etbrLambda
+if opts.rateShapeInvPrior is not None:
+    mc3.rateShapeInvPrior = opts.rateShapeInvPrior
+if opts.brlenPrior is not None: mc3.brlenPrior = opts.brlenPrior
+if opts.rateJumpPrior is not None: mc3.rateJumpPrior = opts.rateJumpPrior
+if opts.polytomyJumpPrior is not None:
+    mc3.polytomyJumpPrior = opts.polytomyJumpPrior
+if opts.rateShapeInvJumpPrior is not None:
+    mc3.rateShapeInvJumpPrior = opts.rateShapeInvJumpPrior
+if opts.freqProp is not None: mc3.freqProp = opts.freqProp
+if opts.rateProp is not None: mc3.rateProp = opts.rateProp
+if opts.rateShapeInvProp is not None:
+    mc3.rateShapeInvProp = opts.rateShapeInvProp
+if opts.brlenProp is not None: mc3.brlenProp = opts.brlenProp
+if opts.etbrProp is not None: mc3.etbrProp = opts.etbrProp
+if opts.rateJumpProp is not None: mc3.rateJumpProp = opts.rateJumpProp
+if opts.polytomyJumpProp is not None:
+    mc3.polytomyJumpProp = opts.polytomyJumpProp
+if opts.rateShapeInvJumpProp is not None:
+    mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
+
+if opts.verbose:
+    print "graphDelay: %r" % mc3.graphDelay
+    print "cvgDelay: %r" % mc3.cvgDelay
+    print "cvgAlpha: %r" % mc3.cvgAlpha
+    print "cvgEpsilon: %r" % mc3.cvgEpsilon
+    print "minStep: %r" % mc3.minStep
+    print "maxStep: %r" % mc3.maxStep
+    print "stride: %r" % mc3.stride
+    print "nruns: %r" % mc3.nruns
+    print "ncoupled: %r" % mc3.ncoupled
+    print "heatDelta: %r" % mc3.heatDelta
+    print "swapStride: %r" % mc3.swapStride
+    print "ncat: %r" % mc3.ncat
+    print "catMedian: %r" % mc3.catMedian
+    print "freqLambda: %r" % mc3.freqLambda
+    print "rateLambda: %r" % mc3.rateLambda
+    print "rateShapeInvLambda: %r" % mc3.rateShapeInvLambda
+    print "brlenLambda: %r" % mc3.brlenLambda
+    print "etbrPExt: %r" % mc3.etbrPExt
+    print "etbrLambda: %r" % mc3.etbrLambda
+    print "rateShapeInvPrior: %r" % mc3.rateShapeInvPrior
+    print "brlenPrior: %r" % mc3.brlenPrior
+    print "rateJumpPrior: %r" % mc3.rateJumpPrior
+    print "polytomyJumpPrior: %r" % mc3.polytomyJumpPrior
+    print "rateShapeInvJumpPrior: %r" % mc3.rateShapeInvJumpPrior
+    print "freqProp: %r" % mc3.freqProp
+    print "rateProp: %r" % mc3.rateProp
+    print "rateShapeInvProp: %r" % mc3.rateShapeInvProp
+    print "brlenProp: %r" % mc3.brlenProp
+    print "etbrProp: %r" % mc3.etbrProp
+    print "rateJumpProp: %r" % mc3.rateJumpProp
+    print "polytomyJumpProp: %r" % mc3.polytomyJumpProp
+    print "rateShapeInvJumpProp: %r" % mc3.rateShapeInvJumpProp
+
+mc3.run(verbose=opts.verbose)

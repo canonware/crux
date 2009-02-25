@@ -31,7 +31,13 @@ for newickStr in trees:
     t.canonize(distMatrix.taxaMap)
     t.render(lengths=True, outFile=sys.stdout)
 
+    alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(fastaStr))
     lik = Crux.Tree.Lik.Lik(t, alignment)
     print "lnL: %.5f" % lik.lnL()
+    siteLnLs = lik.siteLnLs()
+    print "Site lnL's:",
+    for i in xrange(len(siteLnLs)):
+        print "%.6f" % siteLnLs[i],
+    print
 
 print "Test end"

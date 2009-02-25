@@ -12,6 +12,10 @@ AAAA
 """
 
 trees = [
+    "(one:0.0,two:0.0,three:0.25);",
+    "(one:0.0,two:0.0,three:0.5);",
+    "(one:0.0,two:0.0,three:0.75);",
+    "(one:0.0,two:0.0,three:1.0);",
     "(one:0.0,two:0.0,three:1.25);"
 ]
 
@@ -24,8 +28,12 @@ for newickStr in trees:
     t.canonize(distMatrix.taxaMap)
     t.render(lengths=True, outFile=sys.stdout)
     lik = Crux.Tree.Lik.Lik(t, alignment)
+    i = 0
+    for freq in (0.4, 0.3, 0.2, 0.1):
+        lik.setFreq(0, i, freq)
+        i += 1
     for n in t.nodes:
-        print "lnL: %.4f" % lik.lnL(n)
+        print "lnL: %.5f" % lik.lnL(n)
         print "Site lnL's:",
         lnLs = lik.siteLnLs(n)
         for i in xrange(len(lnLs)):

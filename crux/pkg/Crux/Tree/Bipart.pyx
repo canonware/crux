@@ -96,9 +96,16 @@ cdef class Vec:
         for 0 <= i < nBytes:
             self.bits[i] |= other.bits[i]
 
-cdef class Rf:
-    def __init__(self, Tree tree, dict taxa):
-        self.taxa = taxa
+cdef class Bipart:
+    def __init__(self, Tree tree):
+        cdef list taxa
+
+        # Create a taxon-->index translation.
+        self.taxaX = {}
+        taxa = tree.getTaxa()
+        for 0 <= i < len(taxa):
+            self.taxaX[taxa[i]] = i
+
         self.edgeVecs = []
         self.leafVec = Vec(len(taxa))
 
@@ -118,16 +125,16 @@ cdef class Rf:
 
             # Mark this taxon as being in the set.
             assert node._taxon is not None
-            ret.set(self.taxa[node._taxon], True)
+            ret.set(self.taxaX[node._taxon], True)
         else:
             if calcVec:
                 # Create a vector for this edge.
-                ret = Vec(len(self.taxa))
+                ret = Vec(len(self.taxaX))
                 self.edgeVecs.append(ret)
 
                 # Even internal nodes may have associated taxa.
                 if node._taxon is not None:
-                    ret.set(self.taxa[node._taxon], True)
+                    ret.set(self.taxaX[node._taxon], True)
             else:
                 # Avoid creating a vector, because the previous node is the
                 # tree base, and it's a leaf node.
@@ -167,11 +174,14 @@ cdef class Rf:
         # for differences.
         self.edgeVecs.sort()
 
-    cdef double dist(self, Rf other) except -1.0:
+    cdef double rfDist(self, Bipart other) except -1.0:
         cdef double falseNegativeRate, falsePositiveRate
         cdef unsigned nUniqueA, nUniqueB, iA, iB, lenA, lenB
         cdef int rel
         cdef Vec vecA, vecB
+
+        if self is other:
+            return 0.0
 
         nUniqueA = nUniqueB = iA = iB = 0
         lenA = len(self.edgeVecs)
@@ -217,46 +227,33 @@ cdef double rf(Tree a, Tree b) except -1.0:
     cdef list taxaA
     cdef dict taxa
     cdef unsigned i
-    cdef Rf rfA, rfB
+    cdef Bipart bipartA, bipartB
 
-    taxaA = a.getTaxa()
-    if taxaA != b.getTaxa():
+    if a.getTaxa() != b.getTaxa():
         # The trees do not contain the same taxa, so treat them as being
         # infinitely distant.
         return 1.0
 
-    # Create a taxon-->index mapping for Rf to use.
-    taxa = {}
-    for 0 <= i < len(taxaA):
-        taxa[taxaA[i]] = i
+    bipartA = a.getBipart()
+    bipartB = b.getBipart()
 
-    rfA = Rf(a, taxa)
-    rfB = Rf(b, taxa)
-
-    return rfA.dist(rfB)
+    return bipartA.rfDist(bipartB)
 
 cdef list rfs(Tree a, list others):
     cdef list ret, taxaA
-    cdef dict taxa
-    cdef unsigned i
     cdef Tree b
-    cdef Rf rfA, rfB
+    cdef Bipart bipartA, bipartB
 
     ret = []
     taxaA = a.getTaxa()
 
-    # Create a taxon-->index mapping for Rf to use.
-    taxa = {}
-    for 0 <= i < len(taxaA):
-        taxa[taxaA[i]] = i
-
-    rfA = Rf(a, taxa)
+    bipartA = Bipart(a)
     for b in others:
         if taxaA != b.getTaxa():
             # The trees do not contain the same taxa, so treat them as being
             # infinitely distant.
             ret.append(1.0)
         else:
-            rfB = Rf(b, taxa)
-            ret.append(rfA.dist(rfB))
+            bipartB = Bipart(b)
+            ret.append(bipartA.rfDist(bipartB))
     return ret

@@ -21,9 +21,11 @@ cimport Crux.Newick as Newick
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
 cimport Crux.Tree.Lik
-cimport Crux.Tree.Rf
+from Crux.Tree.Bipart cimport Bipart
 
 import Crux.Config
+
+DEF TreeDebugExpensive = False
 
 global __name__
 
@@ -161,15 +163,33 @@ cdef class Tree:
               Transactions on Computational Biology and Bioinformatics
               1(1):13-23.
         """
-        return Crux.Tree.Rf.rf(self, other)
+        if self.getTaxa() != other.getTaxa():
+            # The trees do not contain the same taxa, so treat them as being
+            # infinitely distant.
+            return 1.0
+
+        return self.getBipart().rfDist(other.getBipart())
 
     cpdef list rfs(self, list others):
         """
-            Compute the Robinson-Foulds distance to each tree in a list.  This
-            method does the same computation as the rf() method, but it is more
-            efficient than a series of rf() calls.
+            Compute the Robinson-Foulds distance to each tree in a list.
         """
-        return Crux.Tree.Rf.rfs(self, others)
+        cdef list ret, taxaSelf
+        cdef Bipart bipartSelf
+        cdef Tree other
+
+        ret = []
+        taxaSelf = self.getTaxa()
+        bipartSelf = self.getBipart()
+        for other in others:
+            if taxaSelf != other.getTaxa():
+                # The trees do not contain the same taxa, so treat them as being
+                # infinitely distant.
+                ret.append(1.0)
+            else:
+                ret.append(bipartSelf.rfDist(other.getBipart()))
+
+        return ret
 
     cdef void _recacheRecurse(self, Ring ring):
         cdef Ring r
@@ -193,11 +213,13 @@ cdef class Tree:
         cdef Node node
         cdef Taxon taxon
 
+        self._cachedBipart = None
+
         self._cachedTaxa = []
         self._cachedNodes = []
         self._cachedEdges = []
 
-        if self._base != None:
+        if self._base is not None:
             node = self._base
             taxon = node._taxon
             if taxon is not None:
@@ -205,116 +227,107 @@ cdef class Tree:
             self._cachedNodes.append(node)
             node._degree = 0
             ring = node.ring
-            if ring != None:
+            if ring is not None:
                 for r in ring:
                     self._cachedEdges.append(r.edge)
                     self._recacheRecurse(r.other)
                     node._degree += 1
 
+        # Sort so that it's easy to determine whether two trees include the
+        # same taxa.
         self._cachedTaxa.sort()
 
         self._cacheSn = self.sn
 
     cdef int getNtaxa(self) except *:
-        """
-            Get the number of taxa in the tree.
-        """
         if self._cacheSn != self.sn:
             self._recache()
         return len(self._cachedTaxa)
     property ntaxa:
         """
-            Get the number of taxa in the tree.
+            The number of taxa in the tree.
         """
         def __get__(self):
             return self.getNtaxa()
 
     cdef int getNnodes(self) except *:
-        """
-            Get the number of nodes in the tree.
-        """
         if self._cacheSn != self.sn:
             self._recache()
         return len(self._cachedNodes)
     property nnodes:
         """
-            Get the number of nodes in the tree.
+            The number of nodes in the tree.
         """
         def __get__(self):
             return self.getNnodes()
 
     cdef int getNedges(self) except *:
-        """
-            Get the number of edges in the tree.
-        """
         if self._cacheSn != self.sn:
             self._recache()
         return len(self._cachedEdges)
     property nedges:
         """
-            Get the number of edges in the tree.
+            The number of edges in the tree.
         """
         def __get__(self):
             return self.getNedges()
 
     cdef list getTaxa(self):
-        """
-            Get an alphabetized list of all taxa in the tree.  Do not modify
-            the list.
-        """
         if self._cacheSn != self.sn:
             self._recache()
         return self._cachedTaxa
     property taxa:
         """
-            Get an alphabetized list of all taxa in the tree.  Do not modify
-            the list.
+            An alphabetized list of all taxa in the tree.  Do not modify the
+            list.
         """
         def __get__(self):
             return self.getTaxa()
 
     cdef list getNodes(self):
-        """
-            Get a list of all nodes in the tree.  Do not modify the list.
-        """
         if self._cacheSn != self.sn:
             self._recache()
         return self._cachedNodes
     property nodes:
         """
-            Get a list of all nodes in the tree.  Do not modify the list.
+            A list of all nodes in the tree.  Do not modify the list.
         """
         def __get__(self):
             return self.getNodes()
 
     cdef list getEdges(self):
-        """
-            Get a list of all edges in the tree.  Do not modify the list.
-        """
         if self._cacheSn != self.sn:
             self._recache()
         return self._cachedEdges
     property edges:
         """
-            Get a list of all edges in the tree.  Do not modify the list.
+            A list of all edges in the tree.  Do not modify the list.
         """
         def __get__(self):
             return self.getEdges()
 
+    cdef Bipart getBipart(self):
+
+        if self._cacheSn != self.sn:
+            self._recache()
+        if self._cachedBipart is None:
+            self._cachedBipart = Bipart(self)
+        return self._cachedBipart
+    property bipart:
+        """
+            The set of all bipartitions induced by internal edges.
+        """
+        def __get__(self):
+            return self.getBipart()
+
     cdef Node getBase(self):
-        """
-            Get the base node in the tree.
-        """
         return self._base
-    cdef void setBase(self, Node base):
-        """
-            get the base node in the tree.
-        """
+    cdef void setBase(self, Node base) except *:
         self._base = base
         self.sn += 1
     property base:
         """
-            Base node in the tree.
+            The base node in the tree.
         """
         def __get__(self):
             return self.getBase()
@@ -340,11 +353,11 @@ cdef class Tree:
 
         self.aux = None
 
-        if self._base != None:
+        if self._base is not None:
             node = self._base
             node.aux = None
             ring = node.ring
-            if ring != None:
+            if ring is not None:
                 for r in ring:
                     r.aux = None
                     r.edge.aux = None
@@ -366,7 +379,7 @@ cdef class Tree:
             node = ring.node
             edge = ring.edge
             edge.detach()
-            if node._degreeGet(calculate=True) == 2:
+            if node._degreeGet(True) == 2:
                 # Detaching the root left an internal node with two edges.
                 # Splice the node out.
                 ring = node.ring
@@ -396,7 +409,7 @@ cdef class Tree:
         if self.rooted:
             base = self._base
             assert base is not None
-            assert base._degreeGet(calculate=True) <= 1
+            assert base._degreeGet(True) <= 1
         else:
             # Find the minimum taxon before canonizing, and set it as the tree
             # base.  This is critical to correct results, since starting from
@@ -432,7 +445,7 @@ cdef class Tree:
         # If the base is an internal node, move the base in order to keep from
         # losing the tree, should the current base node be removed from the
         # tree.
-        if self._base._degreeGet(calculate=True) > 1:
+        if self._base._degreeGet(True) > 1:
             self.base = self._base.ring.other._someLeaf()
         assert self._base._degreeGet() <= 1
 
@@ -548,7 +561,7 @@ cdef class Tree:
 
         # Render.
         n = self._base
-        if n != None:
+        if n is not None:
             if self.rooted:
 #                self._renderAppend("[&r] ")
                 if n._taxon is not None:
@@ -560,9 +573,9 @@ cdef class Tree:
 
                 if degree == 1:
                     ring = n.ring
-                    assert ring != None
+                    assert ring is not None
                     neighbor = ring.other.node
-                    neighbor.rrender(n, lengths, lengthFormat, taxaMap)
+                    neighbor.rrender(ring.edge, lengths, lengthFormat, taxaMap)
             else: # Unrooted tree.
 #                self._renderAppend("[&u] ")
                 degree = n._degreeGet()
@@ -573,7 +586,7 @@ cdef class Tree:
                     # Leaf node.  If this node's neighbor is an internal node,
                     # start rendering with it, in order to unroot the tree.
                     ring = n.ring
-                    assert ring != None
+                    assert ring is not None
                     neighbor = ring.other.node
                     if neighbor._degreeGet() > 1:
                         # Start with the internal node.
@@ -583,10 +596,10 @@ cdef class Tree:
                         # This tree only has two taxa; start with the tree
                         # base.
                         self._renderAppend("(")
-                        n.rrender(neighbor, lengths, lengthFormat, taxaMap)
+                        n.rrender(ring.edge, lengths, lengthFormat, taxaMap)
                         self._renderAppend(",")
-                        neighbor.rrender(n, lengths, lengthFormat, taxaMap,
-                          zeroLength=True)
+                        neighbor.rrender(ring.edge, lengths, lengthFormat, \
+                          taxaMap, zeroLength=True)
                         self._renderAppend(")")
                 else:
                     # Internal node.
@@ -631,10 +644,9 @@ cdef class Node:
         """
             Set taxon associated with node (or None).
         """
-#        # Expensive.
-#        IF @enable_debug@:
-#            if taxon is not self._taxon and taxon in self.tree.getTaxa():
-#                raise Malformed("Taxon already in use: %r" % taxon.label)
+        IF TreeDebugExpensive:
+            if taxon is not self._taxon and taxon in self.tree.getTaxa():
+                raise Malformed("Taxon already in use: %r" % taxon.label)
 
         self._taxon = taxon
         self.tree.sn += 1
@@ -658,8 +670,9 @@ cdef class Node:
         cdef Ring ring
 
         if not calculate:
-            assert self.tree._base != None
-#            assert self.separation(self.tree._base) != -1 # Expensive.
+            assert self.tree._base is not None
+            IF TreeDebugExpensive:
+                assert self.separation(self.tree._base) != -1
 
             if self.tree._cacheSn != self.tree.sn:
                 self.tree._recache()
@@ -667,7 +680,7 @@ cdef class Node:
             return self._degree
         else:
             ret = 0
-            if self.ring != None:
+            if self.ring is not None:
                 for ring in self.ring:
                     ret += 1
             return ret
@@ -676,7 +689,7 @@ cdef class Node:
         """
             Get node degree (number of attached edges).
         """
-        return self._degreeGet(calculate=False)
+        return self._degreeGet(False)
     property degree:
         """
             Node degree (number of attached edges).
@@ -684,30 +697,30 @@ cdef class Node:
         def __get__(self):
             return self.getDegree()
 
-    cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
+    cpdef rrender(self, Edge via, bint lengths, lengthFormat, Taxa.Map taxaMap,
       bint zeroLength=False, bint noLength=False):
         cdef bint did_paren = False
         cdef str label
         cdef object m
         cdef Ring ring, r
+        cdef Edge e
         cdef Node neighbor
         cdef int degree
 
         # Iterate through neighbors.
         ring = self.ring
-        if ring != None:
+        if ring is not None:
             for r in ring:
-                # Get the node on the other end of the edge.  If it isn't prev,
-                # recurse.
-                neighbor = r.other.node
-                if neighbor != prev:
+                e = r.edge
+                if e is not via:
+                    neighbor = r.other.node
                     if did_paren:
                         self.tree._renderAppend(",")
                     elif not did_paren:
                         self.tree._renderAppend("(")
                         did_paren = True
 
-                    neighbor.rrender(self, lengths, lengthFormat, taxaMap)
+                    neighbor.rrender(e, lengths, lengthFormat, taxaMap)
 
             if did_paren:
                 self.tree._renderAppend(")")
@@ -733,14 +746,13 @@ cdef class Node:
         degree = self._degreeGet()
         if lengths and degree > 0:
             ring = self.ring
-            assert ring != None
+            assert ring is not None
             if zeroLength:
                 # This tree only has two taxa; take care not to double the
                 # branch length.
                 self.tree._renderAppend((":" + lengthFormat) % 0.0)
             elif not noLength:
-                self.tree._renderAppend((":" + lengthFormat) % \
-                  (ring.edge.length))
+                self.tree._renderAppend((":" + lengthFormat) % (via.length))
 
     cpdef int separation(self, Node other):
         """
@@ -753,7 +765,7 @@ cdef class Node:
             return 0
 
         ring = self.ring
-        if ring != None:
+        if ring is not None:
             for r in ring:
                 ret = r.other._separation(other, 1)
                 if ret != -1:
@@ -773,14 +785,16 @@ cdef class Edge:
     cpdef attach(self, Node nodeA, Node nodeB):
         cdef Ring ring, nRing, pRing
 
-        assert self.ring.node == None
-        assert self.ring.other.node == None
-#        assert nodeA.separation(nodeB) == -1 # Expensive.
+        assert self.ring.node is None
+        assert self.ring.other.node is None
+        assert nodeA is not nodeB
+        IF TreeDebugExpensive:
+            assert nodeA.separation(nodeB) == -1
 
         ring = self.ring
         ring.node = nodeA
         nRing = nodeA.ring
-        if nRing != None:
+        if nRing is not None:
             pRing = nRing.prev
             ring.next = nRing
             ring.prev = pRing
@@ -791,7 +805,7 @@ cdef class Edge:
         ring = self.ring.other
         ring.node = nodeB
         nRing = nodeB.ring
-        if nRing != None:
+        if nRing is not None:
             pRing = nRing.prev
             ring.next = nRing
             ring.prev = pRing
@@ -800,7 +814,8 @@ cdef class Edge:
         nodeB.ring = ring
 
         self.tree.sn += 1
-#        assert nodeA.separation(nodeB) == 1 # Expensive.
+        IF TreeDebugExpensive:
+            assert nodeA.separation(nodeB) == 1
 
     cpdef detach(self):
         cdef Ring ring, nRing, pRing
@@ -808,7 +823,8 @@ cdef class Edge:
 
         assert type(self.ring.node) == Node
         assert type(self.ring.other.node) == Node
-#        assert self.ring.node.separation(self.ring.other.node) == 1
+        IF TreeDebugExpensive:
+            assert self.ring.node.separation(self.ring.other.node) == 1
 
         for ring in (self.ring, self.ring.other):
             node = ring.node
@@ -843,7 +859,7 @@ cdef class _RingIterHelper:
     def __next__(self):
         cdef Ring ret
 
-        if self._next == None:
+        if self._next is None:
             ret = self._start
             self._next = ret.next
         else:
@@ -905,7 +921,7 @@ cdef class Ring:
         node = self.node
         ret = node
 
-        degree = node._degreeGet(calculate=True)
+        degree = node._degreeGet(True)
         if degree > 1:
             rings = []
 
@@ -984,7 +1000,7 @@ cdef class Ring:
         edge = self.edge
         rOther = self.other
         nOther = rOther.node
-        assert nOther._degreeGet(calculate=True) > 1
+        assert nOther._degreeGet(True) > 1
 
         rTemp = rOther.next
         while rTemp != rOther:
@@ -994,7 +1010,7 @@ cdef class Ring:
             eTemp.attach(node, nTemp)
             rTemp = rOther.next
 
-        assert nOther._degreeGet(calculate=True) == 1
+        assert nOther._degreeGet(True) == 1
         edge.detach()
 
     cdef int _separation(self, Node other, int sep):

@@ -25,7 +25,9 @@ for newickStr in trees:
     t.render(lengths=True, outFile=sys.stdout)
     lik = Crux.Tree.Lik.Lik(t, alignment)
     for n in t.nodes:
-        print "lnL: %.4f" % lik.lnL(n)
+        lnL = lik.lnL(n)
+        if lnL > -50.0:
+            print "Unexpectedly high lnL: %e" % lnL
 
 print "Test end"
 

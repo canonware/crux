@@ -25,25 +25,17 @@ typedef struct {
     //   -----------
     //
     // If gamma-distributed rate categories are enabled, the matrix contains
-    // multiple rows for each site (one per rate category).  For example, with
-    // 4 rate categories:
+    // multiple sets of columns for each site (one per rate category).  For
+    // example, with 4 rate categories:
     //
-    //     A C G T
-    //   -----------
-    //   | x x x x | 0 (cat 0
-    //   | x x x x | 0      1
-    //   | x x x x | 0      2
-    //   | x x x x | 0      3)
-    //   | x x x x | 1 (cat 0
-    //   | x x x x | 1      1
-    //   | x x x x | 1      2
-    //   | x x x x | 1      3)
-    //   | ....... | ...
-    //   | x x x x | n-1 (cat 0
-    //   | x x x x | n-1      1
-    //   | x x x x | n-1      2
-    //   | x x x x | n-1      3)
-    //   -----------
+    //     cat 0     cat 1     cat 2     cat 3
+    //     A C G T   A C G T   A C G T   A C G T
+    //   -----------------------------------------
+    //   | x x x x | x x x x | x x x x | x x x x | 0
+    //   | x x x x | x x x x | x x x x | x x x x | 1
+    //   | ....... | ....... | ....... | ....... | ...
+    //   | x x x x | x x x x | x x x x | x x x x | n-1
+    //   -----------------------------------------
     double *cLMat;
 
     // Vector of character-specific log-scale factors.  The conditional
@@ -72,10 +64,12 @@ typedef struct {
     // Mixture model weight.  This is 1.0 if only a single model is in use.
     double weight;
 
-    // R matrix and the diagonal of the Pi matrix, where Q = R*Pi (with
-    // diagonal set such that each row sums to 0).
-    double *rMat;
+    // Upper triangle of the R matrix and the diagonal of the Pi matrix, where
+    // Q = R*Pi (with diagonal set such that each row sums to 0).
+    unsigned *rclass;
+    double *rTri;
     double *piDiag;
+    double *piDiagNorm;
 
     // Q matrix eigenvector/eigenvalue decomposition.
     double *qEigVecCube;
@@ -138,6 +132,10 @@ typedef struct {
     // Number of character states (i.e. dimensionality of Q matrix).
     unsigned dim;
 
+    // Maximum number of independent relative mutation rate classes (i.e.
+    // length of rclass and rTri).
+    unsigned rlen;
+
     // Number of discrete Gamma-distributed rate categories.
     unsigned ncat;
     // Use category means if catMedian is false, category medians if true.
@@ -145,6 +143,9 @@ typedef struct {
 
     // Number of characters.
     unsigned nchars;
+
+    // Number of pad characters (used to make nchars a multiple of stripeWidth).
+    unsigned npad;
 
     // Character frequencies for the compact alignment.
     unsigned *charFreqs;
@@ -184,11 +185,13 @@ typedef struct {
 #define CxmLikMqMult 8
 
 bool
-CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
-  double *qEigVals);
+CxLikQDecomp(int n, double *RTri, double *PiDiag, double *PiDiagNorm,
+  double *qEigVecCube, double *qEigVals);
 void
 CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double v);
 double
-CxLikExecute(CxtLik *lik);
+CxLikExecuteLnL(CxtLik *lik);
+void
+CxLikExecuteSiteLnLs(CxtLik *lik, double *lnLs);
 
 #endif // CxLik_h

@@ -4,6 +4,8 @@
 #include <clapack.h>
 #include <math.h>
 
+//#define CxmLikDebug
+
 // Worker thread context.
 typedef struct {
     unsigned id;
@@ -31,51 +33,118 @@ static CxtLikWorkerCtx *CxpLikThreads;
 static CxtMq CxpLikTodoMq;
 static CxtMq CxpLikDoneMq;
 
-// C-compatible prototype for the Fortran-based DSYEV in LAPACK.
+// C-compatible prototype for the Fortran-based DGEEV in LAPACK.
 extern void
-dsyev_(char *jobz, char *uplo, int *n, double *A, int *lda, double *w,
-  double *work, int *lwork, int *info);
+dgeev_(char *jobvl, char *jobvr, int *n, double *A, int *lda, double *wr,
+  double *wi, double *vl, int *ldvl, double *vr, int *ldvr, double *work,
+  int *lwork, int *info);
 
-// Compute the upper triangle of Q=R*Pi, and fill in the diagonals such that
-// each row (of the corresponding full matrix) sums to 0.
+CxmpInline unsigned
+CxpLikNxy2i(unsigned n, unsigned x, unsigned y) {
+    CxmAssert(x < n);
+    CxmAssert(y < n);
+    CxmAssert(x < y);
+
+#if 1
+    CxmAssert(x != y);
+#else
+    if (x > y) {
+	unsigned t = x;
+	x = y;
+	y = t;
+    }
+#endif
+
+    return n*x + y - (((x+3)*x) >> 1) - 1;
+}
+
+// Compute Q=R*Pi, and fill in the diagonals such that each row (of the
+// corresponding full matrix) sums to 0.  Q is a full matrix, R is an upper
+// triangle vector, and Pi is a diagonal vector.
 CxmpInline void
-CxLikQ(int n, double *Q, double *R, double *Pi) {
-    double rSum, rNorm, piSum, elm;
+CxLikQ(int n, double *Q, double *RTri, double *PiDiag,
+  double *PiDiagNorm) {
+    double piSum, elm, qScale;
     unsigned i, j;
 
-    // Compute the normalization factor for R that adjusts the mean
-    // instantaneous mutation rate to 1.
-    rSum = 0.0;
-    for (i = 0; i < n; i++) {
-	for (j = i + 1; j < n; j++) {
-	    rSum += R[i*n + j];
+#ifdef CxmLikDebug
+    fprintf(stderr, "R:\n");
+    for (unsigned i = 0; i < n; i++) {
+	for (unsigned j = 0; j < n; j++) {
+	    if (i == j) {
+		fprintf(stderr, " %10s", "-");
+	    } else if (i < j) {
+		fprintf(stderr, " %10.6f", RTri[CxpLikNxy2i(n,i,j)]
+		  / RTri[CxpLikNxy2i(n,n-2,n-1)]);
+	    } else {
+		fprintf(stderr, " %10.6f", RTri[CxpLikNxy2i(n,j,i)]
+		  / RTri[CxpLikNxy2i(n,n-2,n-1)]);
+	    }
 	}
+	fprintf(stderr, "\n");
     }
-    rNorm = ((double)n*n) / (rSum * 2.0);
+#endif
 
-    // Normalize Pi such that the frequencies sum to 1.
+    // Compute the normalization factor for Pi that adjusts the sum of Pi to 1,
+    // and store the normalized Pi for later use.
     piSum = 0.0;
     for (i = 0; i < n; i++) {
-	piSum += Pi[i];
+	piSum += PiDiag[i];
     }
-    if (piSum != 1.0) {
-	for (i = 0; i < n; i++) {
-	    Pi[i] /= piSum;
+    for (i = 0; i < n; i++) {
+	PiDiagNorm[i] = PiDiag[i] / piSum;
+    }
+#ifdef CxmLikDebug
+    fprintf(stderr, "Pi:\n");
+    for (unsigned i = 0; i < n; i++) {
+	for (unsigned j = 0; j < n; j++) {
+	    if (i == j) {
+		fprintf(stderr, " %10.6f", PiDiagNorm[i]);
+	    } else {
+		fprintf(stderr, " %10s", "-");
+	    }
 	}
+	fprintf(stderr, "\n");
+    }
+#endif
+
+    // Fill in Q, in column-major form.
+    qScale = 0.0;
+    for (i = 0; i < n; i++) {
+	for (j = 0; j < i; j++) {
+	    elm = RTri[CxpLikNxy2i(n,j,i)] * PiDiagNorm[j];
+	    qScale += elm * PiDiagNorm[i] * 2.0;
+	    Q[i + j*n] = elm;
+	}
+	for (j = i + 1; j < n; j++) {
+	    elm = RTri[CxpLikNxy2i(n,i,j)] * PiDiagNorm[j];
+	    Q[i + j*n] = elm;
+	}
+    }
+    // Rescale Q and set the diagonal.
+    qScale = 1.0 / qScale;
+    for (i = 0; i < n; i++) {
+	double diag = 0.0;
+	for (j = 0; j < i; j++) {
+	    Q[i + j*n] *= qScale;
+	    diag -= Q[i + j*n];
+	}
+	for (j = i + 1; j < n; j++) {
+	    Q[i + j*n] *= qScale;
+	    diag -= Q[i + j*n];
+	}
+	Q[i + i*n] = diag;
     }
 
-    // Fill in the upper triangle of Q.
-    for (i = 0; i < n; i++) {
-	Q[i*n + i] = 0.0;
-    }
-    for (i = 0; i < n; i++) {
-	for (j = i + 1; j < n; j++) {
-	    elm = (R[i*n + j] * rNorm) * Pi[j];
-	    Q[i*n + j] = elm;
-	    Q[i*n + i] -= elm;
-	    Q[j*n + j] -= elm;
+#ifdef CxmLikDebug
+    fprintf(stderr, "Q:\n");
+    for (unsigned i = 0; i < n; i++) {
+	for (unsigned j = 0; j < n; j++) {
+	    fprintf(stderr, " %10.6f", Q[i + j*n]);
 	}
+	fprintf(stderr, "\n");
     }
+#endif
 }
 
 // Decompose Q into eigenvectors/eigenvalues, then precompute a cube of
@@ -113,35 +182,38 @@ CxLikQ(int n, double *Q, double *R, double *Pi) {
 // The above diagram shows how the two matrices can be oriented, such that each
 // cube cell is the product of the projected matrix cells.
 bool
-CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
-  double *qEigVals) {
+CxLikQDecomp(int n, double *RTri, double *PiDiag, double *PiDiagNorm,
+  double *qEigVecCube, double *qEigVals) {
     int nSq = n*n;
-    double Q[nSq], V[nSq];
+    double Q[nSq], QEigVecs[nSq], V[nSq];
+    double qEigValsI[n];
     double workQuery;
     int worksize, info;
     int ipiv[n];
 
     // Q and V are operated on as column-major matrices in this function, in
     // order to interface cleanly with Fortran conventions.
-    CxLikQ(n, Q, R, Pi);
+    CxLikQ(n, Q, RTri, PiDiag, PiDiagNorm);
 
     // Get the optimal work size.
     worksize = -1;
-    dsyev_("V", "L", &n, Q, &n, qEigVals, &workQuery, &worksize, &info);
+
+    dgeev_("N", "V", &n, Q, &n, qEigVals, qEigValsI, NULL, &n, QEigVecs, &n,
+      &workQuery, &worksize, &info);
     CxmAssert(info == 0);
     worksize = workQuery;
     {
 	double work[worksize];
 
-	dsyev_("V", "L", &n, Q, &n, qEigVals, work, &worksize, &info);
+	dgeev_("N", "V", &n, Q, &n, qEigVals, qEigValsI, NULL, &n, QEigVecs,
+	  &n, work, &worksize, &info);
 	if (info != 0) {
 	    return true;
 	}
-	// Q now contains the orthonormal eigenvectors of Q.
     }
 
     // Compute Q's inverse eigenvectors, and store the result in V.
-    memcpy(V, Q, nSq * sizeof(double));
+    memcpy(V, QEigVecs, nSq * sizeof(double));
     info = clapack_dgetrf(CblasColMajor, n, n, V, n, ipiv);
     if (info != 0) {
 	return true;
@@ -154,10 +226,24 @@ CxLikQDecomp(int n, double *R, double *Pi, double *qEigVecCube,
     for (int i = 0; i < n; i++) {
 	for (int j = 0; j < n; j++) {
 	    for (int k = 0; k < n; k++) {
-		qEigVecCube[i*nSq + j*n + k] = Q[k*n + i] * V[j*n + k];
+		qEigVecCube[i*nSq + j*n + k] = QEigVecs[i + k*n] * V[k + j*n];
 	    }
 	}
     }
+
+#ifdef CxmLikDebug
+    fprintf(stderr, "VQ(V^-1):\n");
+    for (unsigned i = 0; i < n; i++) {
+	for (unsigned j = 0; j < n; j++) {
+	    double p = 0.0;
+	    for (int k = 0; k < n; k++) {
+		p += qEigVecCube[i*nSq + j*n + k] * qEigVals[k];
+	    }
+	    fprintf(stderr, " %10.6f", p);
+	}
+	fprintf(stderr, "\n");
+    }
+#endif
 
     return false;
 }
@@ -172,7 +258,7 @@ void
 CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double v) {
     int nSq = n*n;
     double qEigValsExp[n];
-    double p, elmA, elmB;
+    double p;
 
     for (int i = 0; i < n; i++) {
 	qEigValsExp[i] = exp(qEigVals[i] * v);
@@ -184,27 +270,26 @@ CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double v) {
 	    for (int k = 0; k < n; k++) {
 		p += qEigVecCube[i*nSq + j*n + k] * qEigValsExp[k];
 	    }
+	    // Make sure there are no negative probabilities due to rounding
+	    // error in eigen decomposition.
+	    if (p < 0.0) {
+		p = 0.0;
+	    }
 	    P[i*n + j] = p;
 	}
     }
 
-    // Eigen decomposition can result in slightly negative probabilities, due
-    // to rounding error.  Clamp such aberrant values in symmetric pairs, such
-    // that slightly positive probabilities are also rounded to 0.0.
-    // Additionally, average unequal pairs in order to achieve a truly
-    // symmetric matrix.
-    for (int i = 0; i < n; i++) {
-	for (int j = i + 1; j < n; j++) {
-	    if (P[i*n + j] <= 0.0 || P[j*n + i] <= 0.0) {
-		P[i*n + j] = 0.0;
-		P[j*n + i] = 0.0;
-	    } else if ((elmA = P[i*n + j]) != (elmB = P[j*n + i])) {
-		double elm = (elmA + elmB) / 2.0;
-		P[i*n + j] = elm;
-		P[j*n + i] = elm;
-	    }
+#ifdef CxmLikDebug
+    fprintf(stderr, "----------------------------------------"
+      "----------------------------------------\n");
+    fprintf(stderr, "P(%f):\n", v);
+    for (unsigned i = 0; i < n; i++) {
+	for (unsigned j = 0; j < n; j++) {
+	    fprintf(stderr, " %12.6e", P[i*n + j]);
 	}
+	fprintf(stderr, "\n");
     }
+#endif
 }
 
 CxmpInline void
@@ -291,7 +376,6 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
     // site-specific lnL's.
     for (unsigned m = 0; m < lik->modelsLen; m++) {
 	CxtLikModel *model = &lik->models[m];
-	unsigned glen = model->glen;
 
 	if (model->weight == 0.0 || model->entire) {
 	    // Model is not part of the mixture, or its lnL is already computed.
@@ -300,9 +384,10 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 
 	// Pre-compute state-specific weights, taking into account discretized
 	// gamma-distributed rates.
+	unsigned glen = model->glen;
 	double pn[dim];
 	for (unsigned i = 0; i < dim; i++) {
-	    pn[i] = model->piDiag[i] / (double)glen;
+	    pn[i] = model->piDiagNorm[i] / (double)glen;
 	}
 
 	double stripeLnL = 0.0;
@@ -382,10 +467,8 @@ CxpLikThreaded(void) {
     }
 }
 
-double
-CxLikExecute(CxtLik *lik) {
-    double lnL;
-
+CxmpInline void
+CxpLikExecute(CxtLik *lik) {
     if (lik->stepsLen > 0) {
 	if (CxNcpus > 1) {
 	    pthread_once(&CxpLikOnce, CxpLikThreaded);
@@ -432,6 +515,13 @@ CxLikExecute(CxtLik *lik) {
 	    }
 	}
     }
+}
+
+double
+CxLikExecuteLnL(CxtLik *lik) {
+    double lnL;
+
+    CxpLikExecute(lik);
 
     // Sum stripeLnL for each model, and compute the weighted log-likelihood.
     lnL = 0.0;
@@ -458,4 +548,53 @@ CxLikExecute(CxtLik *lik) {
     }
 
     return lnL;
+}
+
+void
+CxLikExecuteSiteLnLs(CxtLik *lik, double *lnLs) {
+    unsigned dim = lik->dim;
+    unsigned ncat = lik->ncat;
+    unsigned dn = dim * ncat;
+
+    // Execute the plan.  Various intermediate results are not useful in the
+    // context of site lnL's, but we want to compute them anyway in order to
+    // avoid complications to the the caching logic.
+    CxpLikExecute(lik);
+
+    for (unsigned m = 0; m < lik->modelsLen; m++) {
+	CxtLikModel *model = &lik->models[m];
+
+	if (model->weight == 0.0) {
+	    // Model is not part of the mixture.
+	    continue;
+	}
+
+	// Pre-compute state-specific weights, taking into account discretized
+	// gamma-distributed rates.
+	unsigned glen = model->glen;
+	double pn[dim];
+	for (unsigned i = 0; i < dim; i++) {
+	    pn[i] = model->piDiagNorm[i] / (double)glen;
+	}
+
+	for (unsigned c = 0; c < lik->nchars - lik->npad; c++) {
+	    double L = 0.0;
+	    for (unsigned g = 0; g < glen; g++) {
+		for (unsigned i = 0; i < dim; i++) {
+		    L += pn[i] * model->cL->cLMat[c*dn + g*dim + i];
+		}
+	    }
+	    lnLs[c] += ((model->cL->lnScale[c] + log(L)) *
+	      (double)lik->charFreqs[c]) * model->weight;
+	}
+    }
+
+    for (unsigned c = 0; c < lik->nchars - lik->npad; c++) {
+	// The lnScale rescaling can cause a NaN result for a 0-probability
+	// tree.  Convert such spurious NaN results to -INFINITY.
+	if (isnan(lnLs[c])) {
+	    lnLs[c] = -INFINITY;
+	}
+	
+    }
 }

@@ -1,6 +1,3 @@
-cdef extern from "sys/types.h":
-    ctypedef unsigned long size_t
-
 cdef extern from "CxDistMatrixLexer.h":
     ctypedef void *yyscan_t
     ctypedef enum CxtDistMatrixLexerInputMode:

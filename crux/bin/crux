@@ -12,14 +12,17 @@ import Crux
 # Create a help formatter subclass for the command line parser.
 class CruxHelpFormatter(optparse.IndentedHelpFormatter):
     def format_usage(self, usage):
-        return """crux usage:
+        return """\
+crux usage:
     crux -h | --help
+    crux -d <var> | --doc=<var>
     crux -V | --version
     crux [<options>] [<file>] [- [<scriptargs>]]
 
     Option                     | Description
     ---------------------------+------------------------------------------------
     -h, --help                 | Print usage and exit.
+    -d <var>, --doc=<var>      | Print documentation for <var> and exit.
     -V, --version              | Print version information and exit.
     -b, --batch                | Run in batch mode.
     -i, --interactive          | Run in interactive mode.
@@ -36,8 +39,7 @@ class CruxHelpFormatter(optparse.IndentedHelpFormatter):
     - [<scriptargs>]     | Provide <scriptargs> arguments to script.
 
 crux runs interactively and verbosely by default, unless an input file is
-specified, in which case crux runs in batch mode and quietly by default.
-"""
+specified, in which case crux runs in batch mode and quietly by default."""
 
 # Process the command line.
 def parse_options():
@@ -46,6 +48,7 @@ def parse_options():
     parser.disable_interspersed_args()
     parser.add_option("-h", "--help", dest="help", action="store_true",
       default=False)
+    parser.add_option("-d", "--doc", dest="doc", default=None)
     parser.add_option("-V", "--version", dest="version", action="store_true",
       default=False)
     parser.add_option("-i", "--interactive", dest="batch", action="store_false")
@@ -75,6 +78,10 @@ def parse_options():
 
     if opts.help:
         print helpformatter.format_usage("")
+        sys.exit(0)
+
+    if opts.doc:
+        help(opts.doc)
         sys.exit(0)
 
     if opts.version:
@@ -127,6 +134,7 @@ if not opts.batch:
 
     # Set the prompt.
     sys.ps1 = "crux> "
+    sys.ps2 = "crux: "
 
 # Copy configuration to Crux.Config.
 Crux.Config.batch = opts.batch

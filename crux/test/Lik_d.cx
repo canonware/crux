@@ -37,9 +37,7 @@ for s in fastaStrs:
     print "lnL: %.4f" % lik.lnL()
 
     # Make sure that rate and frequency normalization do the right thing.
-    for i in xrange(4):
-        for j in xrange(i+1, 4):
-            lik.setRate(0, i, j, 0.75)
+    lik.setRate(0, 0, 0.75)
     for i in xrange(4):
         lik.setFreq(0, i, 0.20)
     print "lnL: %.4f" % lik.lnL()

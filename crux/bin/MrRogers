@@ -22,7 +22,7 @@ identity unless one of the distance correction algorithms is enabled.
 
 MrRogers usage:
   MrRogers -h | --help
-  MrRogers -V | -version
+  MrRogers -V | --version
   MrRogers [<options>]
 
   General options:
@@ -117,8 +117,7 @@ References:
   relaxed neighbor joining.  Bioinformatics 22(22):2823-2824.
 
   Tajima, F. (1993) Unbiased estimation of evolutionary distance between
-  nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688.
-"""
+  nucleotide sequences.  Mol. Biol. Evol. 10(3):677-688."""
 
 # Process the command line.
 def parse_options():
@@ -186,7 +185,7 @@ def parse_options():
         sys.exit(0)
 
     if opts.version:
-        print "MrRogers, version @crux_version@"
+        print "MrRogers, Crux version @crux_version@"
         sys.exit(0)
 
     if opts.in_ is None:

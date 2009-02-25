@@ -66,9 +66,11 @@ cdef class Lik:
     cpdef delModel(self)
     cpdef double getWeight(self, unsigned model)
     cpdef setWeight(self, unsigned model, double weight)
-    cpdef double getRate(self, unsigned model, unsigned i, unsigned j) \
-      except -1.0
-    cpdef setRate(self, unsigned model, unsigned i, unsigned j, double rate)
+    cpdef list getRclass(self, unsigned model)
+    cpdef setRclass(self, unsigned model, list rclass, list rates=*)
+    cpdef unsigned getNrates(self, unsigned model) except 0
+    cpdef double getRate(self, unsigned model, unsigned i) except -1.0
+    cpdef setRate(self, unsigned model, unsigned i, double rate)
     cpdef double getFreq(self, unsigned model, unsigned i) except -1.0
     cpdef setFreq(self, unsigned model, unsigned i, double freq)
     cpdef double getAlpha(self, unsigned model)
@@ -78,4 +80,6 @@ cdef class Lik:
     cdef void _planRecurse(self, Ring ring, CL parent, unsigned nSibs,
       double edgeLen) except *
     cdef void _plan(self, Node root) except *
+    cdef void _prep(self, Node root) except *
     cpdef double lnL(self, Node root=*) except 1.0
+    cpdef list siteLnLs(self, Node root=*)

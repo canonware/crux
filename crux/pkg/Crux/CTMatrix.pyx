@@ -12,7 +12,6 @@ class ValueError(Exception, exceptions.ValueError):
     def __str__(self):
         return self._str
 
-cimport Parsing
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
 cimport Crux.Fasta as Fasta

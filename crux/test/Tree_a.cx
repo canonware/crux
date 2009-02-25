@@ -1,7 +1,5 @@
 # Test random tree creation.
 
-import random
-
 print "Test begin"
 
 # Re-seed the PRNG so that test results are repeatable.

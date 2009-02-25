@@ -10,6 +10,8 @@ cdef extern from "math.h":
     cdef double pow(double x, double y)
     cdef double fabs(double x)
     cdef float roundf(float x)
+    cdef double ceil(double x)
+    cdef double floor(double x)
     cdef double sqrt(double x)
 
 cdef extern from "float.h":

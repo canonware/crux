@@ -7,6 +7,7 @@ cdef class Ring
 from Crux.CTMatrix cimport CTMatrix
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
+from Crux.Tree.Bipart cimport Bipart
 
 cdef class Tree:
     cdef Node _base
@@ -16,6 +17,7 @@ cdef class Tree:
     cdef readonly unsigned long long sn
     cdef int _cacheSn
     cdef list _cachedTaxa, _cachedNodes, _cachedEdges
+    cdef Bipart _cachedBipart
     cdef public bint rooted
     cdef public object aux
 
@@ -40,8 +42,10 @@ cdef class Tree:
     # property nodes
     cdef list getEdges(self)
     # property edges
+    cdef Bipart getBipart(self)
+    # property bipart
     cdef Node getBase(self)
-    cdef void setBase(self, Node base)
+    cdef void setBase(self, Node base) except *
     # property base
 
     cdef void _clearAuxRecurse(self, Ring ring)
@@ -80,7 +84,7 @@ cdef class Node:
     cpdef int _degreeGet(self, bint calculate=*) except -1
     cdef int getDegree(self)
     # property degree
-    cpdef rrender(self, Node prev, bint lengths, lengthFormat, Taxa.Map taxaMap,
+    cpdef rrender(self, Edge via, bint lengths, lengthFormat, Taxa.Map taxaMap,
       bint zeroLength=*, bint noLength=*)
     cpdef int separation(self, Node other)
 

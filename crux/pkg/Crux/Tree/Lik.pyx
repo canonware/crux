@@ -10,6 +10,8 @@ from libm cimport *
 from CxLik cimport *
 from CxMath cimport *
 
+DEF LikDebug = False
+
 # Conditional likelihoods are allocated such that they are aligned to cacheline
 # boundaries, and striping is configured to avoid false cacheline sharing among
 # worker threads.  Over-estimating cacheline size is okay (within reason), as
@@ -117,12 +119,13 @@ cdef class Lik:
         are frequencies.
 
         During Q matrix computation, the following conceptual steps are
-        performed (though R is not directly modified):
+        performed (though R and Pi are not directly modified):
         * A normalization factor for R is incorporated in order to adjust the
           mean instantaneous mutation rate to 1.  This affects a standardized
           interpretation of branch lengths.
         * The elements on R's diagonal are set such that each row sums to 0.
-        * The frequencies are normalized to sum to 1.
+        * A normalization factor for the frequencies is incorporated in order to
+          adjust the sum to 1.
 
         By default:
         * The relative rates are all equal (1.0).
@@ -168,8 +171,8 @@ cdef class Lik:
             self.lik = NULL
 
     def __init__(self, Tree tree, Alignment alignment, unsigned nmodels=1,
-      unsigned ncat=1, bint catMedian=False):
-        cdef unsigned stripeWidth, stepsMax, i
+      unsigned ncat=0, bint catMedian=False):
+        cdef unsigned stripeWidth, ncharsOrig, stepsMax, i
 
         if tree.rooted:
             raise ValueError("Tree must be unrooted")
@@ -192,13 +195,17 @@ cdef class Lik:
             stripeWidth = alignment.nchars
 
         # Pad the alignment, if necessary.
-        if alignment.nchars % stripeWidth != 0:
+        ncharsOrig = alignment.nchars
+        if ncharsOrig % stripeWidth != 0:
             alignment.pad(self.char_.val2code(self.char_.any), stripeWidth - \
-              (alignment.nchars % stripeWidth))
+              (ncharsOrig % stripeWidth))
 
         self.sn = 0
 
         self.tree = tree
+        # Make sure there's no left over cruft from some non-likelihood
+        # anaylyis.
+        self.tree.clearAux()
         self.alignment = alignment
 
         self.lik = <CxtLik *>calloc(1, sizeof(CxtLik))
@@ -206,9 +213,11 @@ cdef class Lik:
             raise MemoryError("Error allocating lik")
 
         self.lik.dim = self.char_.nstates()
-        self.lik.ncat = ncat
+        self.lik.rlen = self.lik.dim * (self.lik.dim-1) / 2
+        self.lik.ncat = (ncat if ncat > 0 else 1)
         self.lik.catMedian = catMedian
         self.lik.nchars = self.alignment.nchars
+        self.lik.npad = self.lik.nchars - ncharsOrig
         self.lik.charFreqs = self.alignment.freqs
         self.lik.stripeWidth = stripeWidth
         self.lik.nstripes = self.lik.nchars / self.lik.stripeWidth
@@ -245,14 +254,21 @@ cdef class Lik:
     cdef void _allocModel(self, CxtLikModel *model) except *:
         cdef unsigned i
 
-        model.rMat = <double *>malloc(self.lik.dim * self.lik.dim * \
-          sizeof(double))
-        if model.rMat == NULL:
-            raise MemoryError("Error allocating rMat")
+        model.rclass = <unsigned *>malloc(self.lik.rlen * sizeof(unsigned))
+        if model.rclass == NULL:
+            raise MemoryError("Error allocating rclass")
+
+        model.rTri = <double *>malloc(self.lik.rlen * sizeof(double))
+        if model.rTri == NULL:
+            raise MemoryError("Error allocating rTri")
 
         model.piDiag = <double *>malloc(self.lik.dim * sizeof(double))
         if model.piDiag == NULL:
             raise MemoryError("Error allocating piDiag")
+
+        model.piDiagNorm = <double *>malloc(self.lik.dim * sizeof(double))
+        if model.piDiagNorm == NULL:
+            raise MemoryError("Error allocating piDiagNorm")
 
         model.qEigVecCube = <double *>malloc(self.lik.dim * self.lik.dim * \
           self.lik.dim * sizeof(double))
@@ -263,10 +279,9 @@ cdef class Lik:
         if model.qEigVals == NULL:
             raise MemoryError("Error allocating qEigVals")
 
-        if self.lik.ncat != 0:
-            model.gammas = <double *>malloc(self.lik.ncat * sizeof(double))
-            if model.gammas == NULL:
-                raise MemoryError("Error allocating gammas")
+        model.gammas = <double *>malloc(self.lik.ncat * sizeof(double))
+        if model.gammas == NULL:
+            raise MemoryError("Error allocating gammas")
 
         model.stripeLnL = <double *>malloc(self.lik.nstripes * sizeof(double))
         if model.stripeLnL == NULL:
@@ -280,9 +295,9 @@ cdef class Lik:
         model.weight = 0.0
 
         # Initialize to default equal relative rates.
-        for 0 <= i < self.lik.dim:
-            for i < j < self.lik.dim:
-                model.rMat[i*self.lik.dim + j] = 1.0
+        for 0 <= i < self.lik.rlen:
+            model.rclass[i] = 0
+            model.rTri[i] = 1.0
 
         # Initialize to default equal frequencies.
         for 0 <= i < self.lik.dim:
@@ -295,20 +310,26 @@ cdef class Lik:
     cdef void _reassignModel(self, CxtLikModel *model) except *:
         model.sn = self._assignSn()
 
-        # Normalize R and Pi as needed, and decompose Q.
-        if CxLikQDecomp(self.lik.dim, model.rMat, model.piDiag, \
-          model.qEigVecCube, model.qEigVals):
+        # Normalize Pi as needed, and decompose Q.
+        if CxLikQDecomp(self.lik.dim, model.rTri, model.piDiag, \
+          model.piDiagNorm, model.qEigVecCube, model.qEigVals):
             raise ValueError("Error decomposing Q")
 
         model.reassign = False
 
     cdef void _deallocModel(self, CxtLikModel *model):
-        if model.rMat != NULL:
-            free(model.rMat)
-            model.rMat = NULL
+        if model.rclass != NULL:
+            free(model.rclass)
+            model.rclass = NULL
+        if model.rTri != NULL:
+            free(model.rTri)
+            model.rTri = NULL
         if model.piDiag != NULL:
             free(model.piDiag)
             model.piDiag = NULL
+        if model.piDiagNorm != NULL:
+            free(model.piDiagNorm)
+            model.piDiagNorm = NULL
         if model.qEigVecCube != NULL:
             free(model.qEigVecCube)
             model.qEigVecCube = NULL
@@ -325,10 +346,10 @@ cdef class Lik:
     cpdef Lik dup(self):
         """
             Create a duplicate Lik object that can be manipulated independently
-            of the original (with the exception of sharing the same Alignment).
-            Copy all model parameters, and create a separate identical tree.
-            Do not copy cached conditional likelihood data; they can be
-            recomputed if necessary.
+            of the original (with the exception that they refer to the same
+            Alignment).  Copy all model parameters, and create a separate
+            identical tree.  Do not copy cached conditional likelihood data;
+            they can be recomputed if necessary.
         """
         cdef Lik ret
         cdef unsigned i
@@ -343,13 +364,15 @@ cdef class Lik:
             assert toP.sn == 0
             assert toP.reassign
             toP.weight = frP.weight
-            memcpy(toP.rMat, frP.rMat, self.lik.dim * self.lik.dim * \
-              sizeof(double))
+            memcpy(toP.rclass, frP.rclass, self.lik.rlen * sizeof(unsigned))
+            memcpy(toP.rTri, frP.rTri, self.lik.rlen * sizeof(double))
             memcpy(toP.piDiag, frP.piDiag, self.lik.dim * sizeof(double))
-            if self.lik.ncat != 0:
-                toP.alpha = frP.alpha
-                memcpy(toP.gammas, frP.gammas, frP.glen * sizeof(double))
-                toP.glen = frP.glen
+            memcpy(toP.piDiagNorm, frP.piDiagNorm, self.lik.dim * \
+              sizeof(double))
+
+            toP.alpha = frP.alpha
+            memcpy(toP.gammas, frP.gammas, frP.glen * sizeof(double))
+            toP.glen = frP.glen
 
         return ret
 
@@ -374,8 +397,8 @@ cdef class Lik:
             have no impact on likelihood computations unless the weight is
             changed.
         """
+        cdef unsigned ret, i
         cdef CxtLikModel *models
-        cdef unsigned i
 
         if self.lik.modelsLen == self.lik.modelsMax:
             models = <CxtLikModel *>realloc(self.lik.models, \
@@ -393,7 +416,10 @@ cdef class Lik:
             for 0 <= i < self.lik.modelsMax:
                 self.lik.models[i].cL = &self.rootCL.vec[i]
         self._initModel(&self.lik.models[self.lik.modelsLen])
+        ret = self.lik.modelsLen
         self.lik.modelsLen += 1
+
+        return ret
 
     cpdef dupModel(self, unsigned to, unsigned fr, bint dupCLs=False):
         """
@@ -421,13 +447,17 @@ cdef class Lik:
 
         toP.sn = frP.sn
         toP.reassign = frP.reassign
-        memcpy(toP.rMat, frP.rMat, self.lik.dim * self.lik.dim * sizeof(double))
+        memcpy(toP.rclass, frP.rclass, self.lik.rlen * sizeof(unsigned))
+        memcpy(toP.rTri, frP.rTri, self.lik.rlen * sizeof(double))
         memcpy(toP.piDiag, frP.piDiag, self.lik.dim * sizeof(double))
+        memcpy(toP.piDiagNorm, frP.piDiagNorm, self.lik.dim * sizeof(double))
         memcpy(toP.qEigVecCube, frP.qEigVecCube, self.lik.dim * self.lik.dim * \
           self.lik.dim * sizeof(double))
         memcpy(toP.qEigVals, frP.qEigVals, self.lik.dim * sizeof(double))
-        if self.lik.ncat != 0:
-            memcpy(toP.gammas, frP.gammas, self.lik.ncat * sizeof(double))
+
+        toP.alpha = frP.alpha
+        memcpy(toP.gammas, frP.gammas, self.lik.ncat * sizeof(double))
+        toP.glen = frP.glen
 
         toP.cL.sn = frP.cL.sn
         memcpy(toP.cL.cLMat, frP.cL.cLMat, self.lik.nchars * self.lik.dim * \
@@ -486,50 +516,147 @@ cdef class Lik:
 
         modelP.weight = weight
 
-    cpdef double getRate(self, unsigned model, unsigned i, unsigned j) \
-      except -1.0:
+    cpdef list getRclass(self, unsigned model):
         """
-            Get the relative mutation rate at row i, column j, for the
+            Return a list of integers that encodes relative mutation rate class
+            partitioning for the specified model.  For DNA, where the R matrix
+            is
+               _            _
+              |  -  a  b  c  |
+              |              |
+              |  a  -  d  e  |
+              |              | ,
+              |  b  d  -  f  |
+              |              |
+              |_ c  e  f  - _|
+
+            the return list is [a,b,c,d,e,f].  The K2P model would be
+            [0,1,0,0,1,0]; GTR would be [0,1,2,3,4,5].
+        """
+        cdef CxtLikModel *modelP
+        cdef unsigned i
+
+        assert model < self.lik.modelsLen
+        modelP = &self.lik.models[model]
+
+        return [modelP.rclass[i] for i in xrange(self.lik.rlen)]
+
+    cpdef setRclass(self, unsigned model, list rclass, list rates=None):
+        """
+            Set the relative mutation rate class partitioning for the specified
+            model.  For DNA, where the R matrix is
+               _            _
+              |  -  a  b  c  |
+              |              |
+              |  a  -  d  e  |
+              |              | ,
+              |  b  d  -  f  |
+              |              |
+              |_ c  e  f  - _|
+
+            rclass=[0,1,0,0,1,0] would set the model to K2P;
+            rclass=[0,1,2,3,4,5] would set the model to GTR.  Note that rate
+            class integer lists must be in a canonized form, such that the first
+            element of the list is always 0, and subsequent elements are at most
+            one greater than all preceeding elements.
+
+            The relative mutation rates can be specified via the 'rates'
+            parameter, which if omitted causes all rates to be set to 1.
+        """
+        cdef CxtLikModel *modelP
+        cdef unsigned rMax, r, i
+
+        assert model < self.lik.modelsLen
+        modelP = &self.lik.models[model]
+
+        rMax = 0
+        for 0 <= i < self.lik.rlen:
+            r = rclass[i]
+            if r == rMax + 1:
+                rMax += 1
+            elif r > rMax + 1:
+                raise ValueError("Invalid rclass specification")
+
+        for 0 <= i < self.lik.rlen:
+            modelP.rclass[i] = rclass[i]
+
+        if rates is None:
+            for 0 <= i < self.lik.rlen:
+                modelP.rTri[i] = 1.0
+        else:
+            if len(rates) != rMax + 1:
+                raise ValueError("Incorrect rates list length")
+            for 0 <= i < self.lik.rlen:
+                if type(rates[modelP.rclass[i]]) is not float:
+                    raise ValueError("Incorrect type for rate %d (%r)" % \
+                      (rates[modelP.rclass[i]], i))
+            for 0 <= i < self.lik.rlen:
+                modelP.rTri[i] = rates[modelP.rclass[i]]
+
+        modelP.reassign = True
+
+    cpdef unsigned getNrates(self, unsigned model) except 0:
+        """
+            Get the number of relative mutation rate classes for the specified
+            model.
+        """
+        cdef unsigned nrates, i
+        cdef CxtLikModel *modelP
+
+        assert model < self.lik.modelsLen
+        modelP = &self.lik.models[model]
+
+        nrates = 1
+        for 0 <= i < self.lik.rlen:
+            rInd = modelP.rclass[i]
+            if rInd + 1 > nrates:
+                nrates = rInd + 1
+
+        return nrates
+
+    cpdef double getRate(self, unsigned model, unsigned i) except -1.0:
+        """
+            Get the value of the i'th relative mutation rate class for the
             specified model.
         """
         cdef CxtLikModel *modelP
+        cdef unsigned j
 
         assert model < self.lik.modelsLen
         modelP = &self.lik.models[model]
-        assert i < self.lik.dim
-        assert j < self.lik.dim
-        assert i != j
+        assert i < self.lik.rlen
 
-        # Only the upper triangle of rMat is maintained, so swap i and j if
-        # necessary.
-        if i > j:
-            i, j = j, i
+        for 0 <= j < self.lik.rlen:
+            if modelP.rclass[j] == i:
+                return modelP.rTri[j]
 
-        return modelP.rMat[i * self.lik.dim + j]
+        raise ValueError("Invalid rate class index")
 
-    cpdef setRate(self, unsigned model, unsigned i, unsigned j, double rate):
+    cpdef setRate(self, unsigned model, unsigned i, double rate):
         """
-            Set the relative mutation rate at row i, column j, for the
-            specified model.  Relative rates are automatically rescaled by
-            lnL() such that the bottommost rate in the upper triangle of the
-            rate matrix is fixed at 1.0.
+            Set the value of the i'th relative mutation rate class for the
+            specified model.
         """
         cdef CxtLikModel *modelP
+        cdef unsigned j
+        cdef bint iValid, reassign
 
         assert model < self.lik.modelsLen
         modelP = &self.lik.models[model]
-        assert i < self.lik.dim
-        assert j < self.lik.dim
-        assert i != j
+        assert i < self.lik.rlen
         assert rate > 0.0
 
-        # Only the upper triangle of rMat is maintained, so swap i and j if
-        # necessary.
-        if i > j:
-            i, j = j, i
-
-        if modelP.rMat[i * self.lik.dim + j] != rate:
-            modelP.rMat[i * self.lik.dim + j] = rate
+        iValid = False
+        reassign = False
+        for 0 <= j < self.lik.rlen:
+            if modelP.rclass[j] == i:
+                if modelP.rTri[j] != rate:
+                    reassign = True
+                modelP.rTri[j] = rate
+                iValid = True
+        if not iValid:
+            raise ValueError("Invalid rate class index")
+        if reassign:
             modelP.reassign = True
 
     cpdef double getFreq(self, unsigned model, unsigned i) except -1.0:
@@ -612,6 +739,7 @@ cdef class Lik:
                 else: # Category medians.
                     # Use properly scaled ptChi2() results to compute point
                     # values for the medians of ncat equal-sized partitions,
+                    sum = 0.0
                     for 0 <= i < self.lik.ncat:
                         pt = ptChi2((<double>(i*2)+1.0) / \
                           <double>(self.lik.ncat*2), alpha*2.0, lnGammaA)
@@ -672,6 +800,8 @@ cdef class Lik:
         cdef int ind, val
         cdef Ring r
 
+        assert edgeLen == ring.edge.length or edgeLen == 0.0
+
         cL = <CL>ring.aux
         degree = ring.node.getDegree()
 
@@ -727,12 +857,13 @@ cdef class Lik:
             self._planRecurse(r.other, cL, degree, r.edge.length)
 
         # Check whether the current tree topology is compatible with the
-        # parent's cache.  If not, invalidate all of the parent's caches.
+        # parent's cache.  If not, invalidate all of the parent's caches, even
+        # those that currently have 0 weight, since there will be no way to
+        # detect the need for cache invalidation later on.
         if cL.parent is not parent or cL.nSibs != nSibs or \
           cL.edgeLen != edgeLen:
             for 0 <= i < self.lik.modelsLen:
-                if self.lik.models[i].weight != 0.0:
-                    parent.vec[i].sn = 0
+                parent.vec[i].sn = 0
             cL.parent = parent
             cL.nSibs = nSibs
             cL.edgeLen = edgeLen
@@ -790,12 +921,8 @@ cdef class Lik:
                           <CL>r.other.aux, r.edge.length)
                     self.rootCL.vec[i].sn = self.lik.models[i].sn
 
-    cpdef double lnL(self, Node root=None) except 1.0:
-        """
-            Compute the log-likelihood.  Use the tree's base node as the root
-            for computation, unless a root is specified.
-        """
-        cdef double ret, wsum
+    cdef void _prep(self, Node root) except *:
+        cdef double wsum
         cdef unsigned i, stepsMax
         cdef CxtLikModel *modelP
         cdef CxtLikStep *steps
@@ -840,7 +967,58 @@ cdef class Lik:
         # Generate the execution plan via post-order tree traversal.
         self._plan(root)
 
-        # Execute the plan.
-        ret = CxLikExecute(self.lik)
+    cpdef double lnL(self, Node root=None) except 1.0:
+        """
+            Compute the log-likelihood.  Use the tree's base node as the root
+            for computation, unless a root is specified.
+        """
+        cdef double ret
+
+        # Prepare data structures and compute the execution plan.
+        self._prep(root)
+
+        # Execute the plan, with the result being the full lnL.
+        ret = CxLikExecuteLnL(self.lik)
+
+        IF LikDebug:
+            # Validate with a fresh Lik, in order to detect cache-related
+            # flaws.
+            cdef Lik lik = self.dup()
+            lik._prep(root)
+            cdef double lnL2 = CxLikExecuteLnL(lik.lik)
+            if not (0.99 < lnL2/ret and lnL2/ret < 1.01):
+                print "Incorrect lnL: %f (should be approximately %f)" % \
+                  (ret, lnL2)
+                assert False
+
+        return ret
+
+    cpdef list siteLnLs(self, Node root=None):
+        """
+            Compute the site log-likelihoods.  Use the tree's base node as the
+            root for computation, unless a root is specified.
+        """
+        cdef list ret
+        cdef double *lnLs
+
+        # Prepare data structures and compute the execution plan.
+        self._prep(root)
+
+        # Allocate temporary space for the site lnL's.  It would be possible to
+        # amortize this allocation, but there's little point since 1) this
+        # method is mainly used for diagnostics rather than high throughput,
+        # and 2) a Python list is created to contain the return values anyway.
+        lnLs = <double *>calloc(self.lik.nchars - self.lik.npad, sizeof(double))
+        if lnLs == NULL:
+            raise MemoryError("Error allocating lnLs")
+
+        try:
+            # Execute the plan, with the result being sitewise lnL's.
+            CxLikExecuteSiteLnLs(self.lik, lnLs)
+
+            # Copy lnLs C array values into a Python list.
+            ret = [lnLs[i] for i in xrange(self.lik.nchars - self.lik.npad)]
+        finally:
+            free(lnLs)
 
         return ret
