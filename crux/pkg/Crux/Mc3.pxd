@@ -18,15 +18,17 @@ cdef struct Mc3SwapStats:
     uint64_t nswap
 
 cdef enum:
-    Mc3FreqProp             = 0
-    Mc3RateProp             = 1
-    Mc3RateShapeInvProp     = 2
-    Mc3BrlenProp            = 3
-    Mc3EtbrProp             = 4
-    Mc3RateJumpProp         = 5
-    Mc3PolytomyJumpProp     = 6
-    Mc3RateShapeInvJumpProp = 7
-    Mc3Prop                 = 8
+    Mc3WeightProp           =  0
+    Mc3FreqProp             =  1
+    Mc3RmultProp            =  2
+    Mc3RateProp             =  3
+    Mc3RateShapeInvProp     =  4
+    Mc3BrlenProp            =  5
+    Mc3EtbrProp             =  6
+    Mc3RateJumpProp         =  7
+    Mc3PolytomyJumpProp     =  8
+    Mc3RateShapeInvJumpProp =  9
+    Mc3Prop                 = 10
 
 cdef class Mc3Chain:
     cdef Mc3 master
@@ -43,7 +45,9 @@ cdef class Mc3Chain:
     cdef double lnL
     cdef uint64_t step
 
+    cdef bint weightPropose(self) except *
     cdef bint freqPropose(self) except *
+    cdef bint rmultPropose(self) except *
     cdef bint ratePropose(self) except *
     cdef bint rateShapeInvPropose(self) except *
     cdef bint brlenPropose(self) except *
@@ -71,7 +75,7 @@ cdef class Mc3:
     cdef double _graphDelay
 
     # Convergence diagnostic parameters.
-    cdef double _cvgDelay
+    cdef uint64_t _cvgSampStride
     cdef double _cvgAlpha
     cdef double _cvgEpsilon
 
@@ -86,12 +90,17 @@ cdef class Mc3:
     cdef double _heatDelta
     cdef unsigned _swapStride
 
+    # Mixture model parameters.
+    cdef unsigned _nmodels
+
     # Gamma-distributed relative mutation rate parameters.
     cdef unsigned _ncat
     cdef bint _catMedian
 
     # Proposal parameters.
+    cdef double _weightLambda
     cdef double _freqLambda
+    cdef double _rmultLambda
     cdef double _rateLambda
     cdef double _rateShapeInvLambda
     cdef double _brlenLambda
@@ -106,10 +115,11 @@ cdef class Mc3:
     cdef double _rateShapeInvJumpPrior
 
     # Relative proposal probabilities, and corresponding CDF.
-    cdef double props[8]
-    cdef double propsCdf[9] # [1..8] corresponds to _*Prop fields.
+    cdef double props[10]
+    cdef double propsCdf[11] # [1..10] corresponds to _*Prop fields.
 
-    # Collated output files.
+    # Output files.
+    cdef file lFile
     cdef file tFile
     cdef file pFile
     cdef file sFile
@@ -138,9 +148,6 @@ cdef class Mc3:
     # Array of swap statistics, one element for each run.
     cdef Mc3SwapStats *swapStats
 
-    # Nested lists of Lik samples from unheated chains.
-#XXX    cdef list liks
-
     # Matrix of lnL samples from unheated chains.
     cdef double *lnLs
     cdef uint64_t lnLsMax
@@ -157,17 +164,19 @@ cdef class Mc3:
       unsigned dstChainInd, uint64_t step, double heat, double lnL) except *
     cdef void recvSwapInfo(self, unsigned runInd, unsigned dstChainInd, \
       unsigned srcChainInd, uint64_t step, double *heat, double *lnL) except *
+    cdef void initLogs(self) except *
     cdef double computeRcov(self, uint64_t last) except *
-    cdef bint writeGraph(self, uint64_t sample, list rcovs) except *
-    cdef str formatSwapStats(self, unsigned step)
+    cdef bint writeGraph(self, uint64_t sample) except *
+    cdef str formatLnLs(self, uint64_t sample, str fmt)
+    cdef str formatSwapStats(self, uint64_t step)
     cpdef bint run(self, bint verbose=*) except *
 
     cdef double getGraphDelay(self)
     cdef void setGraphDelay(self, double graphDelay)
     # property graphDelay
-    cdef double getCvgDelay(self)
-    cdef void setCvgDelay(self, double cvgDelay)
-    # property cvgDelay
+    cdef uint64_t getCvgSampStride(self)
+    cdef void setCvgSampStride(self, uint64_t cvgSampStride)
+    # property cvgSampStride
     cdef double getCvgAlpha(self)
     cdef void setCvgAlpha(self, double cvgAlpha) except *
     # property cvgAlpha
@@ -195,15 +204,24 @@ cdef class Mc3:
     cdef unsigned getSwapStride(self)
     cdef void setSwapStride(self, unsigned swapStride) except *
     # property swapStride
+    cdef unsigned getNmodels(self)
+    cdef void setNmodels(self, unsigned nmodels) except *
+    # property nmodels
     cdef unsigned getNcat(self)
     cdef void setNcat(self, unsigned ncat) except *
     # property ncat
     cdef bint getCatMedian(self)
     cdef void setCatMedian(self, bint catMedian)
     # property catMedian
+    cdef double getWeightLambda(self)
+    cdef void setWeightLambda(self, double weightLambda) except *
+    # property weightLambda
     cdef double getFreqLambda(self)
     cdef void setFreqLambda(self, double freqLambda) except *
     # property freqLambda
+    cdef double getRmultLambda(self)
+    cdef void setRmultLambda(self, double rmultLambda) except *
+    # property rmultLambda
     cdef double getRateLambda(self)
     cdef void setRateLambda(self, double rateLambda) except *
     # property rateLambda
@@ -235,9 +253,15 @@ cdef class Mc3:
     cdef void setRateShapeInvJumpPrior(self, double rateShapeInvJumpPrior) \
       except *
     # property rateShapeInvJumpPrior
+    cdef double getWeightProp(self)
+    cdef void setWeightProp(self, double weightProp) except *
+    # property weightProp
     cdef double getFreqProp(self)
     cdef void setFreqProp(self, double freqProp) except *
     # property freqProp
+    cdef double getRmultProp(self)
+    cdef void setRmultProp(self, double rmultProp) except *
+    # property rmultProp
     cdef double getRateProp(self)
     cdef void setRateProp(self, double rateProp) except *
     # property rateProp

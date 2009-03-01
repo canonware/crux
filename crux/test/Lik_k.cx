@@ -1,0 +1,70 @@
+# Parameterize a +G model and a 2Q model equivalently to make sure that they
+# compute approximately the same results.
+
+import sys
+
+print "Test begin"
+
+fastaStrs = [
+    """\
+>one
+ACGT
+>two
+AAAA
+""",
+
+    """\
+>A
+    natan
+>B
+    nctan
+>C
+    ncatn
+>D
+    ngatn
+>E
+    ngtrn
+"""
+]
+
+for s in fastaStrs:
+    print "==============================================="
+    alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(s))
+    print alignment.render()
+    distMatrix = alignment.jukesDists(scoreGaps=True)
+    t = distMatrix.rnj()
+    t.canonize(distMatrix.taxaMap)
+    t.render(lengths=True, outFile=sys.stdout)
+
+    lik2cat = Crux.Tree.Lik.Lik(t.dup(), \
+      Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(s)), nmodels=1, ncat=2)
+    lik2mod = Crux.Tree.Lik.Lik(t.dup(), \
+      Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(s)), nmodels=2, ncat=1)
+
+    for lik, i in ((lik2cat,0), (lik2mod,0), (lik2mod,1)):
+        lik.setFreq(i, 0, 0.40)
+        lik.setFreq(i, 1, 0.30)
+        lik.setFreq(i, 2, 0.20)
+        lik.setFreq(i, 3, 0.10)
+
+        lik.setRclass(i, [0,1,2,3,4,5], [0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+    lik2cat.setAlpha(0, 0.179062)
+    lik2mod.setRmult(0, 0.011437)
+    lik2mod.setRmult(1, 1.988563)
+
+    print "lik2cat lnL: %.4f" % lik2cat.lnL()
+    print "lik2mod lnL: %.4f" % lik2mod.lnL()
+
+    print "lik2cat site lnL's:",
+    lnLs = lik2cat.siteLnLs()
+    for i in xrange(len(lnLs)):
+        print "%.3f" % lnLs[i],
+    print
+
+    print "lik2mod site lnL's:",
+    lnLs = lik2mod.siteLnLs()
+    for i in xrange(len(lnLs)):
+        print "%.3f" % lnLs[i],
+    print
+
+print "Test end"

@@ -4,6 +4,7 @@ cdef extern from "math.h":
     cdef double INFINITY
 
     cdef int isnan(double x)
+    cdef int isinf(double x)
     cdef double exp(double x)
     cdef double log(double x)
     cdef float logf(float x)

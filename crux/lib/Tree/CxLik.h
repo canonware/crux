@@ -37,20 +37,15 @@ typedef struct {
     //   | x x x x | x x x x | x x x x | x x x x | n-1
     //   -----------------------------------------
     double *cLMat;
-
-    // Vector of character-specific log-scale factors.  The conditional
-    // likelihoods for each character are rescaled such that the largest
-    // conditional likelihood is 1.0.  This avoids floating point underflow
-    // issues, but the rescaling has to be tracked so that it can be accounted
-    // for in final lnL computation.
-    double *lnScale;
 } CxtLikCL;
 
 // One or more mixture models are used to compute a tree's lnL.  Each model is
-// given a weight (weights sum to 1).  Additionally, each model may have a
-// discretized Gamma distribution of mutation rates (average rate of 1).  The
+// given a weight (weights sum to 1) and a Q normalization scaler to adjust the
+// mean rate to 1 across the entire mixture.  Additionally, each model may have
+// a discretized Gamma distribution of mutation rates (average rate of 1).  The
 // precomputed eigenvector/eigenvalue decompostion of the Q matrix is used to
-// compute the probability of substitutions along a branch of a specific length.
+// compute the probability of substitutions along a branch of a specific
+// length.
 typedef struct {
     // Model serial number.  sn is unique to each proposed model, and is used
     // as the key to determine whether a cached conditional likelihood matrix
@@ -61,11 +56,23 @@ typedef struct {
     // number was assigned, reassign is true.
     bool reassign;
 
-    // Mixture model weight.  This is 1.0 if only a single model is in use.
+    // Mixture model relative and scaled weight.  weightScaled is 1.0 if only a
+    // single model is in use.
     double weight;
+    double weightScaled;
+
+    // Where P(t) is the mutation probability matrix for time interval t, a
+    // (t == v*wNorm), where v is branch length.  qNorm is a normalization
+    // factor that scales qNorm*Q such that the mean substitution rate is 1.
+    // If only a single model is in use, (wNorm == qNorm); otherwise wNorm may
+    // deviate from qNorm in order to adjust the weighted mean substitution
+    // rate to 1 across the entire mixture.
+    double qNorm;
+    double wNorm;
 
     // Upper triangle of the R matrix and the diagonal of the Pi matrix, where
-    // Q = R*Pi (with diagonal set such that each row sums to 0).
+    // Q = (rmult*R)*Pi (with diagonal set such that each row sums to 0).
+    double rmult;
     unsigned *rclass;
     double *rTri;
     double *piDiag;
@@ -88,15 +95,11 @@ typedef struct {
 
     // False if execution planning finds any places where conditional
     // likelihoods have to be recomputed.  If true, then the contents of
-    // stripeLnL and lnL are valid, which means that absolutely no computation
-    // is necessary to determine the lnL under this model.
+    // siteL are valid.
     bool entire;
 
-    // Array in which to place the sum of each stripe's log-likelihoods.
-    double *stripeLnL;
-
-    // Tree's unweighted log-likelihood.
-    double lnL;
+    // Array in which to place site likelihoods.
+    double *siteL;
 } CxtLikModel;
 
 // Updating the cache and computing the lnL of the tree can be broken down into
@@ -154,6 +157,10 @@ typedef struct {
     unsigned stripeWidth;
     unsigned nstripes;
 
+    // True if any relative weights have changed for the mixture models since
+    // the last time wNorm was computed.
+    bool renorm;
+
     // Mixture models vector.  modelsLen indicates how many models are
     // currently in the mixture, and modelsMax indicates the total number of
     // model slots available without reallocating.
@@ -186,7 +193,7 @@ typedef struct {
 
 bool
 CxLikQDecomp(int n, double *RTri, double *PiDiag, double *PiDiagNorm,
-  double *qEigVecCube, double *qEigVals);
+  double *qEigVecCube, double *qEigVals, double *qNorm);
 void
 CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double v);
 double

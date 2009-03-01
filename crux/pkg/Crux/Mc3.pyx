@@ -33,18 +33,17 @@ cdef str formatRclass(Lik lik, unsigned model):
 cdef str formatRates(Lik lik, unsigned model, str fmt):
     cdef list strs, rclass
     cdef unsigned nrates, rlen, i
-    cdef double rFixed, r
+    cdef double r
 
     strs = []
     strs.append("[ ")
     nrates = lik.getNrates(model)
     rclass = lik.getRclass(model)
     rlen = len(rclass)
-    rFixed = lik.getRate(model, <unsigned>rclass[-1])
-    for 0 <= i < rlen-1:
+    for 0 <= i < rlen:
         if i > 0:
             strs.append(" ")
-        r = lik.getRate(model, <unsigned>rclass[i]) / rFixed
+        r = lik.getRate(model, <unsigned>rclass[i])
         strs.append(fmt % r)
     strs.append(" ]")
     return "".join(strs)
@@ -109,7 +108,7 @@ cdef class Mc3Chain:
     def __init__(self, Mc3 master, unsigned run, unsigned ind, \
       uint32_t swapSeed, uint32_t seed):
         cdef Edge edge
-        cdef unsigned nstates, rlen, i
+        cdef unsigned nstates, rlen, m, i
 
         self.master = master
         self.run = run
@@ -134,26 +133,38 @@ cdef class Mc3Chain:
           self.master.alignment.taxaMap)
         self.tree.deroot()
 
-        self.lik = Lik(self.tree, self.master.alignment, 1, self.master._ncat, \
-          self.master._catMedian)
+        self.lik = Lik(self.tree, self.master.alignment, self.master._nmodels, \
+          self.master._ncat, self.master._catMedian)
 
         # Randomly draw model parameters from their prior distributions.
-
-        # State frequencies.
-        for 0 <= i < self.lik.char_.nstates():
-            self.lik.setFreq(0, i, -log(1.0 - genrand_res53(self.prng)))
-
-        # Relative mutation rates.
         nstates = self.lik.char_.nstates()
         rlen = nstates * (nstates-1) / 2
-        self.lik.setRclass(0, range(rlen))
-        for 0 <= i < rlen:
-            self.lik.setRate(0, i, -log(1.0 - genrand_res53(self.prng)))
+        for 0 <= m < self.master._nmodels:
+            if self.master._nmodels > 1:
+                # Relative weight.
+                if self.master.props[Mc3WeightProp] > 0.0:
+                    self.lik.setWeight(m, -log(1.0 - genrand_res53(self.prng)))
 
-        # Gamma-distributed rates shape parameter.
-        if self.master._ncat > 1:
-            self.lik.setAlpha(0, -log(1.0 - genrand_res53(self.prng)) * \
-                self.master._rateShapeInvPrior)
+                # Rate multiplier.
+                if self.master.props[Mc3RmultProp] > 0.0:
+                    self.lik.setRmult(m, -log(1.0 - genrand_res53(self.prng)))
+
+            # State frequencies.
+            if self.master.props[Mc3FreqProp] > 0.0:
+                for 0 <= i < self.lik.char_.nstates():
+                    self.lik.setFreq(m, i, -log(1.0 - genrand_res53(self.prng)))
+
+            # Relative mutation rates.
+            if self.master.props[Mc3RateProp] > 0.0:
+                self.lik.setRclass(m, range(rlen))
+                for 0 <= i < rlen:
+                    self.lik.setRate(m, i, -log(1.0 - genrand_res53(self.prng)))
+
+            if self.master.props[Mc3RateShapeInvProp] > 0.0:
+                # Gamma-distributed rates shape parameter.
+                if self.master._ncat > 1:
+                    self.lik.setAlpha(m, -log(1.0 - genrand_res53(self.prng)) \
+                      * self.master._rateShapeInvPrior)
 
         # Branch lengths.
         for edge in self.tree.getEdges():
@@ -166,6 +177,44 @@ cdef class Mc3Chain:
         self.master.sendSample(self.run, self.step, self.heat, self.nswap, \
           self.lik, self.lnL)
 
+    cdef bint weightPropose(self) except *:
+        cdef unsigned mInd
+        cdef double u, lnM, m, w0, w1, lnL1, p
+
+        assert self.master._nmodels > 1
+
+        # Uniformly choose a random model within the mixture.
+        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
+
+        # Generate the weight multiplier.
+        u = genrand_res53(self.prng)
+        lnM = self.master._weightLambda * (u - 0.5)
+        m = exp(lnM)
+
+        # Compute lnL with modified weight.
+        w0 = self.lik.getWeight(mInd)
+        w1 = w0 * m
+        self.lik.setWeight(mInd, w1)
+        lnL1 = self.lik.lnL()
+
+        # Determine whether to accept proposal.
+        u = genrand_res53(self.prng)
+        # The relative weight prior paremeter is arbitrarily fixed at 1.  Due
+        # to the Lik code automatically normalizing weights to sum to 1,
+        # changing the prior has no effect; in all cases, the normalization
+        # causes the set of weight parameters to effectively be drawn from a
+        # flat Dirichlet distribution.
+        # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
+        p = exp(((lnL1 - self.lnL) + (-(w1-w0))) * self.heat + lnM)
+        if p >= u:
+            # Accept.
+            self.lnL = lnL1
+        else:
+            # Reject.
+            self.lik.setWeight(mInd, w0)
+
+        return False
+
     cdef bint freqPropose(self) except *:
         cdef unsigned m0Ind, m1Ind, fInd
         cdef double w, f0, f1, u, lnM, m, lnL1
@@ -173,10 +222,9 @@ cdef class Mc3Chain:
         # Uniformly choose a random model within the mixture.
         m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
         # Create a duplicate scratch model.
-        m1Ind = self.lik.addModel()
-        self.lik.dupModel(m1Ind, m0Ind, False)
         w = self.lik.getWeight(m0Ind)
-        self.lik.setWeight(m1Ind, w)
+        m1Ind = self.lik.addModel(w)
+        self.lik.dupModel(m1Ind, m0Ind, False)
         self.lik.setWeight(m0Ind, 0.0)
 
         # Uniformly choose a random frequency parameter.
@@ -211,6 +259,44 @@ cdef class Mc3Chain:
 
         return False
 
+    cdef bint rmultPropose(self) except *:
+        cdef unsigned mInd
+        cdef double u, lnM, m, rm0, rm1, lnL1, p
+
+        assert self.master._nmodels > 1
+
+        # Uniformly choose a random model within the mixture.
+        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
+
+        # Generate the rmult multiplier.
+        u = genrand_res53(self.prng)
+        lnM = self.master._rmultLambda * (u - 0.5)
+        m = exp(lnM)
+
+        # Compute lnL with modified rmult.
+        rm0 = self.lik.getRmult(mInd)
+        rm1 = rm0 * m
+        self.lik.setRmult(mInd, rm1)
+        lnL1 = self.lik.lnL()
+
+        # Determine whether to accept proposal.
+        u = genrand_res53(self.prng)
+        # The rate multiplier prior paremeter is arbitrarily fixed at 1.  Due
+        # to the Lik code automatically normalizing relative rates to a mean
+        # rate of 1, changing the prior has no effect; in all cases, the
+        # normalization causes the set of rate multiplier parameters to
+        # effectively be drawn from a flat Dirichlet distribution.
+        # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
+        p = exp(((lnL1 - self.lnL) + (-(rm1-rm0))) * self.heat + lnM)
+        if p >= u:
+            # Accept.
+            self.lnL = lnL1
+        else:
+            # Reject.
+            self.lik.setRmult(mInd, rm0)
+
+        return False
+
     cdef bint ratePropose(self) except *:
         cdef unsigned m0Ind, m1Ind, nrates, r, rInd
         cdef double w, r0, r1, u, lnM, m, lnL1
@@ -223,10 +309,9 @@ cdef class Mc3Chain:
             # Only one rate class, so this proposal is bogus.
             return True
         # Create a duplicate scratch model.
-        m1Ind = self.lik.addModel()
-        self.lik.dupModel(m1Ind, m0Ind, False)
         w = self.lik.getWeight(m0Ind)
-        self.lik.setWeight(m1Ind, w)
+        m1Ind = self.lik.addModel(w)
+        self.lik.dupModel(m1Ind, m0Ind, False)
         self.lik.setWeight(m0Ind, 0.0)
 
         # Uniformly choose a random rate parameter.
@@ -269,10 +354,9 @@ cdef class Mc3Chain:
         # Uniformly choose a random model within the mixture.
         m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
         # Create a duplicate scratch model.
-        m1Ind = self.lik.addModel()
-        self.lik.dupModel(m1Ind, m0Ind, False)
         w = self.lik.getWeight(m0Ind)
-        self.lik.setWeight(m1Ind, w)
+        m1Ind = self.lik.addModel(w)
+        self.lik.dupModel(m1Ind, m0Ind, False)
         self.lik.setWeight(m0Ind, 0.0)
 
         # Generate the inverse rate shape multiplier.
@@ -899,10 +983,9 @@ cdef class Mc3Chain:
         # Uniformly choose a random model within the mixture.
         m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
         # Create a duplicate scratch model.
-        m1Ind = self.lik.addModel()
-        self.lik.dupModel(m1Ind, m0Ind, False)
         w = self.lik.getWeight(m0Ind)
-        self.lik.setWeight(m1Ind, w)
+        m1Ind = self.lik.addModel(w)
+        self.lik.dupModel(m1Ind, m0Ind, False)
         self.lik.setWeight(m0Ind, 0.0)
 
         # Determine the number of rate parameters.
@@ -1252,10 +1335,9 @@ cdef class Mc3Chain:
         # Uniformly choose a random model within the mixture.
         m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
         # Create a duplicate scratch model.
-        m1Ind = self.lik.addModel()
-        self.lik.dupModel(m1Ind, m0Ind, False)
         w = self.lik.getWeight(m0Ind)
-        self.lik.setWeight(m1Ind, w)
+        m1Ind = self.lik.addModel(w)
+        self.lik.dupModel(m1Ind, m0Ind, False)
         self.lik.setWeight(m0Ind, 0.0)
 
         # Determine whether the model is currently +G.
@@ -1299,8 +1381,12 @@ cdef class Mc3Chain:
               / sizeof(double)
 
             # Propose new state.
-            if propInd == Mc3FreqProp:
+            if propInd == Mc3WeightProp:
+                again = self.weightPropose()
+            elif propInd == Mc3FreqProp:
                 again = self.freqPropose()
+            elif propInd == Mc3RmultProp:
+                again = self.rmultPropose()
             elif propInd == Mc3RateProp:
                 again = self.ratePropose()
             elif propInd == Mc3RateShapeInvProp:
@@ -1437,7 +1523,7 @@ cdef class Mc3:
 
         # Set defaults.
         self._graphDelay = -1.0
-        self._cvgDelay = 0.0
+        self._cvgSampStride = 1
         self._cvgAlpha = 0.05
         self._cvgEpsilon = 0.01
         self._minStep = 100000
@@ -1447,9 +1533,12 @@ cdef class Mc3:
         self._ncoupled = 1
         self._heatDelta = 0.05
         self._swapStride = 1
-        self._ncat = 4
+        self._nmodels = 1
+        self._ncat = 1
         self._catMedian = False
+        self._weightLambda = 2.0 * log(1.6)
         self._freqLambda = 2.0 * log(1.6)
+        self._rmultLambda = 2.0 * log(1.6)
         self._rateLambda = 2.0 * log(1.6)
         self._rateShapeInvLambda = 2.0 * log(1.6)
         self._brlenLambda = 2.0 * log(1.6)
@@ -1460,7 +1549,9 @@ cdef class Mc3:
         self._rateJumpPrior = 1.0
         self._polytomyJumpPrior = 1.0
         self._rateShapeInvJumpPrior = 1.0
+        self.props[Mc3WeightProp] = 3.0
         self.props[Mc3FreqProp] = 1.0
+        self.props[Mc3RmultProp] = 1.0
         self.props[Mc3RateProp] = 3.0
         self.props[Mc3RateShapeInvProp] = 1.0
         self.props[Mc3BrlenProp] = 2.0
@@ -1475,7 +1566,7 @@ cdef class Mc3:
         cdef double *lnLs
         cdef list run
         cdef Mc3Chain chain
-        cdef double swaprate
+        cdef double swaprate, wsum, w
         cdef unsigned nmodels, m
 
         sample = step / self._stride
@@ -1489,10 +1580,6 @@ cdef class Mc3:
         if heat != 1.0:
             # The remainder of this method applies only to cold chains.
             return
-
-        # Store a duplicate of lik if it will be needed for convergence
-        # diagnostics.
-#XXX        self.liks[runInd].append(lik.dup())
 
         # Allocate/expand lnLs as necessary.
         if self.lnLs == NULL:
@@ -1525,17 +1612,21 @@ cdef class Mc3:
         lik.tree.render(True, "%.12e", None, self.tFile)
         self.tFile.flush()
         # .p
+        wsum = 0.0
         nmodels = lik.nmodels()
         for 0 <= m < nmodels:
-            self.pFile.write("%d\t%d\t%d\t%.5f\t%.11e\t%s%s %.5e %s\n" % \
-              (runInd, step, m, lik.getWeight(m), lnL, formatRclass(lik, m), \
-              formatRates(lik, m, "%.5e"), lik.getAlpha(m), \
+            wsum += lik.getWeight(m)
+        for 0 <= m < nmodels:
+            w = (lik.getWeight(m)/wsum if wsum > 0.0 else 1.0/nmodels)
+            self.pFile.write("%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5e %.5e %s\n" % \
+              (runInd, step, m, w, lik.getRmult(m), formatRclass(lik, m), \
+              formatRates(lik, m, "%.5e"), lik.getWNorm(m), lik.getAlpha(m), \
               formatFreqs(lik, m, "%.5e")))
             if self.verbose:
                 sys.stdout.write( \
-                  "p\t%d\t%d\t%d\t%.5f\t%.6f\t%s%s %.5e %s\n" % \
-                  (runInd, step, m, lik.getWeight(m), lnL, \
-                  formatRclass(lik, m), formatRates(lik, m, "%.4e"), \
+                  "p\t%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5f %.5e %s\n" % \
+                  (runInd, step, m, w, lik.getRmult(m), formatRclass(lik, m), \
+                  formatRates(lik, m, "%.4e"), lik.getWNorm(m), \
                   lik.getAlpha(m), formatFreqs(lik, m, "%.5f")))
         self.pFile.flush()
 
@@ -1567,6 +1658,83 @@ cdef class Mc3:
         lnL[0] = swapInfo.lnL
 
         swapInfo.step = 0
+
+    cdef void initLogs(self) except *:
+        cdef file f
+
+        self.lFile = open("%s.l" % self.outPrefix, "w")
+        self.lFile.write("Begin run: %s\n" % \
+          time.strftime("%Y/%m/%d %H:%M:%S (%Z)", time.localtime(time.time())))
+        self.lFile.write("Host machine: %r\n" % (os.uname(),))
+        for f in ((self.lFile, sys.stdout) if self.verbose else (self.lFile,)):
+            f.write("PRNG seed: %d\n" % Crux.Config.seed)
+            f.write("Compact alignment:\n")
+            self.alignment.render(50, f)
+
+            f.write("Configuration parameters:\n")
+            f.write("  outPrefix: %r\n" % self.outPrefix)
+            f.write("  graphDelay: %r\n" % self._graphDelay)
+            f.write("  cvgSampStride: %r\n" % self._cvgSampStride)
+            f.write("  cvgAlpha: %r\n" % self._cvgAlpha)
+            f.write("  cvgEpsilon: %r\n" % self._cvgEpsilon)
+            f.write("  minStep: %r\n" % self._minStep)
+            f.write("  maxStep: %r\n" % self._maxStep)
+            f.write("  stride: %r\n" % self._stride)
+            f.write("  nruns: %r\n" % self._nruns)
+            f.write("  ncoupled: %r\n" % self._ncoupled)
+            f.write("  heatDelta: %r\n" % self._heatDelta)
+            f.write("  swapStride: %r\n" % self._swapStride)
+            f.write("  nmodels: %r\n" % self._nmodels)
+            f.write("  ncat: %r\n" % self._ncat)
+            f.write("  catMedian: %r\n" % self._catMedian)
+            f.write("  weightLambda: %r\n" % self._weightLambda)
+            f.write("  freqLambda: %r\n" % self._freqLambda)
+            f.write("  rmultLambda: %r\n" % self._rmultLambda)
+            f.write("  rateLambda: %r\n" % self._rateLambda)
+            f.write("  rateShapeInvLambda: %r\n" % self._rateShapeInvLambda)
+            f.write("  brlenLambda: %r\n" % self._brlenLambda)
+            f.write("  etbrPExt: %r\n" % self._etbrPExt)
+            f.write("  etbrLambda: %r\n" % self._etbrLambda)
+            f.write("  rateShapeInvPrior: %r\n" % self._rateShapeInvPrior)
+            f.write("  brlenPrior: %r\n" % self._brlenPrior)
+            f.write("  rateJumpPrior: %r\n" % self._rateJumpPrior)
+            f.write("  polytomyJumpPrior: %r\n" % self._polytomyJumpPrior)
+            f.write("  rateShapeInvJumpPrior: %r\n" % \
+              self._rateShapeInvJumpPrior)
+            f.write("  weightProp: %r\n" % self.props[Mc3WeightProp])
+            f.write("  freqProp: %r\n" % self.props[Mc3FreqProp])
+            f.write("  rmultProp: %r\n" % self.props[Mc3RmultProp])
+            f.write("  rateProp: %r\n" % self.props[Mc3RateProp])
+            f.write("  rateShapeInvProp: %r\n" % \
+              self.props[Mc3RateShapeInvProp])
+            f.write("  brlenProp: %r\n" % self.props[Mc3BrlenProp])
+            f.write("  etbrProp: %r\n" % self.props[Mc3EtbrProp])
+            f.write("  rateJumpProp: %r\n" % self.props[Mc3RateJumpProp])
+            f.write("  polytomyJumpProp: %r\n" % \
+              self.props[Mc3PolytomyJumpProp])
+            f.write("  rateShapeInvJumpProp: %r\n" % \
+              self.props[Mc3RateShapeInvJumpProp])
+        self.lFile.flush()
+
+        self.tFile = open("%s.t" % self.outPrefix, "w")
+        self.tFile.write("[[run step] tree]\n")
+        self.tFile.flush()
+
+        self.pFile = open("%s.p" % self.outPrefix, "w")
+        self.pFile.write( \
+          "run\tstep\tmodel\tweight\trmult\t( rclass )[ R ] wNorm alpha" \
+          " [ Pi ]\n")
+        self.pFile.flush()
+        if self.verbose:
+            sys.stdout.write( \
+              "p\trun\tstep\tmodel\tweight\trmult\t( rclass )[ R ] wNorm" \
+              " alpha [ Pi ]\n")
+
+        self.sFile = open("%s.s" % self.outPrefix, "w")
+        self.sFile.write("step\t[ lnLs ]\tRcov\t[ swapRates ]\n")
+        self.sFile.flush()
+        if self.verbose:
+            sys.stdout.write("s\tstep\t[ lnLs ]\tRcov\t[ swapRates ]\n")
 
     # Compute Rcov convergence diagnostic.
     cdef double computeRcov(self, uint64_t last) except *:
@@ -1605,7 +1773,10 @@ cdef class Mc3:
 
         # Compute the lower and upper bounds for the credibility intervals.  In
         # cases of rounding, expand rather than contract the credibility
-        # intervals, in order to be conservative.
+        # intervals, in order to be conservative.  Expansion is conservative
+        # because it is (for example) like computing the 97% credibility
+        # interval instead of the 95% credibility interval, which is a more
+        # stringent measure of agreement between sample sets.
         lower = <uint64_t>floor((self._cvgAlpha/2.0) * (past-first))
         upper = (past-first-1) - lower
 
@@ -1636,14 +1807,12 @@ cdef class Mc3:
         ret *= (1.0 - self._cvgAlpha) / (1.0 - alphaEmp)
         return ret
 
-    cdef bint writeGraph(self, uint64_t sample, list rcovs) except *:
+    cdef bint writeGraph(self, uint64_t sample) except *:
         cdef file gfile
         cdef list cols0, cols1, lnLs0, lnLs1, colors
         cdef uint64_t xsp, i
         cdef unsigned runInd
         cdef double lnL, rcov
-
-        assert sample == len(rcovs)
 
         if sample < 4:
             # The code below does not generate an informative graph until there
@@ -1656,7 +1825,7 @@ cdef class Mc3:
 
         # Write to a temporary file, in order to be able to make the complete
         # file appear atomically in its final location.
-        gfile = open("%s.cvg.R.tmp" % self.outPrefix, "w")
+        gfile = open("%s.lnL.R.tmp" % self.outPrefix, "w")
 
         cols0 = []
         cols1 = []
@@ -1674,53 +1843,45 @@ cdef class Mc3:
         gfile.write("lnLs1 = matrix(c(%s), ncol=%d)\n" % \
           (",\n".join(cols1), self._nruns))
 
-        gfile.write("rcovs0 = c(%s)\n" % \
-          ", ".join(["%.6e" % rcov for rcov in rcovs[:xsp]]))
-        gfile.write("rcovs1 = c(%s)\n" % \
-          ", ".join(["%.6e" % rcov for rcov in rcovs[xsp:]]))
-
         gfile.write("x0 = seq(%d, %d, by=%d)\n" % \
           (self._stride, self._stride * xsp, self._stride))
         gfile.write("x1 = seq(%d, %d, by=%d)\n" % \
           (self._stride * (xsp+1), self._stride * sample, self._stride))
 
-        gfile.write("par(mfrow=c(2, 2))\n")
+        gfile.write("par(mfrow=c(1, 2))\n")
 
         colors = ["black", "red", "green", "blue", "orange", "brown", "cyan", \
           "purple"]
 
-        gfile.write('plot(c(min(x0), max(x0)), c(min(lnLs0), max(lnLs0)), pch="", xlab="", ylab="lnL")\n')
+        gfile.write('plot(c(min(x0), max(x0)), c(min(lnLs0), max(lnLs0)), pch="", xlab="step", ylab="lnL")\n')
         for 0 <= i < self._nruns:
             gfile.write('lines(x0, lnLs0[,%d], col="%s")\n' % \
               (i+1, colors[i % len(colors)]))
 
-        gfile.write('plot(c(min(x1), max(x1)), c(min(lnLs1), max(lnLs1)), pch="", xlab="", ylab="")\n')
+        gfile.write('plot(c(min(x1), max(x1)), c(min(lnLs1), max(lnLs1)), pch="", xlab="step", ylab="")\n')
         for 0 <= i < self._nruns:
             gfile.write('lines(x1, lnLs1[,%d], col="%s")\n' % \
               (i+1, colors[i % len(colors)]))
 
-        gfile.write('plot(c(min(x0), max(x0)), c(min(rcovs0), max(rcovs0, %.6e)), pch="", xlab="Step", ylab="Rcov")\n' % \
-          (1.0 - self._cvgAlpha))
-        gfile.write('lines(x0, rcovs0, col="black")\n')
-        gfile.write('lines(x0, rep(%.6e, length(x0)), col="blue")\n' % \
-          (1.0 - self._cvgAlpha))
-        gfile.write('lines(x0, rep(%.6e, length(x0)), col="green")\n' % \
-          (1.0 - self._cvgAlpha - self._cvgEpsilon))
-
-        gfile.write('plot(c(min(x1), max(x1)), c(min(rcovs1), max(rcovs1, %.6e)), pch="", xlab="Step", ylab="")\n' % \
-          (1.0 - self._cvgAlpha))
-        gfile.write('lines(x1, rcovs1, col="black")\n')
-        gfile.write('lines(x1, rep(%.6e, length(x1)), col="blue")\n' % \
-          (1.0 - self._cvgAlpha))
-        gfile.write('lines(x1, rep(%.6e, length(x1)), col="green")\n' % \
-          (1.0 - self._cvgAlpha - self._cvgEpsilon))
-
         gfile.close()
-        os.rename("%s.cvg.R.tmp" % self.outPrefix, "%s.cvg.R" % self.outPrefix)
+        os.rename("%s.lnL.R.tmp" % self.outPrefix, "%s.lnL.R" % self.outPrefix)
 
         return False
 
-    cdef str formatSwapStats(self, unsigned step):
+    cdef str formatLnLs(self, uint64_t sample, str fmt):
+        cdef list strs
+        cdef unsigned i
+
+        strs = []
+        strs.append("[ ")
+        for 0 <= i < self._nruns:
+            if i > 0:
+                strs.append(" ")
+            strs.append(fmt % self.lnLs[sample*self._nruns + i])
+        strs.append(" ]")
+        return "".join(strs)
+
+    cdef str formatSwapStats(self, uint64_t step):
         cdef list strs
         cdef unsigned i
         cdef double swapRate
@@ -1745,36 +1906,18 @@ cdef class Mc3:
             is reached, whichever comes first.  Collate the results from the
             unheated chain(s) and write the raw results to disk.
         """
-        cdef double propsSum, rcov, cvgT0, cvgT1, graphT0, graphT1
+        cdef double propsSum, rcov, graphT0, graphT1
         cdef Mc3Chain chain
         cdef uint32_t seed, swapSeed
         cdef unsigned i, j
-        cdef uint64_t step
-        cdef list run, rcovs
+        cdef uint64_t step, sample
+        cdef list run
         cdef bint converged
-        cdef str swapStats
+        cdef str swapStats, rcovStr
 
         self.verbose = verbose
 
-        # Initialize log files.
-        self.tFile = open("%s.t" % self.outPrefix, "w")
-        self.tFile.write("[[run step] tree]\n")
-        self.tFile.flush()
-
-        self.pFile = open("%s.p" % self.outPrefix, "w")
-        self.pFile.write( \
-          "run\tstep\tmodel\tweight\tlnL\t( rclass )[ R ] alpha [ Pi ]\n")
-        self.pFile.flush()
-        if self.verbose:
-            sys.stdout.write( \
-              "p\trun\tstep\tmodel\tweight\tlnL\t( rclass )[ R ] alpha" \
-              " [ Pi ]\n")
-
-        self.sFile = open("%s.s" % self.outPrefix, "w")
-        self.sFile.write("step\tRcov\t[ swapRates ]\n")
-        self.sFile.flush()
-        if self.verbose:
-            sys.stdout.write("s\tstep\tRcov\t[ swapRates ]\n")
+        self.initLogs()
 
         # Allocate swapInfo matrix.
         if self._ncoupled > 1:
@@ -1793,14 +1936,14 @@ cdef class Mc3:
         if self.swapStats == NULL:
             raise MemoryError("Error allocating swapStats")
 
-        # Create empty nested lists for storing Lik samples.  This is only
-        # necessary if Lik data are used by one or more convergence
-        # diagnostics.
-#XXX        self.liks = [[] for i in xrange(self._nruns)]
-
         # Initialize propsCdf, which is used to choose proposal types.
         assert sizeof(self.props)/sizeof(double) == Mc3Prop
         assert sizeof(self.propsCdf)/sizeof(double) == Mc3Prop + 1
+        if self._nmodels < 2:
+            # There are not enough models in the mixture for weights or rate
+            # multipliers to be relevant.
+            self.props[Mc3WeightProp] = 0.0
+            self.props[Mc3RmultProp] = 0.0
         if self.alignment.charType.get().nstates() <= 2:
             # There are not enough states to allow rate class grouping.
             self.props[Mc3RateJumpProp] = 0.0
@@ -1808,7 +1951,7 @@ cdef class Mc3:
             # There are not enough taxa to allow topology changes.
             self.props[Mc3EtbrProp] = 0.0
             self.props[Mc3PolytomyJumpProp] = 0.0
-        if self.ncat < 2:
+        if self._ncat < 2:
             # There aren't multiple rate categories, so Gamma-distributed rates
             # are irrelevant.
             self.props[Mc3RateShapeInvProp] = 0.0
@@ -1836,84 +1979,86 @@ cdef class Mc3:
                 seed += 1
                 run.append(chain)
 
-        cvgT0 = 0.0
         if self._graphDelay >= 0.0:
             graphT0 = 0.0
-            rcovs = []
 
-        # Run the chains to at least _minStep.  Step 0 was created during chain
-        # initialization.
-        for 1 <= step < self._minStep:
-            for 0 <= i < self._nruns:
-                run = <list>self.runs[i]
-                for 0 <= j < self._ncoupled:
-                    chain = <Mc3Chain>run[j]
-                    chain.advance()
-            if step % self._stride == 0:
-                # Update rcov.
-                cvgT1 = time.time()
-                if cvgT1 - cvgT0 >= self._cvgDelay:
-                    rcov = self.computeRcov(step/self._stride)
+        try:
+            # Run the chains to at least _minStep.  Step 0 was created during
+            # chain initialization.
+            for 1 <= step < self._minStep:
+                sample = step / self._stride
+                for 0 <= i < self._nruns:
+                    run = <list>self.runs[i]
+                    for 0 <= j < self._ncoupled:
+                        chain = <Mc3Chain>run[j]
+                        chain.advance()
+                if step % self._stride == 0:
+                    # Write to .s log file.
+                    swapStats = self.formatSwapStats(step)
+                    self.sFile.write("%d\t%s\t--------\t%s\n" % (step, \
+                      self.formatLnLs(sample, "%.11e"), swapStats))
+                    self.sFile.flush()
+                    if self.verbose:
+                        sys.stdout.write("s\t%d\t%s\t--------\t%s\n" % (step, \
+                          self.formatLnLs(sample, "%.6f"), swapStats))
+
+                    # Write graph.
                     if self._graphDelay >= 0.0:
-                        rcovs.append(rcov)
-                    cvgT0 = time.time()
-                else:
-                    rcovs.append(rcovs[-1])
+                        graphT1 = time.time()
+                        if graphT1 - graphT0 >= self._graphDelay:
+                            if not self.writeGraph(sample):
+                                graphT0 = time.time()
 
-                # Write to .s log file.
-                swapStats = self.formatSwapStats(step)
-                self.sFile.write("%d\t%.6f\t%s\n" % (step, rcov, swapStats))
-                self.sFile.flush()
-                if self.verbose:
-                    sys.stdout.write("s\t%d\t%.6f\t%s\n" % (step, rcov, \
-                      swapStats))
+            # Run the chains no further than than _maxStep.
+            for step <= step <= self._maxStep:
+                sample = step / self._stride
+                for 0 <= i < self._nruns:
+                    run = <list>self.runs[i]
+                    for 0 <= j < self._ncoupled:
+                        chain = <Mc3Chain>run[j]
+                        chain.advance()
+                if step % self._stride == 0:
+                    if self._nruns > 1 and \
+                      step % (self._stride * self._cvgSampStride) == 0:
+                        # Check for convergence.
+                        rcov = self.computeRcov(sample)
+                        converged = (rcov + self._cvgAlpha + self._cvgEpsilon \
+                          >= 1.0)
+                    else:
+                        rcov = -1.0
+                        converged = False
 
-                # Write graph.
-                if self._graphDelay >= 0.0:
-                    graphT1 = time.time()
-                    if graphT1 - graphT0 >= self._graphDelay:
-                        if not self.writeGraph(step/self._stride, rcovs):
-                            graphT0 = time.time()
+                    # Write to .s log file.
+                    rcovStr = ("%.6f" % rcov if rcov != -1.0 else "--------")
+                    swapStats = self.formatSwapStats(step)
+                    self.sFile.write("%d\t%s\t%s\t%s\n" % (step, \
+                      self.formatLnLs(sample, "%.11e"), rcovStr, swapStats))
+                    self.sFile.flush()
+                    if self.verbose:
+                        sys.stdout.write("s\t%d\t%s\t%s\t%s\n" % (step, \
+                          self.formatLnLs(sample, "%.6f"), rcovStr, swapStats))
 
-        # Run the chains no further than than _maxStep.
-        for step <= step <= self._maxStep:
-            for 0 <= i < self._nruns:
-                run = <list>self.runs[i]
-                for 0 <= j < self._ncoupled:
-                    chain = <Mc3Chain>run[j]
-                    chain.advance()
-            if step % self._stride == 0:
-                cvgT1 = time.time()
-                if cvgT1 - cvgT0 >= self._cvgDelay:
-                    # Check for convergence.
-                    rcov = self.computeRcov(step/self._stride)
-                    converged = (rcov + self._cvgAlpha + self._cvgEpsilon \
-                      >= 1.0)
-                    cvgT0 = time.time()
-                else:
-                    converged = False
+                    if converged:
+                        if self._graphDelay >= 0.0:
+                            # Write a graph one last time.
+                            self.writeGraph(sample)
+                        break
 
-                # Write to .s log file.
-                swapStats = self.formatSwapStats(step)
-                self.sFile.write("%d\t%.6f\t%s\n" % (step, rcov, swapStats))
-                self.sFile.flush()
-                if self.verbose:
-                    sys.stdout.write("s\t%d\t%.6f\t%s\n" % (step, rcov, \
-                      swapStats))
-
-                if converged:
                     if self._graphDelay >= 0.0:
-                        # Write a graph one last time.
-                        rcovs.append(rcov)
-                        self.writeGraph(step/self._stride, rcovs)
-                    break
-
-                if self._graphDelay >= 0.0:
-                    rcovs.append(rcov)
-                    graphT1 = time.time()
-                    if graphT1 - graphT0 >= self._graphDelay:
-                        if not self.writeGraph(step/self._stride, rcovs):
-                            graphT0 = time.time()
+                        graphT1 = time.time()
+                        if graphT1 - graphT0 >= self._graphDelay:
+                            if not self.writeGraph(sample):
+                                graphT0 = time.time()
+        except:
+            error = sys.exc_info()
+            self.lFile.write("Premature termination: Exception %r\n" % \
+              sys.exc_info()[1])
+            raise
+        finally:
+            self.lFile.write("Finish run: %s\n" % \
+              time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
+              time.localtime(time.time())))
+            self.lFile.flush()
 
     cdef double getGraphDelay(self):
         return self._graphDelay
@@ -1922,34 +2067,34 @@ cdef class Mc3:
     property graphDelay:
         """
             If non-negative, periodically (no more often than every graphDelay
-            seconds) output an R program to <outPrefix>.cvg.R that generates a
-            graphical representation of the data collected for convergence
-            diagnostics.  To monitor progress, use something like the following
-            at an interactive R prompt:
+            seconds) output an R program to <outPrefix>.lnL.R that generates a
+            graphical representation of the log-likelihoods.  To monitor
+            progress, use something like the following at an interactive R
+            prompt:
 
-              while (1) {source("outPrefix.cvg.R"); Sys.sleep(10)}
+              while (1) {source("outPrefix.lnL.R"); Sys.sleep(10)}
         """
         def __get__(self):
             return self.getGraphDelay()
         def __set__(self, double graphDelay):
             self.setGraphDelay(graphDelay)
 
-    cdef double getCvgDelay(self):
-        return self._cvgDelay
-    cdef void setCvgDelay(self, double cvgDelay):
-        if not (cvgDelay >= 0.0):
-            raise ValueError("Validation failure: cvgDelay >= 0.0")
-        self._cvgDelay = cvgDelay
-    property cvgDelay:
+    cdef uint64_t getCvgSampStride(self):
+        return self._cvgSampStride
+    cdef void setCvgSampStride(self, uint64_t cvgSampStride):
+        if not (cvgSampStride >= 1):
+            raise ValueError("Validation failure: cvgSampStride >= 1")
+        self._cvgSampStride = cvgSampStride
+    property cvgSampStride:
         """
-            cvgDelay controls the maximum frequency with which convergence
-            diagnostics are computed.  This is primarily useful for reducing
-            the overhead due to checking for convergence.
+            cvgSampStride limits convergence diagnostics computation to once
+            every stride*cvgSampStride steps.  This is primarily useful for
+            reducing convergence diagnostic overhead.
         """
         def __get__(self):
-            return self.getCvgDelay()
-        def __set__(self, double cvgDelay):
-            self.setCvgDelay(cvgDelay)
+            return self.getCvgSampStride()
+        def __set__(self, uint64_t cvgSampStride):
+            self.setCvgSampStride(cvgSampStride)
 
     cdef double getCvgAlpha(self):
         return self._cvgAlpha
@@ -2031,13 +2176,13 @@ cdef class Mc3:
     cdef unsigned getNruns(self):
         return self._nruns
     cdef void setNruns(self, unsigned nruns) except *:
-        if not nruns >= 2:
-            raise ValueError("Validation failure: nruns >= 2")
+        if not nruns >= 1:
+            raise ValueError("Validation failure: nruns >= 1")
         self._nruns = nruns
     property nruns:
         """
-            Number of independent runs.  There must be at least two runs, so
-            that convergence diagnostics can be computed.
+            Number of independent runs.  If there is only one run, convergence
+            diagnostics will not be computed.
         """
         def __get__(self):
             return self.getNruns()
@@ -2089,6 +2234,21 @@ cdef class Mc3:
         def __set__(self, unsigned swapStride):
             self.setSwapStride(swapStride)
 
+    cdef unsigned getNmodels(self):
+        return self._nmodels
+    cdef void setNmodels(self, unsigned nmodels) except *:
+        if not nmodels >= 1:
+            raise ValueError("Validation failure: nmodels >= 1")
+        self._nmodels = nmodels
+    property nmodels:
+        """
+            Number of mixture models.
+        """
+        def __get__(self):
+            return self.getNmodels()
+        def __set__(self, unsigned nmodels):
+            self.setNmodels(nmodels)
+
     cdef unsigned getNcat(self):
         return self._ncat
     cdef void setNcat(self, unsigned ncat) except *:
@@ -2119,6 +2279,37 @@ cdef class Mc3:
         def __set__(self, bint catMedian):
             self.setCatMedian(catMedian)
 
+    cdef double getWeightLambda(self):
+        return self._weightLambda
+    cdef void setWeightLambda(self, double weightLambda) except *:
+        if not weightLambda >= 0.0:
+            raise ValueError("Validation failure: weightLambda >= 0.0")
+        self._weightLambda = weightLambda
+    property weightLambda:
+        """
+            Relative model weight multiplier.  This controls the range of
+            weight change for weight change proposals.
+
+            Proposed weights are drawn from a log-transformed sliding
+            window.  A multiplier, m, is drawn from
+
+                         1
+            g(m) = ----------------
+                   weightLambda * m
+
+                            /        1             weightLambda/2 \ 
+            in the interval | ----------------- , e               | .
+                            |   weightLambda/2                    |
+                            \  e                                  /
+
+            Where weightLambda = 2 * log(a), proposed weights w* are in
+            the interval (w/a, aw).
+        """
+        def __get__(self):
+            return self.getWeightLambda()
+        def __set__(self, double weightLambda):
+            self.setWeightLambda(weightLambda)
+
     cdef double getFreqLambda(self):
         return self._freqLambda
     cdef void setFreqLambda(self, double freqLambda) except *:
@@ -2134,7 +2325,7 @@ cdef class Mc3:
             window.  A multiplier, m, is drawn from
 
                          1
-            g(m) = ---------------
+            g(m) = --------------
                    freqLambda * m
 
                             /        1           freqLambda/2 \ 
@@ -2150,6 +2341,37 @@ cdef class Mc3:
         def __set__(self, double freqLambda):
             self.setFreqLambda(freqLambda)
 
+    cdef double getRmultLambda(self):
+        return self._rmultLambda
+    cdef void setRmultLambda(self, double rmultLambda) except *:
+        if not rmultLambda >= 0.0:
+            raise ValueError("Validation failure: rmultLambda >= 0.0")
+        self._rmultLambda = rmultLambda
+    property rmultLambda:
+        """
+            Rate multiplier multiplier (yes, really).  This controls the range
+            of rate multiplier change for rate multiplier change proposals.
+
+            Proposed rate multipliers are drawn from a log-transformed sliding
+            window.  A multiplier, m, is drawn from
+
+                         1
+            g(m) = ---------------
+                   rmultLambda * m
+
+                            /        1           rmultLambda/2 \ 
+            in the interval | --------------- , e              | .
+                            |   rmultLambda/2                  |
+                            \  e                               /
+
+            Where rmultLambda = 2 * log(a), proposed rate multipliers r* are in
+            the interval (r/a, ar).
+        """
+        def __get__(self):
+            return self.getRmultLambda()
+        def __set__(self, double rmultLambda):
+            self.setRmultLambda(rmultLambda)
+
     cdef double getRateLambda(self):
         return self._rateLambda
     cdef void setRateLambda(self, double rateLambda) except *:
@@ -2158,11 +2380,11 @@ cdef class Mc3:
         self._rateLambda = rateLambda
     property rateLambda:
         """
-            State rate multiplier.  This controls the range of state rate
-            change for state rate change proposals.
+            Relative mutation rate multiplier.  This controls the range of
+            rate change for rate change proposals.
 
-            Proposed state rates are drawn from a log-transformed sliding
-            window.  A multiplier, m, is drawn from
+            Proposed rates are drawn from a log-transformed sliding window.  A
+            multiplier, m, is drawn from
 
                          1
             g(m) = ---------------
@@ -2368,6 +2590,21 @@ cdef class Mc3:
         def __set__(self, double rateShapeInvJumpPrior):
             self.setRateShapeInvJumpPrior(rateShapeInvJumpPrior)
 
+    cdef double getWeightProp(self):
+        return self.props[Mc3WeightProp]
+    cdef void setWeightProp(self, double weightProp) except *:
+        if not weightProp >= 0.0:
+            raise ValueError("Validation failure: weightProp >= 0.0")
+        self.props[Mc3WeightProp] = weightProp
+    property weightProp:
+        """
+            Relative proportion of proposals that modify relative model weights.
+        """
+        def __get__(self):
+            return self.getWeightProp()
+        def __set__(self, double weightProp):
+            self.setWeightProp(weightProp)
+
     cdef double getFreqProp(self):
         return self.props[Mc3FreqProp]
     cdef void setFreqProp(self, double freqProp) except *:
@@ -2382,6 +2619,21 @@ cdef class Mc3:
             return self.getFreqProp()
         def __set__(self, double freqProp):
             self.setFreqProp(freqProp)
+
+    cdef double getRmultProp(self):
+        return self.props[Mc3RmultProp]
+    cdef void setRmultProp(self, double rmultProp) except *:
+        if not rmultProp >= 0.0:
+            raise ValueError("Validation failure: rmultProp >= 0.0")
+        self.props[Mc3RmultProp] = rmultProp
+    property rmultProp:
+        """
+            Relative proportion of proposals that modify rate multipliers.
+        """
+        def __get__(self):
+            return self.getRmultProp()
+        def __set__(self, double rmultProp):
+            self.setRmultProp(rmultProp)
 
     cdef double getRateProp(self):
         return self.props[Mc3RateProp]

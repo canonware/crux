@@ -43,20 +43,20 @@ for s in fastaStrs:
     print "lnL: %.4f" % lik.lnL()
 
     # Make sure that mixtures work:
-    lik.addModel()
+    lik.addModel(0.0)
     lik.dupModel(1, 0, True)
     lik.setWeight(0, 0.5)
     lik.setWeight(1, 0.5)
     print "lnL: %.4f" % lik.lnL()
-    lik.addModel()
+    lik.addModel(0.0)
     lik.dupModel(2, 1, False)
     lik.setWeight(0, 0.0)
-    lik.setWeight(1, 0.5)
-    lik.setWeight(2, 0.5)
+    lik.setWeight(1, 0.3)
+    lik.setWeight(2, 0.7)
     print "lnL: %.4f" % lik.lnL()
-    lik.setWeight(0, 0.0)
-    lik.setWeight(1, 0.0)
-    lik.setWeight(2, 0.0)
+    lik.setWeight(0, 1.0)
+    lik.setWeight(1, 1.0)
+    lik.setWeight(2, 1.0)
     print "lnL: %.4f" % lik.lnL()
 
 print "Test end"

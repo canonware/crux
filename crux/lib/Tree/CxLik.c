@@ -60,9 +60,10 @@ CxpLikNxy2i(unsigned n, unsigned x, unsigned y) {
 
 // Compute Q=R*Pi, and fill in the diagonals such that each row (of the
 // corresponding full matrix) sums to 0.  Q is a full matrix, R is an upper
-// triangle vector, and Pi is a diagonal vector.
+// triangle vector, and Pi is a diagonal vector.  Also compute qNorm, which
+// is a normalization factor that adjusts the mean substitution rate to 1.
 CxmpInline void
-CxLikQ(int n, double *Q, double *RTri, double *PiDiag,
+CxLikQ(int n, double *qNorm, double *Q, double *RTri, double *PiDiag,
   double *PiDiagNorm) {
     double piSum, elm, qScale;
     unsigned i, j;
@@ -108,7 +109,7 @@ CxLikQ(int n, double *Q, double *RTri, double *PiDiag,
     }
 #endif
 
-    // Fill in Q, in column-major form.
+    // Fill in Q, in column-major form, and compute qScale (inverse of qNorm).
     qScale = 0.0;
     for (i = 0; i < n; i++) {
 	for (j = 0; j < i; j++) {
@@ -121,22 +122,22 @@ CxLikQ(int n, double *Q, double *RTri, double *PiDiag,
 	    Q[i + j*n] = elm;
 	}
     }
-    // Rescale Q and set the diagonal.
-    qScale = 1.0 / qScale;
+    // Set the diagonal such that each row sums to 0.
     for (i = 0; i < n; i++) {
 	double diag = 0.0;
 	for (j = 0; j < i; j++) {
-	    Q[i + j*n] *= qScale;
 	    diag -= Q[i + j*n];
 	}
 	for (j = i + 1; j < n; j++) {
-	    Q[i + j*n] *= qScale;
 	    diag -= Q[i + j*n];
 	}
 	Q[i + i*n] = diag;
     }
 
+    // Return the normalization factor for Q.
+    *qNorm = 1.0 / qScale;
 #ifdef CxmLikDebug
+    fprintf(stderr, "qNorm: %10.6f\n", *qNorm);
     fprintf(stderr, "Q:\n");
     for (unsigned i = 0; i < n; i++) {
 	for (unsigned j = 0; j < n; j++) {
@@ -183,7 +184,7 @@ CxLikQ(int n, double *Q, double *RTri, double *PiDiag,
 // cube cell is the product of the projected matrix cells.
 bool
 CxLikQDecomp(int n, double *RTri, double *PiDiag, double *PiDiagNorm,
-  double *qEigVecCube, double *qEigVals) {
+  double *qNorm, double *qEigVecCube, double *qEigVals) {
     int nSq = n*n;
     double Q[nSq], QEigVecs[nSq], V[nSq];
     double qEigValsI[n];
@@ -193,7 +194,7 @@ CxLikQDecomp(int n, double *RTri, double *PiDiag, double *PiDiagNorm,
 
     // Q and V are operated on as column-major matrices in this function, in
     // order to interface cleanly with Fortran conventions.
-    CxLikQ(n, Q, RTri, PiDiag, PiDiagNorm);
+    CxLikQ(n, qNorm, Q, RTri, PiDiag, PiDiagNorm);
 
     // Get the optimal work size.
     worksize = -1;
@@ -302,52 +303,36 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
     unsigned cLim = cMin + lik->stripeWidth;
     double P[ncat][dimSq];
 
-    // Iteratively process the execution plan.  At each step, rescale
-    // likelihoods to avoid underflow.  Keep track of the total amount of
-    // rescaling performed (in lnScale vectors), so that the scalers can be
-    // used during cL aggregation to accurately compute full-tree site
-    // log-likelihoods.
+    // Iteratively process the execution plan.
     for (unsigned s = 0; s < lik->stepsLen; s++) {
 	CxtLikStep *step = &lik->steps[s];
 	double *parentMat = step->parentCL->cLMat;
-	double *parentLnScale = step->parentCL->lnScale;
 	double *childMat = step->childCL->cLMat;
-	double *childLnScale = step->childCL->lnScale;
 	unsigned glen = step->model->glen;
 
 	// Compute P matrices, one for each gamma-distributed rate.
 	for (unsigned g = 0; g < glen; g++) {
 	    CxLikPt(dim, P[g], step->model->qEigVecCube, step->model->qEigVals,
-	      step->edgeLen * step->model->gammas[g]);
+	      step->edgeLen * step->model->gammas[g] * step->model->rmult *
+	      step->model->wNorm);
 	}
 
 	if (step->variant == CxeLikStepComputeCL) {
 	    for (unsigned c = cMin; c < cLim; c++) {
-		double scale = 0.0;
 		for (unsigned g = 0; g < glen; g++) {
 		    for (unsigned iP = 0; iP < dim; iP++) {
 			double cL = 0.0;
 			for (unsigned iC = 0; iC < dim; iC++) {
 			    cL += P[g][iP*dim + iC] * childMat[c*dn + g*dim
 			      + iC];
-			}
-			if (cL > scale) {
-			    scale = cL;
 			}
 			parentMat[c*dn + g*dim + iP] = cL;
 		    }
 		}
-		if (scale != 1.0) {
-		    for (unsigned iP = 0; iP < dn; iP++) {
-			parentMat[c*dn + iP] /= scale;
-		    }
-		}
-		parentLnScale[c] = log(scale) + childLnScale[c];
 	    }
 	} else {
 	    CxmAssert(step->variant == CxeLikStepMergeCL);
 	    for (unsigned c = cMin; c < cLim; c++) {
-		double scale = 0.0;
 		for (unsigned g = 0; g < glen; g++) {
 		    for (unsigned iP = 0; iP < dim; iP++) {
 			double cL = 0.0;
@@ -355,30 +340,22 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 			    cL += P[g][iP*dim + iC] * childMat[c*dn + g*dim
 			      + iC];
 			}
-			if (cL > scale) {
-			    scale = cL;
-			}
 			parentMat[c*dn + g*dim + iP] *= cL;
 		    }
 		}
-		if (scale != 1.0) {
-		    for (unsigned iP = 0; iP < dn; iP++) {
-			parentMat[c*dn + iP] /= scale;
-		    }
-		}
-		parentLnScale[c] += log(scale) + childLnScale[c];
 	    }
 	}
     }
 
     // For each model in the mixture, aggregrate conditional likelihoods and
     // weight them according to frequency priors, in order to compute
-    // site-specific lnL's.
+    // site-specific likelihoods.
     for (unsigned m = 0; m < lik->modelsLen; m++) {
 	CxtLikModel *model = &lik->models[m];
 
-	if (model->weight == 0.0 || model->entire) {
-	    // Model is not part of the mixture, or its lnL is already computed.
+	if (model->weightScaled == 0.0 || model->entire) {
+	    // Model is not part of the mixture, or its siteL vector is
+	    // already computed.
 	    continue;
 	}
 
@@ -390,7 +367,6 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 	    pn[i] = model->piDiagNorm[i] / (double)glen;
 	}
 
-	double stripeLnL = 0.0;
 	for (unsigned c = cMin; c < cLim; c++) {
 	    double L = 0.0;
 	    for (unsigned g = 0; g < glen; g++) {
@@ -398,10 +374,8 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 		    L += pn[i] * model->cL->cLMat[c*dn + g*dim + i];
 		}
 	    }
-	    stripeLnL += (model->cL->lnScale[c] + log(L)) *
-	      (double)lik->charFreqs[c];
+	    model->siteL[c] = L;
 	}
-	model->stripeLnL[stripe] = stripeLnL;
     }
 }
 
@@ -519,82 +493,43 @@ CxpLikExecute(CxtLik *lik) {
 
 double
 CxLikExecuteLnL(CxtLik *lik) {
-    double lnL;
-
     CxpLikExecute(lik);
 
-    // Sum stripeLnL for each model, and compute the weighted log-likelihood.
-    lnL = 0.0;
-    for (unsigned m = 0; m < lik->modelsLen; m++) {
-	CxtLikModel *model = &lik->models[m];
-	if (model->weight == 0.0) {
-	    // Model is not part of the mixture.
-	    continue;
-	}
-	if (model->entire == false) {
-	    double modelLnL = 0.0;
-	    for (unsigned s = 0; s < lik->nstripes; s++) {
-		modelLnL += model->stripeLnL[s];
+    // Compute the weighted log-likelihood.
+    double lnL = 0.0;
+    for (unsigned c = 0; c < lik->nchars - lik->npad; c++) {
+	double L = 0.0;
+	for (unsigned m = 0; m < lik->modelsLen; m++) {
+	    CxtLikModel *model = &lik->models[m];
+	    if (model->weightScaled == 0.0) {
+		// Model is not part of the mixture.
+		continue;
 	    }
-	    model->lnL = modelLnL;
+	    L += model->siteL[c] * model->weightScaled;
 	}
-	lnL += model->lnL * model->weight;
+	lnL += log(L) * (double)lik->charFreqs[c];
     }
-
-    // The lnScale rescaling can cause a NaN result for a 0-probability tree.
-    // Convert such spurious NaN results to -INFINITY.
-    if (isnan(lnL)) {
-	lnL = -INFINITY;
-    }
+    CxmAssert(isnan(lnL) == 0);
 
     return lnL;
 }
 
 void
 CxLikExecuteSiteLnLs(CxtLik *lik, double *lnLs) {
-    unsigned dim = lik->dim;
-    unsigned ncat = lik->ncat;
-    unsigned dn = dim * ncat;
-
-    // Execute the plan.  Various intermediate results are not useful in the
-    // context of site lnL's, but we want to compute them anyway in order to
-    // avoid complications to the the caching logic.
     CxpLikExecute(lik);
 
-    for (unsigned m = 0; m < lik->modelsLen; m++) {
-	CxtLikModel *model = &lik->models[m];
-
-	if (model->weight == 0.0) {
-	    // Model is not part of the mixture.
-	    continue;
-	}
-
-	// Pre-compute state-specific weights, taking into account discretized
-	// gamma-distributed rates.
-	unsigned glen = model->glen;
-	double pn[dim];
-	for (unsigned i = 0; i < dim; i++) {
-	    pn[i] = model->piDiagNorm[i] / (double)glen;
-	}
-
-	for (unsigned c = 0; c < lik->nchars - lik->npad; c++) {
-	    double L = 0.0;
-	    for (unsigned g = 0; g < glen; g++) {
-		for (unsigned i = 0; i < dim; i++) {
-		    L += pn[i] * model->cL->cLMat[c*dn + g*dim + i];
-		}
-	    }
-	    lnLs[c] += ((model->cL->lnScale[c] + log(L)) *
-	      (double)lik->charFreqs[c]) * model->weight;
-	}
-    }
-
     for (unsigned c = 0; c < lik->nchars - lik->npad; c++) {
-	// The lnScale rescaling can cause a NaN result for a 0-probability
-	// tree.  Convert such spurious NaN results to -INFINITY.
-	if (isnan(lnLs[c])) {
-	    lnLs[c] = -INFINITY;
+	double L = 0.0;
+	for (unsigned m = 0; m < lik->modelsLen; m++) {
+	    CxtLikModel *model = &lik->models[m];
+	    if (model->weightScaled == 0.0) {
+		// Model is not part of the mixture.
+		continue;
+	    }
+	    L += model->siteL[c] * model->weightScaled;
 	}
-	
+	double lnL = log(L);
+	CxmAssert(isnan(lnL) == 0);
+	lnLs[c] = lnL * (double)lik->charFreqs[c];
     }
 }

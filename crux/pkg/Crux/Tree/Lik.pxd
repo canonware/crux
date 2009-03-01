@@ -54,18 +54,21 @@ cdef class Lik:
 
     cdef uint64_t _assignSn(self)
     cdef void _allocModel(self, CxtLikModel *model) except *
-    cdef void _initModel(self, CxtLikModel *model)
+    cdef void _initModel(self, CxtLikModel *model, double weight)
     cdef void _reassignModel(self, CxtLikModel *model) except *
     cdef void _deallocModel(self, CxtLikModel *model)
 
     cpdef Lik dup(self)
     cpdef unsigned getNcat(self)
     cpdef unsigned nmodels(self)
-    cpdef unsigned addModel(self)
+    cpdef unsigned addModel(self, double weight) except 0
     cpdef dupModel(self, unsigned to, unsigned fr, bint dupCLs=*)
     cpdef delModel(self)
-    cpdef double getWeight(self, unsigned model)
+    cpdef double getWeight(self, unsigned model) except -1.0
     cpdef setWeight(self, unsigned model, double weight)
+    cpdef double getWNorm(self, unsigned model) except -1.0
+    cpdef double getRmult(self, unsigned model) except -1.0
+    cpdef setRmult(self, unsigned model, double rmult)
     cpdef list getRclass(self, unsigned model)
     cpdef setRclass(self, unsigned model, list rclass, list rates=*)
     cpdef unsigned getNrates(self, unsigned model) except 0
