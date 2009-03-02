@@ -15,15 +15,15 @@ AAAA
 
     """\
 >A
-    natan
+    ata
 >B
-    nctan
+    cta
 >C
-    ncatn
+    cat
 >D
-    ngatn
+    gat
 >E
-    ngtrn
+    gtr
 """
 ]
 
@@ -52,8 +52,8 @@ for s in fastaStrs:
     lik2mod.setRmult(0, 0.011437)
     lik2mod.setRmult(1, 1.988563)
 
-    print "lik2cat lnL: %.4f" % lik2cat.lnL()
-    print "lik2mod lnL: %.4f" % lik2mod.lnL()
+    print "lik2cat lnL: %.3f" % lik2cat.lnL()
+    print "lik2mod lnL: %.3f" % lik2mod.lnL()
 
     print "lik2cat site lnL's:",
     lnLs = lik2cat.siteLnLs()

@@ -13,9 +13,10 @@ cdef struct Mc3SwapInfo:
     double heat
     double lnL
 
-cdef struct Mc3SwapStats:
-    uint64_t step
-    uint64_t nswap
+cdef struct Mc3RateStats:
+    double ema # Exponential moving average.
+    uint64_t n # Numerator.
+    uint64_t d # Denominator.
 
 cdef enum:
     Mc3WeightProp           =  0
@@ -35,6 +36,8 @@ cdef class Mc3Chain:
     cdef unsigned run
     cdef unsigned ind
     cdef uint64_t nswap
+    cdef uint64_t accepts[Mc3Prop]
+    cdef uint64_t rejects[Mc3Prop]
     cdef double heat
     cdef unsigned swapInd
     cdef double swapProb
@@ -72,7 +75,10 @@ cdef class Mc3Chain:
 cdef class Mc3:
     cdef readonly Alignment alignment
     cdef public str outPrefix
+
+    # Control parameters for diagnostic output.
     cdef double _graphDelay
+    cdef double _emaAlpha
 
     # Convergence diagnostic parameters.
     cdef uint64_t _cvgSampStride
@@ -115,8 +121,8 @@ cdef class Mc3:
     cdef double _rateShapeInvJumpPrior
 
     # Relative proposal probabilities, and corresponding CDF.
-    cdef double props[10]
-    cdef double propsCdf[11] # [1..10] corresponds to _*Prop fields.
+    cdef double props[Mc3Prop]
+    cdef double propsCdf[Mc3Prop+1] # [1..Mc3Prop] corresponds to props.
 
     # Output files.
     cdef file lFile
@@ -146,7 +152,10 @@ cdef class Mc3:
     cdef Mc3SwapInfo *swapInfo
 
     # Array of swap statistics, one element for each run.
-    cdef Mc3SwapStats *swapStats
+    cdef Mc3RateStats *swapStats
+
+    # Arrays of accept/reject statistics, one element for each run.
+    cdef Mc3RateStats *propStats[Mc3Prop]
 
     # Matrix of lnL samples from unheated chains.
     cdef double *lnLs
@@ -159,7 +168,8 @@ cdef class Mc3:
     cdef bint verbose
 
     cdef void sendSample(self, unsigned runInd, uint64_t step, double heat, \
-      uint64_t nswap, Lik lik, double lnL) except *
+      uint64_t nswap, uint64_t *accepts, uint64_t *rejects, Lik lik, \
+      double lnL) except *
     cdef void sendSwapInfo(self, unsigned runInd, unsigned srcChainInd, \
       unsigned dstChainInd, uint64_t step, double heat, double lnL) except *
     cdef void recvSwapInfo(self, unsigned runInd, unsigned dstChainInd, \
@@ -168,12 +178,17 @@ cdef class Mc3:
     cdef double computeRcov(self, uint64_t last) except *
     cdef bint writeGraph(self, uint64_t sample) except *
     cdef str formatLnLs(self, uint64_t sample, str fmt)
-    cdef str formatSwapStats(self, uint64_t step)
+    cdef str formatRateStats(self, Mc3RateStats *rateStats)
+    cdef str formatPropStats(self)
+    cdef void updateDiags(self, uint64_t step)
     cpdef bint run(self, bint verbose=*) except *
 
     cdef double getGraphDelay(self)
     cdef void setGraphDelay(self, double graphDelay)
     # property graphDelay
+    cdef double getEmaAlpha(self)
+    cdef void setEmaAlpha(self, double emaAlpha) except *
+    # property emaAlpha
     cdef uint64_t getCvgSampStride(self)
     cdef void setCvgSampStride(self, uint64_t cvgSampStride)
     # property cvgSampStride
