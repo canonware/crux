@@ -1,6 +1,10 @@
 #!/bin/sh
 #
 # Crux release script.
+#
+# Example usage:
+#
+#   PATH=/usr/local/python/opt/bin:/usr/local/flex/bin:$PATH HG_CRUX=$HOME/crux HG_CYTHON=$HOME/cython/hg/cython-devel HG_ATLAS=$HOME/hg/atlas HG_LAPACK=$HOME/hg/lapack ~/crux/release
 
 set -x
 
