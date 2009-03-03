@@ -1548,7 +1548,6 @@ cdef class Mc3:
         for 0 <= i < Mc3Prop:
             self.propStats[i] = NULL
         self.lnLs = NULL
-        self.rcovScratch = NULL
 
     def __dealloc__(self):
         cdef unsigned i
@@ -1564,11 +1563,12 @@ cdef class Mc3:
                 free(self.propStats[i])
                 self.propStats[i] = NULL
         if self.lnLs != NULL:
+            for 0 <= i < self._nruns+1:
+                if self.lnLs[i] != NULL:
+                    free(self.lnLs[i])
+                    self.lnLs[i] = NULL
             free(self.lnLs)
             self.lnLs = NULL
-        if self.rcovScratch != NULL:
-            free(self.rcovScratch)
-            self.rcovScratch = NULL
 
     def __init__(self, Alignment alignment, str outPrefix):
         self.alignment = alignment
@@ -1640,28 +1640,35 @@ cdef class Mc3:
 
         # Allocate/expand lnLs as necessary.
         if self.lnLs == NULL:
+            self.lnLs = <double **>calloc(self._nruns+1, sizeof(double *))
+            if self.lnLs == NULL:
+                raise MemoryError("Error allocating lnLs")
+
             if self._minStep == 0:
                 self.lnLsMax = 8 # Arbitrary starting size.
             else:
                 self.lnLsMax = self._minStep / self._stride
-            self.lnLs = <double *>malloc(self._nruns * self.lnLsMax * \
-              sizeof(double))
-            if self.lnLs == NULL:
-                raise MemoryError("Error allocating lnLs")
+            for 0 <= i < self._nruns+1:
+                self.lnLs[i] = <double *>malloc(self.lnLsMax * sizeof(double))
+                if self.lnLs[i] == NULL:
+                    for 0 <= j < i:
+                        free(self.lnLs[j])
+                    free(self.lnLs)
+                    self.lnLs = NULL
+                    raise MemoryError("Error allocating lnLs[%d]" % i)
         elif self.lnLsMax <= sample:
             # Grow matrix using a slowly growing exponential series.
             lnLsMax = self.lnLsMax + 4 + (self.lnLsMax >> 3) + \
               (self.lnLsMax >> 4)
-            lnLs = <double *>realloc(self.lnLs, self._nruns * lnLsMax * \
-              sizeof(double))
-            if self.lnLs == NULL:
-                raise MemoryError("Error reallocating lnLs")
-            self.lnLs = lnLs
+            for 0 <= i < self._nruns+1:
+                lnLs = <double *>realloc(self.lnLs[i], lnLsMax * sizeof(double))
+                if lnLs == NULL:
+                    raise MemoryError("Error reallocating lnLs[%d]" % i)
+                self.lnLs[i] = lnLs
             self.lnLsMax = lnLsMax
 
-        # Store data such that each sample is contiguous in memory, so that
-        # reallocation does not require piecewise matrix copying.
-        self.lnLs[sample*self._nruns + runInd] = lnL
+        # Store lnL.
+        self.lnLs[runInd][sample] = lnL
 
         # Write to log files.
         # .t
@@ -1801,37 +1808,16 @@ cdef class Mc3:
     # Compute Rcov convergence diagnostic.
     cdef double computeRcov(self, uint64_t last) except *:
         cdef ret
-        cdef uint64_t first, past, sample, lower, upper, i, n
+        cdef uint64_t first, past, lower, upper, i, j, n
         cdef unsigned runInd
-        cdef double *rcovScratch
         cdef double alphaEmp
+        cdef double *rcovScratch = self.lnLs[self._nruns]
 
         # Utilize (at most) the last half of each chain.
         past = last + 1
-        first = <uint64_t>ceil(<double>past / 2.0)
+        first = (last/2)+1
         if first == past:
             return 0.0
-
-        # Allocate/expand rcovScratch.  Leverage the incremental realloc logic
-        # for lnLs to reduce overhead.
-        if self.rcovScratch == NULL:
-            self.rcovScratchMax = <uint64_t>ceil(<double>self.lnLsMax / 2.0)
-            assert self.rcovScratchMax >= past - first
-            rcovScratch = <double *>malloc(self.rcovScratchMax * \
-              sizeof(double))
-            if rcovScratch == NULL:
-                raise MemoryError("Error allocating rcovScratch")
-            self.rcovScratch = rcovScratch
-        elif self.rcovScratchMax < (past - first):
-            self.rcovScratchMax = <uint64_t>ceil(<double>self.lnLsMax / 2.0)
-            assert self.rcovScratchMax >= past - first
-            rcovScratch = <double *>realloc(self.rcovScratch, \
-              self.rcovScratchMax * sizeof(double))
-            if rcovScratch == NULL:
-                raise MemoryError("Error allocating rcovScratch")
-            self.rcovScratch = rcovScratch
-        else:
-            rcovScratch = self.rcovScratch
 
         # Compute the lower and upper bounds for the credibility intervals.  In
         # cases of rounding, expand rather than contract the credibility
@@ -1846,20 +1832,18 @@ cdef class Mc3:
         for 0 <= runInd < self._nruns:
             # Copy one run's samples into rcovScratch, and sort to make the
             # bounds of the credibility interval available.
-            i = 0
-            for first <= sample < past:
-                rcovScratch[i] = self.lnLs[sample*self._nruns + runInd]
-                i += 1
-            assert i == past - first
+            memcpy(rcovScratch, &self.lnLs[runInd][first], \
+              (past-first)*sizeof(double))
             qsort(rcovScratch, past - first, sizeof(double), _lnLCmp)
 
             # Compute the proportion of the relevant lnLs that fall within the
             # credibility interval.
             n = 0
-            for self._nruns * first <= i < self._nruns * past:
-                if self.lnLs[i] >= rcovScratch[lower] and \
-                  self.lnLs[i] <= rcovScratch[upper]:
-                    n += 1
+            for 0 <= i < self._nruns:
+                for first <= j < past:
+                    if self.lnLs[i][j] >= rcovScratch[lower] and \
+                      self.lnLs[i][j] <= rcovScratch[upper]:
+                        n += 1
             ret += <double>n / <double>(self._nruns * (past - first))
         ret /= <double>self._nruns
         # Compute the empirical alpha, based on the credibility interval
@@ -1872,17 +1856,18 @@ cdef class Mc3:
     cdef bint writeGraph(self, uint64_t sample) except *:
         cdef file gfile
         cdef list cols0, cols1, lnLs0, lnLs1, colors
-        cdef uint64_t xsp, i
+        cdef uint64_t past, xsp, i
         cdef unsigned runInd
         cdef double lnL, rcov
 
-        if sample < 4:
+        past = sample+1
+        if past < 4:
             # The code below does not generate an informative graph until there
             # are at least four samples to work with.
             return True
 
-        # Compute which sample will be at the edge of the right graphs.
-        xsp = <uint64_t>ceil(<double>sample / 2.0)
+        # Compute which sample will be at the edge of the right graph.
+        xsp = (sample/2)+1
         assert xsp > 0
 
         # Write to a temporary file, in order to be able to make the complete
@@ -1895,9 +1880,9 @@ cdef class Mc3:
             lnLs0 = []
             lnLs1 = []
             for 0 <= i < xsp:
-                lnLs0.append(self.lnLs[i*self._nruns + runInd])
-            for xsp <= i < sample:
-                lnLs1.append(self.lnLs[i*self._nruns + runInd])
+                lnLs0.append(self.lnLs[runInd][i])
+            for xsp <= i < past:
+                lnLs1.append(self.lnLs[runInd][i])
             cols0.append(", ".join(["%.6e" % lnL for lnL in lnLs0]))
             cols1.append(", ".join(["%.6e" % lnL for lnL in lnLs1]))
         gfile.write("lnLs0 = matrix(c(%s), ncol=%d)\n" % \
@@ -1905,10 +1890,10 @@ cdef class Mc3:
         gfile.write("lnLs1 = matrix(c(%s), ncol=%d)\n" % \
           (",\n".join(cols1), self._nruns))
 
-        gfile.write("x0 = seq(%d, %d, by=%d)\n" % \
-          (self._stride, self._stride * xsp, self._stride))
+        gfile.write("x0 = seq(0, %d, by=%d)\n" % \
+          (self._stride * (xsp-1), self._stride))
         gfile.write("x1 = seq(%d, %d, by=%d)\n" % \
-          (self._stride * (xsp+1), self._stride * sample, self._stride))
+          (self._stride * xsp, self._stride * sample, self._stride))
 
         gfile.write("par(mfrow=c(1, 2))\n")
 
@@ -1939,7 +1924,7 @@ cdef class Mc3:
         for 0 <= i < self._nruns:
             if i > 0:
                 strs.append(" ")
-            strs.append(fmt % self.lnLs[sample*self._nruns + i])
+            strs.append(fmt % self.lnLs[i][sample])
         strs.append(" ]")
         return "".join(strs)
 

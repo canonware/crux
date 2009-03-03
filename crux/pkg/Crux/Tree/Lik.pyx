@@ -446,11 +446,14 @@ cdef class Lik:
         frP = &self.lik.models[fr]
 
         toP.sn = frP.sn
-        toP.reassign = frP.reassign
-        if toP.weight != 0.0 and toP.qNorm != frP.qNorm:
+        # toP.qNorm may not be initialized, so take care not to access it
+        # unless toP.reassign is True.
+        if toP.weight != 0.0 and \
+          ((not toP.reassign) and toP.qNorm != frP.qNorm):
             # Make a note to recompute wNorm, since this model duplication
             # changes the mean qNorm.
             self.lik.renorm = True
+        toP.reassign = frP.reassign
         toP.qNorm = frP.qNorm
         toP.wNorm = frP.wNorm
         toP.rmult = frP.rmult

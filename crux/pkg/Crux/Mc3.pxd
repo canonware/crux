@@ -157,13 +157,10 @@ cdef class Mc3:
     # Arrays of accept/reject statistics, one element for each run.
     cdef Mc3RateStats *propStats[Mc3Prop]
 
-    # Matrix of lnL samples from unheated chains.
-    cdef double *lnLs
+    # Array of pointers to lnL sample arrays from unheated chains, plus one
+    # extra (used as a scratch area).
+    cdef double **lnLs
     cdef uint64_t lnLsMax
-
-    # Scratch vector of sorted lnL samples, used by computeRcov().
-    cdef double *rcovScratch
-    cdef uint64_t rcovScratchMax
 
     cdef bint verbose
 
