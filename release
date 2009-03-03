@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# Crux release script.
+
+set -x
+
+if [ "x${HG_CRUX}" = "x" -o ! -d "${HG_CRUX}/.hg" \
+     -o "x${HG_CYTHON}" = "x" -o ! -d "${HG_CYTHON}/.hg" \
+     -o "x${HG_ATLAS}" = "x" -o ! -d "${HG_ATLAS}/.hg" \
+     -o "x${HG_LAPACK}" = "x" -o ! -d "${HG_LAPACK}/.hg" ] ; then
+    echo "release usage:"
+    echo "  HG_CRUX=<dir> HG_CYTHON=<dir> HG_ATLAS=<dir> HG_LAPACK=<dir> release"
+    exit 1
+fi
+
+RELDIR="`pwd`/crux.release"
+
+# Archive crux.
+rm -rf "${RELDIR}"
+(cd "${HG_CRUX}"; hg archive --include=crux "${RELDIR}") || exit 1
+version=`cat "${RELDIR}/crux/VERSION"` || exit 1
+mv "${RELDIR}/crux" "${RELDIR}/crux-${version}" || exit 1
+mkdir "${RELDIR}/crux-${version}/contrib" || exit 1
+
+# Archive cython, atlas, and lapack.
+(cd "${HG_CYTHON}"; hg archive "${RELDIR}/crux-${version}/contrib/cython") \
+  || exit 1
+(cd "${HG_ATLAS}"; hg archive "${RELDIR}/crux-${version}/contrib/atlas") \
+  || exit 1
+(cd "${HG_LAPACK}"; hg archive "${RELDIR}/crux-${version}/contrib/lapack") \
+  || exit 1
+
+# Build files that depend on optional software.
+(cd "${RELDIR}/crux-${version}"; autoconf) || exit 1
+(cd "${RELDIR}/crux-${version}"; ./configure --enable-flex) || exit 1
+(cd "${RELDIR}/crux-${version}"; make dist) || exit 1
+(cd "${RELDIR}/crux-${version}"; make distclean) || exit 1
+
+# Create tarball.
+(cd "${RELDIR}"; tar cvjf "crux-${version}.tar.bz2" "crux-${version}") \
+  || exit 1
