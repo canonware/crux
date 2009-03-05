@@ -20,7 +20,6 @@ from Crux.DistMatrix cimport DistMatrix
 
 from libc cimport *
 from libm cimport *
-from atlas cimport *
 from CxMat cimport CxMatLogDet
 from CxMath cimport pop
 
@@ -413,7 +412,7 @@ cdef class LogDet:
 
     # Compute LogDet/paralinear distance for a vs. b.
     cdef double dist(self, char *a, char *b, unsigned seqlen) except -1.0:
-        cdef unsigned j, aPop, bPop
+        cdef unsigned i, j, aPop, bPop
         cdef int aC, bC, aI, bI
         cdef int ambiguous, aVal, bVal, aOff, bOff
         cdef double p, sum
@@ -464,7 +463,9 @@ cdef class LogDet:
                                 self.A[aI*self.n + bI] += p
 
         # If the matrix is empty, there are no data on which to base a distance.
-        sum = cblas_dasum(self.n * self.n, self.A, 1)
+        sum = 0.0
+        for 0 <= i < self.n * self.n:
+            sum += self.A[i]
         if sum == 0.0:
             return NAN
 

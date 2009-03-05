@@ -21,8 +21,10 @@ Building Crux requires all of the following software.  Once installed, Crux only
 requires the Python runtime and any shared libraries that were linked against
 during compilation.
 
-* gcc and gfortran (http://gcc.gnu.org/).  gfortran is only used if ATLAS and
-  LAPACK need to be built (see below).
+* Python (2.6 or any newer 2.x release).
+
+* gcc and gfortran (http://gcc.gnu.org/).  gfortran is only used if BLAS and
+  LAPACK routines need to be built (see ATLAS notes below).
 
 * GNU make (http://www.gnu.org/software/make/make.html).
 
@@ -40,6 +42,19 @@ be built in to Crux:
 
     + Open MPI (http://www.open-mpi.org/).
 
+* LAPACK (http://www.netlib.org/lapack/) is a package of linear algebra
+  routines.
+
+* ATLAS (http://math-atlas.sourceforge.net/) is "Automatically Tuned Linear
+  Algebra Software", and it is typically built with LAPACK integrated.
+
+  If ATLAS/LAPACK are installed, Crux uses them by default.  Otherwise,
+  Crux uses a combination of routines from the reference BLAS
+  (http://www.netlib.org/blas/) and LAPACK that are included in the Crux
+  distribution.  ATLAS has the potential to perform much better than the
+  reference BLAS, but ATLAS's build system is extremely fragile, which makes it
+  inappropriate for direct inclusion in the Crux distribution.
+
 Crux releases include various third-party software and pre-generated files, in
 order to streamline the build process for the typical user.  However, if you
 build using a Mercurial checkout, or if you need to generate modified outputs,
@@ -55,29 +70,6 @@ one or more of the following may be required:
 * Cython (http://cython.org/).  Crux releases include a copy in contrib/cython.
   If using a Mercurial checkout, either install Cython, or place the Cython
   source tree in contrib/cython.
-
-* ATLAS (http://math-atlas.sourceforge.net/).  Crux releases include a copy in
-  contrib/atlas.  If using a Mercurial checkout, either make sure ATLAS is
-  installed, or place the ATLAS (and LAPACK; see below) sources in contrib/atlas
-  (and contrib/lapack).
-
-  ATLAS is "Automatically Tuned Linear Algebra Software", which means that it
-  tunes itself to each computer when it is built.  Since pre-built software
-  packages must be rather generic in nature, pre-packaged ATLAS libraries are
-  not optimally tuned.  For this reason, you are advised to use ATLAS libraries
-  that were built on a machine very similar to the one you will run Crux on.
-
-  If your system uses some sort of CPU power saving functionality, disable it
-  before building ATLAS.  For example, on Linux, use something like the
-  following to disable power saving on all CPUs:
-
-    $ sudo cpufreq-selector -c 0 -g performance
-    $ sudo cpufreq-selector -c 1 -g performance
-    ...
-
-* LAPACK (http://www.netlib.org/lapack/).  Crux releases include a copy in
-  contrib/lapack.  If using a Mercurial checkout, either make sure LAPACK is
-  installed, or place the sources in contrib/lapack.
 
 === Basic installation =========================================================
 
@@ -123,9 +115,8 @@ list) to 'configure':
     Do not build in MPI support, even if the mpi4py module is available.
 
 --disable-sys-linalg
-    Do not use system ATLAS/LAPACK libraries.  Instead, build from the source
-    code that is included with Crux releases.  Be sure to read the ATLAS notes
-    about disabling CPU power saving during the build.
+    Do not use system ATLAS/LAPACK libraries.  Instead, use the BLAS/LAPACK
+    code that is included with Crux releases.
 
 --enable-debug
     Enable assertions and validation code.  This incurs a substantial

@@ -2,13 +2,13 @@
 #define CxMat_h
 
 #include "Cx.h"
+#include "CxLapack.h"
 
-#include <clapack.h>
 #include <math.h>
 
 #ifndef CxmUseInlines
 double
-CxMatDdet(unsigned n, double *A);
+CxMatDdet(int n, double *A);
 double
 CxMatLogDet(unsigned n, double *A);
 #endif
@@ -16,13 +16,13 @@ CxMatLogDet(unsigned n, double *A);
 #if (defined(CxmUseInlines) || defined(CxMat_c))
 // Compute the determinant of an n x n square matrix.
 CxmInline double
-CxMatDdet(unsigned n, double *A) {
+CxMatDdet(int n, double *A) {
     double ret;
     int ipiv[n]; // Cython doesn't support this.
     int info;
     unsigned i;
 
-    info = clapack_dgetrf(CblasRowMajor, n, n, A, n, ipiv);
+    dgetrf_(&n, &n, A, &n, ipiv, &info);
     if (info != 0) {
 	return 0.0;
     }

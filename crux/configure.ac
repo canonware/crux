@@ -195,7 +195,7 @@ AC_PATH_PROG([LD], [ld], , [$PATH])
 AC_PATH_PROG([TEST], [test], , [$PATH])
 AC_PATH_PROG([grep], [grep], , [$PATH])
 AC_PATH_PROG([AUTOCONF], [autoconf], , [$PATH])
-AC_PATH_PROG([GFORTRAN], [gfortran], , [$PATH])
+AC_PROG_FC([gfortran])
 
 dnl Do not silence irrelevant compiler warnings by default, since enabling this
 dnl option incurs a performance penalty.
@@ -522,19 +522,19 @@ for h in `cd ./${srcroot}; find lib -type f |grep "\.h\.in$" |sort` ; do
   cfghdrs="${cfghdrs} ${chdr}"
 done
 
-dnl Flex sources.  csrcs uses fsrcs to avoid multiple listing, so fsrcs must be
+dnl Flex sources.  csrcs uses lsrcs to avoid multiple listing, so lsrcs must be
 dnl generated first.
-fsrcs=""
+lsrcs=""
 for f in `find ${srcroot}lib -type f |grep "/Cx[[A-Za-z0-9]]*\.l$" |sort` ; do
-  fsrcs="${fsrcs} ${f}"
+  lsrcs="${lsrcs} ${f}"
 done
-AC_SUBST([fsrcs])
+AC_SUBST([lsrcs])
 
 dnl C sources.
 csrcs=""
 for s in `find ${srcroot}lib -type f |grep "/[[A-Za-z0-9]]*\.c$" |sort` ; do
   is_fsrc="0"
-  for f in ${fsrcs} ; do
+  for f in ${lsrcs} ; do
     c="`dirname ${f}`/`basename ${f} .l`.c"
     if test "x${s}" = "x${c}" ; then
       is_fsrc="1"
@@ -545,6 +545,13 @@ for s in `find ${srcroot}lib -type f |grep "/[[A-Za-z0-9]]*\.c$" |sort` ; do
   fi
 done
 AC_SUBST([csrcs])
+
+dnl Fortran sources.
+fsrcs=""
+for s in `find ${srcroot}lib -type f |grep "/[[A-Za-z0-9]]*\.f$" |sort` ; do
+  fsrcs="${fsrcs} ${s}"
+done
+AC_SUBST([fsrcs])
 
 dnl Cython headers.
 pxds=""
@@ -646,18 +653,11 @@ if test "x$enable_sys_linalg" = "x1" ; then
 fi
 
 if test "x$enable_sys_linalg" = "x0" ; then
-  dnl Check whether contrib/{atlas,lapack} are present.
-  if test \( ! -d "${srcroot}contrib/atlas" \) \
-       -o \( ! -d "${srcroot}contrib/lapack" \) ; then
-    AC_MSG_ERROR([contrib/{atlas,lapack} missing])
-  fi
   dnl Check whether gfortran is available.
-  if test "x$GFORTRAN" = "x" ; then
-    AC_MSG_ERROR([gfortran required to build ATLAS/LAPACK])
+  if test "x$FC" = "x" ; then
+    AC_MSG_ERROR([Fortran compiler required to build BLAS and LAPACK routines])
   fi
-  dnl Add appropriate build flags.
-  CPPFLAGS="-I${abs_objroot}build/include ${CPPFLAGS}"
-  LIBS="-llapack -lcblas -lf77blas -latlas ${LIBS}"
+  AC_FC_LIBRARY_LDFLAGS
 fi
 AC_SUBST([enable_sys_linalg])
 
@@ -689,8 +689,11 @@ AC_MSG_RESULT([CPPFLAGS      : ${CPPFLAGS}])
 AC_MSG_RESULT([MTCPPFLAGS    : ${MTCPPFLAGS}])
 AC_MSG_RESULT([CFLAGS        : ${CFLAGS}])
 AC_MSG_RESULT([MTCFLAGS      : ${MTCFLAGS}])
+AC_MSG_RESULT([FC            : ${FC}])
+AC_MSG_RESULT([FCFLAGS       : ${FCFLAGS}])
 AC_MSG_RESULT([LDFLAGS       : ${LDFLAGS}])
 AC_MSG_RESULT([LIBS          : ${LIBS}])
+AC_MSG_RESULT([FCLIBS        : ${FCLIBS}])
 AC_MSG_RESULT([RPATH_EXTRA   : ${RPATH_EXTRA}])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([site_packages : ${site_packages}])

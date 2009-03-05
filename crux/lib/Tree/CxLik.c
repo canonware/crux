@@ -1,7 +1,7 @@
 #include "CxLik.h"
 #include "../CxMq.h"
+#include "../CxLapack.h"
 
-#include <clapack.h>
 #include <math.h>
 
 //#define CxmLikDebug
@@ -32,12 +32,6 @@ static CxtLikWorkerCtx *CxpLikThreads;
 // message structures back through CxpLikDoneMq.
 static CxtMq CxpLikTodoMq;
 static CxtMq CxpLikDoneMq;
-
-// C-compatible prototype for the Fortran-based DGEEV in LAPACK.
-extern void
-dgeev_(char *jobvl, char *jobvr, int *n, double *A, int *lda, double *wr,
-  double *wi, double *vl, int *ldvl, double *vr, int *ldvr, double *work,
-  int *lwork, int *info);
 
 CxmpInline unsigned
 CxpLikNxy2i(unsigned n, unsigned x, unsigned y) {
@@ -215,15 +209,23 @@ CxLikQDecomp(int n, double *RTri, double *PiDiag, double *PiDiagNorm,
 
     // Compute Q's inverse eigenvectors, and store the result in V.
     memcpy(V, QEigVecs, nSq * sizeof(double));
-    info = clapack_dgetrf(CblasColMajor, n, n, V, n, ipiv);
+    dgetrf_(&n, &n, V, &n, ipiv, &info);
     if (info != 0) {
 	return true;
     }
-    info = clapack_dgetri(CblasColMajor, n, V, n, ipiv);
-    if (info != 0) {
-	return true;
-    }
+    // Get the optimal work size.
+    worksize = -1;
+    dgetri_(&n, V, &n, ipiv, &workQuery, &worksize, &info);
+    CxmAssert(info == 0);
+    worksize = workQuery;
+    {
+	double work[worksize];
 
+	dgetri_(&n, V, &n, ipiv, work, &worksize, &info);
+	if (info != 0) {
+	    return true;
+	}
+    }
     for (int i = 0; i < n; i++) {
 	for (int j = 0; j < n; j++) {
 	    for (int k = 0; k < n; k++) {
