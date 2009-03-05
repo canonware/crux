@@ -1,3 +1,56 @@
+"""
+Reversible jump Metropolis-coupled Markov chain Monte Carlo.
+
+Mc3 uses reversible jump Metropolis-coupled Markov chain Monte Carlo to create
+a representative sample (assuming convergence) of the stationary posterior
+distribution, based on the GTR+Gamma family of sequence evolution models.
+
+Polytomous tree topologies are sampled using the methods described by Lewis et
+al. (2005), and restrictions of the fully parameterized GTR model are sampled
+using the methods described by Huelsenbeck et al.  (2004).
+
+Extending tree bisection and reconnection (eTBR) is used to change topology and
+to modify branch lengths (Lakner et al. 2008).  This implementation is
+generalized to support polytomies, as well as to apply to all edges (including
+leaf edges).  The latter generalization allows topology tranformations even on
+trees that have a single internal edge.
+
+If MPI (http://www.mpi-forum.org/) support is enabled, the methods described by
+Altekar et al. (2004) are used to run chains in parallel.  Ideally, the total
+number of chains (number of independent runs times number of Metropolis-coupled
+chains per run) should be an even multiple of the number of MPI nodes.
+
+Convergence (based on log-likelihoods) is monitored using the interval-based
+coverage ratio diagnostic described at the bottom of page 441 in Brooks and
+Gelman (1998).  The diagnostic takes samples from the latter halves of multiple
+independent MCMC chains, then for each chain erects a credibility interval and
+computes the proportion of the concatenation of samples from all chains that
+are covered by the credibility interval.  The chains are considered to have
+converged when the mean coverage is within some epsilon of the credibility
+interval.  This convergence condition indicates that the chains are sampling
+from approximately the same distribution.
+
+References:
+
+  Altekar, G., S. Dwarkadas, J.P. Huelsenbeck, F. Ronquist (2004) Parallel
+  Metropolis coupled Markov chain Monte Carlo for Bayesian phylogentic
+  inference.  Bioinformatics 20(3):407-415.
+
+  Brooks, S.P., A. Gelman (1998) General Methods for Monitoring Convergence of
+  Iterative Simulations.  J. Comput. Graph. Stat.  7(4):434-455.
+
+  Huelsenbeck, J.P., B. Larget, M.E. Alfaro (2004) Bayesian phylogenetic model
+  selection using reversible jump Markov chain Monte Carlo.  Mol. Biol. Evol.
+  21(6):1123-1133.
+
+  Lakner, C., P.v.d Mark, J.P. Huelsenbeck, B. Larget, F. Ronquist (2008)
+  Efficiency of Markov chain Monte Carlo tree proposals in Bayesian
+  phylogenetics.  Syst. Biol. 57(1):86-103.
+
+  Lewis, P.O., M.T. Holder, K.E. Holsinger (2005) Polytomies and Bayesian
+  phylogenetic inference.  Sys. Biol. 54(2):241-253.
+"""
+
 import math
 import os
 import random
@@ -1477,68 +1530,11 @@ cdef class Mc3Chain:
 
 cdef class Mc3:
     """
-        Mc3 uses reversible jump Metropolis-coupled Markov chain Monte Carlo to
-        create a representative sample (assuming convergence) of the stationary
-        posterior distribution, based on the GTR+Gamma family of sequence
-        evolution models.
+        alignment
+          Aligned character-by-taxon matrix input data.
 
-        Polytomous tree topologies are sampled using the methods described by
-        Lewis et al. (2005), and restrictions of the fully parameterized GTR
-        model are sampled using the methods described by Huelsenbeck et al.
-        (2004).
-
-        Extending tree bisection and reconnection (eTBR) is used to change
-        topology and to modify branch lengths (Lakner et al. 2008).  This
-        implementation is generalized to support polytomies, as well as to
-        apply to all edges (including leaf edges).  The latter generalization
-        allows topology tranformations even on trees that have a single
-        internal edge.
-
-        If MPI (http://www.mpi-forum.org/) support is enabled, the methods
-        described by Altekar et al. (2004) are used to run chains in parallel.
-        Ideally, the total number of chains (number of independent runs times
-        number of Metropolis-coupled chains per run) should be an even multiple
-        of the number of MPI nodes.
-
-        Convergence (based on log-likelihoods) is monitored using the
-        interval-based coverage ratio diagnostic described at the bottom of
-        page 441 in Brooks and Gelman (1998).  The diagnostic takes samples
-        from the latter halves of multiple independent MCMC chains, then for
-        each chain erects a credibility interval and computes the proportion of
-        the concatenation of samples from all chains that are covered by the
-        credibility interval.  The chains are considered to have converged when
-        the mean coverage is within some epsilon of the credibility interval.
-        This convergence condition indicates that the chains are sampling from
-        approximately the same distribution.
-
-        Constructor parameters:
-
-          alignment
-            Aligned character-by-taxon matrix input data.
-
-          outPrefix
-            Filename prefix, used for naming output files.
-
-        References:
-
-          Altekar, G., S. Dwarkadas, J.P. Huelsenbeck, F. Ronquist (2004)
-          Parallel Metropolis coupled Markov chain Monte Carlo for Bayesian
-          phylogentic inference.  Bioinformatics 20(3):407-415.
-
-          Brooks, S.P., A. Gelman (1998) General Methods for Monitoring
-          Convergence of Iterative Simulations.  J. Comput. Graph. Stat.
-          7(4):434-455.
-
-          Huelsenbeck, J.P., B. Larget, M.E. Alfaro (2004) Bayesian
-          phylogenetic model selection using reversible jump Markov chain Monte
-          Carlo.  Mol. Biol. Evol. 21(6):1123-1133.
-
-          Lakner, C., P.v.d Mark, J.P. Huelsenbeck, B. Larget, F. Ronquist
-          (2008) Efficiency of Markov chain Monte Carlo tree proposals in
-          Bayesian phylogenetics.  Syst. Biol. 57(1):86-103.
-
-          Lewis, P.O., M.T. Holder, K.E. Holsinger (2005) Polytomies and
-          Bayesian phylogenetic inference.  Sys. Biol. 54(2):241-253.
+        outPrefix
+          Filename prefix, used for naming output files.
     """
     def __cinit__(self):
         cdef unsigned i

@@ -83,8 +83,9 @@ INST_SOS := $(INST_CYCS:@objroot@build/inst/pkg/%.c=@objroot@build/inst/site-pac
 	$(RUN_SITE_PYS) $(INST_SITE_PYS) \
 	$(RUN_PYS) $(INST_PYS) \
 	$(RUN_CYCS) $(RUN_CYCS:%.c=%.o) \
-	$(INST_CYCS) $(INST_CYCS:%.c=%.o)
-	$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o)
+	$(INST_CYCS) $(INST_CYCS:%.c=%.o) \
+	$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
+	$(ATLAS_INCS) $(ATLAS_LIBS)
 
 # Include generated dependency files.
 -include $(RUN_PYXS:%.pyx=%.d) $(INST_PYXS:%.pyx=%.d) \

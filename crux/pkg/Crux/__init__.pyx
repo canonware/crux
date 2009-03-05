@@ -10,8 +10,8 @@
     There are three main use cases for Crux, which from most basic to most
     advanced are:
 
-    1) Canned data analysis using one of the canned scripts that are provided
-       with Crux:
+    1) Canned data analysis using one of the scripts that are provided with
+       Crux:
          a) redpoint : Bayesian Markov chain Monte Carlo estimation of model
                        posteriors.
          b) MrRogers : Relaxed neighbor joining (RNJ) and neighbor joining (NJ)
@@ -21,8 +21,8 @@
        front end script.  The crux script can be used interactively or in batch
        mode.
     3) Development of new methods, using Crux as the foundation.  It is
-       possible to use Crux packages and modules via either the Python or
-       Cython programming languages.  Python is adequate if performance is not a
+       possible to use Crux packages and modules via the Python and/or Cython
+       programming languages.  Python is adequate if performance is not a
        concern.  Cython makes it possible to write much faster code, and it is
        even possible to cleanly integrate with C code as necessary.
 
