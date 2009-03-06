@@ -419,6 +419,9 @@ cdef class Mc3Chain:
 
         # Uniformly choose a random model within the mixture.
         m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
+        a0 = self.lik.getAlpha(m0Ind)
+        if a0 == INFINITY:
+            return True
         # Create a duplicate scratch model.
         w = self.lik.getWeight(m0Ind)
         m1Ind = self.lik.addModel(w)
@@ -431,7 +434,6 @@ cdef class Mc3Chain:
         m = exp(lnM)
 
         # Compute lnL with modified rate shape.
-        a0 = self.lik.getAlpha(m1Ind)
         a0Inv = 1.0 / a0
         a1Inv = a0Inv * m
         a1 = 1.0 / a1Inv

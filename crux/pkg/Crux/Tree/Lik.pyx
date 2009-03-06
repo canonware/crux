@@ -902,12 +902,13 @@ cdef class Lik:
             self._planRecurse(r.other, cL, degree, r.edge.length)
 
         # Check whether the current tree topology is compatible with the
-        # parent's cache.  If not, invalidate all of the parent's caches, even
-        # those that currently have 0 weight, since there will be no way to
-        # detect the need for cache invalidation later on.
+        # parent's cache.  If not, invalidate all of the parent's caches
+        # including those that currently have 0 weight or are currently unused
+        # -- [modelsLen..modelsMax) -- since there will be no way to detect the
+        # need for cache invalidation later on.
         if cL.parent is not parent or cL.nSibs != nSibs or \
           cL.edgeLen != edgeLen:
-            for 0 <= i < self.lik.modelsLen:
+            for 0 <= i < parent.vecMax:
                 parent.vec[i].sn = 0
             cL.parent = parent
             cL.nSibs = nSibs
