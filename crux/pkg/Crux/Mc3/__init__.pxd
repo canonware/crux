@@ -1,12 +1,10 @@
-from libc cimport uint64_t
-from SFMT cimport sfmt_t
-from Crux.CTMatrix cimport Alignment
-from Crux.Tree cimport Tree
-from Crux.Tree.Lik cimport Lik
-
-# Forward declarations.
-cdef class Mc3Chain
+# Forward declaration.
 cdef class Mc3
+
+from libc cimport uint64_t
+from Crux.CTMatrix cimport Alignment
+from Crux.Mc3.Chain cimport Chain, PropCnt
+from Crux.Tree.Lik cimport Lik
 
 cdef struct Mc3SwapInfo:
     uint64_t step
@@ -17,60 +15,6 @@ cdef struct Mc3RateStats:
     double ema # Exponential moving average.
     uint64_t n # Numerator.
     uint64_t d # Denominator.
-
-cdef enum:
-    Mc3WeightProp           =  0
-    Mc3FreqProp             =  1
-    Mc3RmultProp            =  2
-    Mc3RateProp             =  3
-    Mc3RateShapeInvProp     =  4
-    Mc3BrlenProp            =  5
-    Mc3EtbrProp             =  6
-    Mc3RateJumpProp         =  7
-    Mc3PolytomyJumpProp     =  8
-    Mc3RateShapeInvJumpProp =  9
-    Mc3Prop                 = 10
-
-cdef class Mc3Chain:
-    cdef Mc3 master
-    cdef unsigned run
-    cdef unsigned ind
-    cdef uint64_t nswap
-    cdef uint64_t accepts[Mc3Prop]
-    cdef uint64_t rejects[Mc3Prop]
-    cdef double heat
-    cdef unsigned swapInd
-    cdef double swapProb
-    cdef sfmt_t *swapPrng
-    cdef sfmt_t *prng
-    cdef Tree tree
-    cdef Lik lik
-    cdef double lnL
-    cdef uint64_t step
-
-    cdef bint weightPropose(self) except *
-    cdef bint freqPropose(self) except *
-    cdef bint rmultPropose(self) except *
-    cdef bint ratePropose(self) except *
-    cdef bint rateShapeInvPropose(self) except *
-    cdef bint brlenPropose(self) except *
-    cdef bint etbrPropose(self) except *
-    cdef void rateMergePropose(self, unsigned m0Ind, unsigned m1Ind, \
-      list rclass, unsigned nrates) except *
-    cdef void rateSplitPropose(self, unsigned m0Ind, unsigned m1Ind, \
-      list rclass, unsigned nrates) except *
-    cdef bint rateJumpPropose(self) except *
-    cdef void polytomyMergePropose(self, Tree tree, unsigned nedges, \
-      unsigned ntaxa) except *
-    cdef void polytomySplitPropose(self, Tree tree, unsigned nedges, \
-      unsigned ntaxa) except *
-    cdef bint polytomyJumpPropose(self) except *
-    cdef void rateShapeInvRemovePropose(self, unsigned m0Ind, unsigned m1Ind, \
-      double alpha0) except *
-    cdef void rateShapeInvAddPropose(self, unsigned m0Ind, unsigned m1Ind) \
-      except *
-    cdef bint rateShapeInvJumpPropose(self) except *
-    cdef void advance(self) except *
 
 cdef class Mc3:
     cdef readonly Alignment alignment
@@ -121,8 +65,8 @@ cdef class Mc3:
     cdef double _rateShapeInvJumpPrior
 
     # Relative proposal probabilities, and corresponding CDF.
-    cdef double props[Mc3Prop]
-    cdef double propsCdf[Mc3Prop+1] # [1..Mc3Prop] corresponds to props.
+    cdef double props[PropCnt]
+    cdef double propsCdf[PropCnt+1] # [1..PropCnt] corresponds to props.
 
     # Output files.
     cdef file lFile
@@ -134,7 +78,7 @@ cdef class Mc3:
     cdef list runs
 
     # Matrix of heat swapInfo structures, two for each pair of
-    # Metropolis-coupled chains (even/odd steps).  The matrix is ordered as
+    # Metropolis-coupled chains (even/odd swaps).  The matrix is ordered as
     # such:
     #
     #                chain 0 chain 1 chain 2 chain 3
@@ -155,7 +99,7 @@ cdef class Mc3:
     cdef Mc3RateStats *swapStats
 
     # Arrays of accept/reject statistics, one element for each run.
-    cdef Mc3RateStats *propStats[Mc3Prop]
+    cdef Mc3RateStats *propStats[PropCnt]
 
     # Array of pointers to lnL sample arrays from unheated chains, plus one
     # extra (used as a scratch area).
@@ -174,6 +118,9 @@ cdef class Mc3:
     cdef void initLogs(self) except *
     cdef double computeRcov(self, uint64_t last) except *
     cdef bint writeGraph(self, uint64_t sample) except *
+    cdef str formatRclass(self, Lik lik, unsigned model)
+    cdef str formatRates(self, Lik lik, unsigned model, str fmt)
+    cdef str formatFreqs(self, Lik lik, unsigned model, str fmt)
     cdef str formatLnLs(self, uint64_t sample, str fmt)
     cdef str formatRateStats(self, Mc3RateStats *rateStats)
     cdef str formatPropStats(self)

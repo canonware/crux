@@ -1,0 +1,64 @@
+# Forward declaration.
+cdef class Chain
+
+cdef enum:
+    PropWeight           =  0
+    PropFreq             =  1
+    PropRmult            =  2
+    PropRate             =  3
+    PropRateShapeInv     =  4
+    PropBrlen            =  5
+    PropEtbr             =  6
+    PropRateJump         =  7
+    PropPolytomyJump     =  8
+    PropRateShapeInvJump =  9
+    PropCnt              = 10 # Number of proposals.
+
+from libc cimport uint64_t
+from SFMT cimport sfmt_t
+from Crux.Tree cimport Tree
+from Crux.Tree.Lik cimport Lik
+from Crux.Mc3 cimport Mc3
+
+cdef class Chain:
+    cdef Mc3 master
+    cdef unsigned run
+    cdef unsigned ind
+    cdef uint64_t nswap
+    cdef uint64_t accepts[PropCnt]
+    cdef uint64_t rejects[PropCnt]
+    cdef double heat
+    cdef unsigned swapInd
+    cdef double swapProb
+    cdef sfmt_t *swapPrng
+    cdef sfmt_t *prng
+    cdef Tree tree
+    cdef Lik lik
+    cdef double lnL
+    cdef uint64_t step
+
+    cdef bint weightPropose(self) except *
+    cdef bint freqPropose(self) except *
+    cdef bint rmultPropose(self) except *
+    cdef bint ratePropose(self) except *
+    cdef bint rateShapeInvPropose(self) except *
+    cdef bint brlenPropose(self) except *
+    cdef bint etbrPropose(self) except *
+    cdef void rateMergePropose(self, unsigned m0Ind, unsigned m1Ind, \
+      list rclass, unsigned nrates) except *
+    cdef void rateSplitPropose(self, unsigned m0Ind, unsigned m1Ind, \
+      list rclass, unsigned nrates) except *
+    cdef bint rateJumpPropose(self) except *
+    cdef void polytomyMergePropose(self, Tree tree, unsigned nedges, \
+      unsigned ntaxa) except *
+    cdef void polytomySplitPropose(self, Tree tree, unsigned nedges, \
+      unsigned ntaxa) except *
+    cdef bint polytomyJumpPropose(self) except *
+    cdef void rateShapeInvRemovePropose(self, unsigned m0Ind, unsigned m1Ind, \
+      double alpha0) except *
+    cdef void rateShapeInvAddPropose(self, unsigned m0Ind, unsigned m1Ind) \
+      except *
+    cdef bint rateShapeInvJumpPropose(self) except *
+    cdef void advance(self) except *
+
+
