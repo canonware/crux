@@ -108,6 +108,7 @@ cdef class Mc3:
 
     cdef bint verbose
 
+    cpdef Mc3 dup(self)
     cdef void sendSample(self, unsigned runInd, uint64_t step, double heat, \
       uint64_t nswap, uint64_t *accepts, uint64_t *rejects, Lik lik, \
       double lnL) except *

@@ -64,6 +64,7 @@ import Crux.Config
 from libc cimport *
 from libm cimport *
 from Crux.Mc3.Chain cimport *
+from Crux.Mc3.Post cimport *
 
 cdef int _lnLCmp(void *va, void *vb):
     cdef double a = (<double *>va)[0]
@@ -152,6 +153,43 @@ cdef class Mc3:
         self.props[PropRateJump] = 1.0
         self.props[PropPolytomyJump] = 4.0
         self.props[PropRateShapeInvJump] = 1.0
+
+    cpdef Mc3 dup(self):
+        cdef Mc3 ret
+        cdef unsigned i
+
+        ret = Mc3(self.alignment, self.outPrefix)
+        ret._graphDelay = self._graphDelay
+        ret._emaAlpha = self._emaAlpha
+        ret._cvgSampStride = self._cvgSampStride
+        ret._cvgAlpha = self._cvgAlpha
+        ret._cvgEpsilon = self._cvgEpsilon
+        ret._minStep = self._minStep
+        ret._maxStep = self._maxStep
+        ret._stride = self._stride
+        ret._nruns = self._nruns
+        ret._ncoupled = self._ncoupled
+        ret._heatDelta = self._heatDelta
+        ret._swapStride = self._swapStride
+        ret._nmodels = self._nmodels
+        ret._ncat = self._ncat
+        ret._catMedian = self._catMedian
+        ret._weightLambda = self._weightLambda
+        ret._freqLambda = self._freqLambda
+        ret._rmultLambda = self._rmultLambda
+        ret._rateLambda = self._rateLambda
+        ret._rateShapeInvLambda = self._rateShapeInvLambda
+        ret._brlenLambda = self._brlenLambda
+        ret._etbrPExt = self._etbrPExt
+        ret._etbrLambda = self._etbrLambda
+        ret._rateShapeInvPrior = self._rateShapeInvPrior
+        ret._brlenPrior = self._brlenPrior
+        ret._rateJumpPrior = self._rateJumpPrior
+        ret._polytomyJumpPrior = self._polytomyJumpPrior
+        ret._rateShapeInvJumpPrior = self._rateShapeInvJumpPrior
+
+        for 0 <= i < PropCnt:
+            ret.props[i] = self.props[i]
 
     cdef void sendSample(self, unsigned runInd, uint64_t step, double heat, \
       uint64_t nswap, uint64_t *accepts, uint64_t *rejects, Lik lik, \
@@ -265,6 +303,11 @@ cdef class Mc3:
 
     cdef void initLogs(self) except *:
         cdef file f
+        cdef unsigned nchars, j
+
+        nchars = 0
+        for 0 <= j < self.alignment.nchars:
+            nchars += self.alignment.getFreq(j)
 
         self.lFile = open("%s.l" % self.outPrefix, "w")
         self.lFile.write("Begin run: %s\n" % \
@@ -272,8 +315,9 @@ cdef class Mc3:
         self.lFile.write("Host machine: %r\n" % (os.uname(),))
         for f in ((self.lFile, sys.stdout) if self.verbose else (self.lFile,)):
             f.write("PRNG seed: %d\n" % Crux.Config.seed)
-            f.write("Compact alignment:\n")
-            self.alignment.render(50, f)
+            f.write("Taxa: %d\n" % self.alignment.ntaxa)
+            f.write("Characters: %d\n" % nchars)
+            f.write("Unique site patterns: %d\n" % self.alignment.nchars)
 
             f.write("Configuration parameters:\n")
             f.write("  outPrefix: %r\n" % self.outPrefix)
@@ -365,7 +409,7 @@ cdef class Mc3:
         # because it is (for example) like computing the 97% credibility
         # interval instead of the 95% credibility interval, which is a more
         # stringent measure of agreement between sample sets.
-        lower = <uint64_t>floor((self._cvgAlpha/2.0) * (past-first))
+        lower = <uint64_t>floor((self._cvgAlpha/2.0) * <double>(past-first))
         upper = (past-first-1) - lower
 
         ret = 0.0
@@ -672,6 +716,18 @@ cdef class Mc3:
 
         if self._graphDelay >= 0.0:
             graphT0 = 0.0
+
+        # Write to .s log file.
+        step = 0
+        sample = step / self._stride
+        swapStats = self.formatRateStats(self.swapStats)
+        propStats = self.formatPropStats()
+        self.sFile.write("%d\t%s -------- %s %s\n" % (step, \
+          self.formatLnLs(sample, "%.11e"), swapStats, propStats))
+        self.sFile.flush()
+        if self.verbose:
+            sys.stdout.write("s\t%d\t%s --------\n" % \
+              (step, self.formatLnLs(sample, "%.6f")))
 
         try:
             # Run the chains to at least _minStep.  Step 0 was created during
