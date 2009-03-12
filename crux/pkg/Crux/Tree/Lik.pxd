@@ -21,14 +21,20 @@ cdef class CL:
     #
     # This vector is incrementally expanded as necessary, but never shrunk,
     # under the presumption that the vector will likely re-expand in the
-    # future.
+    # future.  However, the CxtLikCL structures may be deallocated (and the
+    # appropriate pointers in the vector set to NULL) if execution planning
+    # finds them to be obsolete.
     cdef CxtLikCL *vec
     cdef unsigned vecMax # Number of usable elements.
 
-    cdef void prepare(self, unsigned nchars, unsigned dim, unsigned ncat, \
+    cdef void expand(self, unsigned nchars, unsigned dim, unsigned ncat, \
       unsigned nmodels) except *
+    cdef void prepare(self, unsigned nchars, unsigned dim, unsigned ncat, \
+      CxtLikModel *models, unsigned nmodels) except *
     cdef void dupModel(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      unsigned to, unsigned fr) except *
+      CxtLikModel *models, unsigned to, unsigned fr) except *
+    cdef void trunc(self, unsigned nmodels) except *
+    cdef void flush(self, CxtLikModel *models, unsigned nmodels) except *
 
 cdef class Lik:
     cdef readonly Character char_

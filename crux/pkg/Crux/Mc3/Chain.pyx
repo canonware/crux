@@ -1064,6 +1064,10 @@ cdef class Chain:
             # Accept.
             self.lnL = lnL1
             self.accepts[PropPolytomyJump] += 1
+            # Dissociate edge's cached CL's in order to allow them to be
+            # reclaimed by GC sooner.
+            edge.ring.aux = None
+            edge.ring.other.aux = None
         else:
             # Reject.
             for 0 <= i < len(sibsB):

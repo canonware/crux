@@ -38,7 +38,7 @@ cdef class CL:
             self.vec = NULL
 
     def __init__(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      unsigned nmodels):
+      Lik lik, unsigned nmodels):
         self.parent = None
         self.nSibs = 0
 
@@ -48,41 +48,75 @@ cdef class CL:
         self.vecMax = nmodels
 
         for 0 <= i < nmodels:
-            if posix_memalign(<void **>&self.vec[i].cLMat, cacheLine, nchars * \
-              dim * ncat * sizeof(double)):
-                raise MemoryError("Error allocating cLMat")
-
-    cdef void prepare(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      unsigned nmodels) \
-      except *:
-        cdef CxtLikCL *vec
-        cdef unsigned i
-
-        if self.vecMax < nmodels:
-            vec = <CxtLikCL *>realloc(self.vec, nmodels * \
-              sizeof(CxtLikCL))
-            if vec == NULL:
-                raise MemoryError("Error reallocating vector")
-            self.vec = vec
-            memset(&self.vec[self.vecMax], 0, (nmodels - self.vecMax) * \
-              sizeof(CxtLikCL))
-            for self.vecMax <= i < nmodels:
+            if lik is None or lik.lik.models[i].weight != 0.0:
                 if posix_memalign(<void **>&self.vec[i].cLMat, cacheLine, \
                   nchars * dim * ncat * sizeof(double)):
                     raise MemoryError("Error allocating cLMat")
-                self.vecMax += 1
-            assert self.vecMax == nmodels
+
+    cdef void expand(self, unsigned nchars, unsigned dim, unsigned ncat, \
+      unsigned nmodels) except *:
+        cdef CxtLikCL *vec
+
+        assert self.vecMax < nmodels
+
+        vec = <CxtLikCL *>realloc(self.vec, nmodels * \
+          sizeof(CxtLikCL))
+        if vec == NULL:
+            raise MemoryError("Error reallocating vector")
+        self.vec = vec
+        memset(&self.vec[self.vecMax], 0, (nmodels - self.vecMax) * \
+          sizeof(CxtLikCL))
+        self.vecMax = nmodels
+
+    cdef void prepare(self, unsigned nchars, unsigned dim, unsigned ncat, \
+      CxtLikModel *models, unsigned nmodels) except *:
+        cdef unsigned i
+
+        if self.vecMax < nmodels:
+            self.expand(nchars, dim, ncat, nmodels)
+
+        for 0 <= i < nmodels:
+            if self.vec[i].cLMat == NULL and models[i].weight != 0.0:
+                if posix_memalign(<void **>&self.vec[i].cLMat, cacheLine, \
+                  nchars * dim * ncat * sizeof(double)):
+                    raise MemoryError("Error allocating cLMat")
 
     cdef void dupModel(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      unsigned to, unsigned fr) except *:
-        if to >= self.vecMax:
-            self.prepare(nchars, dim, ncat, to + 1)
-        if fr >= self.vecMax:
-            self.prepare(nchars, dim, ncat, fr + 1)
+      CxtLikModel *models, unsigned to, unsigned fr) except *:
+        assert models[to].weight != 0.0
 
-        self.vec[to].sn = self.vec[fr].sn
-        memcpy(self.vec[to].cLMat, self.vec[fr].cLMat, nchars * dim * ncat * \
-          sizeof(double))
+        self.prepare(nchars, dim, ncat, models, \
+          (fr+1 if (to < fr and models[fr].weight != 0.0) else to+1))
+
+        # Duplicate the cached values only if they are still valid.
+        if self.vec[fr].sn == models[fr].sn:
+            assert self.vec[to].cLMat != NULL
+            assert self.vec[fr].cLMat != NULL
+            self.vec[to].sn = self.vec[fr].sn
+            memcpy(self.vec[to].cLMat, self.vec[fr].cLMat, nchars * dim * \
+              ncat * sizeof(double))
+
+    cdef void trunc(self, unsigned nmodels) except *:
+        cdef unsigned i
+
+        # Clean up trailing unused elements.
+        for nmodels <= i < self.vecMax:
+            if self.vec[i].cLMat != NULL:
+                free(self.vec[i].cLMat)
+                self.vec[i].cLMat = NULL
+                self.vec[i].sn = 0
+
+    cdef void flush(self, CxtLikModel *models, unsigned nmodels) except *:
+        cdef unsigned i, lim
+
+        lim = (nmodels if nmodels < self.vecMax else self.vecMax)
+        for 0 <= i < lim:
+            if self.vec[i].cLMat != NULL and self.vec[i].sn != models[i].sn:
+                free(self.vec[i].cLMat)
+                self.vec[i].cLMat = NULL
+                self.vec[i].sn = 0
+
+        self.trunc(nmodels)
 
 cdef class Lik:
     """
@@ -166,6 +200,8 @@ cdef class Lik:
             for 0 <= i < lik.modelsMax:
                 model = &lik.models[i]
                 self._deallocModel(model)
+            free(lik.models)
+            free(lik.steps)
             free(lik)
             self.lik = NULL
 
@@ -238,8 +274,8 @@ cdef class Lik:
         self.lik.stepsLen = 0
         self.lik.stepsMax = stepsMax
 
-        self.rootCL = CL(self.lik.nchars, self.lik.dim, self.lik.ncat, \
-          self.lik.modelsMax)
+        self.rootCL = CL(self.lik.nchars, self.lik.dim, self.lik.ncat, self, \
+          self.lik.modelsLen)
         # Set each model's pointer to the CxtLikCL that is actually stored in
         # rootCL, so that lnL computation can be completed in the C code.
         # These pointers are maintained in addModel() when models are added
@@ -409,7 +445,7 @@ cdef class Lik:
             self._allocModel(&self.lik.models[self.lik.modelsMax])
             self.lik.modelsMax += 1
             # Expand rootCL to contain a vector element for the added model.
-            self.rootCL.prepare(self.lik.nchars, self.lik.dim, self.lik.ncat, \
+            self.rootCL.expand(self.lik.nchars, self.lik.dim, self.lik.ncat, \
               self.lik.modelsMax)
             # Re-set all models' cL pointers, since rootCL's vector has been
             # reallocated.
@@ -437,6 +473,7 @@ cdef class Lik:
         cdef Edge edge
         cdef Ring ring
         cdef CL cL
+        cdef bint zeroWeight
 
         assert to < self.lik.modelsLen
         assert fr < self.lik.modelsLen
@@ -469,13 +506,25 @@ cdef class Lik:
         memcpy(toP.gammas, frP.gammas, self.lik.ncat * sizeof(double))
         toP.glen = frP.glen
 
-        toP.cL.sn = frP.cL.sn
-        memcpy(toP.cL.cLMat, frP.cL.cLMat, self.lik.nchars * self.lik.dim * \
-          self.lik.ncat * sizeof(double))
-
         memcpy(toP.siteL, frP.siteL, self.lik.nchars * sizeof(double))
 
         if dupCLs:
+            if toP.weight == 0.0:
+                # The destination model has zero weight, which would ordinarily
+                # cause associated CL matrices to be left
+                # uninitialized/unallocated.  However, the user has
+                # specifically asked for the cached data to be copied,
+                # presumably because they will be useful soon, so temporarily
+                # give the model non-zero weight so that the copying succeeds.
+                zeroWeight = True
+                toP.weight = 1.0
+            else:
+                zeroWeight = False
+
+            assert self.rootCL.vecMax >= self.lik.modelsLen
+            self.rootCL.dupModel(self.lik.nchars, self.lik.dim, self.lik.ncat, \
+              self.lik.models, to, fr)
+
             for edge in self.tree.getEdges():
                 for ring in (edge.ring, edge.ring.other):
                     if ring.node.getDegree() > 1:
@@ -485,7 +534,10 @@ cdef class Lik:
                         if cL is not None and cL.vecMax > fr \
                           and cL.vec[fr].sn == frP.sn:
                             cL.dupModel(self.lik.nchars, self.lik.dim, \
-                              self.lik.ncat, to, fr)
+                              self.lik.ncat, self.lik.models, to, fr)
+
+            if zeroWeight:
+                toP.weight = 0.0
 
     cpdef delModel(self):
         """
@@ -839,7 +891,7 @@ cdef class Lik:
 
     cdef void _planRecurse(self, Ring ring, CL parent, unsigned nSibs,
       double edgeLen) except *:
-        cdef CL cL
+        cdef CL cL, flushCL
         cdef Taxon taxon
         cdef unsigned degree, i, j, k
         cdef char *chars
@@ -862,7 +914,7 @@ cdef class Lik:
                     raise ValueError("Leaf node missing taxon")
                 # Leaf nodes only need one vector element, since character data
                 # can be shared by all mixture models.
-                cL = CL(self.lik.nchars, self.lik.dim, self.lik.ncat, 1)
+                cL = CL(self.lik.nchars, self.lik.dim, self.lik.ncat, None, 1)
                 ring.aux = cL
 
                 ind = self.alignment.taxaMap.indGet(taxon)
@@ -890,15 +942,20 @@ cdef class Lik:
                           sizeof(double))
         else:
             if cL is None:
-                cL = CL(self.lik.nchars, self.lik.dim, self.lik.ncat, \
-                  self.lik.modelsMax)
+                cL = CL(self.lik.nchars, self.lik.dim, self.lik.ncat, self, \
+                  self.lik.modelsLen)
                 ring.aux = cL
             else:
                 cL.prepare(self.lik.nchars, self.lik.dim, self.lik.ncat, \
-                self.lik.modelsMax)
+                self.lik.models, self.lik.modelsLen)
 
         # Recurse.
         for r in ring.siblings():
+            # Try to clean up invalid CL caches.
+            flushCL = <CL>r.aux
+            if flushCL is not None:
+                flushCL.flush(self.lik.models, self.lik.modelsLen)
+
             self._planRecurse(r.other, cL, degree, r.edge.length)
 
         # Check whether the current tree topology is compatible with the
@@ -917,22 +974,34 @@ cdef class Lik:
         # Check cache validity for each model.
         if degree != 1:
             for 0 <= i < self.lik.modelsLen:
-                if self.lik.models[i].weightScaled != 0.0 and \
-                  cL.vec[i].sn != self.lik.models[i].sn:
-                    r = ring.next
-                    for 1 <= j < degree:
-                        assert r != ring
-                        self._planAppend(i, (CxeLikStepComputeCL if j == 1 \
-                          else CxeLikStepMergeCL), cL, <CL>r.other.aux, \
-                          r.edge.length)
-                        r = r.next
-                    cL.vec[i].sn = self.lik.models[i].sn
+                if cL.vec[i].sn != self.lik.models[i].sn:
+                    if self.lik.models[i].weightScaled != 0.0:
+                        r = ring.next
+                        for 1 <= j < degree:
+                            assert r != ring
+                            self._planAppend(i, (CxeLikStepComputeCL if j == 1 \
+                              else CxeLikStepMergeCL), cL, <CL>r.other.aux, \
+                              r.edge.length)
+                            r = r.next
+                        cL.vec[i].sn = self.lik.models[i].sn
+                    else:
+                        # Try to clean up invalid cLMat.
+                        if cL.vec[i].cLMat != NULL:
+                            free(cL.vec[i].cLMat)
+                            cL.vec[i].cLMat = NULL
+                            cL.vec[i].sn = 0
                     # Propagate invalidation to the parent.
                     parent.vec[i].sn = 0
+            cL.trunc(self.lik.modelsLen)
 
     cdef void _plan(self, Node root) except *:
         cdef Ring ring, r
         cdef unsigned degree, i
+        cdef CL flushCL
+
+        assert self.rootCL.vecMax >= self.lik.modelsLen
+        self.rootCL.prepare(self.lik.nchars, self.lik.dim, self.lik.ncat, \
+          self.lik.models, self.lik.modelsMax)
 
         if root is None:
             root = self.tree.base
@@ -946,26 +1015,45 @@ cdef class Lik:
             self._planRecurse(ring, self.rootCL, 2, 0.0)
 
             for 0 <= i < self.lik.modelsLen:
-                if self.lik.models[i].weightScaled != 0.0 and \
-                  self.rootCL.vec[i].sn != self.lik.models[i].sn:
-                    self._planAppend(i, CxeLikStepComputeCL, self.rootCL, \
-                      <CL>ring.other.aux, ring.edge.length)
-                    self._planAppend(i, CxeLikStepMergeCL, self.rootCL, \
-                      <CL>ring.aux, 0.0)
-                    self.rootCL.vec[i].sn = self.lik.models[i].sn
+                if self.rootCL.vec[i].sn != self.lik.models[i].sn:
+                    if self.lik.models[i].weightScaled != 0.0:
+                        self._planAppend(i, CxeLikStepComputeCL, self.rootCL, \
+                          <CL>ring.other.aux, ring.edge.length)
+                        self._planAppend(i, CxeLikStepMergeCL, self.rootCL, \
+                          <CL>ring.aux, 0.0)
+                        self.rootCL.vec[i].sn = self.lik.models[i].sn
+                    else:
+                        # Try to clean up invalid cLMat.
+                        if self.rootCL.vec[i].cLMat != NULL:
+                            free(self.rootCL.vec[i].cLMat)
+                            self.rootCL.vec[i].cLMat = NULL
+                            self.rootCL.vec[i].sn = 0
+            self.rootCL.trunc(self.lik.modelsLen)
         else:
             for r in ring:
+                # Try to clean up invalid CL caches.
+                flushCL = <CL>r.aux
+                if flushCL is not None:
+                    flushCL.flush(self.lik.models, self.lik.modelsLen)
+
                 self._planRecurse(r.other, self.rootCL, degree, r.edge.length)
 
             for 0 <= i < self.lik.modelsLen:
-                if self.lik.models[i].weightScaled != 0.0 and \
-                  self.rootCL.vec[i].sn != self.lik.models[i].sn:
-                    self._planAppend(i, CxeLikStepComputeCL, self.rootCL, \
-                      <CL>ring.other.aux, ring.edge.length)
-                    for r in ring.siblings():
-                        self._planAppend(i, CxeLikStepMergeCL, self.rootCL, \
-                          <CL>r.other.aux, r.edge.length)
-                    self.rootCL.vec[i].sn = self.lik.models[i].sn
+                if self.rootCL.vec[i].sn != self.lik.models[i].sn:
+                    if self.lik.models[i].weightScaled != 0.0:
+                        self._planAppend(i, CxeLikStepComputeCL, self.rootCL, \
+                          <CL>ring.other.aux, ring.edge.length)
+                        for r in ring.siblings():
+                            self._planAppend(i, CxeLikStepMergeCL, \
+                              self.rootCL, <CL>r.other.aux, r.edge.length)
+                        self.rootCL.vec[i].sn = self.lik.models[i].sn
+                    else:
+                        # Try to clean up invalid cLMat.
+                        if self.rootCL.vec[i].cLMat != NULL:
+                            free(self.rootCL.vec[i].cLMat)
+                            self.rootCL.vec[i].cLMat = NULL
+                            self.rootCL.vec[i].sn = 0
+            self.rootCL.trunc(self.lik.modelsLen)
 
     cdef void _prep(self, Node root) except *:
         cdef double wSum, qMean, wNorm
