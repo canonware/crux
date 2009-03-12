@@ -60,6 +60,9 @@ dnl Append EXTRA_CFLAGS to CFLAGS, if defined.
 if test "x$EXTRA_CFLAGS" != "x" ; then
   CFLAGS="$CFLAGS $EXTRA_CFLAGS"
 fi
+if test "x$GCC" = "xyes" ; then
+  CFLAGS="${CFLAGS} -march=native"
+fi
 AC_PROG_CPP
 
 dnl sizeof_ptr is needed by the build system.
@@ -69,17 +72,20 @@ AC_SUBST([sizeof_ptr])
 
 AC_CANONICAL_HOST
 dnl CPU-specific settings.
+FPUCFLAGS=""
 MTCPPFLAGS="-DMEXP=19937"
 MTCFLAGS="-fno-strict-aliasing"
 case "${host_cpu}" in
   i[[3456]]86)
 	AC_DEFINE([CxmCpuIa32])
-	CFLAGS="${CFLAGS} -mfpmath=sse -msse2"
+	CFLAGS="${CFLAGS} -msse2"
+	FPUCFLAGS="-mfpmath=sse"
 	MTCPPFLAGS="${MTCPPFLAGS} -DHAVE_SSE2=1"
 	;;
   x86_64)
 	AC_DEFINE([CxmCpuAmd64])
-	CFLAGS="${CFLAGS} -mfpmath=sse -msse2"
+	CFLAGS="${CFLAGS} -msse2"
+	FPUCFLAGS="-mfpmath=sse"
 	MTCPPFLAGS="${MTCPPFLAGS} -DHAVE_SSE2=1"
 	;;
   powerpc)
@@ -195,7 +201,6 @@ AC_PATH_PROG([LD], [ld], , [$PATH])
 AC_PATH_PROG([TEST], [test], , [$PATH])
 AC_PATH_PROG([grep], [grep], , [$PATH])
 AC_PATH_PROG([AUTOCONF], [autoconf], , [$PATH])
-AC_PROG_FC([gfortran])
 
 dnl Do not silence irrelevant compiler warnings by default, since enabling this
 dnl option incurs a performance penalty.
@@ -654,10 +659,19 @@ fi
 
 if test "x$enable_sys_linalg" = "x0" ; then
   dnl Check whether gfortran is available.
+  AC_PROG_FC([gfortran])
   if test "x$FC" = "x" ; then
     AC_MSG_ERROR([Fortran compiler required to build BLAS and LAPACK routines])
   fi
   AC_FC_LIBRARY_LDFLAGS
+  dnl Set gfortran-specific flags.
+  echo "${FC}" | grep "gfortran">/dev/null \
+    && FCFLAGS="${FCFLAGS} -march=native"
+  dnl Enable FPU-related [F]CFLAGS.  It is dangerous to do this if we are using
+  dnl system libraries (ATLAS/LAPACK) that may have been compiled to use a
+  dnl different FPU.
+  CFLAGS="${CFLAGS} ${FPUCFLAGS}"
+  FCFLAGS="${FCFLAGS} ${FPUCFLAGS}"
 fi
 AC_SUBST([enable_sys_linalg])
 

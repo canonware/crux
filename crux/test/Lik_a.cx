@@ -31,7 +31,7 @@ for s in fastaStrs:
     distMatrix = alignment.jukesDists(scoreGaps=True)
     t = distMatrix.rnj()
     t.canonize(distMatrix.taxaMap)
-    t.render(lengths=True, outFile=sys.stdout)
+    t.render(lengths=True, lengthFormat="%.4e", outFile=sys.stdout)
 
     lik = Crux.Tree.Lik.Lik(t, alignment)
     print "lnL: %.4f" % lik.lnL()

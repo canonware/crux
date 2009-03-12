@@ -10,6 +10,6 @@ t = distMatrix.rnj()
 t.collapse()
 lik = Crux.Tree.Lik.Lik(t, alignment)
 
-print "%.4f" % lik.lnL()
+print "%.2f" % lik.lnL()
 
 print "Test end"
