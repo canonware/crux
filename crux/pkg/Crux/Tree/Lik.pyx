@@ -1,3 +1,5 @@
+import cPickle
+
 import Crux.Config as Config
 from Crux.Character cimport Character
 from Crux.Taxa cimport Taxon
@@ -205,14 +207,23 @@ cdef class Lik:
             free(lik)
             self.lik = NULL
 
-    def __init__(self, Tree tree, Alignment alignment, unsigned nmodels=1,
-      unsigned ncat=0, bint catMedian=False):
-        cdef unsigned stripeWidth, ncharsOrig, stepsMax, i
+    def __init__(self, Tree tree=None, Alignment alignment=None, \
+      unsigned nmodels=1, unsigned ncat=0, bint catMedian=False):
+        if alignment is not None:
+            self._init0(tree, alignment.nchars, \
+              alignment.charType.get().nstates(), nmodels, ncat)
+            self._init1(alignment, catMedian)
+
+    cdef void _init0(self, Tree tree, unsigned nchars, unsigned dim, \
+      unsigned nmodels, unsigned ncat) except *:
+        cdef unsigned stripeWidth, npad, i
 
         if tree.rooted:
             raise ValueError("Tree must be unrooted")
 
-        self.char_ = alignment.charType.get()
+        # Make sure there's no left over cruft from some non-likelihood
+        # anaylyis.
+        tree.clearAux()
 
         # Configure striping.
         if Config.threaded:
@@ -222,41 +233,33 @@ cdef class Lik:
             stripeWidth = cacheLine / (4 * sizeof(double))
 
             # Limit the number of stripes.
-            while (alignment.nchars + (stripeWidth - \
-              (alignment.nchars % stripeWidth))) / stripeWidth > CxNcpus * \
-              CxmLikMqMult:
+            while (nchars + (stripeWidth - (nchars % stripeWidth))) / \
+              stripeWidth > CxNcpus * CxmLikMqMult:
                 stripeWidth *= 2
-        else:
-            stripeWidth = alignment.nchars
 
-        # Pad the alignment, if necessary.
-        ncharsOrig = alignment.nchars
-        if ncharsOrig % stripeWidth != 0:
-            alignment.pad(self.char_.val2code(self.char_.any), stripeWidth - \
-              (ncharsOrig % stripeWidth))
+            # Pad the alignment, if necessary.
+            if nchars % stripeWidth != 0:
+                npad = stripeWidth - (nchars % stripeWidth)
+            else:
+                npad = 0
+        else:
+            npad = 0
+            stripeWidth = nchars
 
         self.sn = 0
-
         self.tree = tree
-        # Make sure there's no left over cruft from some non-likelihood
-        # anaylyis.
-        self.tree.clearAux()
-        self.alignment = alignment
 
         self.lik = <CxtLik *>calloc(1, sizeof(CxtLik))
         if self.lik == NULL:
             raise MemoryError("Error allocating lik")
 
-        self.lik.dim = self.char_.nstates()
+        self.lik.dim = dim
         self.lik.rlen = self.lik.dim * (self.lik.dim-1) / 2
         self.lik.ncat = (ncat if ncat > 0 else 1)
-        self.lik.catMedian = catMedian
-        self.lik.nchars = self.alignment.nchars
-        self.lik.npad = self.lik.nchars - ncharsOrig
-        self.lik.charFreqs = self.alignment.freqs
+        self.lik.nchars = nchars + npad
+        self.lik.npad = npad
         self.lik.stripeWidth = stripeWidth
-        self.lik.nstripes = self.lik.nchars / self.lik.stripeWidth
-        self.lik.renorm = True
+        self.lik.nstripes = self.lik.nchars / stripeWidth
 
         self.lik.models = <CxtLikModel *>calloc(nmodels, sizeof(CxtLikModel))
         if self.lik.models == NULL:
@@ -266,6 +269,24 @@ cdef class Lik:
         for 0 <= i < self.lik.modelsMax:
             self._allocModel(&self.lik.models[i])
             self._initModel(&self.lik.models[i], 1.0)
+
+    cdef void _init1(self, Alignment alignment, bint catMedian) except *:
+        cdef unsigned stepsMax, i
+
+        self.char_ = alignment.charType.get()
+        self.alignment = alignment
+
+        # Pad the alignment if it hasn't already been done.  Padding is already
+        # done when the alignment is supplied by the unpickle() method.
+        if self.alignment.nchars != self.lik.nchars:
+            assert self.alignment.nchars == self.lik.nchars - self.lik.npad
+            self.alignment.pad(self.char_.val2code(self.char_.any), \
+              self.lik.npad)
+            assert self.alignment.nchars == self.lik.nchars
+
+        self.lik.catMedian = catMedian
+        self.lik.charFreqs = self.alignment.freqs
+        self.lik.renorm = True
 
         stepsMax = ((2 * self.alignment.ntaxa) - 2) * self.lik.modelsMax
         self.lik.steps = <CxtLikStep *>malloc(stepsMax * sizeof(CxtLikStep))
@@ -282,6 +303,55 @@ cdef class Lik:
         # later on.
         for 0 <= i < self.lik.modelsMax:
             self.lik.models[i].cL = &self.rootCL.vec[i]
+
+    def __reduce__(self):
+        return (type(self), (), self.__getstate__())
+
+    def __getstate__(self):
+        cdef initArgs, mTuple
+        cdef list models
+        cdef unsigned i
+        cdef CxtLikModel *modelP
+
+        initArgs = (self.tree, self.lik.nchars-self.lik.npad, self.lik.dim, \
+          self.lik.ncat)
+        models = []
+        for 0 <= i < self.lik.modelsLen:
+            modelP = &self.lik.models[i]
+            mTuple = (modelP.weight, \
+              [modelP.rclass[j] for j in xrange(self.lik.rlen)], \
+              [modelP.rTri[j] for j in xrange(self.lik.rlen)], \
+              [modelP.piDiag[j] for j in xrange(self.lik.dim)], modelP.alpha)
+            models.append(mTuple)
+
+        return (initArgs, models)
+
+    def __setstate__(self, data):
+        cdef initArgs, mTuple
+        cdef list models, cList, rList, pList
+        cdef unsigned i, j
+        cdef CxtLikModel *modelP
+
+        (initArgs, models) = data
+        self._init0(initArgs[0], initArgs[1], initArgs[2], len(models), \
+          initArgs[3])
+
+        for 0 <= i < self.lik.modelsLen:
+            modelP = &self.lik.models[i]
+            mTuple = models[i]
+            (modelP.weight, cList, rList, pList, modelP.alpha) = mTuple
+
+            assert len(cList) == self.lik.rlen
+            for 0 <= j < self.lik.rlen:
+                modelP.rclass[j] = cList[j]
+
+            assert len(rList) == self.lik.rlen
+            for 0 <= j < self.lik.rlen:
+                modelP.rTri[j] = rList[j]
+
+            assert len(pList) == self.lik.dim
+            for 0 <= j < self.lik.dim:
+                modelP.piDiag[j] = pList[j]
 
     cdef uint64_t _assignSn(self):
         self.sn += 1
@@ -379,6 +449,20 @@ cdef class Lik:
         if model.siteL != NULL:
             free(model.siteL)
             model.siteL = NULL
+
+    cpdef Lik unpickle(self, str pickle):
+        """
+            Unpickle the partial Lik encoded by 'pickle', and fill in the
+            missing details by copying them from 'self'.
+        """
+        cdef Lik ret
+
+        ret = cPickle.loads(pickle)
+
+        # Fill in missing details.
+        ret._init1(self.alignment, self.lik.catMedian)
+
+        return ret
 
     cpdef Lik dup(self):
         """

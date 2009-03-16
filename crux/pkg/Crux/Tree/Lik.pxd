@@ -58,12 +58,16 @@ cdef class Lik:
     # Ring; there is no extant ring object associated with the root.
     cdef CL rootCL
 
+    cdef void _init0(self, Tree tree, unsigned nchars, unsigned dim, \
+      unsigned nmodels, unsigned ncat) except *
+    cdef void _init1(self, Alignment alignment, bint catMedian) except *
     cdef uint64_t _assignSn(self)
     cdef void _allocModel(self, CxtLikModel *model) except *
     cdef void _initModel(self, CxtLikModel *model, double weight)
     cdef void _reassignModel(self, CxtLikModel *model) except *
     cdef void _deallocModel(self, CxtLikModel *model)
 
+    cpdef Lik unpickle(self, str pickle)
     cpdef Lik dup(self)
     cpdef unsigned getNcat(self)
     cpdef unsigned nmodels(self)

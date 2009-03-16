@@ -47,6 +47,18 @@ cdef class Tree:
         else:
             assert with_ is None
 
+    def __reduce__(self):
+        return (type(self), (), self.__getstate__())
+
+    def __getstate__(self):
+        return (self._base, self.rooted)
+
+    def __setstate__(self, data):
+        (self._base, self.rooted) = data
+        self.sn = 0
+        self._cacheSn = -1
+        self.aux = None
+
     cdef void _randomNew(self, int ntaxa, Taxa.Map taxaMap) except *:
         cdef Node nodeA, nodeB, nodeC
         cdef Edge edge, edgeA, edgeB
@@ -630,10 +642,33 @@ cdef class Tree:
         self._renderTarget.write(string)
 
 cdef class Node:
-    def __init__(self, Tree tree):
+    def __init__(self, Tree tree=None):
         self.tree = tree
         self.ring = None
         self._taxon = None
+
+    def __reduce__(self):
+        return (type(self), (), self.__getstate__())
+
+    def __getstate__(self):
+        cdef str label
+
+        if self._taxon is not None:
+            label = self._taxon.label
+        else:
+            label = None
+
+        return (self.tree, self.ring, label)
+
+    def __setstate__(self, data):
+        cdef str label
+
+        (self.tree, self.ring, label) = data
+        if label is not None:
+            self._taxon = Taxa.get(label)
+        else:
+            self._taxon = None
+        self.aux = None
 
     cdef Taxon getTaxon(self):
         """
@@ -773,7 +808,7 @@ cdef class Node:
         return -1
 
 cdef class Edge:
-    def __init__(self, Tree tree):
+    def __init__(self, Tree tree=None):
         cdef Ring other
 
         self.tree = tree
@@ -781,6 +816,16 @@ cdef class Edge:
         other = Ring(self, self.ring)
         self.ring.other = other
         self.length = 0.0
+
+    def __reduce__(self):
+        return (type(self), (), self.__getstate__())
+
+    def __getstate__(self):
+        return (self.tree, self.ring, self.length)
+
+    def __setstate__(self, data):
+        (self.tree, self.ring, self.length) = data
+        self.aux = None
 
     cpdef attach(self, Node nodeA, Node nodeB):
         cdef Ring ring, nRing, pRing
@@ -870,12 +915,22 @@ cdef class _RingIterHelper:
         return ret
 
 cdef class Ring:
-    def __init__(self, Edge edge, Ring other):
+    def __init__(self, Edge edge=None, Ring other=None):
         self.node = None
         self.edge = edge
         self.other = other
         self.next = self
         self.prev = self
+
+    def __reduce__(self):
+        return (type(self), (), self.__getstate__())
+
+    def __getstate__(self):
+        return (self.node, self.edge, self.other, self.next, self.prev)
+
+    def __setstate__(self, data):
+        (self.node, self.edge, self.other, self.next, self.prev) = data
+        self.aux = None
 
     def __iter__(self):
         """

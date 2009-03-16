@@ -4,6 +4,7 @@ cdef class Node
 cdef class Edge
 cdef class Ring
 
+from libc cimport *
 from Crux.CTMatrix cimport CTMatrix
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
@@ -14,8 +15,8 @@ cdef class Tree:
     cdef list _renderList
     cdef file _renderFile
     # Incremented every time the tree is modified.
-    cdef readonly unsigned long long sn
-    cdef int _cacheSn
+    cdef readonly uint64_t sn
+    cdef int64_t _cacheSn
     cdef list _cachedTaxa, _cachedNodes, _cachedEdges
     cdef Bipart _cachedBipart
     cdef public bint rooted
