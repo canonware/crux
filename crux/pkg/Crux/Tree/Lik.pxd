@@ -93,6 +93,7 @@ cdef class Lik:
     cdef void _planRecurse(self, Ring ring, CL parent, unsigned nSibs,
       double edgeLen) except *
     cdef void _plan(self, Node root) except *
+    cpdef prep(self)
     cdef void _prep(self, Node root) except *
     cpdef double lnL(self, Node root=*) except 1.0
     cpdef list siteLnLs(self, Node root=*)

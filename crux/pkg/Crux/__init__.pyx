@@ -61,6 +61,18 @@ cimport Crux.Newick as Newick
 cimport Crux.Taxa as Taxa
 cimport Crux.Tree as Tree
 
+IF @enable_mpi@:
+    from mpi4py import MPI
+    cimport mpi4py.mpi_c as mpi
+    cdef int size
+
+    mpi.MPI_Comm_size(mpi.MPI_COMM_WORLD, &size)
+    if size > 1:
+        # Make sure that all nodes are seeded the same, even if the seed isn't
+        # explicitly set by an application that directly imports the Crux
+        # module.
+        seed(0)
+
 cpdef threaded():
     """
         Enable thread parallelism.  Once enabled, parallelism cannot be
@@ -79,6 +91,14 @@ cpdef seed(unsigned s):
     """
         Seed all pseudo-random number generators.
     """
+    IF @enable_mpi@:
+        from mpi4py import MPI
+        cdef int size
+
+        mpi.MPI_Comm_size(mpi.MPI_COMM_WORLD, &size)
+        if size != 1:
+            mpi.MPI_Bcast(&s, 1, mpi.MPI_UNSIGNED, 0, mpi.MPI_COMM_WORLD)
+
     import Config
     Config.seed = s
     import random

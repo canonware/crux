@@ -77,11 +77,16 @@ cdef class Mc3:
     # Nested lists of chains.
     cdef list runs
 
+    IF @enable_mpi@:
+        cdef int mpiSize
+        cdef int mpiRank
+
     # Matrix of heat swapInfo structures, two for each pair of
     # Metropolis-coupled chains (even/odd swaps).  The matrix is ordered as
     # such:
     #
-    #                chain 0 chain 1 chain 2 chain 3
+    #             \to
+    #          from\ chain 0 chain 1 chain 2 chain 3
     #               |-------|-------|-------|-------|
     # run 0 chain 0 | ev,od |       |       |       |
     #       chain 1 |       |       |       |       |
@@ -101,31 +106,75 @@ cdef class Mc3:
     # Arrays of accept/reject statistics, one element for each run.
     cdef Mc3RateStats *propStats[PropCnt]
 
+    # Temporary storage for the most recent Liks.  These are used to write
+    # statistics to pFile/tFile.
+    cdef list liks
+
+    # Temporary storage for the most recent lnLs.  These are appended to the
+    # lnLs arrays once every run has provided its lnL via sendSample().
+    cdef double *cachedLnLs
+
     # Array of pointers to lnL sample arrays from unheated chains, plus one
     # extra (used as a scratch area).
     cdef double **lnLs
-    cdef uint64_t lnLsMax
+    cdef size_t lnLsMax
 
     cdef bint verbose
 
     cpdef Mc3 dup(self)
+    IF @enable_mpi@:
+        cdef void storeSwapStats(self) except *
+        cdef void storePropStats(self) except *
+    cdef void updateDiags(self, uint64_t step) except *
+    cdef void storeLiksLnLsUni(self, uint64_t step) except *
+    IF @enable_mpi@:
+        cdef void storeLiksLnLsMpi(self, uint64_t step) except *
+    cdef void storeLiksLnLs(self, uint64_t step) except *
     cdef void sendSample(self, unsigned runInd, uint64_t step, double heat, \
       uint64_t nswap, uint64_t *accepts, uint64_t *rejects, Lik lik, \
       double lnL) except *
     cdef void sendSwapInfo(self, unsigned runInd, unsigned srcChainInd, \
       unsigned dstChainInd, uint64_t step, double heat, double lnL) except *
+    cdef void recvSwapInfoUni(self, unsigned runInd, unsigned dstChainInd, \
+      unsigned srcChainInd, uint64_t step, double *heat, double *lnL) except *
+    IF @enable_mpi@:
+        cdef void recvSwapInfoMpi(self, unsigned runInd, unsigned dstChainInd, \
+          unsigned srcChainInd, uint64_t step, double *heat, double *lnL) \
+          except *
     cdef void recvSwapInfo(self, unsigned runInd, unsigned dstChainInd, \
       unsigned srcChainInd, uint64_t step, double *heat, double *lnL) except *
     cdef void initLogs(self) except *
-    cdef double computeRcov(self, uint64_t last) except *
-    cdef bint writeGraph(self, uint64_t sample) except *
+    cdef void initSwapInfo(self) except *
+    cdef void initSwapStats(self) except *
+    cdef void initPropStats(self) except *
+    cdef void initLiks(self) except *
+    cdef void resetLiks(self) except *
+    cdef void initLnLs(self) except *
+    cdef void initPropsCdf(self) except *
+    cdef void initRunsUni(self) except *
+    IF @enable_mpi@:
+        cdef void initRunsMpi(self) except *
+    cdef void initRuns(self) except *
+    cdef void advanceUni(self) except *
+    IF @enable_mpi@:
+        cdef void advanceMpi(self) except *
+    cdef void advance(self) except *
+    cdef double computeRcovUni(self, uint64_t step) except *
+    IF @enable_mpi@:
+        cdef double computeRcovMpi(self, uint64_t step) except *
+    cdef double computeRcov(self, uint64_t step) except *
+    cdef bint writeGraph(self, uint64_t step) except *
     cdef str formatRclass(self, Lik lik, unsigned model)
     cdef str formatRates(self, Lik lik, unsigned model, str fmt)
     cdef str formatFreqs(self, Lik lik, unsigned model, str fmt)
-    cdef str formatLnLs(self, uint64_t sample, str fmt)
+    cdef str formatLnLs(self, uint64_t step, str fmt)
     cdef str formatRateStats(self, Mc3RateStats *rateStats)
     cdef str formatPropStats(self)
-    cdef void updateDiags(self, uint64_t step)
+    cdef void lWrite(self, str s) except *
+    cdef void tWrite(self, uint64_t step) except *
+    cdef void pWrite(self, uint64_t step) except *
+    cdef void sWrite(self, uint64_t step, double rcov) except *
+    cdef bint sample(self, uint64_t step) except *
     cpdef bint run(self, bint verbose=*) except *
 
     cdef double getGraphDelay(self)

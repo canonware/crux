@@ -59,6 +59,7 @@ cdef class Chain:
     cdef void rateShapeInvAddPropose(self, unsigned m0Ind, unsigned m1Ind) \
       except *
     cdef bint rateShapeInvJumpPropose(self) except *
-    cdef void advance(self) except *
+    cdef void advance0(self) except *
+    cdef void advance1(self) except *
 
 

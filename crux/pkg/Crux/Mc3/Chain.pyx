@@ -3,6 +3,7 @@ import random
 from libc cimport *
 from libm cimport *
 from SFMT cimport *
+from CxRi cimport *
 from Crux.Tree cimport Tree, Node, Edge, Ring
 from Crux.Tree.Lik cimport Lik
 from Crux.Mc3 cimport Mc3
@@ -39,6 +40,7 @@ cdef class Chain:
       uint32_t swapSeed, uint32_t seed):
         cdef Edge edge
         cdef unsigned i, nstates, rlen, m
+        cdef object rState
 
         self.master = master
         self.run = run
@@ -62,8 +64,17 @@ cdef class Chain:
         # never generated, but that is okay since there is no requirement to
         # draw the starting tree from the prior.  The main goal here is to
         # avoid systematic starting point dependence.
+        #
+        # Tree() uses Python's PRNG, which can cause starting trees to have
+        # identical topologies if running as independent MPI nodes.  To avoid
+        # this problem, re-seed Python's PRNG, generate the tree, then restore
+        # Python's PRNG state.  This allows results to be identical regardless
+        # of whether MPI is in use.
+        rState = random.getstate()
+        random.seed(gen_rand64(self.prng))
         self.tree = Tree(self.master.alignment.taxaMap.ntaxa, \
           self.master.alignment.taxaMap)
+        random.setstate(rState)
         self.tree.deroot()
 
         self.lik = Lik(self.tree, self.master.alignment, self.master._nmodels, \
@@ -1117,7 +1128,16 @@ cdef class Chain:
         # Randomly assign four siblings to the partitions, in order to guarantee
         # that each partition contains at least two edges.
         deg0 = nodeA.getDegree()
-        (a0, aa0, b0, bb0) = random.sample(xrange(deg0), 4)
+        cdef CxtRi ri
+        CxRiNew(&ri, self.prng)
+        if CxRiInit(&ri, deg0):
+            CxRiDelete(&ri)
+            raise MemoryError("Error initializing ri")
+        a0 = CxRiRandomGet(&ri)
+        aa0 = CxRiRandomGet(&ri)
+        b0 = CxRiRandomGet(&ri)
+        bb0 = CxRiRandomGet(&ri)
+        CxRiDelete(&ri)
 
         # Partition.
         degA = degB = 0
@@ -1325,24 +1345,12 @@ cdef class Chain:
 
         return False
 
-    cdef void advance(self) except *:
+    cdef void advance0(self) except *:
         cdef bint again
         cdef unsigned propInd, a, b, other
-        cdef double rcvHeat, rcvLnL, u, p
+        cdef double u
 
         self.step += 1
-
-        # Finish handling a pending potential heat swap.
-        if self.swapInd != self.ind:
-            self.master.recvSwapInfo(self.run, self.ind, self.swapInd, \
-              self.step-1, &rcvHeat, &rcvLnL)
-            assert rcvHeat != self.heat
-            p = exp((rcvLnL - self.lnL) * self.heat \
-              + (self.lnL - rcvLnL) * rcvHeat)
-            if p >= self.swapProb:
-                self.heat = rcvHeat
-                self.nswap += 1
-            self.swapInd = self.ind
 
         again = True
         while again:
@@ -1411,3 +1419,17 @@ cdef class Chain:
             # drawn here regardless of whether it is used by this chain later.
             self.swapProb = genrand_res53(self.swapPrng)
 
+    cdef void advance1(self) except *:
+        cdef double rcvHeat, rcvLnL, p
+
+        # Finish handling a pending potential heat swap.
+        if self.swapInd != self.ind:
+            self.master.recvSwapInfo(self.run, self.ind, self.swapInd, \
+              self.step, &rcvHeat, &rcvLnL)
+            assert rcvHeat != self.heat
+            p = exp((rcvLnL - self.lnL) * self.heat \
+              + (self.lnL - rcvLnL) * rcvHeat)
+            if p >= self.swapProb:
+                self.heat = rcvHeat
+                self.nswap += 1
+            self.swapInd = self.ind

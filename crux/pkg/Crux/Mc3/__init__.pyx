@@ -54,6 +54,7 @@
       phylogenetic inference.  Sys. Biol. 54(2):241-253.
 """
 
+import cPickle
 import os
 import random
 import sys
@@ -61,10 +62,24 @@ import time
 
 import Crux.Config
 
+cdef extern from "Python.h":
+    object PyString_FromStringAndSize(char *s, Py_ssize_t len)
 from libc cimport *
 from libm cimport *
 from Crux.Mc3.Chain cimport *
 from Crux.Mc3.Post cimport *
+
+IF @enable_mpi@:
+    from mpi4py import MPI
+    cimport mpi4py.mpi_c as mpi
+
+    # Use distinct tags for various MPI messaging operations, in order to avoid
+    # mixing them up due to out-of-order receipt.
+    cdef enum:
+        TagHeatSwap = 1
+        # TagLikLnL must be greater than all other tags, since it is used as
+        # the base tag for a set of tags: [TagLikLnL..TagLikLnL+_nruns).
+        TagLikLnL   = 2
 
 cdef int _lnLCmp(void *va, void *vb):
     cdef double a = (<double *>va)[0]
@@ -87,6 +102,7 @@ cdef class Mc3:
         self.swapStats = NULL
         for 0 <= i < PropCnt:
             self.propStats[i] = NULL
+        self.cachedLnLs = NULL
         self.lnLs = NULL
 
     def __dealloc__(self):
@@ -102,6 +118,9 @@ cdef class Mc3:
             if self.propStats[i] != NULL:
                 free(self.propStats[i])
                 self.propStats[i] = NULL
+        if self.cachedLnLs != NULL:
+            free(self.cachedLnLs)
+            self.cachedLnLs = NULL
         if self.lnLs != NULL:
             for 0 <= i < self._nruns+1:
                 if self.lnLs[i] != NULL:
@@ -154,6 +173,10 @@ cdef class Mc3:
         self.props[PropPolytomyJump] = 4.0
         self.props[PropRateShapeInvJump] = 1.0
 
+        IF @enable_mpi@:
+            mpi.MPI_Comm_size(mpi.MPI_COMM_WORLD, &self.mpiSize)
+            mpi.MPI_Comm_rank(mpi.MPI_COMM_WORLD, &self.mpiRank)
+
     cpdef Mc3 dup(self):
         cdef Mc3 ret
         cdef unsigned i
@@ -191,17 +214,194 @@ cdef class Mc3:
         for 0 <= i < PropCnt:
             ret.props[i] = self.props[i]
 
-    cdef void sendSample(self, unsigned runInd, uint64_t step, double heat, \
-      uint64_t nswap, uint64_t *accepts, uint64_t *rejects, Lik lik, \
-      double lnL) except *:
-        cdef uint64_t sample, lnLsMax
-        cdef double *lnLs
-        cdef list run
-        cdef Chain chain
-        cdef double swaprate, wsum, w
-        cdef unsigned i, nmodels, m
+    IF @enable_mpi@:
+        cdef void storeSwapStats(self) except *:
+            cdef unsigned i
+            cdef Mc3RateStats *swapStats
+            cdef uint64_t n
 
-        sample = step / self._stride
+            for 0 <= i < self._nruns:
+                swapStats = &self.swapStats[i]
+                n = swapStats.n
+                mpi.MPI_Reduce(&n, &swapStats.n, 1, \
+                  mpi.MPI_UNSIGNED_LONG_LONG, mpi.MPI_SUM, 0, \
+                  mpi.MPI_COMM_WORLD)
+
+        cdef void storePropStats(self) except *:
+            cdef unsigned i, j
+            cdef Mc3RateStats *propStats
+            cdef uint64_t nd[2]
+
+            for 0 <= i < PropCnt:
+                for 0 <= j < self._nruns:
+                    propStats = &self.propStats[i][j]
+                    nd[0] = propStats.n
+                    nd[1] = propStats.d
+                    mpi.MPI_Reduce(nd, &propStats.n, 2, \
+                      mpi.MPI_UNSIGNED_LONG_LONG, mpi.MPI_SUM, 0, \
+                      mpi.MPI_COMM_WORLD)
+
+    # Update diagnostics based on swapStats and propStats.
+    cdef void updateDiags(self, uint64_t step) except *:
+        cdef unsigned runInd, i
+        cdef Mc3RateStats *rateStats
+        cdef double xt
+
+        IF @enable_mpi@:
+            if self.mpiRank != 0:
+                # Only the master node has all the information to compute the
+                # diagnostics.  This node only needs to clear its partial
+                # stats.
+                for 0 <= runInd < self._nruns:
+                    rateStats = &self.swapStats[runInd]
+                    rateStats.n = 0
+                    for 0 <= i < PropCnt:
+                        rateStats = &self.propStats[i][runInd]
+                        rateStats.n = 0
+                        rateStats.d = 0
+                return
+
+        for 0 <= runInd < self._nruns:
+            # Compute the exponential moving averages for heat swap rates.
+            # Swaps are double-counted, since both participants count them.
+            rateStats = &self.swapStats[runInd]
+            rateStats.ema += self._emaAlpha * \
+              (<double>rateStats.n/(2.0*<double>self._stride) - \
+              rateStats.ema)
+            rateStats.n = 0
+
+            # Compute the exponential moving averages for proposal acceptance
+            # rates.
+            for 0 <= i < PropCnt:
+                rateStats = &self.propStats[i][runInd]
+                if rateStats.d == 0:
+                    xt = 0.0
+                else:
+                    xt = (<double>rateStats.n/<double>rateStats.d)
+                rateStats.ema += self._emaAlpha * (xt - rateStats.ema)
+                IF @enable_mpi@:
+                    rateStats.n = 0
+                    rateStats.d = 0
+
+    cdef void storeLiksLnLsUni(self, uint64_t step) except *:
+        cdef uint64_t samp
+        cdef unsigned i, j
+        cdef size_t lnLsMax
+        cdef double *lnLs
+
+        samp = step / self._stride
+
+        # Allocate/expand lnLs as necessary.
+        if self.lnLsMax == 0:
+            if self._minStep == 0:
+                lnLsMax = 8 # Arbitrary starting size.
+            else:
+                lnLsMax = self._minStep / self._stride
+            for 0 <= i < self._nruns+1:
+                self.lnLs[i] = <double *>malloc(lnLsMax * sizeof(double))
+                if self.lnLs[i] == NULL:
+                    for 0 <= j < i:
+                        free(self.lnLs[j])
+                    raise MemoryError("Error allocating lnLs[%d]" % i)
+            self.lnLsMax = lnLsMax
+        elif self.lnLsMax <= samp:
+            lnLsMax = self.lnLsMax + 4 + (self.lnLsMax >> 3) + \
+              (self.lnLsMax >> 4)
+            for 0 <= i < self._nruns+1:
+                lnLs = <double *>realloc(self.lnLs[i], lnLsMax * sizeof(double))
+                if lnLs == NULL:
+                    raise MemoryError("Error reallocating lnLs[%d]" % i)
+                self.lnLs[i] = lnLs
+            self.lnLsMax = lnLsMax
+
+        # Store lnLs.
+        for 0 <= i < self._nruns:
+            self.lnLs[i][samp] = self.cachedLnLs[i]
+
+    IF @enable_mpi@:
+        cdef void storeLiksLnLsMpi(self, uint64_t step) except *:
+            cdef unsigned i, j
+            cdef int pSize
+            cdef Lik lik, masterLik
+            cdef mpi.MPI_Status status
+            cdef str pickle
+            cdef char *s
+
+            if self.mpiRank == 0:
+                masterLik = (<Chain>(<list>self.runs[0])[0]).lik
+
+            for 0 <= i < self._nruns:
+                # If a node other than the master owns the unheated chain for
+                # run i, transmit the lik/lnL to the master.  Since heats are
+                # swapped among coupled chains, there's no way to know a priori
+                # which chain is unheated, so start off by determining the
+                # owner of the unheated chain.
+                #
+                # Use a unique tag for each run, in order to simplify iteration
+                # order when receiving messages in node 0.  It would be
+                # possible to use a single tag, but doing so would require
+                # using the MPI status return value to determine the sender of
+                # each message, and handling the messages in an arbitrary
+                # order.
+                lik = <Lik>self.liks[i]
+                if lik is not None and self.mpiRank != 0:
+                    # Send lik/lnL to the master.
+                    assert lik is not None
+
+                    # Send pickle.
+                    pickle = cPickle.dumps(lik)
+                    s = pickle
+                    pSize = len(pickle)
+                    mpi.MPI_Send(s, pSize, mpi.MPI_BYTE, 0, TagLikLnL+i, \
+                      mpi.MPI_COMM_WORLD)
+
+                    # lnL.
+                    mpi.MPI_Send(&self.cachedLnLs[i], 1, mpi.MPI_DOUBLE, 0, \
+                      TagLikLnL+i, mpi.MPI_COMM_WORLD)
+                elif lik is None and self.mpiRank == 0:
+                    # Receive lik/lnL from a slave.
+                    assert self.mpiRank == 0
+
+                    # Get pickle size.
+                    mpi.MPI_Probe(mpi.MPI_ANY_SOURCE, TagLikLnL+i, \
+                      mpi.MPI_COMM_WORLD, &status)
+                    mpi.MPI_Get_count(&status, mpi.MPI_BYTE, &pSize)
+                    s = <char *>malloc(pSize)
+                    if s == NULL:
+                        raise MemoryError("Error allocating Lik pickle string")
+                    # Get pickle.
+                    mpi.MPI_Recv(s, pSize, mpi.MPI_BYTE, \
+                      mpi.MPI_ANY_SOURCE, TagLikLnL +  i, mpi.MPI_COMM_WORLD, \
+                      mpi.MPI_STATUS_IGNORE)
+                    pickle = PyString_FromStringAndSize(s, pSize)
+                    free(s)
+                    # Unpickle.
+                    self.liks[i] = masterLik.unpickle(pickle)
+                    self.liks[i].prep()
+
+                    # lnL.
+                    mpi.MPI_Recv(&self.cachedLnLs[i], 1, mpi.MPI_DOUBLE, \
+                      mpi.MPI_ANY_SOURCE, TagLikLnL+i, mpi.MPI_COMM_WORLD, \
+                      mpi.MPI_STATUS_IGNORE)
+                    assert (0.99 < self.cachedLnLs[i]/self.liks[i].lnL()) and \
+                      (self.cachedLnLs[i]/self.liks[i].lnL() < 1.01)
+
+            if self.mpiRank == 0:
+                self.storeLiksLnLsUni(step)
+
+    cdef void storeLiksLnLs(self, uint64_t step) except *:
+        IF @enable_mpi@:
+            if self.mpiSize == 1:
+                self.storeLiksLnLsUni(step)
+            else:
+                self.storeLiksLnLsMpi(step)
+        ELSE:
+            self.storeLiksLnLsUni(step)
+
+    cdef void sendSample(self, unsigned runInd, uint64_t step, \
+      double heat, uint64_t nswap, uint64_t *accepts, uint64_t *rejects, \
+      Lik lik, double lnL) except *:
+        cdef unsigned i
 
         # Record swap statistics.
         self.swapStats[runInd].n += nswap
@@ -215,62 +415,9 @@ cdef class Mc3:
             self.propStats[i][runInd].n = accepts[i]
             self.propStats[i][runInd].d = accepts[i] + rejects[i]
 
-        # Allocate/expand lnLs as necessary.
-        if self.lnLs == NULL:
-            self.lnLs = <double **>calloc(self._nruns+1, sizeof(double *))
-            if self.lnLs == NULL:
-                raise MemoryError("Error allocating lnLs")
+        self.liks[runInd] = lik
 
-            if self._minStep == 0:
-                self.lnLsMax = 8 # Arbitrary starting size.
-            else:
-                self.lnLsMax = self._minStep / self._stride
-            for 0 <= i < self._nruns+1:
-                self.lnLs[i] = <double *>malloc(self.lnLsMax * sizeof(double))
-                if self.lnLs[i] == NULL:
-                    for 0 <= j < i:
-                        free(self.lnLs[j])
-                    free(self.lnLs)
-                    self.lnLs = NULL
-                    raise MemoryError("Error allocating lnLs[%d]" % i)
-        elif self.lnLsMax <= sample:
-            # Grow matrix using a slowly growing exponential series.
-            lnLsMax = self.lnLsMax + 4 + (self.lnLsMax >> 3) + \
-              (self.lnLsMax >> 4)
-            for 0 <= i < self._nruns+1:
-                lnLs = <double *>realloc(self.lnLs[i], lnLsMax * sizeof(double))
-                if lnLs == NULL:
-                    raise MemoryError("Error reallocating lnLs[%d]" % i)
-                self.lnLs[i] = lnLs
-            self.lnLsMax = lnLsMax
-
-        # Store lnL.
-        self.lnLs[runInd][sample] = lnL
-
-        # Write to log files.
-        # .t
-        self.tFile.write("[%d %d] " % (runInd, step))
-        lik.tree.render(True, "%.12e", None, self.tFile)
-        self.tFile.flush()
-        # .p
-        wsum = 0.0
-        nmodels = lik.nmodels()
-        for 0 <= m < nmodels:
-            wsum += lik.getWeight(m)
-        for 0 <= m < nmodels:
-            w = (lik.getWeight(m)/wsum if wsum > 0.0 else 1.0/nmodels)
-            self.pFile.write("%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5e %.5e %s\n" % \
-              (runInd, step, m, w, lik.getRmult(m), self.formatRclass(lik, m), \
-              self.formatRates(lik, m, "%.5e"), lik.getWNorm(m), \
-              lik.getAlpha(m), self.formatFreqs(lik, m, "%.5e")))
-            if self.verbose:
-                sys.stdout.write( \
-                  "p\t%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5f %.5e %s\n" % \
-                  (runInd, step, m, w, lik.getRmult(m), \
-                  self.formatRclass(lik, m), self.formatRates(lik, m, "%.4e"), \
-                  lik.getWNorm(m), lik.getAlpha(m), \
-                  self.formatFreqs(lik, m, "%.5f")))
-        self.pFile.flush()
+        self.cachedLnLs[runInd] = lnL
 
     cdef void sendSwapInfo(self, unsigned runInd, unsigned srcChainInd, \
       unsigned dstChainInd, uint64_t step, double heat, double lnL) except *:
@@ -286,7 +433,7 @@ cdef class Mc3:
         swapInfo.heat = heat
         swapInfo.lnL = lnL
 
-    cdef void recvSwapInfo(self, unsigned runInd, unsigned dstChainInd, \
+    cdef void recvSwapInfoUni(self, unsigned runInd, unsigned dstChainInd, \
       unsigned srcChainInd, uint64_t step, double *heat, double *lnL) except *:
         cdef Mc3SwapInfo *swapInfo
 
@@ -299,11 +446,60 @@ cdef class Mc3:
         heat[0] = swapInfo.heat
         lnL[0] = swapInfo.lnL
 
-        swapInfo.step = 0
+        IF @enable_debug@:
+            swapInfo.step = 0
+
+    IF @enable_mpi@:
+        cdef void recvSwapInfoMpi(self, unsigned runInd, unsigned dstChainInd, \
+          unsigned srcChainInd, uint64_t step, double *heat, double *lnL) \
+          except *:
+            cdef Mc3SwapInfo *swapInfoSend, *swapInfoRecv
+            cdef int peerRank
+
+            assert (runInd*self._ncoupled + dstChainInd) % self.mpiSize \
+              == self.mpiRank
+            peerRank = (runInd*self._ncoupled + srcChainInd) % self.mpiSize
+            if peerRank != self.mpiRank:
+                swapInfoSend = &self.swapInfo[((runInd*self._ncoupled + \
+                  dstChainInd)*self._ncoupled + srcChainInd)*2 + \
+                  ((step/self._swapStride) % 2)]
+                assert swapInfoSend.step == step
+
+                swapInfoRecv = &self.swapInfo[((runInd*self._ncoupled + \
+                  srcChainInd)*self._ncoupled + dstChainInd)*2 + \
+                  ((step/self._swapStride) % 2)]
+
+                mpi.MPI_Sendrecv(swapInfoSend, sizeof(Mc3SwapInfo), \
+                  mpi.MPI_BYTE, peerRank, TagHeatSwap, swapInfoRecv, \
+                  sizeof(Mc3SwapInfo), mpi.MPI_BYTE, peerRank, TagHeatSwap, \
+                  mpi.MPI_COMM_WORLD, mpi.MPI_STATUS_IGNORE)
+
+                IF @enable_debug@:
+                    swapInfoSend.step = 0
+
+            self.recvSwapInfoUni(runInd, dstChainInd, srcChainInd, step, heat, \
+              lnL)
+
+    cdef void recvSwapInfo(self, unsigned runInd, unsigned dstChainInd, \
+      unsigned srcChainInd, uint64_t step, double *heat, double *lnL) except *:
+        IF @enable_mpi@:
+            if self.mpiSize == 1:
+                self.recvSwapInfoUni(runInd, dstChainInd, srcChainInd, step, \
+                  heat, lnL)
+            else:
+                self.recvSwapInfoMpi(runInd, dstChainInd, srcChainInd, step, \
+                  heat, lnL)
+        ELSE:
+            self.recvSwapInfoUni(runInd, dstChainInd, srcChainInd, step, heat, \
+              lnL)
 
     cdef void initLogs(self) except *:
         cdef file f
         cdef unsigned nchars, j
+
+        IF @enable_mpi@:
+            if self.mpiRank != 0:
+                return
 
         nchars = 0
         for 0 <= j < self.alignment.nchars:
@@ -312,6 +508,7 @@ cdef class Mc3:
         self.lFile = open("%s.l" % self.outPrefix, "w")
         self.lFile.write("Begin run: %s\n" % \
           time.strftime("%Y/%m/%d %H:%M:%S (%Z)", time.localtime(time.time())))
+        self.lFile.write("Crux version: @crux_version@\n")
         self.lFile.write("Host machine: %r\n" % (os.uname(),))
         for f in ((self.lFile, sys.stdout) if self.verbose else (self.lFile,)):
             f.write("PRNG seed: %d\n" % Crux.Config.seed)
@@ -389,13 +586,202 @@ cdef class Mc3:
         if self.verbose:
             sys.stdout.write("s\tstep\t[ lnLs ] Rcov\n")
 
+    # Allocate swapInfo matrix.
+    cdef void initSwapInfo(self) except *:
+        if self._ncoupled > 1:
+            if self.swapInfo != NULL:
+                free(self.swapInfo)
+            self.swapInfo = <Mc3SwapInfo *>calloc(self._nruns * \
+              self._ncoupled * self._ncoupled * 2, sizeof(Mc3SwapInfo))
+            if self.swapInfo == NULL:
+                raise MemoryError("Error allocating swapInfo")
+
+    # Allocate swapStats vector.
+    cdef void initSwapStats(self) except *:
+        if self.swapStats != NULL:
+            free(self.swapStats)
+        self.swapStats = <Mc3RateStats *>calloc(self._nruns, \
+          sizeof(Mc3RateStats))
+        if self.swapStats == NULL:
+            raise MemoryError("Error allocating swapStats")
+
+    # Allocate propStats vectors.
+    cdef void initPropStats(self) except *:
+        cdef unsigned i
+
+        for 0 <= i < PropCnt:
+            if self.propStats[i] != NULL:
+                free(self.propStats[i])
+            self.propStats[i] = <Mc3RateStats *>calloc(self._nruns, \
+              sizeof(Mc3RateStats))
+            if self.propStats[i] == NULL:
+                raise MemoryError("Error allocating propStats[%d]" % i)
+
+    cdef void initLiks(self) except *:
+        self.liks = [None] * self._nruns
+
+    cdef void resetLiks(self) except *:
+        cdef unsigned i
+
+        for 0 <= i <  self._nruns:
+            self.liks[i] = None
+
+    cdef void initLnLs(self) except *:
+        if self.cachedLnLs != NULL:
+            free(self.cachedLnLs)
+            self.cachedLnLs = NULL
+        if self.lnLs != NULL:
+            free(self.lnLs)
+            self.lnLs = NULL
+        self.lnLsMax = 0
+
+        self.cachedLnLs = <double *>malloc(self._nruns * sizeof(double))
+        if self.cachedLnLs == NULL:
+            raise MemoryError("Error allocating cachedLnLs")
+
+        self.lnLs = <double **>calloc(self._nruns+1, sizeof(double *))
+        if self.lnLs == NULL:
+            raise MemoryError("Error allocating lnLs")
+
+    # Initialize propsCdf, which is used to choose proposal types.
+    cdef void initPropsCdf(self) except *:
+        cdef double propsSum
+        cdef unsigned i
+
+        assert sizeof(self.props)/sizeof(double) == PropCnt
+        assert sizeof(self.propsCdf)/sizeof(double) == PropCnt + 1
+        if self._nmodels < 2:
+            # There are not enough models in the mixture for weights or rate
+            # multipliers to be relevant.
+            self.props[PropWeight] = 0.0
+            self.props[PropRmult] = 0.0
+        if self.alignment.charType.get().nstates() <= 2:
+            # There are not enough states to allow rate class grouping.
+            self.props[PropRateJump] = 0.0
+        if self.alignment.ntaxa <= 3:
+            # There are not enough taxa to allow topology changes.
+            self.props[PropEtbr] = 0.0
+            self.props[PropPolytomyJump] = 0.0
+        if self._ncat < 2:
+            # There aren't multiple rate categories, so Gamma-distributed rates
+            # are irrelevant.
+            self.props[PropRateShapeInv] = 0.0
+            self.props[PropRateShapeInvJump] = 0.0
+        propsSum = 0.0
+        for 0 <= i < sizeof(self.props) / sizeof(double):
+            propsSum += self.props[i]
+        if propsSum == 0.0:
+            raise ValueError("No proposals are enabled")
+        self.propsCdf[0] = 0.0
+        for 1 <= i < sizeof(self.propsCdf) / sizeof(double):
+            self.propsCdf[i] = self.propsCdf[i-1] + (self.props[i-1] / propsSum)
+
+    cdef void initRunsUni(self) except *:
+        cdef uint32_t seed, swapSeed
+        cdef unsigned i, j
+        cdef list run
+        cdef Chain chain
+
+        seed = random.randint(0, 0xffffffffU)
+        self.runs = []
+        for 0 <= i < self._nruns:
+            swapSeed = seed
+            seed += 1
+            run = []
+            self.runs.append(run)
+            for 0 <= j < self._ncoupled:
+                # Seed every chain differently.
+                chain = Chain(self, i, j, swapSeed, seed)
+                seed += 1
+                run.append(chain)
+
+    IF @enable_mpi@:
+        cdef void initRunsMpi(self) except *:
+            cdef uint32_t seed, swapSeed
+            cdef unsigned i, j
+            cdef list run
+            cdef Chain chain
+
+            seed = random.randint(0, 0xffffffffU)
+            self.runs = []
+            for 0 <= i < self._nruns:
+                swapSeed = seed
+                seed += 1
+                run = []
+                self.runs.append(run)
+                for 0 <= j < self._ncoupled:
+                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiRank:
+                        chain = Chain(self, i, j, swapSeed, seed)
+                    else:
+                        chain = None
+                    # Seed every chain differently.
+                    seed += 1
+                    run.append(chain)
+
+    # Create/initialize chains.
+    cdef void initRuns(self) except *:
+        IF @enable_mpi@:
+            if self.mpiSize == 1:
+                self.initRunsUni()
+            else:
+                self.initRunsMpi()
+        ELSE:
+            self.initRunsUni()
+
+    cdef void advanceUni(self) except *:
+        cdef unsigned i, j
+        cdef list run
+        cdef Chain chain
+
+        for 0 <= i < self._nruns:
+            run = <list>self.runs[i]
+            for 0 <= j < self._ncoupled:
+                chain = <Chain>run[j]
+                chain.advance0()
+
+        for 0 <= i < self._nruns:
+            run = <list>self.runs[i]
+            for 0 <= j < self._ncoupled:
+                chain = <Chain>run[j]
+                chain.advance1()
+
+    IF @enable_mpi@:
+        cdef void advanceMpi(self) except *:
+            cdef unsigned i, j
+            cdef list run
+            cdef Chain chain
+
+            for 0 <= i < self._nruns:
+                run = <list>self.runs[i]
+                for 0 <= j < self._ncoupled:
+                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiRank:
+                        chain = <Chain>run[j]
+                        chain.advance0()
+
+            for 0 <= i < self._nruns:
+                run = <list>self.runs[i]
+                for 0 <= j < self._ncoupled:
+                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiRank:
+                        chain = <Chain>run[j]
+                        chain.advance1()
+
+    cdef void advance(self) except *:
+        IF @enable_mpi@:
+            if self.mpiSize == 1:
+                self.advanceUni()
+            else:
+                self.advanceMpi()
+        ELSE:
+            self.advanceUni()
+
     # Compute Rcov convergence diagnostic.
-    cdef double computeRcov(self, uint64_t last) except *:
+    cdef double computeRcovUni(self, uint64_t step) except *:
         cdef ret
         cdef uint64_t first, past, lower, upper, i, j, n
         cdef unsigned runInd
         cdef double alphaEmp
         cdef double *rcovScratch = self.lnLs[self._nruns]
+        cdef uint64_t last = step / self._stride
 
         # Utilize (at most) the last half of each chain.
         past = last + 1
@@ -437,21 +823,41 @@ cdef class Mc3:
         ret *= (1.0 - self._cvgAlpha) / (1.0 - alphaEmp)
         return ret
 
-    cdef bint writeGraph(self, uint64_t sample) except *:
+    IF @enable_mpi@:
+        cdef double computeRcovMpi(self, uint64_t step) except *:
+            cdef double rcov
+
+            if self.mpiRank == 0:
+                rcov = self.computeRcovUni(step)
+            mpi.MPI_Bcast(&rcov, 1, mpi.MPI_DOUBLE, 0, mpi.MPI_COMM_WORLD)
+
+            return rcov
+
+    cdef double computeRcov(self, uint64_t step) except *:
+        IF @enable_mpi@:
+            if self.mpiSize == 1:
+                return self.computeRcovUni(step)
+            else:
+                return self.computeRcovMpi(step)
+        ELSE:
+            return self.computeRcovUni(step)
+
+    cdef bint writeGraph(self, uint64_t step) except *:
         cdef file gfile
         cdef list cols0, cols1, lnLs0, lnLs1, colors
-        cdef uint64_t past, xsp, i
+        cdef uint64_t samp, past, xsp, i
         cdef unsigned runInd
         cdef double lnL, rcov
 
-        past = sample+1
+        samp = step / self._stride
+        past = samp+1
         if past < 4:
             # The code below does not generate an informative graph until there
             # are at least four samples to work with.
             return True
 
         # Compute which sample will be at the edge of the right graph.
-        xsp = (sample/2)+1
+        xsp = (samp/2)+1
         assert xsp > 0
 
         # Write to a temporary file, in order to be able to make the complete
@@ -477,7 +883,7 @@ cdef class Mc3:
         gfile.write("x0 = seq(0, %d, by=%d)\n" % \
           (self._stride * (xsp-1), self._stride))
         gfile.write("x1 = seq(%d, %d, by=%d)\n" % \
-          (self._stride * xsp, self._stride * sample, self._stride))
+          (self._stride * xsp, self._stride * samp, self._stride))
 
         gfile.write("par(mfrow=c(1, 2))\n")
 
@@ -554,16 +960,19 @@ cdef class Mc3:
         strs.append(" ]")
         return "".join(strs)
 
-    cdef str formatLnLs(self, uint64_t sample, str fmt):
+    cdef str formatLnLs(self, uint64_t step, str fmt):
+        cdef uint64_t samp
         cdef list strs
         cdef unsigned i
+
+        samp = step / self._stride
 
         strs = []
         strs.append("[ ")
         for 0 <= i < self._nruns:
             if i > 0:
                 strs.append(" ")
-            strs.append(fmt % self.lnLs[i][sample])
+            strs.append(fmt % self.lnLs[i][samp])
         strs.append(" ]")
         return "".join(strs)
 
@@ -602,29 +1011,111 @@ cdef class Mc3:
 
         return "".join(strs)
 
-    cdef void updateDiags(self, uint64_t step):
-        cdef unsigned runInd, i
-        cdef Mc3RateStats *rateStats
-        cdef double xt
+    # Write to .l log file.
+    cdef void lWrite(self, str s) except *:
+        IF @enable_mpi@:
+            if self.mpiRank != 0:
+                return
 
-        for 0 <= runInd < self._nruns:
-            # Compute the exponential moving averages for heat swap rates.
-            # Swaps are double-counted, since both participants count them.
-            rateStats = &self.swapStats[runInd]
-            rateStats.ema += self._emaAlpha * \
-              (<double>rateStats.n/(2.0*<double>self._stride) - \
-              rateStats.ema)
-            rateStats.n = 0
+        self.lFile.write(s)
+        self.lFile.flush()
+        if self.verbose:
+            sys.stdout.write(s)
 
-            # Compute the exponential moving averages for proposal acceptance
-            # rates.
-            for 0 <= i < PropCnt:
-                rateStats = &self.propStats[i][runInd]
-                if rateStats.d == 0:
-                    xt = 0.0
-                else:
-                    xt = (<double>rateStats.n/<double>rateStats.d)
-                rateStats.ema += self._emaAlpha * (xt - rateStats.ema)
+    # Write to .t log file.
+    cdef void tWrite(self, uint64_t step) except *:
+        cdef unsigned i
+        cdef Lik lik
+
+        IF @enable_mpi@:
+            if self.mpiRank != 0:
+                return
+
+        for 0 <= i < self._nruns:
+            lik = <Lik>self.liks[i]
+            self.tFile.write("[%d %d] " % (i, step))
+            lik.tree.render(True, "%.12e", None, self.tFile)
+        self.tFile.flush()
+
+    # Write to .p log file.
+    cdef void pWrite(self, uint64_t step) except *:
+        cdef unsigned i, m
+        cdef double wsum, w
+        cdef Lik lik
+
+        IF @enable_mpi@:
+            if self.mpiRank != 0:
+                return
+
+        for 0 <= i < self._nruns:
+            lik = <Lik>self.liks[i]
+            wsum = 0.0
+            nmodels = lik.nmodels()
+            for 0 <= m < nmodels:
+                wsum += lik.getWeight(m)
+            assert wsum > 0.0
+            for 0 <= m < nmodels:
+                w = lik.getWeight(m)/wsum
+                self.pFile.write("%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5e %.5e %s\n" \
+                  % (i, step, m, w, lik.getRmult(m), \
+                  self.formatRclass(lik, m), self.formatRates(lik, m, "%.5e"), \
+                  lik.getWNorm(m), lik.getAlpha(m), \
+                  self.formatFreqs(lik, m, "%.5e")))
+                if self.verbose:
+                    sys.stdout.write( \
+                      "p\t%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5f %.5e %s\n" % \
+                      (i, step, m, w, lik.getRmult(m), \
+                      self.formatRclass(lik, m), \
+                      self.formatRates(lik, m, "%.4e"), lik.getWNorm(m), \
+                      lik.getAlpha(m), self.formatFreqs(lik, m, "%.5f")))
+        self.pFile.flush()
+
+    # Write to .s log file.
+    cdef void sWrite(self, uint64_t step, double rcov) \
+      except *:
+        cdef str swapStats, propStats, rcovStr
+
+        IF @enable_mpi@:
+            if self.mpiRank != 0:
+                return
+
+        rcovStr = ("%.6f" % rcov if rcov != -1.0 else "--------")
+        swapStats = self.formatRateStats(self.swapStats)
+        propStats = self.formatPropStats()
+        self.sFile.write("%d\t%s %s %s %s\n" % (step, \
+          self.formatLnLs(step, "%.11e"), rcovStr, swapStats, \
+          propStats))
+        self.sFile.flush()
+        if self.verbose:
+            sys.stdout.write("s\t%d\t%s %s\n" % (step, \
+              self.formatLnLs(step, "%.6f"), rcovStr))
+
+    cdef bint sample(self, uint64_t step) except *:
+        cdef bint converged
+        cdef double rcov
+        cdef uint64_t samp = step / self._stride
+
+        IF @enable_mpi@:
+            self.storeSwapStats()
+            self.storePropStats()
+        self.updateDiags(step)
+        self.storeLiksLnLs(step)
+
+        if step < self._minStep or self._nruns == 1 or \
+          step % (self._stride * self._cvgSampStride) != 0:
+            rcov = -1.0
+            converged = False
+        else:
+            rcov = self.computeRcov(step)
+            converged = (rcov + self._cvgAlpha + self._cvgEpsilon >= 1.0)
+
+        self.tWrite(step)
+        self.pWrite(step)
+        self.sWrite(step, rcov)
+
+        self.resetLiks()
+
+        return converged
 
     cpdef bint run(self, bint verbose=False) except *:
         """
@@ -632,189 +1123,66 @@ cdef class Mc3:
             is reached, whichever comes first.  Collate the results from the
             unheated chain(s) and write the raw results to disk.
         """
-        cdef double propsSum, rcov, graphT0, graphT1
-        cdef Chain chain
-        cdef uint32_t seed, swapSeed
-        cdef unsigned i, j
-        cdef uint64_t step, sample
-        cdef list run
-        cdef bint converged
-        cdef str swapStats, propStats, rcovStr
+        cdef double graphT0, graphT1
+        cdef uint64_t step
+        cdef bint graph
 
         self.verbose = verbose
 
         self.initLogs()
+        self.initSwapInfo()
+        self.initSwapStats()
+        self.initPropStats()
+        self.initLiks()
+        self.initLnLs()
+        self.initPropsCdf()
+        self.initRuns()
 
-        # Allocate swapInfo matrix.
-        if self._ncoupled > 1:
-            if self.swapInfo != NULL:
-                free(self.swapInfo)
-            self.swapInfo = <Mc3SwapInfo *>calloc(self._nruns * \
-              self._ncoupled * self._ncoupled * 2, sizeof(Mc3SwapInfo))
-            if self.swapInfo == NULL:
-                raise MemoryError("Error allocating swapInfo")
-
-        # Allocate swapStats vector.
-        if self.swapStats != NULL:
-            free(self.swapStats)
-        self.swapStats = <Mc3RateStats *>calloc(self._nruns, \
-          sizeof(Mc3RateStats))
-        if self.swapStats == NULL:
-            raise MemoryError("Error allocating swapStats")
-
-        # Allocate propStats vectors.
-        for 0 <= i < PropCnt:
-            if self.propStats[i] != NULL:
-                free(self.propStats[i])
-            self.propStats[i] = <Mc3RateStats *>calloc(self._nruns, \
-              sizeof(Mc3RateStats))
-            if self.propStats[i] == NULL:
-                raise MemoryError("Error allocating propStats[%d]" % i)
-
-        # Initialize propsCdf, which is used to choose proposal types.
-        assert sizeof(self.props)/sizeof(double) == PropCnt
-        assert sizeof(self.propsCdf)/sizeof(double) == PropCnt + 1
-        if self._nmodels < 2:
-            # There are not enough models in the mixture for weights or rate
-            # multipliers to be relevant.
-            self.props[PropWeight] = 0.0
-            self.props[PropRmult] = 0.0
-        if self.alignment.charType.get().nstates() <= 2:
-            # There are not enough states to allow rate class grouping.
-            self.props[PropRateJump] = 0.0
-        if self.alignment.ntaxa <= 3:
-            # There are not enough taxa to allow topology changes.
-            self.props[PropEtbr] = 0.0
-            self.props[PropPolytomyJump] = 0.0
-        if self._ncat < 2:
-            # There aren't multiple rate categories, so Gamma-distributed rates
-            # are irrelevant.
-            self.props[PropRateShapeInv] = 0.0
-            self.props[PropRateShapeInvJump] = 0.0
-        propsSum = 0.0
-        for 0 <= i < sizeof(self.props) / sizeof(double):
-            propsSum += self.props[i]
-        if propsSum == 0.0:
-            raise ValueError("No proposals are enabled")
-        self.propsCdf[0] = 0.0
-        for 1 <= i < sizeof(self.propsCdf) / sizeof(double):
-            self.propsCdf[i] = self.propsCdf[i-1] + (self.props[i-1] / propsSum)
-
-        # Create/initialize chains.
-        seed = random.randint(0, 0xffffffffU)
-        self.runs = []
-        for 0 <= i < self._nruns:
-            swapSeed = seed
-            seed += 1
-            run = []
-            self.runs.append(run)
-            for 0 <= j < self._ncoupled:
-                # Seed every chain differently.
-                chain = Chain(self, i, j, swapSeed, seed)
-                seed += 1
-                run.append(chain)
-
-        if self._graphDelay >= 0.0:
+        IF @enable_mpi@:
+            if self.mpiRank == 0:
+                graph = (self._graphDelay >= 0.0)
+            else:
+                graph = False
+        ELSE:
+            graph = (self._graphDelay >= 0.0)
+        if graph:
             graphT0 = 0.0
 
-        # Write to .s log file.
-        step = 0
-        sample = step / self._stride
-        swapStats = self.formatRateStats(self.swapStats)
-        propStats = self.formatPropStats()
-        self.sFile.write("%d\t%s -------- %s %s\n" % (step, \
-          self.formatLnLs(sample, "%.11e"), swapStats, propStats))
-        self.sFile.flush()
-        if self.verbose:
-            sys.stdout.write("s\t%d\t%s --------\n" % \
-              (step, self.formatLnLs(sample, "%.6f")))
-
+        self.sample(0)
         try:
-            # Run the chains to at least _minStep.  Step 0 was created during
-            # chain initialization.
-            for 1 <= step < self._minStep:
-                sample = step / self._stride
-                for 0 <= i < self._nruns:
-                    run = <list>self.runs[i]
-                    for 0 <= j < self._ncoupled:
-                        chain = <Chain>run[j]
-                        chain.advance()
-                if step % self._stride == 0:
-                    self.updateDiags(step)
-                    # Write to .s log file.
-                    swapStats = self.formatRateStats(self.swapStats)
-                    propStats = self.formatPropStats()
-                    self.sFile.write("%d\t%s -------- %s %s\n" % (step, \
-                      self.formatLnLs(sample, "%.11e"), swapStats, propStats))
-                    self.sFile.flush()
-                    if self.verbose:
-                        sys.stdout.write("s\t%d\t%s --------\n" % \
-                          (step, self.formatLnLs(sample, "%.6f")))
-
-                    # Write graph.
-                    if self._graphDelay >= 0.0:
-                        graphT1 = time.time()
-                        if graphT1 - graphT0 >= self._graphDelay:
-                            if not self.writeGraph(sample):
-                                graphT0 = time.time()
-
             # Run the chains no further than than _maxStep.
-            for step <= step <= self._maxStep:
-                sample = step / self._stride
-                for 0 <= i < self._nruns:
-                    run = <list>self.runs[i]
-                    for 0 <= j < self._ncoupled:
-                        chain = <Chain>run[j]
-                        chain.advance()
+            for 1 <= step <= self._maxStep:
+                self.advance()
                 if step % self._stride == 0:
-                    self.updateDiags(step)
-                    if self._nruns > 1 and \
-                      step % (self._stride * self._cvgSampStride) == 0:
-                        # Check for convergence.
-                        rcov = self.computeRcov(sample)
-                        converged = (rcov + self._cvgAlpha + self._cvgEpsilon \
-                          >= 1.0)
-                    else:
-                        rcov = -1.0
-                        converged = False
-
-                    # Write to .s log file.
-                    rcovStr = ("%.6f" % rcov if rcov != -1.0 else "--------")
-                    swapStats = self.formatRateStats(self.swapStats)
-                    propStats = self.formatPropStats()
-                    self.sFile.write("%d\t%s %s %s %s\n" % (step, \
-                      self.formatLnLs(sample, "%.11e"), rcovStr, swapStats, \
-                      propStats))
-                    self.sFile.flush()
-                    if self.verbose:
-                        sys.stdout.write("s\t%d\t%s %s\n" % (step, \
-                          self.formatLnLs(sample, "%.6f"), rcovStr))
-
-                    if converged:
-                        if self._graphDelay >= 0.0:
+                    # sample() will not claim convergence until step is at
+                    # least _minStep.
+                    if self.sample(step):
+                        if graph:
                             # Write a graph one last time.
-                            self.writeGraph(sample)
-                        self.lFile.write("Runs converged\n")
-                        self.lFile.flush()
-                        if self.verbose:
-                            sys.stdout.write("Runs converged\n")
+                            self.writeGraph(step)
+                        self.lWrite("Runs converged\n")
                         break
 
-                    if self._graphDelay >= 0.0:
+                    if graph:
                         graphT1 = time.time()
                         if graphT1 - graphT0 >= self._graphDelay:
-                            if not self.writeGraph(sample):
+                            if not self.writeGraph(step):
                                 graphT0 = time.time()
         except:
             error = sys.exc_info()
-            self.lFile.write("Premature termination: Exception %r\n" % \
-              sys.exc_info()[1])
+            IF @enable_mpi@:
+                self.lWrite("Premature termination (MPI node %s," \
+                  " rank %d of %d): Exception %r\n" % \
+                  (MPI.Get_processor_name(), self.mpiRank, self.mpiSize, \
+                  sys.exc_info()[1]))
+            ELSE:
+                self.lWrite("Premature termination: Exception %r\n" % \
+                  sys.exc_info()[1])
             raise
         finally:
-            self.lFile.write("Finish run: %s\n" % \
+            self.lWrite("Finish run: %s\n" % \
               time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
               time.localtime(time.time())))
-            self.lFile.flush()
 
     cdef double getGraphDelay(self):
         return self._graphDelay

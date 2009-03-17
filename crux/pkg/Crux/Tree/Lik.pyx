@@ -1139,11 +1139,10 @@ cdef class Lik:
                             self.rootCL.vec[i].sn = 0
             self.rootCL.trunc(self.lik.modelsLen)
 
-    cdef void _prep(self, Node root) except *:
+    cpdef prep(self):
         cdef double wSum, qMean, wNorm
-        cdef unsigned i, stepsMax
+        cdef unsigned i
         cdef CxtLikModel *modelP
-        cdef CxtLikStep *steps
 
         if self.lik.renorm:
             # Scale weights.
@@ -1189,6 +1188,12 @@ cdef class Lik:
                         modelP.sn = self._assignSn()
                     modelP.reassign = False
                 modelP.wNorm = wNorm
+
+    cdef void _prep(self, Node root) except *:
+        cdef unsigned stepsMax
+        cdef CxtLikStep *steps
+
+        self.prep()
 
         # Expand steps, if necessary.
         stepsMax = ((2 * self.alignment.ntaxa) - 2) * self.lik.modelsMax

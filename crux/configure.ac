@@ -429,6 +429,12 @@ fi
 ],
 [enable_mpi="1"]
 )
+if test "x$enable_mpi" = "x1" ; then
+  AC_CHECK_HEADERS([mpi.h], , [enable_mpi=0])
+fi
+if test "x$enable_mpi" = "x1" ; then
+  AC_CHECK_LIB([mpi], [MPI_Init], , [enable_mpi=0])
+fi
 mpi4py_includes=""
 if test "x$enable_mpi" = "x1" ; then
   dnl Check whether mpi4py is installed.
@@ -467,8 +473,7 @@ EOF
     [
     1>conftest cat << EOF
 import mpi4py
-import sys
-print "%s/include" % sys.modules['mpi4py'].__path__[0]
+print mpi4py.get_include()
 EOF
 ]
     mpi4py_includes="`${PYTHON} conftest`"
