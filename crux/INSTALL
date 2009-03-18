@@ -38,9 +38,16 @@ be built in to Crux:
   underlying MPI implementation.  One of the following is recommended, since
   they are used during Crux development:
 
+    + Open MPI (http://www.open-mpi.org/).
+
     + MPICH2 (http://www.mcs.anl.gov/research/projects/mpich2/).
 
-    + Open MPI (http://www.open-mpi.org/).
+  In order to build Crux with MPI support, make sure that the same MPI
+  installation is used to compile both mpi4py and Crux.  On ELF-based system,
+  use something like the following command to configure Crux:
+
+    CC=/usr/local/openmpi/bin/mpicc FC=/usr/local/openmpi/bin/mpif90 \
+      ./configure --with-rpath=/usr/local/openmpi/lib
 
 * LAPACK (http://www.netlib.org/lapack/) is a package of linear algebra
   routines.
@@ -80,9 +87,6 @@ the root directory of the source tree:
     make
     make install
 
-Note that if ATLAS is not already installed, you need to disable CPU power
-saving before building Crux.  See ATLAS notes above for more details.
-
 === Advanced Configuration =====================================================
 
 The 'configure' script supports numerous options that allow control of which
@@ -101,6 +105,10 @@ list) to 'configure':
     will cause files to be installed into /usr/local/bin, /usr/local/share,
     and /usr/local/man.  Note that in order to integrate with Python, Crux
     installs its packages and modules Python's site-packages directory.
+
+--with-rpath=<colon-separated-rpath>
+    Embed one or more library paths, so that Crux's internal shared library can
+    find the libraries it is linked to.  This works only on ELF-based systems.
 
 --with-python=<path-to-python>
     Use the indicated Python interpreter, rather than using the shell PATH

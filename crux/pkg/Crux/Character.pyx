@@ -107,7 +107,7 @@ cdef class Character:
             self._vals[val] = code
 
     # Given a state code, return the associated value.
-    cpdef int code2val(self, str code):
+    cpdef int code2val(self, str code) except -1:
         if not self._aStates.has_key(code):
             raise ValueError("State not defined: %r" % code)
 

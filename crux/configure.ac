@@ -432,9 +432,6 @@ fi
 if test "x$enable_mpi" = "x1" ; then
   AC_CHECK_HEADERS([mpi.h], , [enable_mpi=0])
 fi
-if test "x$enable_mpi" = "x1" ; then
-  AC_CHECK_LIB([mpi], [MPI_Init], , [enable_mpi=0])
-fi
 mpi4py_includes=""
 if test "x$enable_mpi" = "x1" ; then
   dnl Check whether mpi4py is installed.

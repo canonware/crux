@@ -9,7 +9,7 @@ cdef class Character:
     cdef void _stateCodeAdd(self, str code) except *
     cdef void _ambiguityCodeAdd(self, str code, list oStates) except *
     cdef void _aliasCodeAdd(self, str code, str oState) except *
-    cpdef int code2val(self, str code)
+    cpdef int code2val(self, str code) except -1
     cpdef str val2code(self, int val)
 
 cdef class Dna(Character):
