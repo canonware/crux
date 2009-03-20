@@ -211,11 +211,11 @@ cdef class Lik:
       unsigned nmodels=1, unsigned ncat=0, bint catMedian=False):
         if alignment is not None:
             self._init0(tree, alignment.nchars, \
-              alignment.charType.get().nstates(), nmodels, ncat)
-            self._init1(alignment, catMedian)
+              alignment.charType.get().nstates(), nmodels, ncat, catMedian)
+            self._init1(alignment)
 
     cdef void _init0(self, Tree tree, unsigned nchars, unsigned dim, \
-      unsigned nmodels, unsigned ncat) except *:
+      unsigned nmodels, unsigned ncat, bint catMedian) except *:
         cdef unsigned stripeWidth, npad, i
 
         if tree.rooted:
@@ -256,6 +256,7 @@ cdef class Lik:
         self.lik.dim = dim
         self.lik.rlen = self.lik.dim * (self.lik.dim-1) / 2
         self.lik.ncat = (ncat if ncat > 0 else 1)
+        self.lik.catMedian = catMedian
         self.lik.nchars = nchars + npad
         self.lik.npad = npad
         self.lik.stripeWidth = stripeWidth
@@ -270,7 +271,7 @@ cdef class Lik:
             self._allocModel(&self.lik.models[i])
             self._initModel(&self.lik.models[i], 1.0)
 
-    cdef void _init1(self, Alignment alignment, bint catMedian) except *:
+    cdef void _init1(self, Alignment alignment) except *:
         cdef unsigned stepsMax, i
 
         self.char_ = alignment.charType.get()
@@ -284,7 +285,6 @@ cdef class Lik:
               self.lik.npad)
             assert self.alignment.nchars == self.lik.nchars
 
-        self.lik.catMedian = catMedian
         self.lik.charFreqs = self.alignment.freqs
         self.lik.renorm = True
 
@@ -309,49 +309,50 @@ cdef class Lik:
 
     def __getstate__(self):
         cdef initArgs, mTuple
-        cdef list models
-        cdef unsigned i
-        cdef CxtLikModel *modelP
+        cdef unsigned i, j
+        cdef list models, rclass, rates, freqs
+        cdef double weight, rmult, alpha
 
         initArgs = (self.tree, self.lik.nchars-self.lik.npad, self.lik.dim, \
-          self.lik.ncat)
+          self.lik.ncat, self.lik.catMedian)
         models = []
         for 0 <= i < self.lik.modelsLen:
-            modelP = &self.lik.models[i]
-            mTuple = (modelP.weight, \
-              [modelP.rclass[j] for j in xrange(self.lik.rlen)], \
-              [modelP.rTri[j] for j in xrange(self.lik.rlen)], \
-              [modelP.piDiag[j] for j in xrange(self.lik.dim)], modelP.alpha)
+            weight = self.getWeight(i)
+            rmult = self.getRmult(i)
+            rclass = self.getRclass(i)
+            rates = [self.getRate(i, j) for j in xrange(self.getNrates(i))]
+            freqs = [self.getFreq(i, j) for j in xrange(self.lik.dim)]
+            alpha = self.getAlpha(i)
+
+            mTuple = (weight, rmult, rclass, rates, freqs, alpha)
             models.append(mTuple)
 
         return (initArgs, models)
 
     def __setstate__(self, data):
         cdef initArgs, mTuple
-        cdef list models, cList, rList, pList
         cdef unsigned i, j
-        cdef CxtLikModel *modelP
+        cdef list models, rclass, rates, freqs
+        cdef double weight, rmult, alpha
 
         (initArgs, models) = data
         self._init0(initArgs[0], initArgs[1], initArgs[2], len(models), \
-          initArgs[3])
+          initArgs[3], initArgs[4])
 
         for 0 <= i < self.lik.modelsLen:
-            modelP = &self.lik.models[i]
             mTuple = models[i]
-            (modelP.weight, cList, rList, pList, modelP.alpha) = mTuple
+            (weight, rmult, rclass, rates, freqs, alpha) = mTuple
 
-            assert len(cList) == self.lik.rlen
-            for 0 <= j < self.lik.rlen:
-                modelP.rclass[j] = cList[j]
+            self.setWeight(i, weight)
+            self.setRmult(i, rmult)
+            self.setRclass(i, rclass, rates)
 
-            assert len(rList) == self.lik.rlen
-            for 0 <= j < self.lik.rlen:
-                modelP.rTri[j] = rList[j]
-
-            assert len(pList) == self.lik.dim
+            assert len(freqs) == self.lik.dim
             for 0 <= j < self.lik.dim:
-                modelP.piDiag[j] = pList[j]
+                self.setFreq(i, j, freqs[j])
+
+            if alpha != INFINITY:
+                self.setAlpha(i, alpha)
 
     cdef uint64_t _assignSn(self):
         self.sn += 1
@@ -456,11 +457,13 @@ cdef class Lik:
             missing details by copying them from 'self'.
         """
         cdef Lik ret
+        cdef unsigned i
+        cdef double alpha
 
         ret = cPickle.loads(pickle)
 
         # Fill in missing details.
-        ret._init1(self.alignment, self.lik.catMedian)
+        ret._init1(self.alignment)
 
         return ret
 

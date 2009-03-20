@@ -59,8 +59,8 @@ cdef class Lik:
     cdef CL rootCL
 
     cdef void _init0(self, Tree tree, unsigned nchars, unsigned dim, \
-      unsigned nmodels, unsigned ncat) except *
-    cdef void _init1(self, Alignment alignment, bint catMedian) except *
+      unsigned nmodels, unsigned ncat, bint catMedian) except *
+    cdef void _init1(self, Alignment alignment) except *
     cdef uint64_t _assignSn(self)
     cdef void _allocModel(self, CxtLikModel *model) except *
     cdef void _initModel(self, CxtLikModel *model, double weight)

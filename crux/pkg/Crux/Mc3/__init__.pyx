@@ -77,8 +77,6 @@ IF @enable_mpi@:
     # mixing them up due to out-of-order receipt.
     cdef enum:
         TagHeatSwap = 1
-        # TagLikLnL must be greater than all other tags, since it is used as
-        # the base tag for a set of tags: [TagLikLnL..TagLikLnL+_nruns).
         TagLikLnL   = 2
 
 cdef int _lnLCmp(void *va, void *vb):
@@ -320,50 +318,56 @@ cdef class Mc3:
 
     IF @enable_mpi@:
         cdef void storeLiksLnLsMpi(self, uint64_t step) except *:
-            cdef unsigned i, j
+            cdef unsigned i, nRecv, iRecv
             cdef int pSize
             cdef Lik lik, masterLik
             cdef mpi.MPI_Status status
             cdef str pickle
             cdef char *s
+            cdef object tuple
+            IF @enable_debug@:
+                cdef double lnL
 
-            if self.mpiRank == 0:
+            if self.mpiRank != 0:
+                for 0 <= i < self._nruns:
+                    # If a node other than the master owns the unheated chain
+                    # for run i, transmit the lik/lnL to the master.  Since
+                    # heats are swapped among coupled chains, there's no way to
+                    # know a priori which chain is unheated, so start off by
+                    # determining the owner of the unheated chain.
+                    lik = <Lik>self.liks[i]
+                    if lik is not None:
+                        # Send lik/lnL to the master.
+                        tuple = (step, i, cPickle.dumps(lik), \
+                          self.cachedLnLs[i])
+                        IF @enable_debug@:
+                            lnL = lik.unpickle(tuple[2]).lnL()
+                            assert (0.99 < self.cachedLnLs[i]/lnL) and \
+                              (self.cachedLnLs[i]/lnL < 1.01)
+                        pickle = cPickle.dumps(tuple)
+                        s = pickle
+                        pSize = len(pickle)
+                        mpi.MPI_Send(s, pSize, mpi.MPI_BYTE, 0, TagLikLnL, \
+                          mpi.MPI_COMM_WORLD)
+            else:
+                # Obtain a reference to a Lik that was constructed using the
+                # same alignment as those that will be unpickled below.
                 masterLik = (<Chain>(<list>self.runs[0])[0]).lik
+                assert masterLik is not None
 
-            for 0 <= i < self._nruns:
-                # If a node other than the master owns the unheated chain for
-                # run i, transmit the lik/lnL to the master.  Since heats are
-                # swapped among coupled chains, there's no way to know a priori
-                # which chain is unheated, so start off by determining the
-                # owner of the unheated chain.
-                #
-                # Use a unique tag for each run, in order to simplify iteration
-                # order when receiving messages in node 0.  It would be
-                # possible to use a single tag, but doing so would require
-                # using the MPI status return value to determine the sender of
-                # each message, and handling the messages in an arbitrary
-                # order.
-                lik = <Lik>self.liks[i]
-                if lik is not None and self.mpiRank != 0:
-                    # Send lik/lnL to the master.
-                    assert lik is not None
+                # Count how many messages to receive.
+                nRecv = 0
+                for 0 <= i < self._nruns:
+                    if self.liks[i] is None:
+                        nRecv += 1
 
-                    # Send pickle.
-                    pickle = cPickle.dumps(lik)
-                    s = pickle
-                    pSize = len(pickle)
-                    mpi.MPI_Send(s, pSize, mpi.MPI_BYTE, 0, TagLikLnL+i, \
-                      mpi.MPI_COMM_WORLD)
-
-                    # lnL.
-                    mpi.MPI_Send(&self.cachedLnLs[i], 1, mpi.MPI_DOUBLE, 0, \
-                      TagLikLnL+i, mpi.MPI_COMM_WORLD)
-                elif lik is None and self.mpiRank == 0:
-                    # Receive lik/lnL from a slave.
+                for 0 <= i < nRecv:
+                    # Receive lik/lnL from a slave.  Messages may arrive out of
+                    # order, so use iRecv rather linear indexing.
                     assert self.mpiRank == 0
 
                     # Get pickle size.
-                    mpi.MPI_Probe(mpi.MPI_ANY_SOURCE, TagLikLnL+i, \
+                    mpi.MPI_Probe(mpi.MPI_ANY_SOURCE, TagLikLnL, \
                       mpi.MPI_COMM_WORLD, &status)
                     mpi.MPI_Get_count(&status, mpi.MPI_BYTE, &pSize)
                     s = <char *>malloc(pSize)
@@ -371,22 +375,26 @@ cdef class Mc3:
                         raise MemoryError("Error allocating Lik pickle string")
                     # Get pickle.
                     mpi.MPI_Recv(s, pSize, mpi.MPI_BYTE, \
-                      mpi.MPI_ANY_SOURCE, TagLikLnL +  i, mpi.MPI_COMM_WORLD, \
+                      mpi.MPI_ANY_SOURCE, TagLikLnL, mpi.MPI_COMM_WORLD, \
                       mpi.MPI_STATUS_IGNORE)
                     pickle = PyString_FromStringAndSize(s, pSize)
                     free(s)
                     # Unpickle.
-                    self.liks[i] = masterLik.unpickle(pickle)
-                    self.liks[i].prep()
+                    tuple = cPickle.loads(pickle)
+                    assert <uint64_t>tuple[0] == step
+                    iRecv = <unsigned>tuple[1]
+                    assert self.liks[iRecv] is None
+                    self.liks[iRecv] = masterLik.unpickle(<str>tuple[2])
+                    self.liks[iRecv].prep()
+                    self.cachedLnLs[iRecv] = <double>tuple[3]
+                    IF @enable_debug@:
+                        lnL = self.liks[iRecv].lnL()
+                        assert (0.99 < self.cachedLnLs[iRecv]/lnL) and \
+                          (self.cachedLnLs[iRecv]/lnL < 1.01)
 
-                    # lnL.
-                    mpi.MPI_Recv(&self.cachedLnLs[i], 1, mpi.MPI_DOUBLE, \
-                      mpi.MPI_ANY_SOURCE, TagLikLnL+i, mpi.MPI_COMM_WORLD, \
-                      mpi.MPI_STATUS_IGNORE)
-                    assert (0.99 < self.cachedLnLs[i]/self.liks[i].lnL()) and \
-                      (self.cachedLnLs[i]/self.liks[i].lnL() < 1.01)
-
-            if self.mpiRank == 0:
+                IF @enable_debug@:
+                    for 0 <= i < self._nruns:
+                        assert self.liks[i] is not None
                 self.storeLiksLnLsUni(step)
 
     cdef void storeLiksLnLs(self, uint64_t step) except *:
@@ -510,6 +518,8 @@ cdef class Mc3:
           time.strftime("%Y/%m/%d %H:%M:%S (%Z)", time.localtime(time.time())))
         self.lFile.write("Crux version: @crux_version@\n")
         self.lFile.write("Host machine: %r\n" % (os.uname(),))
+        IF @enable_mpi@:
+            self.lFile.write("MPI node count: %d\n" % self.mpiSize)
         for f in ((self.lFile, sys.stdout) if self.verbose else (self.lFile,)):
             f.write("PRNG seed: %d\n" % Crux.Config.seed)
             f.write("Taxa: %d\n" % self.alignment.ntaxa)
@@ -1148,8 +1158,8 @@ cdef class Mc3:
         if graph:
             graphT0 = 0.0
 
-        self.sample(0)
         try:
+            self.sample(0)
             # Run the chains no further than than _maxStep.
             for 1 <= step <= self._maxStep:
                 self.advance()
@@ -1171,10 +1181,15 @@ cdef class Mc3:
         except:
             error = sys.exc_info()
             IF @enable_mpi@:
-                self.lWrite("Premature termination (MPI node %s," \
-                  " rank %d of %d): Exception %r\n" % \
+                import traceback
+                sys.stderr.write("MPI node %s, rank %d of %d:" \
+                  " Premature termination at %s: Exception %r\n" % \
                   (MPI.Get_processor_name(), self.mpiRank, self.mpiSize, \
-                  sys.exc_info()[1]))
+                  time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
+                  time.localtime(time.time())), sys.exc_info()[1]))
+                for l in traceback.format_exception(*error):
+                    sys.stderr.write(l)
+                mpi.MPI_Abort(mpi.MPI_COMM_WORLD, 1)
             ELSE:
                 self.lWrite("Premature termination: Exception %r\n" % \
                   sys.exc_info()[1])
