@@ -1139,26 +1139,26 @@ cdef class Mc3:
 
         self.verbose = verbose
 
-        self.initLogs()
-        self.initSwapInfo()
-        self.initSwapStats()
-        self.initPropStats()
-        self.initLiks()
-        self.initLnLs()
-        self.initPropsCdf()
-        self.initRuns()
-
-        IF @enable_mpi@:
-            if self.mpiRank == 0:
-                graph = (self._graphDelay >= 0.0)
-            else:
-                graph = False
-        ELSE:
-            graph = (self._graphDelay >= 0.0)
-        if graph:
-            graphT0 = 0.0
-
         try:
+            self.initLogs()
+            self.initSwapInfo()
+            self.initSwapStats()
+            self.initPropStats()
+            self.initLiks()
+            self.initLnLs()
+            self.initPropsCdf()
+            self.initRuns()
+
+            IF @enable_mpi@:
+                if self.mpiRank == 0:
+                    graph = (self._graphDelay >= 0.0)
+                else:
+                    graph = False
+            ELSE:
+                graph = (self._graphDelay >= 0.0)
+            if graph:
+                graphT0 = 0.0
+
             self.sample(0)
             # Run the chains no further than than _maxStep.
             for 1 <= step <= self._maxStep:
@@ -1167,9 +1167,6 @@ cdef class Mc3:
                     # sample() will not claim convergence until step is at
                     # least _minStep.
                     if self.sample(step):
-                        if graph:
-                            # Write a graph one last time.
-                            self.writeGraph(step)
                         self.lWrite("Runs converged\n")
                         break
 
@@ -1178,6 +1175,9 @@ cdef class Mc3:
                         if graphT1 - graphT0 >= self._graphDelay:
                             if not self.writeGraph(step):
                                 graphT0 = time.time()
+            if graph:
+                # Write a graph one last time.
+                self.writeGraph(step)
         except:
             error = sys.exc_info()
             IF @enable_mpi@:
