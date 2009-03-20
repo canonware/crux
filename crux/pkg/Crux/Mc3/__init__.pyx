@@ -328,6 +328,11 @@ cdef class Mc3:
             IF @enable_debug@:
                 cdef double lnL
 
+            # Force synchronization between the master and slaves.  Without
+            # this synchronization, it would be possible for messages from
+            # different steps to be interleaved.
+            mpi.MPI_Barrier(mpi.MPI_COMM_WORLD)
+
             if self.mpiRank != 0:
                 for 0 <= i < self._nruns:
                     # If a node other than the master owns the unheated chain
@@ -338,10 +343,9 @@ cdef class Mc3:
                     lik = <Lik>self.liks[i]
                     if lik is not None:
                         # Send lik/lnL to the master.
-                        tuple = (step, i, cPickle.dumps(lik), \
-                          self.cachedLnLs[i])
+                        tuple = (i, cPickle.dumps(lik), self.cachedLnLs[i])
                         IF @enable_debug@:
-                            lnL = lik.unpickle(tuple[2]).lnL()
+                            lnL = lik.unpickle(tuple[1]).lnL()
                             assert (0.99 < self.cachedLnLs[i]/lnL) and \
                               (self.cachedLnLs[i]/lnL < 1.01)
                         pickle = cPickle.dumps(tuple)
@@ -381,12 +385,11 @@ cdef class Mc3:
                     free(s)
                     # Unpickle.
                     tuple = cPickle.loads(pickle)
-                    assert <uint64_t>tuple[0] == step
-                    iRecv = <unsigned>tuple[1]
+                    iRecv = <unsigned>tuple[0]
                     assert self.liks[iRecv] is None
-                    self.liks[iRecv] = masterLik.unpickle(<str>tuple[2])
+                    self.liks[iRecv] = masterLik.unpickle(<str>tuple[1])
                     self.liks[iRecv].prep()
-                    self.cachedLnLs[iRecv] = <double>tuple[3]
+                    self.cachedLnLs[iRecv] = <double>tuple[2]
                     IF @enable_debug@:
                         lnL = self.liks[iRecv].lnL()
                         assert (0.99 < self.cachedLnLs[iRecv]/lnL) and \
