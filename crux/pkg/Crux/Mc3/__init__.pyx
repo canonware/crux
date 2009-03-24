@@ -1184,15 +1184,16 @@ cdef class Mc3:
         except:
             error = sys.exc_info()
             IF @enable_mpi@:
-                import traceback
-                sys.stderr.write("MPI node %s, rank %d of %d:" \
-                  " Premature termination at %s: Exception %r\n" % \
-                  (MPI.Get_processor_name(), self.mpiRank, self.mpiSize, \
-                  time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
-                  time.localtime(time.time())), sys.exc_info()[1]))
-                for l in traceback.format_exception(*error):
-                    sys.stderr.write(l)
-                mpi.MPI_Abort(mpi.MPI_COMM_WORLD, 1)
+                if self.mpiSize > 1:
+                    import traceback
+                    sys.stderr.write("MPI node %s, rank %d of %d:" \
+                      " Premature termination at %s: Exception %r\n" % \
+                      (MPI.Get_processor_name(), self.mpiRank, self.mpiSize, \
+                      time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
+                      time.localtime(time.time())), sys.exc_info()[1]))
+                    for l in traceback.format_exception(*error):
+                        sys.stderr.write(l)
+                    mpi.MPI_Abort(mpi.MPI_COMM_WORLD, 1)
             ELSE:
                 self.lWrite("Premature termination: Exception %r\n" % \
                   sys.exc_info()[1])

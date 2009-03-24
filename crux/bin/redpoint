@@ -20,20 +20,35 @@ def check_uint(option, opt, value):
 
     return ret
 
+def check_bool(option, opt, value):
+    try:
+        if value.lower() in ("false", "no"):
+            ret = False
+        elif value.lower() in ("true", "yes"):
+            ret = True
+        else:
+            raise ValueError()
+    except ValueError:
+        raise optparse.OptionValueError("Invalid value for %s: %r" % \
+          (opt, value))
+
+    return ret
+
 class RedpointOption(optparse.Option):
-    TYPES = optparse.Option.TYPES + ("uint",)
+    TYPES = optparse.Option.TYPES + ("uint", "bool")
     TYPE_CHECKER = copy.copy(optparse.Option.TYPE_CHECKER)
     TYPE_CHECKER["uint"] = check_uint
+    TYPE_CHECKER["bool"] = check_bool
 
 class RedpointHelpFormatter(optparse.IndentedHelpFormatter):
     def format_usage(self, usage):
         return """\
 redpoint is a script based on Crux (http://www.canonware.com/Crux/) that
-analyzes a DNA alignment using Markov chain Monte Carlo to create a
-representative sample (assuming convergence) of the stationary posterior
-distribution, based on the GTR+G family of sequence evolution models.  For more
-information on methods and configuration parameters, see the relevant Crux
-documentation (crux --doc=Crux.Mc3.Mc3).
+analyzes a DNA alignment using Metropolis-coupled Markov chain Monte Carlo
+(Mc3) to create a representative sample (assuming convergence) of the
+stationary posterior distribution, based on the GTR+G family of sequence
+evolution models.  For more information on methods and configuration
+parameters, see the relevant Crux documentation (crux --doc=Crux.Mc3.Mc3).
 
 redpoint usage:
   redpoint -h | --help
@@ -41,22 +56,29 @@ redpoint usage:
   redpoint [<options>]
 
   General options:
-    -h, --help                    Print usage and exit.
-    -V, --version                 Print version information and exit.
-    -v, --verbose                 Enable verbose output (*disabled).
-    -q, --quiet                   Disable verbose output (*enabled).
-    -t, --threaded                Enable thread parallelism (*enabled).
-    -u, --unthreaded              Disable thread parallelism.
-    -s <int>, --seed=<uint>       Set pseudo-random number generator seed
-                                    (*based on system time, microsecond
-                                    resolution).
+    -h, --help                   Print usage and exit.
+    -V, --version                Print version information and exit.
+    -v, --verbose                Enable verbose output (*disabled).
+    -q, --quiet                  Disable verbose output (*enabled).
+    -t, --threaded               Enable thread parallelism (*enabled).
+    -u, --unthreaded             Disable thread parallelism.
+    -s <uint>, --seed=<uint>     Set pseudo-random number generator seed
+                                   (*based on system time, microsecond
+                                   resolution).
 
   Input/output options:
-    -i, --input-file=<file>       Input DNA alignment, in FASTA format.
-    -o, --output-prefix=<prefix>  Output path prefix, used as the base name for
-                                  output files.
+    -i <file>,                   Input DNA alignment, in FASTA format.
+       --input-file=<file>
+    -o <prefix>,                 Output path prefix, used as the base name for
+       --output-prefix=<prefix>    output files.
+    -m <mode>, --mode=<mode>     Set mode to one of:
+                                    run: Run Mc3 analysis.
+                                   post: Compute statistics on previously
+                                         generated Mc3 posterior distribution.
+                                    all: Run Mc3 and compute statistics
+                                         (*default).
 
-  MCMC options (see Crux.Mc3.Mc3.optName for documentation):
+  Mc3 options (see Crux.Mc3.Mc3.optName for documentation):
 
     General:                            Model parameter priors:
       --graphDelay=<float>                --rateShapeInvPrior=<float>
@@ -82,7 +104,20 @@ redpoint usage:
       --rateShapeInvLambda=<float>
       --brlenLambda=<float>
       --etbrPExt=<float>
-      --etbrLambda=<float>"""
+      --etbrLambda=<float>
+
+  Posterior distribution statistics options (*all enabled by default):
+    --burnin=<burnin>  Set number of burn-in samples.  Specify --burnin=half for
+                         a burn-in equal to half the total samples (*default).
+    --sum=<bool>       Write summary statistics to <prefix>.sum.
+    --trprobs=<bool>   Write tree topology frequencies with mean branch lengths
+                         to <prefix>.trprobs.
+    --splits=<bool>    Write MSE's of splits frequencies among runs to
+                         <prefix>.splits.
+    --parts=<bool>     Write partition frequencies and branch length statistics
+                         to <prefix>.parts.
+    --con=<bool>       Write concensus tree with node support values (as
+                         comments) to <prefix>.con."""
 
 # Process the command line.
 def parse_options():
@@ -106,6 +141,7 @@ def parse_options():
 
     parser.add_option("-i", "--input-file", dest="inFilename", default=None)
     parser.add_option("-o", "--output-prefix", dest="outPrefix", default=None)
+    parser.add_option("-m", "--mode", dest="mode", default="all")
 
     parser.add_option("--graphDelay", dest="graphDelay", type="float",
       default=None)
@@ -126,7 +162,7 @@ def parse_options():
       default=None)
     parser.add_option("--nmodels", dest="nmodels", type="uint", default=None)
     parser.add_option("--ncat", dest="ncat", type="uint", default=None)
-    parser.add_option("--catMedian", dest="catMedian", action="store_true",
+    parser.add_option("--catMedian", dest="catMedian", type="bool",
       default=None)
     parser.add_option("--weightLambda", dest="weightLambda", type="float",
       default=None)
@@ -175,6 +211,14 @@ def parse_options():
     parser.add_option("--rateShapeInvJumpProp", dest="rateShapeInvJumpProp",
       type="float", default=None)
 
+    parser.add_option("--burnin", dest="burnin", default="half")
+
+    parser.add_option("--sum", dest="sum", type="bool", default=True)
+    parser.add_option("--trprobs", dest="trprobs", type="bool", default=True)
+    parser.add_option("--splits", dest="splits", type="bool", default=True)
+    parser.add_option("--parts", dest="parts", type="bool", default=True)
+    parser.add_option("--con", dest="con", type="bool", default=True)
+
     (opts, extra) = parser.parse_args()
     if (len(extra) > 0):
         print >> sys.stderr, "Incorrect command line usage"
@@ -199,6 +243,23 @@ def parse_options():
         print >> sys.stderr, helpformatter.format_usage("")
         sys.exit(1)
 
+    if opts.mode not in ("run", "post", "all"):
+        print >> sys.stderr, "Invalid mode: %s" % opts.mode
+        print >> sys.stderr, helpformatter.format_usage("")
+        sys.exit(1)
+
+    if opts.burnin == "half":
+        opts.burnin = 0xffffffffffffffff
+    else:
+        try:
+            opts.burnin = int(opts.burnin)
+            if opts.burnin < 0:
+                raise ValueError()
+        except:
+            print >> sys.stderr, "Invalid burnin: %r" % opts.burnin
+            print >> sys.stderr, helpformatter.format_usage("")
+            sys.exit(1)
+
     return opts
 
 #===============================================================================
@@ -219,57 +280,154 @@ Crux.seed(opts.seed)
 cTMatrix = Crux.CTMatrix.CTMatrix(open(opts.inFilename, "r"))
 alignment = Crux.CTMatrix.Alignment(matrix=cTMatrix)
 alignment.compact()
-mc3 = Crux.Mc3.Mc3(alignment, opts.outPrefix)
 
-# Set optional Mc3 configuration parameters.
-if opts.graphDelay is not None: mc3.graphDelay = opts.graphDelay
-if opts.cvgSampStride is not None: mc3.cvgSampStride = opts.cvgSampStride
-if opts.cvgAlpha is not None: mc3.cvgAlpha = opts.cvgAlpha
-if opts.cvgEpsilon is not None: mc3.cvgEpsilon = opts.cvgEpsilon
-if opts.minStep is not None: mc3.minStep = opts.minStep
-if opts.maxStep is not None:
-    # Automatically reduce the default minStep if necessary to avoid a
-    # validation error.
-    if opts.minStep is None and mc3.minStep > opts.maxStep:
-        mc3.minStep = opts.maxStep
-    mc3.maxStep = opts.maxStep
-if opts.stride is not None: mc3.stride = opts.stride
-if opts.nruns is not None: mc3.nruns = opts.nruns
-if opts.ncoupled is not None: mc3.ncoupled = opts.ncoupled
-if opts.heatDelta is not None: mc3.heatDelta = opts.heatDelta
-if opts.swapStride is not None: mc3.swapStride = opts.swapStride
-if opts.nmodels is not None: mc3.nmodels = opts.nmodels
-if opts.ncat is not None: mc3.ncat = opts.ncat
-if opts.catMedian is not None: mc3.catMedian = opts.catMedian
-if opts.weightLambda is not None: mc3.weightLambda = opts.weightLambda
-if opts.freqLambda is not None: mc3.freqLambda = opts.freqLambda
-if opts.rmultLambda is not None: mc3.rmultLambda = opts.rmultLambda
-if opts.rateLambda is not None: mc3.rateLambda = opts.rateLambda
-if opts.rateShapeInvLambda is not None:
-    mc3.rateShapeInvLambda = opts.rateShapeInvLambda
-if opts.brlenLambda is not None: mc3.brlenLambda = opts.brlenLambda
-if opts.etbrPExt is not None: mc3.etbrPExt = opts.etbrPExt
-if opts.etbrLambda is not None: mc3.etbrLambda = opts.etbrLambda
-if opts.rateShapeInvPrior is not None:
-    mc3.rateShapeInvPrior = opts.rateShapeInvPrior
-if opts.brlenPrior is not None: mc3.brlenPrior = opts.brlenPrior
-if opts.rateJumpPrior is not None: mc3.rateJumpPrior = opts.rateJumpPrior
-if opts.polytomyJumpPrior is not None:
-    mc3.polytomyJumpPrior = opts.polytomyJumpPrior
-if opts.rateShapeInvJumpPrior is not None:
-    mc3.rateShapeInvJumpPrior = opts.rateShapeInvJumpPrior
-if opts.weightProp is not None: mc3.weightProp = opts.weightProp
-if opts.freqProp is not None: mc3.freqProp = opts.freqProp
-if opts.rmultProp is not None: mc3.rmultProp = opts.rmultProp
-if opts.rateProp is not None: mc3.rateProp = opts.rateProp
-if opts.rateShapeInvProp is not None:
-    mc3.rateShapeInvProp = opts.rateShapeInvProp
-if opts.brlenProp is not None: mc3.brlenProp = opts.brlenProp
-if opts.etbrProp is not None: mc3.etbrProp = opts.etbrProp
-if opts.rateJumpProp is not None: mc3.rateJumpProp = opts.rateJumpProp
-if opts.polytomyJumpProp is not None:
-    mc3.polytomyJumpProp = opts.polytomyJumpProp
-if opts.rateShapeInvJumpProp is not None:
-    mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
+if opts.mode in ("run", "all"):
+    mc3 = Crux.Mc3.Mc3(alignment, opts.outPrefix)
 
-mc3.run(verbose=opts.verbose)
+    # Set optional Mc3 configuration parameters.
+    if opts.graphDelay is not None: mc3.graphDelay = opts.graphDelay
+    if opts.cvgSampStride is not None: mc3.cvgSampStride = opts.cvgSampStride
+    if opts.cvgAlpha is not None: mc3.cvgAlpha = opts.cvgAlpha
+    if opts.cvgEpsilon is not None: mc3.cvgEpsilon = opts.cvgEpsilon
+    if opts.minStep is not None: mc3.minStep = opts.minStep
+    if opts.maxStep is not None:
+        # Automatically reduce the default minStep if necessary to avoid a
+        # validation error.
+        if opts.minStep is None and mc3.minStep > opts.maxStep:
+            mc3.minStep = opts.maxStep
+        mc3.maxStep = opts.maxStep
+    if opts.stride is not None: mc3.stride = opts.stride
+    if opts.nruns is not None: mc3.nruns = opts.nruns
+    if opts.ncoupled is not None: mc3.ncoupled = opts.ncoupled
+    if opts.heatDelta is not None: mc3.heatDelta = opts.heatDelta
+    if opts.swapStride is not None: mc3.swapStride = opts.swapStride
+    if opts.nmodels is not None: mc3.nmodels = opts.nmodels
+    if opts.ncat is not None: mc3.ncat = opts.ncat
+    if opts.catMedian is not None: mc3.catMedian = opts.catMedian
+    if opts.weightLambda is not None: mc3.weightLambda = opts.weightLambda
+    if opts.freqLambda is not None: mc3.freqLambda = opts.freqLambda
+    if opts.rmultLambda is not None: mc3.rmultLambda = opts.rmultLambda
+    if opts.rateLambda is not None: mc3.rateLambda = opts.rateLambda
+    if opts.rateShapeInvLambda is not None:
+        mc3.rateShapeInvLambda = opts.rateShapeInvLambda
+    if opts.brlenLambda is not None: mc3.brlenLambda = opts.brlenLambda
+    if opts.etbrPExt is not None: mc3.etbrPExt = opts.etbrPExt
+    if opts.etbrLambda is not None: mc3.etbrLambda = opts.etbrLambda
+    if opts.rateShapeInvPrior is not None:
+        mc3.rateShapeInvPrior = opts.rateShapeInvPrior
+    if opts.brlenPrior is not None: mc3.brlenPrior = opts.brlenPrior
+    if opts.rateJumpPrior is not None: mc3.rateJumpPrior = opts.rateJumpPrior
+    if opts.polytomyJumpPrior is not None:
+        mc3.polytomyJumpPrior = opts.polytomyJumpPrior
+    if opts.rateShapeInvJumpPrior is not None:
+        mc3.rateShapeInvJumpPrior = opts.rateShapeInvJumpPrior
+    if opts.weightProp is not None: mc3.weightProp = opts.weightProp
+    if opts.freqProp is not None: mc3.freqProp = opts.freqProp
+    if opts.rmultProp is not None: mc3.rmultProp = opts.rmultProp
+    if opts.rateProp is not None: mc3.rateProp = opts.rateProp
+    if opts.rateShapeInvProp is not None:
+        mc3.rateShapeInvProp = opts.rateShapeInvProp
+    if opts.brlenProp is not None: mc3.brlenProp = opts.brlenProp
+    if opts.etbrProp is not None: mc3.etbrProp = opts.etbrProp
+    if opts.rateJumpProp is not None: mc3.rateJumpProp = opts.rateJumpProp
+    if opts.polytomyJumpProp is not None:
+        mc3.polytomyJumpProp = opts.polytomyJumpProp
+    if opts.rateShapeInvJumpProp is not None:
+        mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
+
+    mc3.run(verbose=opts.verbose)
+
+if @enable_mpi@:
+    from mpi4py import MPI
+    rank = MPI.COMM_WORLD.Get_rank()
+    if rank != 0:
+        # Only one node needs to do post-processing.
+        sys.exit(0)
+
+if opts.mode in ("post", "all"):
+    post = Crux.Mc3.Post.Post(alignment, opts.outPrefix, opts.burnin, \
+      opts.verbose)
+
+    if opts.sum:
+
+        fSum = open("%s.sum" % opts.outPrefix, "w")
+        files = [fSum]
+        if opts.verbose:
+            files.append(sys.stdout)
+
+        char_ = alignment.charType.get()
+        states = char_.pcodes()
+
+        for f in files:
+            f.write("Parameter\tRcov\t\t1.0-alpha\t1.0-alpha-epsilon\n")
+            f.write("--------------------------------------------------" \
+              "---------------\n")
+            if post.mc3.nruns > 1:
+                f.write("lnL\t\t%.6f\t%.6f\t%.6f\n" % \
+                  (post.rcovLnL, 1.0 - post.mc3.cvgAlpha, \
+                  1.0 - post.mc3.cvgAlpha - post.mc3.cvgEpsilon))
+            else:
+                f.write("lnL\t\tN/A\n")
+            if post.mc3.nruns > 1 and post.mc3.nmodels == 1:
+                f.write("rclass\t\t%.6f\t%.6f\n" % \
+                  (post.rcovRclass, 1.0 - post.mc3.cvgAlpha))
+            else:
+                f.write("rclass\t\tN/A (nmodels != 1)\n")
+
+            f.write("\n")
+
+            f.write("\t\t\t\t\t\t%.2f%% Cred. Interval\n" % \
+              ((1.0 - post.mc3.cvgAlpha) * 100.0))
+            f.write("\t\t\t\t\t\t-------------------------------\n")
+            f.write("Parameter\tMean\t\tVariance\tLower\t\tUpper\t\tMedian\n")
+            f.write("-----------------------------------------------------" \
+              "-----------------------------------------\n")
+            f.write("nmodels\t\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n" % \
+              (post.nmodelsMean, post.nmodelsVar, post.nmodelsMinCred, \
+              post.nmodelsMaxCred, post.nmodelsMed))
+            f.write("lnL\t\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n" % \
+              (post.lnLMean, post.lnLVar, post.lnLMinCred, post.lnLMaxCred, \
+              post.lnLMed))
+
+            # Relative mutation rates.
+            for i in xrange(len(states)):
+                for j in xrange(i+1, len(states)):
+                    if post.mc3.nmodels == 1 and post.mc3.rateJumpProp == 0.0:
+                        f.write("r(%s<->%s)\tXXX\n" % (states[i], states[j]))
+                    else:
+                        f.write("r(%s<->%s)\tN/A\n" % (states[i], states[j]))
+
+            # State frequencies.
+            for i in xrange(len(states)):
+                if post.mc3.nmodels == 1:
+                    f.write("pi(%s)\t\tXXX\n" % states[i])
+                else:
+                    f.write("pi(%s)\t\tN/A\n" % states[i])
+
+            # +G shape.
+            if post.mc3.nmodels == 1 and post.mc3.ncat > 1:
+                f.write("+G alpha\tXXX\n")
+            else:
+                f.write("+G alpha\tN/A\n")
+
+        fSum.close()
+
+    if opts.trprobs:
+        f = open("%s.trprobs" % opts.outPrefix, "w")
+        pass # XXX
+        f.close()
+
+    if opts.splits:
+        f = open("%s.splits" % opts.outPrefix, "w")
+        pass # XXX
+        f.close()
+
+    if opts.parts:
+        f = open("%s.parts" % opts.outPrefix, "w")
+        pass # XXX
+        f.close()
+
+    if opts.con:
+        f = open("%s.con" % opts.outPrefix, "w")
+        pass # XXX
+        f.close()

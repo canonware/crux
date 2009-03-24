@@ -435,7 +435,7 @@ cdef class Post:
 
         rcovRclass = 0.0
 
-        # Compute how many 
+        # Compute length of tail.
         alpha = self.mc3.getCvgAlpha()
         tail = <uint64_t>floor(alpha * <double>self.nsamples)
 

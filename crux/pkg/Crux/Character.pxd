@@ -5,6 +5,7 @@ cdef class Character:
     cdef readonly int any
 
     cpdef int nstates(self)
+    cpdef list pcodes(self)
     cpdef list codes(self)
     cdef void _stateCodeAdd(self, str code) except *
     cdef void _ambiguityCodeAdd(self, str code, list oStates) except *

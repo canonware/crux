@@ -3,18 +3,18 @@ from Crux.Mc3 cimport Mc3
 from Crux.Tree cimport Tree
 
 cdef class Msamp:
-    cdef double weight
-    cdef double rmult
-    cdef str rclass
-    cdef list rates
-    cdef double wNorm
-    cdef double alpha
-    cdef list freqs
+    cdef readonly double weight
+    cdef readonly double rmult
+    cdef readonly str rclass
+    cdef readonly list rates
+    cdef readonly double wNorm
+    cdef readonly double alpha
+    cdef readonly list freqs
 
 cdef class Samp:
-    cdef double lnL  # Call Post.parseS() before accessing.
-    cdef list msamps # Call Post.parseP() before accessing.
-    cdef Tree tree   # Call Post.parseT() before accessing.
+    cdef readonly double lnL  # Call Post.parseS() before accessing.
+    cdef readonly list msamps # Call Post.parseP() before accessing.
+    cdef readonly Tree tree   # Call Post.parseT() before accessing.
 
 cdef class Post:
     cdef bint verbose
@@ -34,7 +34,7 @@ cdef class Post:
     cdef double _nmodelsMinCred, _nmodelsMaxCred, _nmodelsMean
     cdef double _nmodelsVar, _nmodelsMed
 
-    cdef list runs
+    cdef readonly list runs
 
     cdef void _parseL(self) except *
     cpdef parseS(self)
@@ -62,12 +62,12 @@ cdef class Post:
 
     cdef void _summarizeNmodels(self) except *
     cdef double getNmodelsMinCred(self) except -1.0
-    # property lnLMinCred
+    # property nmodelsMinCred
     cdef double getNmodelsMaxCred(self) except -1.0
-    # property lnLMaxCred
+    # property nmodelsMaxCred
     cdef double getNmodelsMean(self) except -1.0
-    # property lnLMean
+    # property nmodelsMean
     cdef double getNmodelsVar(self) except -1.0
-    # property lnLVar
+    # property nmodelsVar
     cdef double getNmodelsMed(self) except -1.0
-    # property lnLMed
+    # property nmodelsMed

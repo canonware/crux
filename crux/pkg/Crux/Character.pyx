@@ -47,6 +47,17 @@ cdef class Character:
     cpdef int nstates(self):
         return len(self._pStates)
 
+    cpdef list pcodes(self):
+        cdef list ret
+        cdef unsigned i
+
+        ret = []
+
+        for 0 <= i < len(self._pStates):
+            ret.append(self.val2code(1 << i))
+
+        return ret
+
     cpdef list codes(self):
         return self._aStates.keys()
 
