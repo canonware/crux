@@ -34,7 +34,7 @@ cdef class Vec:
         rel = (rel > 0) - (rel < 0)
         return CxCmp2Richcmp(rel, op)
 
-    cdef int cmp(Vec self, Vec other):
+    cdef int cmp(Vec self, Vec other) except *:
         cdef int rel
 
         assert self.nBits == other.nBits
@@ -46,7 +46,7 @@ cdef class Vec:
     cdef reset(self):
         memset(self.bits, 0, self.nBits >> 3)
 
-    cdef bint get(self, unsigned bit):
+    cdef bint get(self, unsigned bit) except *:
         cdef bint ret
         cdef unsigned byteOffset, bitOffset
         cdef unsigned char byte
@@ -63,7 +63,7 @@ cdef class Vec:
 
         return ret
 
-    cdef void set(self, unsigned bit, bint val):
+    cdef void set(self, unsigned bit, bint val) except *:
         cdef unsigned byteOffset, bitOffset
         cdef unsigned char byte, mask
 
@@ -87,7 +87,7 @@ cdef class Vec:
         for 0 <= i < nBytes:
             self.bits[i] = (~self.bits[i])
 
-    cdef void merge(self, Vec other):
+    cdef void merge(self, Vec other) except *:
         cdef unsigned i, nBytes
 
         assert self.nBits == other.nBits
@@ -104,6 +104,8 @@ cdef class Bipart:
         self.taxaX = {}
         taxa = tree.getTaxa()
         for 0 <= i < len(taxa):
+            if taxa[i] in self.taxaX:
+                raise ValueError("Duplicate taxa")
             self.taxaX[taxa[i]] = i
 
         self.edgeVecs = []

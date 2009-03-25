@@ -10,10 +10,10 @@ cdef class Vec:
 
     cdef int cmp(self, Vec other)
     cdef reset(self)
-    cdef bint get(self, unsigned bit)
-    cdef void set(self, unsigned bit, bint val)
+    cdef bint get(self, unsigned bit) except *
+    cdef void set(self, unsigned bit, bint val) except *
     cdef void invert(self)
-    cdef void merge(self, Vec other)
+    cdef void merge(self, Vec other) except *
 
 cdef class Bipart:
     cdef dict taxaX

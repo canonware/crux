@@ -27,7 +27,7 @@ cdef class Tree:
 
     cdef Node _dup(self, Tree newTree, Node node, Ring prevRing)
     cpdef Tree dup(self)
-    cpdef double rf(self, Tree other)
+    cpdef double rf(self, Tree other) except -1.0
     cpdef list rfs(self, list others)
     cdef void _recacheRecurse(self, Ring ring)
     cdef void _recache(self)

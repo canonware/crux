@@ -164,7 +164,7 @@ cdef class Tree:
 
         return newTree
 
-    cpdef double rf(self, Tree other):
+    cpdef double rf(self, Tree other) except -1.0:
         """
             Compute the Robinson-Foulds distance between trees, precisely as
             defined in:
