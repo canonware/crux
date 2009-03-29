@@ -716,8 +716,7 @@ cdef class Lik:
               |              |
               |_ c  e  f  - _|
 
-            the return list is [a,b,c,d,e,f].  The K2P model would be
-            [0,1,0,0,1,0]; GTR would be [0,1,2,3,4,5].
+            the return list is [a,b,c,d,e,f].  GTR would be [0,1,2,3,4,5].
         """
         cdef CxtLikModel *modelP
         cdef unsigned i
@@ -740,7 +739,6 @@ cdef class Lik:
               |              |
               |_ c  e  f  - _|
 
-            rclass=[0,1,0,0,1,0] would set the model to K2P;
             rclass=[0,1,2,3,4,5] would set the model to GTR.  Note that rate
             class integer lists must be in a canonized form, such that the first
             element of the list is always 0, and subsequent elements are at most
@@ -748,6 +746,21 @@ cdef class Lik:
 
             The relative mutation rates can be specified via the 'rates'
             parameter, which if omitted causes all rates to be set to 1.
+
+            Named model rclass equivalents:
+
+              base freqs   |
+              ==    !=     |
+              .............|
+              model        | rclass
+              -------------+--------------
+              JC     F81   | [0,0,0,0,0,0]
+              K80    HKY   | [0,1,0,0,1,0]
+              TrNef  TrN   | [0,1,0,0,2,0]
+              K81    K81uf | [0,1,2,2,1,0]
+              TIMef  TIM   | [0,1,2,2,3,0]
+                     TVM   | [0,1,2,3,1,4]
+              SYM    GTR   | [0,1,2,3,4,5]
         """
         cdef CxtLikModel *modelP
         cdef unsigned rMax, r, i

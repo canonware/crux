@@ -106,6 +106,17 @@ redpoint usage:
       --etbrPExt=<float>
       --etbrLambda=<float>
 
+  Fixed parameter overrides (appropriate proposals are implicitly disabled):
+    --fixed-topology=<file>      Use the Newick tree in <file> to fix the tree
+                                   topology.
+    --fixed-tree=<file>          Use the Newick tree in <file> to fix the tree
+                                   topology and branch lengths.
+    --fixed-rclass=<rclass>      Fix the comma-separated rclass.
+    --fixed-rates=<rates>        Fix the comma-separated rates associated with
+                                   the fixed rclass.
+    --fixed-shape=<alpha>        Fix the +G shape parameter.
+    --fixed-freqs=<freqs>        Fix the comma-separated state frequencies.
+
   Posterior distribution statistics options (*all enabled by default):
     --burnin=<burnin>  Set number of burn-in samples.  Specify --burnin=half for
                          a burn-in equal to half the total samples (*default).
@@ -211,6 +222,14 @@ def parse_options():
     parser.add_option("--rateShapeInvJumpProp", dest="rateShapeInvJumpProp",
       type="float", default=None)
 
+    parser.add_option("--fixed-topology", dest="fixed_topology", default=None)
+    parser.add_option("--fixed-tree", dest="fixed_tree", default=None)
+    parser.add_option("--fixed-rclass", dest="fixed_rclass", default=None)
+    parser.add_option("--fixed-rates", dest="fixed_rates", default=None)
+    parser.add_option("--fixed-shape", dest="fixed_shape", type="float",
+      default=None)
+    parser.add_option("--fixed-freqs", dest="fixed_freqs", default=None)
+
     parser.add_option("--burnin", dest="burnin", default="half")
 
     parser.add_option("--sum", dest="sum", type="bool", default=True)
@@ -247,6 +266,67 @@ def parse_options():
         print >> sys.stderr, "Invalid mode: %s" % opts.mode
         print >> sys.stderr, helpformatter.format_usage("")
         sys.exit(1)
+
+    opts.fixed = False
+    if opts.fixed_tree is not None:
+        opts.fixed = True
+        opts.etbrProp = 0.0
+        opts.polytomyJumpProp = 0.0
+        opts.brlenProp = 0.0
+        opts.tree = Crux.Tree.Tree(open(opts.fixed_tree).readline())
+        opts.tree.deroot()
+    elif opts.fixed_topology is not None:
+        opts.fixed = True
+        opts.etbrProp = 0.0
+        opts.polytomyJumpProp = 0.0
+        opts.tree = Crux.Tree.Tree(open(opts.fixed_topology).readline())
+        opts.tree.deroot()
+    else:
+        opts.tree = None
+
+    if opts.fixed_rclass is not None:
+        opts.fixed = True
+        try:
+            opts.fixed_rclass = [int(s) for s in opts.fixed_rclass.split(",")]
+        except:
+            print >> sys.stderr, "Malformed argument: --fixed-rclass=%s" % \
+              opts.fixed_rclass
+            print >> sys.stderr, helpformatter.format_usage("")
+            sys.exit(1)
+        opts.rateJumpProp = 0.0
+
+    if opts.fixed_rates is not None:
+        opts.fixed = True
+        if opts.fixed_rclass is None:
+            print >> sys.stderr, "--fixed-rates requires --fixed-rclass"
+            print >> sys.stderr, helpformatter.format_usage("")
+            sys.exit(1)
+        try:
+            opts.fixed_rates = [float(s) for s in opts.fixed_rates.split(",")]
+        except:
+            print >> sys.stderr, "Malformed argument: --fixed-rates=%s" % \
+              opts.fixed_rates
+            print >> sys.stderr, helpformatter.format_usage("")
+            sys.exit(1)
+        if len(opts.fixed_rates) != max(opts.fixed_rclass)+1:
+            print >> sys.stderr, \
+              "Incorrect number of fixed rates for rclass (%d vs. %d)" % \
+              (len(opts.fixed_rates), max(opts.fixed_rclass)+1)
+            print >> sys.stderr, helpformatter.format_usage("")
+            sys.exit(1)
+        opts.rmultProp = 0.0
+        opts.rateProp = 0.0
+
+    if opts.fixed_freqs is not None:
+        opts.fixed = True
+        # Conversion to a list of floats is done later, once the number of
+        # character states is known.
+        opts.freqProp = 0.0
+
+    if opts.fixed_shape is not None:
+        opts.fixed = True
+        opts.rateShapeInvProp = 0.0
+        opts.rateShapeInvJumpProp = 0.0
 
     if opts.burnin == "half":
         opts.burnin = 0xffffffffffffffff
@@ -335,7 +415,46 @@ if opts.mode in ("run", "all"):
     if opts.rateShapeInvJumpProp is not None:
         mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
 
-    mc3.run(verbose=opts.verbose)
+    if opts.fixed:
+        # --fixed-freqs has to be handled here rather since the number of
+        # character states wasn't yet known in parse_options().
+        if opts.fixed_freqs is not None:
+            try:
+                opts.fixed_freqs = [float(s) for s in \
+                  opts.fixed_freqs.split(",")]
+            except:
+                print >> sys.stderr, "Malformed argument: --fixed-freqs=%s" % \
+                  opts.fixed_freqs
+                helpformatter = RedpointHelpFormatter()
+                print >> sys.stderr, helpformatter.format_usage("")
+                sys.exit(1)
+            char_ = alignment.charType.get()
+            states = char_.pcodes()
+            if len(opts.fixed_freqs) != len(states):
+                print >> sys.stderr, \
+                  "Incorrect number of fixed rates for rclass (%d vs. %d)" % \
+                  (len(opts.fixed_freqs), len(states))
+                helpformatter = RedpointHelpFormatter()
+                print >> sys.stderr, helpformatter.format_usage("")
+                sys.exit(1)
+
+        liks = []
+        for i in xrange(opts.nruns * opts.ncoupled):
+            lik = mc3.randomLik(opts.tree)
+            for m in xrange((1 if opts.nmodels is None else opts.nmodels)):
+                if opts.fixed_rates is not None:
+                    lik.setRclass(m, opts.fixed_rclass, opts.fixed_rates)
+                elif opts.fixed_rclass is not None:
+                    lik.setRclass(m, opts.fixed_rclass)
+                if opts.fixed_shape is not None:
+                    lik.setAlpha(m, opts.fixed_shape)
+                if opts.fixed_freqs is not None:
+                    for f in xrange(len(opts.fixed_freqs)):
+                        lik.setFreq(m, f, opts.fixed_freqs[f])
+            liks.append(lik)
+    else:
+        liks = None
+    mc3.run(verbose=opts.verbose, liks=liks)
 
 if @enable_mpi@:
     from mpi4py import MPI

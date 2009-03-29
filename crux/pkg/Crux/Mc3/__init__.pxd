@@ -4,6 +4,7 @@ cdef class Mc3
 from libc cimport uint64_t
 from Crux.CTMatrix cimport Alignment
 from Crux.Mc3.Chain cimport Chain, PropCnt
+from Crux.Tree cimport Tree
 from Crux.Tree.Lik cimport Lik
 
 cdef struct Mc3SwapInfo:
@@ -151,10 +152,10 @@ cdef class Mc3:
     cdef void resetLiks(self) except *
     cdef void initLnLs(self) except *
     cdef void initPropsCdf(self) except *
-    cdef void initRunsUni(self) except *
+    cdef void initRunsUni(self, list liks) except *
     IF @enable_mpi@:
-        cdef void initRunsMpi(self) except *
-    cdef void initRuns(self) except *
+        cdef void initRunsMpi(self, list liks) except *
+    cdef void initRuns(self, list liks) except *
     cdef void advanceUni(self) except *
     IF @enable_mpi@:
         cdef void advanceMpi(self) except *
@@ -175,7 +176,8 @@ cdef class Mc3:
     cdef void pWrite(self, uint64_t step) except *
     cdef void sWrite(self, uint64_t step, double rcov) except *
     cdef bint sample(self, uint64_t step) except *
-    cpdef bint run(self, bint verbose=*) except *
+    cpdef Lik randomLik(self, Tree tree=*)
+    cpdef bint run(self, bint verbose=*, list liks=*) except *
 
     cdef double getGraphDelay(self)
     cdef void setGraphDelay(self, double graphDelay)

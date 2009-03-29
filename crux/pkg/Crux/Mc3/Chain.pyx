@@ -37,10 +37,8 @@ cdef class Chain:
             self.prng = NULL
 
     def __init__(self, Mc3 master, unsigned run, unsigned ind, \
-      uint32_t swapSeed, uint32_t seed):
-        cdef Edge edge
-        cdef unsigned i, nstates, rlen, m
-        cdef object rState
+      uint32_t swapSeed, uint32_t seed, Lik lik):
+        cdef unsigned i
 
         self.master = master
         self.run = run
@@ -60,61 +58,8 @@ cdef class Chain:
         if self.prng == NULL:
             raise MemoryError("Error allocating prng")
 
-        # Generate a random fully resolved tree.  Polytomous starting trees are
-        # never generated, but that is okay since there is no requirement to
-        # draw the starting tree from the prior.  The main goal here is to
-        # avoid systematic starting point dependence.
-        #
-        # Tree() uses Python's PRNG, which can cause starting trees to have
-        # identical topologies if running as independent MPI nodes.  To avoid
-        # this problem, re-seed Python's PRNG, generate the tree, then restore
-        # Python's PRNG state.  This allows results to be identical regardless
-        # of whether MPI is in use.
-        rState = random.getstate()
-        random.seed(gen_rand64(self.prng))
-        self.tree = Tree(self.master.alignment.taxaMap.ntaxa, \
-          self.master.alignment.taxaMap)
-        random.setstate(rState)
-        self.tree.deroot()
-
-        self.lik = Lik(self.tree, self.master.alignment, self.master._nmodels, \
-          self.master._ncat, self.master._catMedian)
-
-        # Randomly draw model parameters from their prior distributions.
-        nstates = self.lik.char_.nstates()
-        rlen = nstates * (nstates-1) / 2
-        for 0 <= m < self.master._nmodels:
-            if self.master._nmodels > 1:
-                # Relative weight.
-                if self.master.props[PropWeight] > 0.0:
-                    self.lik.setWeight(m, -log(1.0 - genrand_res53(self.prng)))
-
-                # Rate multiplier.
-                if self.master.props[PropRmult] > 0.0:
-                    self.lik.setRmult(m, -log(1.0 - genrand_res53(self.prng)))
-
-            # State frequencies.
-            if self.master.props[PropFreq] > 0.0:
-                for 0 <= i < self.lik.char_.nstates():
-                    self.lik.setFreq(m, i, -log(1.0 - genrand_res53(self.prng)))
-
-            # Relative mutation rates.
-            if self.master.props[PropRate] > 0.0:
-                self.lik.setRclass(m, range(rlen))
-                for 0 <= i < rlen:
-                    self.lik.setRate(m, i, -log(1.0 - genrand_res53(self.prng)))
-
-            if self.master.props[PropRateShapeInv] > 0.0:
-                # Gamma-distributed rates shape parameter.
-                if self.master._ncat > 1:
-                    self.lik.setAlpha(m, -log(1.0 - genrand_res53(self.prng)) \
-                      * self.master._rateShapeInvPrior)
-
-        # Branch lengths.
-        for edge in self.tree.getEdges():
-            edge.length = -log(1.0 - genrand_res53(self.prng)) / \
-              self.master._brlenPrior
-
+        self.lik = lik
+        self.tree = self.lik.tree
         self.lnL = self.lik.lnL()
 
         self.step = 0

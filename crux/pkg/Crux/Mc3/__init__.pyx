@@ -68,6 +68,8 @@ from libc cimport *
 from libm cimport *
 from Crux.Mc3.Chain cimport *
 from Crux.Mc3.Post cimport *
+from Crux.Tree cimport Tree, Edge
+from Crux.Tree.Lik cimport Lik
 
 IF @enable_mpi@:
     from mpi4py import MPI
@@ -689,7 +691,7 @@ cdef class Mc3:
         for 1 <= i < sizeof(self.propsCdf) / sizeof(double):
             self.propsCdf[i] = self.propsCdf[i-1] + (self.props[i-1] / propsSum)
 
-    cdef void initRunsUni(self) except *:
+    cdef void initRunsUni(self, list liks) except *:
         cdef uint32_t seed, swapSeed
         cdef unsigned i, j
         cdef list run
@@ -704,12 +706,13 @@ cdef class Mc3:
             self.runs.append(run)
             for 0 <= j < self._ncoupled:
                 # Seed every chain differently.
-                chain = Chain(self, i, j, swapSeed, seed)
+                chain = Chain(self, i, j, swapSeed, seed, \
+                  liks[i*self._ncoupled + j])
                 seed += 1
                 run.append(chain)
 
     IF @enable_mpi@:
-        cdef void initRunsMpi(self) except *:
+        cdef void initRunsMpi(self, list liks) except *:
             cdef uint32_t seed, swapSeed
             cdef unsigned i, j
             cdef list run
@@ -724,7 +727,8 @@ cdef class Mc3:
                 self.runs.append(run)
                 for 0 <= j < self._ncoupled:
                     if (i*self._ncoupled + j) % self.mpiSize == self.mpiRank:
-                        chain = Chain(self, i, j, swapSeed, seed)
+                        chain = Chain(self, i, j, swapSeed, seed, \
+                          liks[i*self._ncoupled + j])
                     else:
                         chain = None
                     # Seed every chain differently.
@@ -732,14 +736,21 @@ cdef class Mc3:
                     run.append(chain)
 
     # Create/initialize chains.
-    cdef void initRuns(self) except *:
+    cdef void initRuns(self, list liks) except *:
+        cdef unsigned i
+
+        if liks is None:
+            liks = [self.randomLik() for i in \
+              xrange(self._nruns * self._ncoupled)]
+        assert len(liks) == self._nruns * self._ncoupled
+
         IF @enable_mpi@:
             if self.mpiSize == 1:
-                self.initRunsUni()
+                self.initRunsUni(liks)
             else:
-                self.initRunsMpi()
+                self.initRunsMpi(liks)
         ELSE:
-            self.initRunsUni()
+            self.initRunsUni(liks)
 
     cdef void advanceUni(self) except *:
         cdef unsigned i, j
@@ -1130,7 +1141,73 @@ cdef class Mc3:
 
         return converged
 
-    cpdef bint run(self, bint verbose=False) except *:
+    cpdef Lik randomLik(self, Tree tree=None):
+        """
+            Generate a Lik instance with all parameters drawn from their
+            respective prior distributions.  By default, this method is used
+            internally to generate independent starting points for Mc3 chains,
+            but it can be used directly as the basis for manually creating
+            starting points with some fixed parameters.  In order to fix
+            parameters:
+
+              1) Disable the appropriate proposal(s).
+              2) Create a list of Lik instances via iterative calls to this
+                 method.
+              3) For each Lik instance, override the to-be-fixed parameter(s).
+              4) Pass the list of Lik instances to the run() method.
+        """
+        cdef Lik lik
+        cdef Edge edge
+        cdef unsigned nstates, rlen, m, i
+
+        # Generate a random fully resolved tree.  Polytomous starting trees are
+        # never generated, but that is okay since there is no requirement to
+        # draw the starting tree from the prior.  The main goal here is to
+        # avoid systematic starting point dependence.
+        if tree is None:
+            tree = Tree(self.alignment.taxaMap.ntaxa, self.alignment.taxaMap)
+            tree.deroot()
+
+        # Branch lengths.
+        for edge in tree.getEdges():
+            edge.length = -log(1.0 - random.random()) / self._brlenPrior
+
+        lik = Lik(tree, self.alignment, self._nmodels, self._ncat, \
+          self._catMedian)
+
+        # Randomly draw model parameters from their prior distributions.
+        nstates = lik.char_.nstates()
+        rlen = nstates * (nstates-1) / 2
+        for 0 <= m < self._nmodels:
+            if self._nmodels > 1:
+                # Relative weight.
+                if self.props[PropWeight] > 0.0:
+                    lik.setWeight(m, -log(1.0 - random.random()))
+
+                # Rate multiplier.
+                if self.props[PropRmult] > 0.0:
+                    lik.setRmult(m, -log(1.0 - random.random()))
+
+            # State frequencies.
+            if self.props[PropFreq] > 0.0:
+                for 0 <= i < nstates:
+                    lik.setFreq(m, i, -log(1.0 - random.random()))
+
+            # Relative mutation rates.
+            if self.props[PropRate] > 0.0:
+                lik.setRclass(m, range(rlen))
+                for 0 <= i < rlen:
+                    lik.setRate(m, i, -log(1.0 - random.random()))
+
+            if self.props[PropRateShapeInv] > 0.0:
+                # Gamma-distributed rates shape parameter.
+                if self._ncat > 1:
+                    lik.setAlpha(m, -log(1.0 - random.random()) \
+                      * self._rateShapeInvPrior)
+
+        return lik
+
+    cpdef bint run(self, bint verbose=False, list liks=None) except *:
         """
             Run until convergence is reached, or the maximum number of steps
             is reached, whichever comes first.  Collate the results from the
@@ -1150,7 +1227,7 @@ cdef class Mc3:
             self.initLiks()
             self.initLnLs()
             self.initPropsCdf()
-            self.initRuns()
+            self.initRuns(liks)
 
             IF @enable_mpi@:
                 if self.mpiRank == 0:
