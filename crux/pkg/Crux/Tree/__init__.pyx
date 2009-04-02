@@ -22,6 +22,7 @@ from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa
 cimport Crux.Tree.Lik
 from Crux.Tree.Bipart cimport Bipart
+from Crux.Tree.Sumt cimport Trprob, Part, Sumt
 
 import Crux.Config
 
@@ -203,7 +204,23 @@ cdef class Tree:
 
         return ret
 
-    cdef void _recacheRecurse(self, Ring ring):
+    cdef void _resetCache(self) except *:
+        self._cachedBipart = None
+
+        self._cachedTaxa = []
+        self._cachedNodes = []
+        self._cachedEdges = []
+
+    cpdef clearCache(self):
+        """
+            Discard internal caches.  This method can be useful for mitigating
+            memory bloat when performing batch processing on large sets of
+            trees.
+        """
+        self._cacheSn = -1
+        self._resetCache()
+
+    cdef void _recacheRecurse(self, Ring ring) except *:
         cdef Ring r
         cdef Node node
         cdef Taxon taxon
@@ -220,16 +237,12 @@ cdef class Tree:
             self._recacheRecurse(r.other)
             node._degree += 1
 
-    cdef void _recache(self):
+    cdef void _recache(self) except *:
         cdef Ring ring, r
         cdef Node node
         cdef Taxon taxon
 
-        self._cachedBipart = None
-
-        self._cachedTaxa = []
-        self._cachedNodes = []
-        self._cachedEdges = []
+        self._resetCache()
 
         if self._base is not None:
             node = self._base

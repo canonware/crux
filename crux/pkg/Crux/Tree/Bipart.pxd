@@ -2,27 +2,32 @@
 cdef class Vec
 cdef class Bipart
 
-from Crux.Tree cimport Tree, Ring
+from Crux.Tree cimport Tree, Edge, Ring
 
 cdef class Vec:
-    cdef unsigned nBits
+    cdef readonly Edge edge
+    cdef readonly unsigned nBits
+    cdef unsigned nBytes
     cdef unsigned char *bits
 
-    cdef int cmp(self, Vec other)
-    cdef reset(self)
-    cdef bint get(self, unsigned bit) except *
-    cdef void set(self, unsigned bit, bint val) except *
-    cdef void invert(self)
-    cdef void merge(self, Vec other) except *
+    cpdef int cmp(self, Vec other) except *
+    cpdef reset(self)
+    cpdef bint get(self, unsigned bit) except *
+    cdef _set(self, unsigned bit, bint val)
+    cpdef set(self, unsigned bit, bint val)
+    cpdef invert(self)
+    cpdef merge(self, Vec other)
 
 cdef class Bipart:
-    cdef dict taxaX
-    cdef list edgeVecs
-    cdef Vec leafVec
+    cdef dict taxaX # taxon-->index translation
+    cdef readonly bint leaves # If True, edgeVecs includes leaf edges.
+    cdef readonly list edgeVecs
+    cdef Vec leafVec # Temp vector.
 
+    cpdef int cmp(Bipart self, Bipart other)
     cdef Vec _bipartitionsRecurse(self, Ring ring, bint calcVec)
     cdef void _bipartitions(self, Tree tree) except *
-    cdef double rfDist(self, Bipart other) except -1.0
+    cpdef double rfDist(self, Bipart other) except -1.0
 
 cdef double rf(Tree a, Tree b) except -1.0
 cdef list rfs(Tree a, list others)

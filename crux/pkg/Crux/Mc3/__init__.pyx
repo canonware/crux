@@ -63,7 +63,7 @@ import time
 import Crux.Config
 
 cdef extern from "Python.h":
-    object PyString_FromStringAndSize(char *s, Py_ssize_t len)
+    cdef object PyString_FromStringAndSize(char *s, Py_ssize_t len)
 from libc cimport *
 from libm cimport *
 from Crux.Mc3.Chain cimport *
@@ -138,7 +138,7 @@ cdef class Mc3:
         self._emaAlpha = 1.0
         self._cvgSampStride = 1
         self._cvgAlpha = 0.05
-        self._cvgEpsilon = 0.025
+        self._cvgEpsilon = 0.01
         self._minStep = 100000
         self._maxStep = ULLONG_MAX
         self._stride = 100

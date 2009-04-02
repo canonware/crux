@@ -3,6 +3,9 @@ from Crux.Tree cimport Tree, Node, Edge, Ring
 from Cx cimport CxCmp2Richcmp
 from libc cimport *
 
+cdef extern from "Python.h":
+    cdef object PyString_FromStringAndSize(char *s, Py_ssize_t len)
+
 cdef class Vec:
     def __cinit__(self):
         self.bits = NULL
@@ -12,41 +15,63 @@ cdef class Vec:
             free(self.bits)
             self.bits = NULL
 
-    def __init__(self, unsigned nBits):
+    def __init__(self, Edge edge, unsigned nBits):
         cdef unsigned nBytes
 
-        nBytes = nBits >> 3
-        if (nBits & 0x7) != 0:
-            nBytes += 1
-        nBits = nBytes << 3
-
+        self.edge = edge
         self.nBits = nBits
-        self.bits = <unsigned char *>calloc(1, nBytes)
+
+        self.nBytes = nBits >> 3
+        if (nBits & 0x7) != 0:
+            self.nBytes += 1
+
+        self.bits = <unsigned char *>calloc(1, self.nBytes)
         if self.bits == NULL:
             raise MemoryError("Error allocating %d-bit vector" % nBits)
+
+    def __repr__(self):
+        cdef list strs
+        cdef unsigned i
+
+        strs = []
+        for 0 <= i < self.nBits:
+            strs.append("*" if self.get(i) else ".")
+        return "".join(strs)
+
+    def __hash__(self):
+        cdef Py_ssize_t len
+        cdef str s
+
+        # Only hash the first VecHashMax bytes.
+        DEF VecHashMax = 16
+        len = (<Py_ssize_t>VecHashMax if \
+          self.nBytes > <Py_ssize_t>VecHashMax else \
+          self.nBytes)
+        s = PyString_FromStringAndSize(<char *>self.bits, len)
+        return hash(s)
 
     def __richcmp__(Vec self, Vec other, int op):
         cdef int rel
 
         assert self.nBits == other.nBits
 
-        rel = memcmp(self.bits, other.bits, (self.nBits >> 3))
+        rel = memcmp(self.bits, other.bits, self.nBytes)
         rel = (rel > 0) - (rel < 0)
         return CxCmp2Richcmp(rel, op)
 
-    cdef int cmp(Vec self, Vec other) except *:
+    cpdef int cmp(self, Vec other) except *:
         cdef int rel
 
         assert self.nBits == other.nBits
 
-        rel = memcmp(self.bits, other.bits, (self.nBits >> 3))
+        rel = memcmp(self.bits, other.bits, self.nBytes)
         rel = (rel > 0) - (rel < 0)
         return rel
 
-    cdef reset(self):
-        memset(self.bits, 0, self.nBits >> 3)
+    cpdef reset(self):
+        memset(self.bits, 0, self.nBytes)
 
-    cdef bint get(self, unsigned bit) except *:
+    cpdef bint get(self, unsigned bit) except *:
         cdef bint ret
         cdef unsigned byteOffset, bitOffset
         cdef unsigned char byte
@@ -54,7 +79,7 @@ cdef class Vec:
         assert bit < self.nBits
 
         byteOffset = bit >> 3
-        bitOffset = bit & 0x7
+        bitOffset = 7 - (bit & 0x7)
 
         byte = self.bits[byteOffset]
         byte >>= bitOffset
@@ -63,14 +88,12 @@ cdef class Vec:
 
         return ret
 
-    cdef void set(self, unsigned bit, bint val) except *:
+    cdef _set(self, unsigned bit, bint val):
         cdef unsigned byteOffset, bitOffset
         cdef unsigned char byte, mask
 
-        assert bit < self.nBits
-
         byteOffset = bit >> 3
-        bitOffset = bit & 0x7
+        bitOffset = 7 - (bit & 0x7)
 
         byte = self.bits[byteOffset]
 
@@ -80,24 +103,31 @@ cdef class Vec:
 
         self.bits[byteOffset] = byte
 
-    cdef void invert(self):
+    cpdef set(self, unsigned bit, bint val):
+        assert bit < self.nBits
+        self._set(bit, val)
+
+    cpdef invert(self):
         cdef unsigned i, nBytes
 
-        nBytes = self.nBits >> 3
-        for 0 <= i < nBytes:
+        for 0 <= i < self.nBytes:
             self.bits[i] = (~self.bits[i])
 
-    cdef void merge(self, Vec other) except *:
+        # Clear trailing bits in order to allow memcmp() to be used for
+        # comparison.
+        for self.nBits <= i < (self.nBytes << 3):
+            self._set(i, False)
+
+    cpdef merge(self, Vec other):
         cdef unsigned i, nBytes
 
         assert self.nBits == other.nBits
 
-        nBytes = self.nBits >> 3
-        for 0 <= i < nBytes:
+        for 0 <= i < self.nBytes:
             self.bits[i] |= other.bits[i]
 
 cdef class Bipart:
-    def __init__(self, Tree tree):
+    def __init__(self, Tree tree, bint leaves=False):
         cdef list taxa
 
         # Create a taxon-->index translation.
@@ -108,10 +138,49 @@ cdef class Bipart:
                 raise ValueError("Duplicate taxa")
             self.taxaX[taxa[i]] = i
 
+        self.leaves = leaves
         self.edgeVecs = []
-        self.leafVec = Vec(len(taxa))
+        if not leaves:
+            self.leafVec = Vec(None, len(taxa))
 
         self._bipartitions(tree)
+
+    def __repr__(self):
+        cdef list strs
+        cdef unsigned i
+
+        strs = []
+        for 0 <= i < len(self.edgeVecs):
+            strs.append((<Vec>self.edgeVecs[i]).__repr__())
+
+        return "\n".join(strs)
+
+    def __hash__(self):
+        cdef unsigned i, lim, hash
+
+        # Only hash the first BipartHashMax vectors.
+        DEF BipartHashMax = 16
+        lim = (BipartHashMax if len(self.edgeVecs) > BipartHashMax \
+          else len(self.edgeVecs))
+        hash = 0
+        for 0 <= i < lim:
+            hash += (<Vec>self.edgeVecs[i]).__hash__()
+            hash &= 0x7fffffff
+        return <int>hash
+
+    def __richcmp__(Bipart self, Bipart other, int op):
+        cdef int rel
+
+        rel = cmp(self.edgeVecs, other.edgeVecs)
+        rel = (rel > 0) - (rel < 0)
+        return CxCmp2Richcmp(rel, op)
+
+    cpdef int cmp(Bipart self, Bipart other):
+        cdef int rel
+
+        rel = cmp(self.edgeVecs, other.edgeVecs)
+        rel = (rel > 0) - (rel < 0)
+        return rel
 
     cdef Vec _bipartitionsRecurse(self, Ring ring, bint calcVec):
         cdef Vec ret, vec
@@ -121,9 +190,13 @@ cdef class Bipart:
         if node.getDegree() <= 1:
             # Leaf node.
 
-            # Use the special temp vector for this edge.
-            ret = self.leafVec
-            ret.reset()
+            if self.leaves:
+                ret = Vec(ring.edge, len(self.taxaX))
+                self.edgeVecs.append(ret)
+            else:
+                # Use the special temp vector for this edge.
+                ret = self.leafVec
+                ret.reset()
 
             # Mark this taxon as being in the set.
             assert node._taxon is not None
@@ -131,7 +204,7 @@ cdef class Bipart:
         else:
             if calcVec:
                 # Create a vector for this edge.
-                ret = Vec(len(self.taxaX))
+                ret = Vec(ring.edge, len(self.taxaX))
                 self.edgeVecs.append(ret)
 
                 # Even internal nodes may have associated taxa.
@@ -176,7 +249,7 @@ cdef class Bipart:
         # for differences.
         self.edgeVecs.sort()
 
-    cdef double rfDist(self, Bipart other) except -1.0:
+    cpdef double rfDist(self, Bipart other) except -1.0:
         cdef double falseNegativeRate, falsePositiveRate
         cdef unsigned nUniqueA, nUniqueB, iA, iB, lenA, lenB
         cdef int rel

@@ -75,6 +75,26 @@ cdef class Post:
         self._nmodelsVar = -1.0
         self._nmodelsMed = -1.0
 
+        self._ratesMinCred = None
+        self._ratesMaxCred = None
+        self._ratesMean = None
+        self._ratesVar = None
+        self._ratesMed = None
+
+        self._freqsMinCred = None
+        self._freqsMaxCred = None
+        self._freqsMean = None
+        self._freqsVar = None
+        self._freqsMed = None
+
+        self._alphaMinCred = -1.0
+        self._alphaMaxCred = -1.0
+        self._alphaMean = -1.0
+        self._alphaVar = -1.0
+        self._alphaMed = -1.0
+
+        self._sumt = None
+
         self.runs = None
 
         self._parseL()
@@ -230,14 +250,6 @@ cdef class Post:
                   (self.burnin, self.stepLast/stride + 1))
             self.stepFirst = self.burnin * stride
         self.nsamples = (self.stepLast - self.stepFirst + stride) / stride
-        if self.verbose:
-            if self.burnin == ULLONG_MAX:
-                sys.stdout.write("burnin: <half>\n")
-            else:
-                sys.stdout.write("burnin: %d\n" % self.burnin)
-            sys.stdout.write("nsamples: %d\n" % self.nsamples)
-            sys.stdout.write("stepFirst: %d\n" % self.stepFirst)
-            sys.stdout.write("stepLast: %d\n" % self.stepLast)
 
         # Rewind to beginning of file, then skip the header and burnin.
         sFile.seek(0)
@@ -346,6 +358,7 @@ cdef class Post:
                 assert step <= self.stepLast
                 run = int(toks[0][1:])
                 tree = Tree(toks[2], None, False)
+                tree.deroot()
                 samp = <Samp>self.runs[run][(step-self.stepFirst)/stride]
                 samp.tree = tree
 
@@ -355,7 +368,7 @@ cdef class Post:
     # it does not have to deal with discarding burn-in, nor does speed matter
     # as much.
     cdef void _computeRcovLnL(self) except *:
-        cdef double rcovLnL, alpha, minLnL, maxLnL, alphaEmp
+        cdef double rcovLnL, cvgAlpha, minLnL, maxLnL, cvgAlphaEmp
         cdef uint64_t lower, upper, j, k, n
         cdef unsigned nruns, i
         cdef list lnLs
@@ -370,8 +383,8 @@ cdef class Post:
         rcovLnL = 0.0
 
         # Compute the lower and upper bounds for the credibility intervals.
-        alpha = self.mc3.getCvgAlpha()
-        lower = <uint64_t>floor(alpha/2.0 * <double>self.nsamples)
+        cvgAlpha = self.mc3.getCvgAlpha()
+        lower = <uint64_t>floor(cvgAlpha/2.0 * <double>self.nsamples)
         upper = self.nsamples - 1 - lower
 
         for 0 <= i < nruns:
@@ -398,8 +411,8 @@ cdef class Post:
         # Compute the empirical alpha, based on the credibility interval
         # proportion, and use this to rescale Rcov, so that results can be
         # interpreted in the context of the intended alpha.
-        alphaEmp = <double>(lower*2) / <double>self.nsamples
-        rcovLnL *= (1.0-alpha) / (1.0-alphaEmp)
+        cvgAlphaEmp = <double>(lower*2) / <double>self.nsamples
+        rcovLnL *= (1.0-cvgAlpha) / (1.0-cvgAlphaEmp)
         self._rcovLnL = rcovLnL
 
     cdef double getRcovLnL(self) except -1.0:
@@ -416,7 +429,7 @@ cdef class Post:
             return self.getRcovLnL()
 
     cdef void _computeRcovRclass(self) except *:
-        cdef double rcovRclass, alpha, alphaEmp, r
+        cdef double rcovRclass, cvgAlpha, cvgAlphaEmp, r
         cdef unsigned nruns, i
         cdef uint64_t tail, j, k, n, nCum
         cdef dict rclasses
@@ -436,8 +449,8 @@ cdef class Post:
         rcovRclass = 0.0
 
         # Compute length of tail.
-        alpha = self.mc3.getCvgAlpha()
-        tail = <uint64_t>floor(alpha * <double>self.nsamples)
+        cvgAlpha = self.mc3.getCvgAlpha()
+        tail = <uint64_t>floor(cvgAlpha * <double>self.nsamples)
 
         for 0 <= i < nruns:
             # Create a rclass-->count mapping of rclasses.
@@ -456,9 +469,9 @@ cdef class Post:
 
             # Find the boundary between the tail and the credible set of
             # rclasses.  If an rclass falls partly within the credible set,
-            # include it (which increases alphaEmp).  If multiple rclasses tie
-            # for inclusion in the credible set, include all of them (which
-            # increases alphaEmp).
+            # include it (which increases cvgAlphaEmp).  If multiple rclasses
+            # tie for inclusion in the credible set, include all of them (which
+            # increases cvgAlphaEmp).
             nCum = 0
             for 0 <= j < len(deco):
                 (n, rclass) = deco[j]
@@ -475,7 +488,7 @@ cdef class Post:
                 (n, rclass) = deco[k]
                 nCum += n
                 del rclasses[rclass]
-            alphaEmp = <double>nCum / <double>self.nsamples
+            cvgAlphaEmp = <double>nCum / <double>self.nsamples
 
             # Compute the proportion of the rclasses that fall within the
             # credibility interval.
@@ -491,7 +504,7 @@ cdef class Post:
             r = <double>n / <double>(nruns * self.nsamples)
             # Rescale so that results can be interpreted in the context of the
             # intended alpha.
-            r *= (1.0-alpha) / (1.0-alphaEmp)
+            r *= (1.0-cvgAlpha) / (1.0-cvgAlphaEmp)
             rcovRclass += r
         rcovRclass /= <double>nruns
         self._rcovRclass = rcovRclass
@@ -513,9 +526,9 @@ cdef class Post:
     cdef void _summarizeLnL(self) except *:
         cdef list lnLs
         cdef unsigned nruns
-        cdef uint64_t i, j, N
+        cdef uint64_t i, j, N, lower, upper
         cdef Samp samp
-        cdef double alpha, lnL, lnLMean, lnLVar
+        cdef double cvgAlpha, lnL, lnLMean, diff, lnLVar
 
         self.parseS()
 
@@ -528,8 +541,8 @@ cdef class Post:
         lnLs.sort()
         N = len(lnLs)
         # Compute the lower and upper bounds for the credibility interval.
-        alpha = self.mc3.getCvgAlpha()
-        lower = <uint64_t>floor(alpha/2.0 * N)
+        cvgAlpha = self.mc3.getCvgAlpha()
+        lower = <uint64_t>floor(cvgAlpha/2.0 * N)
         upper = N - 1 - lower
 
         self._lnLMinCred = <double>lnLs[lower]
@@ -544,7 +557,8 @@ cdef class Post:
         lnLVar = 0.0
         for 0 <= i < N:
             lnL = <double>lnLs[i]
-            lnLVar += pow(lnL-lnLMean, 2.0) / <double>N
+            diff = lnL - lnLMean
+            lnLVar += (diff * diff) / <double>N
         self._lnLVar = lnLVar
 
         if N % 2 == 1:
@@ -613,9 +627,9 @@ cdef class Post:
     cdef void _summarizeNmodels(self) except *:
         cdef list modelCnts
         cdef unsigned nruns
-        cdef uint64_t i, j, N
+        cdef uint64_t i, j, N, lower, upper
         cdef Samp samp
-        cdef double alpha, nmodels, nmodelsMean, nmodelsVar
+        cdef double cvgAlpha, nmodels, nmodelsMean, diff, nmodelsVar
 
         self.parseP()
 
@@ -628,8 +642,8 @@ cdef class Post:
         modelCnts.sort()
         N = len(modelCnts)
         # Compute the lower and upper bounds for the credibility interval.
-        alpha = self.mc3.getCvgAlpha()
-        lower = <uint64_t>floor(alpha/2.0 * N)
+        cvgAlpha = self.mc3.getCvgAlpha()
+        lower = <uint64_t>floor(cvgAlpha/2.0 * N)
         upper = N - 1 - lower
 
         self._nmodelsMinCred = <double>modelCnts[lower]
@@ -644,7 +658,8 @@ cdef class Post:
         nmodelsVar = 0.0
         for 0 <= i < N:
             nmodels = <double>modelCnts[i]
-            nmodelsVar += pow(nmodels-nmodelsMean, 2.0) / <double>N
+            diff = nmodels - nmodelsMean
+            nmodelsVar += (diff * diff) / <double>N
         self._nmodelsVar = nmodelsVar
 
         if N % 2 == 1:
@@ -710,3 +725,384 @@ cdef class Post:
         """
         def __get__(self):
             return self.getNmodelsMed()
+
+    cdef void _summarizeRates(self) except *:
+        cdef list rates, ratesK
+        cdef Samp samp
+        cdef Msamp msamp
+        cdef unsigned rlen, nruns, k
+        cdef uint64_t i, j, N, lower, upper
+        cdef double cvgAlpha, rate, diff, rateMean, rateVar
+
+        if self.mc3.nmodels != 1 or self.mc3.rateJumpProp != 0.0:
+            raise ValueError( \
+              "Rates cannot be summarized for chosen model parameters")
+
+        self.parseP()
+
+        samp = <Samp>(<list>self.runs[0])[0]
+        msamp = <Msamp>samp.msamps[0]
+        rlen = len(msamp.rates)
+        rates = [[] for i in xrange(rlen)]
+
+        nruns = self.mc3.getNruns()
+        for 0 <= i < nruns:
+            for 0 <= j < self.nsamples:
+                samp = <Samp>(<list>self.runs[i])[j]
+                msamp = <Msamp>samp.msamps[0]
+                for 0 <= k < rlen:
+                    ratesK = <list>rates[k]
+                    ratesK.append(<double>msamp.rates[k] * msamp.wNorm * \
+                      msamp.rmult)
+        for 0 <= k < rlen:
+            ratesK = <list>rates[k]
+            ratesK.sort()
+        N = len(<list>rates[0])
+        # Compute the lower and upper bounds for the credibility interval.
+        cvgAlpha = self.mc3.getCvgAlpha()
+        lower = <uint64_t>floor(cvgAlpha/2.0 * N)
+        upper = N - 1 - lower
+
+        self._ratesMinCred = []
+        self._ratesMaxCred = []
+        self._ratesMean = []
+        self._ratesVar = []
+        self._ratesMed = []
+        for 0 <= k < rlen:
+            ratesK = <list>rates[k]
+
+            self._ratesMinCred.append(<double>ratesK[lower])
+            self._ratesMaxCred.append(<double>ratesK[upper])
+
+            rateMean = 0.0
+            for 0 <= i < N:
+                rate = <double>ratesK[i]
+                rateMean += rate / <double>N
+            self._ratesMean.append(rateMean)
+
+            rateVar = 0.0
+            for 0 <= i < N:
+                rate = <double>ratesK[i]
+                diff = rate - rateMean
+                rateVar += (diff * diff) / <double>N
+            self._ratesVar.append(rateVar)
+
+            if N % 2 == 1:
+                self._rateMed.append(<double>ratesK[N/2])
+            else:
+                # Average the middle two samples.
+                self._ratesMed.append((<double>ratesK[N/2 - 1] + \
+                  <double>ratesK[N/2]) / 2.0)
+    cdef list getRatesMinCred(self):
+        if self._ratesMinCred is None:
+            self._summarizeRates()
+        return self._ratesMinCred
+    property ratesMinCred:
+        """
+            List of minimum rates within their respective credibility
+            intervals, as defined by the cvgAlpha parameter used during
+            sampling.
+        """
+        def __get__(self):
+            return self.getRatesMinCred()
+    cdef list getRatesMaxCred(self):
+        if self._ratesMaxCred is None:
+            self._summarizeRates()
+        return self._ratesMaxCred
+    property ratesMaxCred:
+        """
+            List of maximum rates within their respective credibility
+            intervals, as defined by the cvgAlpha parameter used during
+            sampling.
+        """
+        def __get__(self):
+            return self.getRatesMaxCred()
+    cdef list getRatesMean(self):
+        if self._ratesMean is None:
+            self._summarizeRates()
+        return self._ratesMean
+    property ratesMean:
+        """
+            List of rate sample means.
+        """
+        def __get__(self):
+            return self.getRatesMean()
+    cdef list getRatesVar(self):
+        if self._ratesVar is None:
+            self._summarizeRates()
+        return self._ratesVar
+    property ratesVar:
+        """
+            List of rate sample variances.
+        """
+        def __get__(self):
+            return self.getRatesVar()
+    cdef list getRatesMed(self):
+        if self._ratesMed is None:
+            self._summarizeRates()
+        return self._ratesMed
+    property ratesMed:
+        """
+            List of rate sample medians.
+        """
+        def __get__(self):
+            return self.getRatesMed()
+
+    cdef void _summarizeFreqs(self) except *:
+        cdef list freqs, freqsK
+        cdef Samp samp
+        cdef Msamp msamp
+        cdef unsigned flen, nruns, k
+        cdef uint64_t i, j, N, lower, upper
+        cdef double cvgAlpha, freq, diff, freqMean, freqVar
+
+        if self.mc3.nmodels != 1:
+            raise ValueError( \
+              "Freqs cannot be summarized for chosen model parameters")
+
+        self.parseP()
+
+        samp = <Samp>(<list>self.runs[0])[0]
+        msamp = <Msamp>samp.msamps[0]
+        flen = len(msamp.freqs)
+        freqs = [[] for i in xrange(flen)]
+
+        nruns = self.mc3.getNruns()
+        for 0 <= i < nruns:
+            for 0 <= j < self.nsamples:
+                samp = <Samp>(<list>self.runs[i])[j]
+                msamp = <Msamp>samp.msamps[0]
+                for 0 <= k < flen:
+                    freqsK = <list>freqs[k]
+                    freqsK.append(<double>msamp.freqs[k])
+        for 0 <= k < flen:
+            freqsK = <list>freqs[k]
+            freqsK.sort()
+        N = len(<list>freqs[0])
+        # Compute the lower and upper bounds for the credibility interval.
+        cvgAlpha = self.mc3.getCvgAlpha()
+        lower = <uint64_t>floor(cvgAlpha/2.0 * N)
+        upper = N - 1 - lower
+
+        self._freqsMinCred = []
+        self._freqsMaxCred = []
+        self._freqsMean = []
+        self._freqsVar = []
+        self._freqsMed = []
+        for 0 <= k < flen:
+            freqsK = <list>freqs[k]
+
+            self._freqsMinCred.append(<double>freqsK[lower])
+            self._freqsMaxCred.append(<double>freqsK[upper])
+
+            freqMean = 0.0
+            for 0 <= i < N:
+                freq = <double>freqsK[i]
+                freqMean += freq / <double>N
+            self._freqsMean.append(freqMean)
+
+            freqVar = 0.0
+            for 0 <= i < N:
+                freq = <double>freqsK[i]
+                diff = freq - freqMean
+                freqVar += (diff * diff) / <double>N
+            self._freqsVar.append(freqVar)
+
+            if N % 2 == 1:
+                self._freqMed.append(<double>freqsK[N/2])
+            else:
+                # Average the middle two samples.
+                self._freqsMed.append((<double>freqsK[N/2 - 1] + \
+                  <double>freqsK[N/2]) / 2.0)
+    cdef list getFreqsMinCred(self):
+        if self._freqsMinCred is None:
+            self._summarizeFreqs()
+        return self._freqsMinCred
+    property freqsMinCred:
+        """
+            List of minimum frequencies within their respective credibility
+            intervals, as defined by the cvgAlpha parameter used during
+            sampling.
+        """
+        def __get__(self):
+            return self.getFreqsMinCred()
+    cdef list getFreqsMaxCred(self):
+        if self._freqsMaxCred is None:
+            self._summarizeFreqs()
+        return self._freqsMaxCred
+    property freqsMaxCred:
+        """
+            List of maximum frequencies within their respective credibility
+            intervals, as defined by the cvgAlpha parameter used during
+            sampling.
+        """
+        def __get__(self):
+            return self.getFreqsMaxCred()
+    cdef list getFreqsMean(self):
+        if self._freqsMean is None:
+            self._summarizeFreqs()
+        return self._freqsMean
+    property freqsMean:
+        """
+            List of frequency sample means.
+        """
+        def __get__(self):
+            return self.getFreqsMean()
+    cdef list getFreqsVar(self):
+        if self._freqsVar is None:
+            self._summarizeFreqs()
+        return self._freqsVar
+    property freqsVar:
+        """
+            List of frequency sample variances.
+        """
+        def __get__(self):
+            return self.getFreqsVar()
+    cdef list getFreqsMed(self):
+        if self._freqsMed is None:
+            self._summarizeFreqs()
+        return self._freqsMed
+    property freqsMed:
+        """
+            List of frequency sample medians.
+        """
+        def __get__(self):
+            return self.getFreqsMed()
+
+    cdef void _summarizeAlpha(self) except *:
+        cdef list alphas
+        cdef unsigned nruns
+        cdef uint64_t i, j, N, lower, upper
+        cdef Samp samp
+        cdef Msamp msamp
+        cdef double cvgAlpha, alpha, diff, alphaMean, alphaVar
+
+        if self.mc3.nmodels != 1 or self.mc3.ncat <= 1:
+            raise ValueError( \
+              "+G alpha cannot be summarized for chosen model parameters")
+
+        self.parseP()
+
+        alphas = []
+        nruns = self.mc3.getNruns()
+        for 0 <= i < nruns:
+            for 0 <= j < self.nsamples:
+                samp = <Samp>(<list>self.runs[i])[j]
+                msamp = <Msamp>samp.msamps[0]
+                alphas.append(msamp.alpha)
+        alphas.sort()
+        N = len(alphas)
+        # Compute the lower and upper bounds for the credibility interval.
+        cvgAlpha = self.mc3.getCvgAlpha()
+        lower = <uint64_t>floor(cvgAlpha/2.0 * N)
+        upper = N - 1 - lower
+
+        self._alphaMinCred = <double>alphas[lower]
+        self._alphaMaxCred = <double>alphas[upper]
+
+        alphaMean = 0.0
+        for 0 <= i < N:
+            alpha = <double>alphas[i]
+            alphaMean += alpha / <double>N
+        self._alphaMean = alphaMean
+
+        alphaVar = 0.0
+        for 0 <= i < N:
+            alpha = <double>alphas[i]
+            diff = alpha - alphaMean
+            alphaVar += (diff * diff) / <double>N
+        self._alphaVar = alphaVar
+
+        if N % 2 == 1:
+            self._alphaMed = <double>alphas[N/2]
+        else:
+            # Average the middle two samples.
+            self._alphaMed = (<double>alphas[N/2 - 1] + \
+              <double>alphas[N/2]) / 2.0
+
+    cdef double getAlphaMinCred(self) except -1.0:
+        if self._alphaMinCred == -1.0:
+            self._summarizeAlpha()
+        return self._alphaMinCred
+    property alphaMinCred:
+        """
+            Minimum alpha within the credibility interval, as defined by the
+            cvgAlpha parameter used during sampling.
+        """
+        def __get__(self):
+            return self.getAlphaMinCred()
+
+    cdef double getAlphaMaxCred(self) except -1.0:
+        if self._alphaMaxCred == -1.0:
+            self._summarizeAlpha()
+        return self._alphaMaxCred
+    property alphaMaxCred:
+        """
+            Maximum alpha within the credibility interval, as defined by the
+            cvgAlpha parameter used during sampling.
+        """
+        def __get__(self):
+            return self.getAlphaMaxCred()
+
+    cdef double getAlphaMean(self) except -1.0:
+        if self._alphaMean == -1.0:
+            self._summarizeAlpha()
+        return self._alphaMean
+    property alphaMean:
+        """
+            alpha sample mean.
+        """
+        def __get__(self):
+            return self.getAlphaMean()
+
+    cdef double getAlphaVar(self) except -1.0:
+        if self._alphaVar == -1.0:
+            self._summarizeAlpha()
+        return self._alphaVar
+    property alphaVar:
+        """
+            alpha sample variance.
+        """
+        def __get__(self):
+            return self.getAlphaVar()
+
+    cdef double getAlphaMed(self) except -1.0:
+        if self._alphaMed == -1.0:
+            self._summarizeAlpha()
+        return self._alphaMed
+    property alphaMed:
+        """
+            alpha sample median.
+        """
+        def __get__(self):
+            return self.getAlphaMed()
+
+    cdef void _summarizeTrees(self) except *:
+        cdef list treeLists, trees
+        cdef unsigned nruns, i
+        cdef uint64_t j
+        cdef Samp samp
+        cdef Tree tree
+
+        self.parseT()
+
+        treeLists = []
+        nruns = self.mc3.getNruns()
+        for 0 <= i < nruns:
+            trees = []
+            treeLists.append(trees)
+            for 0 <= j < self.nsamples:
+                samp = <Samp>(<list>self.runs[i])[j]
+                tree = samp.tree
+                trees.append(tree)
+        self._sumt = Sumt(treeLists)
+    cdef Sumt getSumt(self):
+        if self._sumt is None:
+            self._summarizeTrees()
+        return self._sumt
+    property sumt:
+        """
+            Sumt instance associated with posterior trees.
+        """
+        def __get__(self):
+            return self.getSumt()

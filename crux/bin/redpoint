@@ -123,12 +123,11 @@ redpoint usage:
     --sum=<bool>       Write summary statistics to <prefix>.sum.
     --trprobs=<bool>   Write tree topology frequencies with mean branch lengths
                          to <prefix>.trprobs.
-    --splits=<bool>    Write MSE's of splits frequencies among runs to
-                         <prefix>.splits.
     --parts=<bool>     Write partition frequencies and branch length statistics
                          to <prefix>.parts.
-    --con=<bool>       Write concensus tree with node support values (as
-                         comments) to <prefix>.con."""
+    --con=<bool>       Write consensus tree (first tree with mean branch
+                         lengths, second with bipartition support values) to
+                         <prefix>.con."""
 
 # Process the command line.
 def parse_options():
@@ -234,7 +233,6 @@ def parse_options():
 
     parser.add_option("--sum", dest="sum", type="bool", default=True)
     parser.add_option("--trprobs", dest="trprobs", type="bool", default=True)
-    parser.add_option("--splits", dest="splits", type="bool", default=True)
     parser.add_option("--parts", dest="parts", type="bool", default=True)
     parser.add_option("--con", dest="con", type="bool", default=True)
 
@@ -342,6 +340,13 @@ def parse_options():
 
     return opts
 
+def formatVecStr(s):
+    strs = []
+    for i in xrange(0, len(s), 5):
+        strs.append(s[i:(i+5 if i+5 < len(s) else len(s))])
+
+    return " ".join(strs)
+
 #===============================================================================
 # Beginning of main execution.
 
@@ -416,8 +421,8 @@ if opts.mode in ("run", "all"):
         mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
 
     if opts.fixed:
-        # --fixed-freqs has to be handled here rather since the number of
-        # character states wasn't yet known in parse_options().
+        # --fixed-freqs has to be handled here since the number of character
+        # states wasn't yet known in parse_options().
         if opts.fixed_freqs is not None:
             try:
                 opts.fixed_freqs = [float(s) for s in \
@@ -466,9 +471,9 @@ if @enable_mpi@:
 if opts.mode in ("post", "all"):
     post = Crux.Mc3.Post.Post(alignment, opts.outPrefix, opts.burnin, \
       opts.verbose)
+    post.parseS()
 
     if opts.sum:
-
         fSum = open("%s.sum" % opts.outPrefix, "w")
         files = [fSum]
         if opts.verbose:
@@ -478,6 +483,16 @@ if opts.mode in ("post", "all"):
         states = char_.pcodes()
 
         for f in files:
+            if post.burnin == 0xffffffffffffffff:
+                f.write("burnin: <half>\n")
+            else:
+                f.write("burnin: %d\n" % post.burnin)
+            f.write("nsamples: %d\n" % post.nsamples)
+            f.write("stepFirst: %d\n" % post.stepFirst)
+            f.write("stepLast: %d\n" % post.stepLast)
+
+            f.write("\n")
+
             f.write("Parameter\tRcov\t\t1.0-alpha\t1.0-alpha-epsilon\n")
             f.write("--------------------------------------------------" \
               "---------------\n")
@@ -509,44 +524,112 @@ if opts.mode in ("post", "all"):
               post.lnLMed))
 
             # Relative mutation rates.
+            ratesLabels = []
             for i in xrange(len(states)):
                 for j in xrange(i+1, len(states)):
-                    if post.mc3.nmodels == 1 and post.mc3.rateJumpProp == 0.0:
-                        f.write("r(%s<->%s)\tXXX\n" % (states[i], states[j]))
-                    else:
-                        f.write("r(%s<->%s)\tN/A\n" % (states[i], states[j]))
+                    ratesLabels.append("r(%s<->%s)" % (states[i], states[j]))
+            if post.mc3.nmodels == 1 and post.mc3.rateJumpProp == 0.0:
+                ratesMinCred = post.ratesMinCred
+                ratesMaxCred = post.ratesMaxCred
+                ratesMean = post.ratesMean
+                ratesVar = post.ratesVar
+                ratesMed = post.ratesMed
+                for i in xrange(len(ratesLabels)):
+                    f.write("%s\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n" % \
+                      (ratesLabels[i], ratesMean[i], ratesVar[i], \
+                      ratesMinCred[i], ratesMaxCred[i], ratesMed[i]))
+            else:
+                for i in xrange(len(ratesLabels)):
+                    f.write("%s\tN/A\n" % (ratesLabels[i]))
 
             # State frequencies.
+            freqsLabels = []
             for i in xrange(len(states)):
-                if post.mc3.nmodels == 1:
-                    f.write("pi(%s)\t\tXXX\n" % states[i])
-                else:
-                    f.write("pi(%s)\t\tN/A\n" % states[i])
+                freqsLabels.append("pi(%s)" % states[i])
+            if post.mc3.nmodels == 1:
+                freqsMinCred = post.freqsMinCred
+                freqsMaxCred = post.freqsMaxCred
+                freqsMean = post.freqsMean
+                freqsVar = post.freqsVar
+                freqsMed = post.freqsMed
+                for i in xrange(len(freqsLabels)):
+                    f.write("%s\t\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n" % \
+                      (freqsLabels[i], freqsMean[i], freqsVar[i], \
+                      freqsMinCred[i], freqsMaxCred[i], freqsMed[i]))
+            else:
+                for i in xrange(len(states)):
+                    f.write("%s\t\tN/A\n" % freqsLabels[i])
 
             # +G shape.
             if post.mc3.nmodels == 1 and post.mc3.ncat > 1:
-                f.write("+G alpha\tXXX\n")
+                f.write("+G alpha\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n" % \
+                  (post.alphaMean, post.alphaVar, post.alphaMinCred, \
+                  post.alphaMaxCred, post.alphaMed))
             else:
                 f.write("+G alpha\tN/A\n")
 
         fSum.close()
 
     if opts.trprobs:
-        f = open("%s.trprobs" % opts.outPrefix, "w")
-        pass # XXX
-        f.close()
+        trprobs = post.sumt.trprobs
+        if len(trprobs) > 0:
+            f = open("%s.trprobs" % opts.outPrefix, "w")
+            f.write("[[#obs Probability MSE #runs] tree;]\n")
 
-    if opts.splits:
-        f = open("%s.splits" % opts.outPrefix, "w")
-        pass # XXX
-        f.close()
+            for trprob in trprobs:
+                f.write("[%d %f %f %d] " % (trprob.nobs, \
+                  float(trprob.nobs) / float(post.mc3.nruns * post.nsamples), \
+                  trprob.mse, trprob.nruns))
+                trprob.tree.render(lengths=True, lengthFormat="%.12e", \
+                  outFile=f)
+
+            f.close()
 
     if opts.parts:
-        f = open("%s.parts" % opts.outPrefix, "w")
-        pass # XXX
-        f.close()
+        parts = post.sumt.parts
+        if len(parts) > 0:
+            f = open("%s.parts" % opts.outPrefix, "w")
+            part = parts[0]
+            plen = max(len(formatVecStr("%r" % part.vec)), len("Partition"))
+            olen = max(len("%d" % (post.mc3.nruns * post.nsamples)), \
+              len("#obs"))
+
+            # Print taxa key.
+            taxa = post.runs[0][0].tree.taxa
+            for i in xrange(len(taxa)):
+                taxon = taxa[i]
+                if i % 5 == 0 and i != 0:
+                    f.write("%s\n" % \
+                      (formatVecStr(("|    "*((i+(5-(i%5)))/5))[:i+1])[:-1]) \
+                      .rstrip())
+                f.write("%s%s\n" % \
+                  (formatVecStr(("|    "*((i+(5-(i%5)))/5))[:i+1])[:-1], \
+                  taxon.label))
+            i = len(taxa) - 1
+            pstr = \
+              (formatVecStr(("|    "*((i+(5-(i%5)))/5))[:i+1])[:-1]).rstrip()
+            f.write("%s\n" % pstr)
+
+            f.write( \
+              "%-*s  %-*s\tProbability\tMSE\t\tmean(v)\t\tvar(v)\t\t#runs\n" % \
+              (plen, pstr, olen, "#obs"))
+
+            for part in parts:
+                f.write("%-*s  %*d\t%f\t%f\t%.5e\t%.5e\t%d\n" % \
+                  (plen, formatVecStr("%r" % part.vec), olen, part.nobs, \
+                  float(part.nobs) / float(post.mc3.nruns * post.nsamples), \
+                  part.mse, part.mean, part.var, part.nruns))
+
+            f.close()
 
     if opts.con:
+        conTree = post.sumt.getConTree()
         f = open("%s.con" % opts.outPrefix, "w")
-        pass # XXX
+        # Render with mean branch lengths.
+        conTree.render(lengths=True, lengthFormat="%.12e", outFile=f)
+
+        # Render with bipartition support values.
+        for edge in conTree.edges:
+            edge.length = edge.aux
+        conTree.render(lengths=True, lengthFormat="%.6f", outFile=f)
         f.close()

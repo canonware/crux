@@ -29,8 +29,10 @@ cdef class Tree:
     cpdef Tree dup(self)
     cpdef double rf(self, Tree other) except -1.0
     cpdef list rfs(self, list others)
-    cdef void _recacheRecurse(self, Ring ring)
-    cdef void _recache(self)
+    cdef void _resetCache(self) except *
+    cpdef clearCache(self)
+    cdef void _recacheRecurse(self, Ring ring) except *
+    cdef void _recache(self) except *
     cdef int getNtaxa(self)
     # property ntaxa
     cdef int getNnodes(self) except *
