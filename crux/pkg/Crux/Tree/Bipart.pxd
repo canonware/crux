@@ -28,6 +28,3 @@ cdef class Bipart:
     cdef Vec _bipartitionsRecurse(self, Ring ring, bint calcVec)
     cdef void _bipartitions(self, Tree tree) except *
     cpdef double rfDist(self, Bipart other) except -1.0
-
-cdef double rf(Tree a, Tree b) except -1.0
-cdef list rfs(Tree a, list others)

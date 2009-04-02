@@ -297,38 +297,3 @@ cdef class Bipart:
             falsePositiveRate = 0.0
 
         return (falseNegativeRate + falsePositiveRate) / 2.0
-
-cdef double rf(Tree a, Tree b) except -1.0:
-    cdef list taxaA
-    cdef dict taxa
-    cdef unsigned i
-    cdef Bipart bipartA, bipartB
-
-    if a.getTaxa() != b.getTaxa():
-        # The trees do not contain the same taxa, so treat them as being
-        # infinitely distant.
-        return 1.0
-
-    bipartA = a.getBipart()
-    bipartB = b.getBipart()
-
-    return bipartA.rfDist(bipartB)
-
-cdef list rfs(Tree a, list others):
-    cdef list ret, taxaA
-    cdef Tree b
-    cdef Bipart bipartA, bipartB
-
-    ret = []
-    taxaA = a.getTaxa()
-
-    bipartA = Bipart(a)
-    for b in others:
-        if taxaA != b.getTaxa():
-            # The trees do not contain the same taxa, so treat them as being
-            # infinitely distant.
-            ret.append(1.0)
-        else:
-            bipartB = Bipart(b)
-            ret.append(bipartA.rfDist(bipartB))
-    return ret
