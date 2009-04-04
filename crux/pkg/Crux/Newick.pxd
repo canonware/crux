@@ -49,10 +49,8 @@ cdef class pLabel(Parsing.Precedence):
 
 cdef class Token(Parsing.Token):
     cdef readonly Token prev, next
-    cdef str _input
-    cdef readonly int begPos, endPos
-    cdef readonly int line, col
-    # property raw
+    cdef readonly str raw
+    cdef readonly int line
 
 cdef class TokenLparen(Token):
     "%token lparen"
@@ -190,11 +188,7 @@ cdef class Parser(Parsing.Lr):
     cdef Taxa.Map _taxaMap
 
     cdef Parsing.Spec _initSpec(self)
-    cdef _initReMain(self)
-    cdef _initReComment(self)
     cdef void _appendToken(self, Token token) except *
     cdef void _labelNode(self, Node node, Label label) except *
-    cdef str expandInput(self, str input, int pos, int line, int col)
 
-    cpdef parse(self, str input, int begPos=*, int line=*, int col=*, \
-      bint verbose=*)
+    cpdef parse(self, input, int line=*, bint verbose=*)

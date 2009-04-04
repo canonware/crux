@@ -31,13 +31,12 @@ class Exception(Crux.Exception.Exception):
 import exceptions
 
 class SyntaxError(Exception, exceptions.SyntaxError):
-    def __init__(self, line, col, str):
+    def __init__(self, line, str):
         self.line = line
-        self.col = col
         self.str = str
 
     def __str__(self):
-        return "%d:%d: %s" % (self.line, self.col, self.str)
+        return "Line %d: %s" % (self.line, self.str)
 
 class Malformed(Exception, exceptions.SyntaxError):
     def __init__(self, str):
@@ -50,8 +49,12 @@ import re
 import sys
 
 cimport Parsing
+from CxNewickLexer cimport *
 from Crux.Tree cimport Tree, Node, Edge
 cimport Crux.Taxa as Taxa
+
+cdef extern from "Python.h":
+    cdef object PyString_FromStringAndSize(char *s, Py_ssize_t len)
 
 global __name__
 
@@ -102,27 +105,19 @@ cdef class pLabel(Parsing.Precedence):
 #
 
 cdef class Token(Parsing.Token):
-    def __init__(self, Parser parser, str input, int begPos, int endPos,
-      int line, int col):
+    def __init__(self, Parser parser, str input, int line):
         Parsing.Token.__init__(self, parser)
 
         self.prev = None
         self.next = None
 
-        self._input = input
-        self.begPos = begPos
-        self.endPos = endPos
+        self.raw = input
         self.line = line
-        self.col = col
 
         parser._appendToken(self)
 
     def __repr__(self):
         return Parsing.Token.__repr__(self) + (" (%r)" % self.raw)
-
-    property raw:
-        def __get__(self):
-            return self._input[self.begPos:self.endPos]
 
 cdef class TokenLparen(Token):
     "%token lparen"
@@ -140,12 +135,8 @@ cdef class TokenUnquotedLabel(Token):
     "%token unquotedLabel"
     property label:
         def __get__(self):
-            cdef str ret
-
-            ret = self._input[self.begPos:self.endPos]
             # Convert '_' to ' '.
-            ret = ret.replace('_', ' ')
-            return ret
+            return self.raw.replace('_', ' ')
 cdef class TokenQuotedLabel(Token):
     "%token quotedLabel"
     property label:
@@ -153,7 +144,7 @@ cdef class TokenQuotedLabel(Token):
             cdef str ret
 
             # Strip the enclosing '...'.
-            ret = self._input[self.begPos + 1:self.endPos - 1]
+            ret = self.raw[1:-1]
             # Convert '' to '.
             ret = ret.replace("''", "'")
             return ret
@@ -414,18 +405,11 @@ cdef class Label(Nonterm):
 # End Nonterm.
 #===============================================================================
 
-# Regex used to recognize all tokens except complex comments.
-cdef _reMain
-# Regex used to process complex comments.
-cdef _reComment
-
 cdef Parsing.Spec _spec
 
 cdef class Parser(Parsing.Lr):
     def __init__(self, Tree tree, Taxa.Map taxaMap=None,
       Parsing.Spec spec=None):
-        global _reMain, _reComment
-
         if spec is None:
             spec = self._initSpec()
 
@@ -434,11 +418,6 @@ cdef class Parser(Parsing.Lr):
         self.last = None
         self._tree = tree
         self._taxaMap = taxaMap
-
-        if _reMain is None:
-            _reMain = self._initReMain()
-        if _reComment is None:
-            _reComment = self._initReComment()
 
     # Check whether spec has been initialized here, rather than doing
     # initialization during module initialization.  Lazy initialization is
@@ -459,34 +438,6 @@ cdef class Parser(Parsing.Lr):
               skinny=(False if __debug__ else True),
               logFile="%s/Crux/parsers/Newick.log" % Crux.Config.datadir)
         return _spec
-
-    cdef _initReMain(self):
-        return re.compile(r"""
-    (\[[^[\]\n]*\])               # simple comment (non-nested, single line)
-  | (\[[^[\]\n]*\[)               # complex comment prefix: [...[
-  | (\[[^[\]\n]*\n)               # complex comment prefix: [...\n
-  | ([(])                         # (
-  | ([)])                         # )
-  | (,)                           # ,
-  | (:)                           # :
-  | (;)                           # ;
-  | ([-+]?
-     [0-9]+(?:[.][0-9]+)?
-     (?:[eE][-+]?[0-9]+)?
-     (?![^ \t\n\r\f\v()[\]':;,])) # branch length
-  | ([^ \t\n\r\f\v()[\]':;,]+)    # unquoted label
-  | ('(?:''|[^'])*'(?!'))         # quoted label
-  | ([ \t\r\f\v]+)                # whitespace
-  | ([\n])                        # whitespace (newline)
-""", re.X)
-
-    cdef _initReComment(self):
-        return re.compile(r"""
-    (\[)         # start comment
-  | (\])         # end comment
-  | (\n)         # newline
-  | ([^\[\]\n]+) # text
-""", re.X)
 
     cdef void _appendToken(self, Token token) except *:
         if self.first is None:
@@ -513,108 +464,85 @@ cdef class Parser(Parsing.Lr):
 
         node.taxon = taxon
 
-    cdef str expandInput(self, str input, int pos, int line, int col):
-        """
-            Called when end of input is reached.  By default a SyntaxError is
-            raised.
-        """
-        raise SyntaxError(line, col, "Invalid token or end of input reached")
+    cpdef parse(self, input, int line=1, bint verbose=False):
+        cdef yyscan_t scanner
+        cdef CxtNewickLexerExtra extra
+        cdef int status, tokType
 
-    cpdef parse(self, str input, int begPos=0, int line=1, int col=0,
-      bint verbose=False):
-        cdef int pos = begPos
-        cdef object m
-        cdef int idx, start, end
-        cdef Token token
-        cdef int tokLine, tokCol, nesting, tokPos
+        assert type(input) in (file, str)
 
         self.verbose = verbose
 
-        # Iteratively tokenize the input and feed the tokens to the parser.
-        while True:
-            tokLine = line
-            tokCol = col
+        extra.line = line
+        extra.ioerror = 0
+        if type(input) == file:
+            extra.inputMode = CxeNewickLexerInputModeFd
+            extra.input.fd = input.fileno()
+        elif type(input) == str:
+            extra.inputMode = CxeNewickLexerInputModeStr
+            extra.input.s.s = input
+            extra.input.s.len = len(input)
+        else:
+            assert False
 
-            m = _reMain.match(input, pos)
-            while m is None:
-                input = self.expandInput(input, pos, tokLine, tokCol)
-                m = _reMain.match(input, pos)
-            idx = m.lastindex
-            start = m.start(idx)
-            end = m.end(idx)
-            col += end - start
-            if idx == 1:    # simple comment
-                token = TokenComment(self, input, start, end, tokLine, tokCol)
-            elif idx == 2 or idx == 3:  # complex comment prefix
-                nesting = (2 if idx == 2 else 1)
-                tokPos = pos
-                line += (0 if idx == 2 else 1)
-                pos += end - start
-                while nesting > 0:
-                    m = _reComment.match(input, pos)
-                    while m is None:
-                        input = self.expandInput(input, tokPos, tokLine, tokCol)
-                        m = _reComment.match(input, pos)
-                    idx = m.lastindex
-                    start = m.start(idx)
-                    end = m.end(idx)
-                    col += end - start
-                    if idx == 1: # start comment
-                        nesting += 1
-                    elif idx == 2: # end comment
-                        nesting -= 1
-                    elif idx == 3: # newline
-                        line += 1
-                        col = 0
-                    elif idx == 4: # text
-                        pass
-                    else:
-                        assert False
-                    pos += end - start
-                token = TokenComment(self, input, tokPos, end, tokLine,
-                  tokCol)
-            elif idx == 4:  # (
-                token = TokenLparen(self, input, start, end, tokLine, tokCol)
-                self.token(token)
-            elif idx == 5:  # )
-                token = TokenRparen(self, input, start, end, tokLine, tokCol)
-                self.token(token)
-            elif idx == 6:  # ,
-                token = TokenComma(self, input, start, end, tokLine, tokCol)
-                self.token(token)
-            elif idx == 7:  # :
-                token = TokenColon(self, input, start, end, tokLine, tokCol)
-                self.token(token)
-            elif idx == 8:  # ;
-                token = TokenSemicolon(self, input, start, end, tokLine,
-                  tokCol)
-                self.token(token)
+        if CxNewickLexer_lex_init_extra(&extra, &scanner) != 0:
+            raise MemoryError("Error initializing lexer")
 
-                # Finish.
-                pos = end
-                self.eoi()
-                return (pos, line, col)
-            elif idx == 9:  # branch length
-                token = TokenBranchLength(self, input, start, end, tokLine,
-                  tokCol)
-                self.token(token)
-            elif idx == 10:  # unquoted label
-                token = TokenUnquotedLabel(self, input, start, end, tokLine,
-                  tokCol)
-                self.token(token)
-            elif idx == 11: # quoted label
-                token = TokenQuotedLabel(self, input, start, end, tokLine,
-                  tokCol)
-                self.token(token)
-            elif idx == 12: # whitespace
-                token = TokenWhitespace(self, input, start, end, tokLine,
-                  tokCol)
-            elif idx == 13: # whitespace (newline)
-                token = TokenWhitespace(self, input, start, end, tokLine,
-                  tokCol)
-                line += 1
-                col = 0
-            else:
-                assert False
+        try:
+            # Iteratively tokenize the input and feed the tokens to the parser.
+            status = CxNewickLexer_lex(scanner)
+            while status > 0:
+                tokType = extra.tokType
+                if tokType == CxeNewickLexerTokTypeComment: # [...]
+                    token = TokenComment(self, \
+                      PyString_FromStringAndSize(extra.tok.s, extra.tok.len), \
+                      extra.line)
+                elif tokType == CxeNewickLexerTokTypeLparen: # (
+                    token = TokenLparen(self, "(", extra.line)
+                    self.token(token)
+                elif tokType == CxeNewickLexerTokTypeRparen: # )
+                    token = TokenRparen(self, ")", extra.line)
+                    self.token(token)
+                elif tokType == CxeNewickLexerTokTypeComma: # ,
+                    token = TokenComma(self, ",", extra.line)
+                    self.token(token)
+                elif tokType == CxeNewickLexerTokTypeColon: # :
+                    token = TokenColon(self, ":", extra.line)
+                    self.token(token)
+                elif tokType == CxeNewickLexerTokTypeSemicolon: # ;
+                    token = TokenSemicolon(self, ";", extra.line)
+                    self.token(token)
 
-            pos = end
+                    # Finish.
+                    self.eoi()
+                    return
+
+                elif tokType == CxeNewickLexerTokTypeBranchLength:
+                    token = TokenBranchLength(self, \
+                      PyString_FromStringAndSize(extra.tok.s, extra.tok.len), \
+                      extra.line)
+                    self.token(token)
+                elif tokType == CxeNewickLexerTokTypeUnquotedLabel:
+                    token = TokenUnquotedLabel(self, \
+                      PyString_FromStringAndSize(extra.tok.s, extra.tok.len), \
+                      extra.line)
+                    self.token(token)
+                elif tokType == CxeNewickLexerTokTypeQuotedLabel:
+                    token = TokenQuotedLabel(self, \
+                      PyString_FromStringAndSize(extra.tok.s, extra.tok.len), \
+                      extra.line)
+                    self.token(token)
+                elif tokType == CxeNewickLexerTokTypeWhitespace: # whitespace
+                    token = TokenWhitespace(self, \
+                      PyString_FromStringAndSize(extra.tok.s, extra.tok.len), \
+                      extra.line)
+                else:
+                    assert False
+
+                status = CxNewickLexer_lex(scanner)
+
+            if status == -1:
+                raise SyntaxError(extra.line, "Invalid token")
+            raise SyntaxError(extra.line, "End of input reached")
+        finally:
+            CxNewickLexer_lex_destroy(scanner);
