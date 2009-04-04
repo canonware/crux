@@ -81,6 +81,9 @@ cdef class Mc3:
     IF @enable_mpi@:
         cdef int mpiSize
         cdef int mpiRank
+        cdef int mpiPpn
+        cdef int mpiI
+        cdef int *mpiI2r
 
     # Matrix of heat swapInfo structures, two for each pair of
     # Metropolis-coupled chains (even/odd swaps).  The matrix is ordered as
@@ -178,6 +181,11 @@ cdef class Mc3:
     cdef bint sample(self, uint64_t step) except *
     cpdef Lik randomLik(self, Tree tree=*)
     cpdef bint run(self, bint verbose=*, list liks=*) except *
+
+    IF @enable_mpi@:
+        cdef int getPpn(self)
+        cdef void setPpn(self, int ppn) except *
+        # property ppn
 
     cdef double getGraphDelay(self)
     cdef void setGraphDelay(self, double graphDelay)

@@ -104,6 +104,8 @@ cdef class Mc3:
             self.propStats[i] = NULL
         self.cachedLnLs = NULL
         self.lnLs = NULL
+        IF @enable_mpi@:
+            self.mpiI2r = NULL
 
     def __dealloc__(self):
         cdef unsigned i
@@ -128,6 +130,10 @@ cdef class Mc3:
                     self.lnLs[i] = NULL
             free(self.lnLs)
             self.lnLs = NULL
+        IF @enable_mpi@:
+            if self.mpiI2r != NULL:
+                free(self.mpiI2r)
+                self.mpiI2r = NULL
 
     def __init__(self, Alignment alignment, str outPrefix):
         self.alignment = alignment
@@ -176,6 +182,10 @@ cdef class Mc3:
         IF @enable_mpi@:
             mpi.MPI_Comm_size(mpi.MPI_COMM_WORLD, &self.mpiSize)
             mpi.MPI_Comm_rank(mpi.MPI_COMM_WORLD, &self.mpiRank)
+            self.mpiI2r = <int *>malloc(self.mpiSize * sizeof(int))
+            if self.mpiI2r == NULL:
+                raise MemoryError("Error allocating mpiI2r")
+            self.setPpn(1)
 
     cpdef Mc3 dup(self):
         cdef Mc3 ret
@@ -248,7 +258,7 @@ cdef class Mc3:
         cdef double xt
 
         IF @enable_mpi@:
-            if self.mpiRank != 0:
+            if self.mpiI != 0:
                 # Only the master node has all the information to compute the
                 # diagnostics.  This node only needs to clear its partial
                 # stats.
@@ -335,7 +345,7 @@ cdef class Mc3:
             # different steps to be interleaved.
             mpi.MPI_Barrier(mpi.MPI_COMM_WORLD)
 
-            if self.mpiRank != 0:
+            if self.mpiI != 0:
                 for 0 <= i < self._nruns:
                     # If a node other than the master owns the unheated chain
                     # for run i, transmit the lik/lnL to the master.  Since
@@ -370,7 +380,7 @@ cdef class Mc3:
                 for 0 <= i < nRecv:
                     # Receive lik/lnL from a slave.  Messages may arrive out of
                     # order, so use iRecv rather linear indexing.
-                    assert self.mpiRank == 0
+                    assert self.mpiI == 0
 
                     # Get pickle size.
                     mpi.MPI_Probe(mpi.MPI_ANY_SOURCE, TagLikLnL, \
@@ -469,9 +479,10 @@ cdef class Mc3:
             cdef Mc3SwapInfo *swapInfoSend, *swapInfoRecv
             cdef int peerRank
 
-            assert (runInd*self._ncoupled + dstChainInd) % self.mpiSize \
-              == self.mpiRank
-            peerRank = (runInd*self._ncoupled + srcChainInd) % self.mpiSize
+            assert (runInd*self._ncoupled + dstChainInd) % self.mpiSize == \
+              self.mpiI
+            peerRank = self.mpiI2r[(runInd*self._ncoupled + srcChainInd) % \
+              self.mpiSize]
             if peerRank != self.mpiRank:
                 swapInfoSend = &self.swapInfo[((runInd*self._ncoupled + \
                   dstChainInd)*self._ncoupled + srcChainInd)*2 + \
@@ -511,7 +522,7 @@ cdef class Mc3:
         cdef unsigned nchars, j
 
         IF @enable_mpi@:
-            if self.mpiRank != 0:
+            if self.mpiI != 0:
                 return
 
         nchars = 0
@@ -525,6 +536,7 @@ cdef class Mc3:
         self.lFile.write("Host machine: %r\n" % (os.uname(),))
         IF @enable_mpi@:
             self.lFile.write("MPI node count: %d\n" % self.mpiSize)
+            self.lFile.write("MPI processors per node: %d\n" % self.mpiPpn)
         for f in ((self.lFile, sys.stdout) if self.verbose else (self.lFile,)):
             f.write("PRNG seed: %d\n" % Crux.Config.seed)
             f.write("Taxa: %d\n" % self.alignment.ntaxa)
@@ -726,7 +738,7 @@ cdef class Mc3:
                 run = []
                 self.runs.append(run)
                 for 0 <= j < self._ncoupled:
-                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiRank:
+                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiI:
                         chain = Chain(self, i, j, swapSeed, seed, \
                           liks[i*self._ncoupled + j])
                     else:
@@ -778,14 +790,14 @@ cdef class Mc3:
             for 0 <= i < self._nruns:
                 run = <list>self.runs[i]
                 for 0 <= j < self._ncoupled:
-                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiRank:
+                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiI:
                         chain = <Chain>run[j]
                         chain.advance0()
 
             for 0 <= i < self._nruns:
                 run = <list>self.runs[i]
                 for 0 <= j < self._ncoupled:
-                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiRank:
+                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiI:
                         chain = <Chain>run[j]
                         chain.advance1()
 
@@ -851,7 +863,7 @@ cdef class Mc3:
         cdef double computeRcovMpi(self, uint64_t step) except *:
             cdef double rcov
 
-            if self.mpiRank == 0:
+            if self.mpiI == 0:
                 rcov = self.computeRcovUni(step)
             mpi.MPI_Bcast(&rcov, 1, mpi.MPI_DOUBLE, 0, mpi.MPI_COMM_WORLD)
 
@@ -1038,7 +1050,7 @@ cdef class Mc3:
     # Write to .l log file.
     cdef void lWrite(self, str s) except *:
         IF @enable_mpi@:
-            if self.mpiRank != 0:
+            if self.mpiI != 0:
                 return
 
         self.lFile.write(s)
@@ -1052,7 +1064,7 @@ cdef class Mc3:
         cdef Lik lik
 
         IF @enable_mpi@:
-            if self.mpiRank != 0:
+            if self.mpiI != 0:
                 return
 
         for 0 <= i < self._nruns:
@@ -1068,7 +1080,7 @@ cdef class Mc3:
         cdef Lik lik
 
         IF @enable_mpi@:
-            if self.mpiRank != 0:
+            if self.mpiI != 0:
                 return
 
         for 0 <= i < self._nruns:
@@ -1100,7 +1112,7 @@ cdef class Mc3:
         cdef str swapStats, propStats, rcovStr
 
         IF @enable_mpi@:
-            if self.mpiRank != 0:
+            if self.mpiI != 0:
                 return
 
         rcovStr = ("%.6f" % rcov if rcov != -1.0 else "--------")
@@ -1212,6 +1224,9 @@ cdef class Mc3:
             Run until convergence is reached, or the maximum number of steps
             is reached, whichever comes first.  Collate the results from the
             unheated chain(s) and write the raw results to disk.
+
+            In order to specify initial parameter values, specify a list of Lik
+            instances via 'liks'.
         """
         cdef double graphT0, graphT1
         cdef uint64_t step
@@ -1230,7 +1245,7 @@ cdef class Mc3:
             self.initRuns(liks)
 
             IF @enable_mpi@:
-                if self.mpiRank == 0:
+                if self.mpiI == 0:
                     graph = (self._graphDelay >= 0.0)
                 else:
                     graph = False
@@ -1279,6 +1294,47 @@ cdef class Mc3:
             self.lWrite("Finish run: %s\n" % \
               time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
               time.localtime(time.time())))
+
+    IF @enable_mpi@:
+        cdef int getPpn(self):
+            return self.mpiPpn
+        cdef void setPpn(self, int ppn) except *:
+            cdef int nphys, i, j, k
+
+            if not (ppn > 0):
+                raise ValueError("Validation failure: ppn > 0")
+            if not (self.mpiSize % ppn == 0):
+                raise ValueError(
+                  "Validation failure: <#nodes evenly divisible by ppn>")
+
+            # Create a i-->rank reverse lookup map that is used to determine
+            # the ranks of peers, given that chains are assigned to nodes in an
+            # interleaved order.
+            nphys = self.mpiSize / ppn
+            i = 0
+            for 0 <= j < nphys:
+                for 0 <= k < ppn:
+                    if i == self.mpiRank:
+                        self.mpiI = j + k*nphys
+                    self.mpiI2r[j + k*nphys] = i
+                    i += 1
+            self.mpiPpn = ppn
+        property ppn:
+            """
+                Number of logical MPI nodes (processors) per physical MPI node.
+                When set, this interleaves the order in which chains are
+                assigned to nodes (assuming that each physical node's logical
+                nodes are numbered sequentially).  Thus it is possible to, for
+                example, use 96 logical nodes across 12 physical nodes, set
+                ppn to 8, and run 12 chains, each of which runs on a separate
+                phyisical MPI node.  This makes it possible to enable
+                thread-parallel tree log-likelihood computation, and have each
+                physical node dedicated to running a single chain.
+            """
+            def __get__(self):
+                return self.getPpn()
+            def __set__(self, int ppn):
+                self.setPpn(ppn)
 
     cdef double getGraphDelay(self):
         return self._graphDelay
