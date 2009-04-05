@@ -46,7 +46,7 @@
       model selection using reversible jump Markov chain Monte Carlo.  Mol.
       Biol. Evol.  21(6):1123-1133.
 
-      Lakner, C., P.v.d Mark, J.P. Huelsenbeck, B. Larget, F. Ronquist (2008)
+      Lakner, C., P.v.d. Mark, J.P. Huelsenbeck, B. Larget, F. Ronquist (2008)
       Efficiency of Markov chain Monte Carlo tree proposals in Bayesian
       phylogenetics.  Syst. Biol. 57(1):86-103.
 
@@ -105,7 +105,7 @@ cdef class Mc3:
         self.cachedLnLs = NULL
         self.lnLs = NULL
         IF @enable_mpi@:
-            self.mpiI2r = NULL
+            self.mpiActive = False
 
     def __dealloc__(self):
         cdef unsigned i
@@ -131,9 +131,9 @@ cdef class Mc3:
             free(self.lnLs)
             self.lnLs = NULL
         IF @enable_mpi@:
-            if self.mpiI2r != NULL:
-                free(self.mpiI2r)
-                self.mpiI2r = NULL
+            if self.mpiActive:
+                mpi.MPI_Comm_free(&self.mpiActiveComm)
+                self.mpiActive = False
 
     def __init__(self, Alignment alignment, str outPrefix):
         self.alignment = alignment
@@ -180,11 +180,6 @@ cdef class Mc3:
         self.props[PropRateShapeInvJump] = 1.0
 
         IF @enable_mpi@:
-            mpi.MPI_Comm_size(mpi.MPI_COMM_WORLD, &self.mpiSize)
-            mpi.MPI_Comm_rank(mpi.MPI_COMM_WORLD, &self.mpiRank)
-            self.mpiI2r = <int *>malloc(self.mpiSize * sizeof(int))
-            if self.mpiI2r == NULL:
-                raise MemoryError("Error allocating mpiI2r")
             self.setPpn(1)
 
     cpdef Mc3 dup(self):
@@ -235,7 +230,7 @@ cdef class Mc3:
                 n = swapStats.n
                 mpi.MPI_Reduce(&n, &swapStats.n, 1, \
                   mpi.MPI_UNSIGNED_LONG_LONG, mpi.MPI_SUM, 0, \
-                  mpi.MPI_COMM_WORLD)
+                  self.mpiActiveComm)
 
         cdef void storePropStats(self) except *:
             cdef unsigned i, j
@@ -249,7 +244,7 @@ cdef class Mc3:
                     nd[1] = propStats.d
                     mpi.MPI_Reduce(nd, &propStats.n, 2, \
                       mpi.MPI_UNSIGNED_LONG_LONG, mpi.MPI_SUM, 0, \
-                      mpi.MPI_COMM_WORLD)
+                      self.mpiActiveComm)
 
     # Update diagnostics based on swapStats and propStats.
     cdef void updateDiags(self, uint64_t step) except *:
@@ -258,7 +253,7 @@ cdef class Mc3:
         cdef double xt
 
         IF @enable_mpi@:
-            if self.mpiI != 0:
+            if self.mpiRank != 0:
                 # Only the master node has all the information to compute the
                 # diagnostics.  This node only needs to clear its partial
                 # stats.
@@ -343,9 +338,9 @@ cdef class Mc3:
             # Force synchronization between the master and slaves.  Without
             # this synchronization, it would be possible for messages from
             # different steps to be interleaved.
-            mpi.MPI_Barrier(mpi.MPI_COMM_WORLD)
+            mpi.MPI_Barrier(self.mpiActiveComm)
 
-            if self.mpiI != 0:
+            if self.mpiRank != 0:
                 for 0 <= i < self._nruns:
                     # If a node other than the master owns the unheated chain
                     # for run i, transmit the lik/lnL to the master.  Since
@@ -364,7 +359,7 @@ cdef class Mc3:
                         s = pickle
                         pSize = len(pickle)
                         mpi.MPI_Send(s, pSize, mpi.MPI_BYTE, 0, TagLikLnL, \
-                          mpi.MPI_COMM_WORLD)
+                          self.mpiActiveComm)
             else:
                 # Obtain a reference to a Lik that was constructed using the
                 # same alignment as those that will be unpickled below.
@@ -380,18 +375,18 @@ cdef class Mc3:
                 for 0 <= i < nRecv:
                     # Receive lik/lnL from a slave.  Messages may arrive out of
                     # order, so use iRecv rather linear indexing.
-                    assert self.mpiI == 0
+                    assert self.mpiRank == 0
 
                     # Get pickle size.
                     mpi.MPI_Probe(mpi.MPI_ANY_SOURCE, TagLikLnL, \
-                      mpi.MPI_COMM_WORLD, &status)
+                      self.mpiActiveComm, &status)
                     mpi.MPI_Get_count(&status, mpi.MPI_BYTE, &pSize)
                     s = <char *>malloc(pSize)
                     if s == NULL:
                         raise MemoryError("Error allocating Lik pickle string")
                     # Get pickle.
                     mpi.MPI_Recv(s, pSize, mpi.MPI_BYTE, \
-                      mpi.MPI_ANY_SOURCE, TagLikLnL, mpi.MPI_COMM_WORLD, \
+                      mpi.MPI_ANY_SOURCE, TagLikLnL, self.mpiActiveComm, \
                       mpi.MPI_STATUS_IGNORE)
                     pickle = PyString_FromStringAndSize(s, pSize)
                     free(s)
@@ -480,9 +475,8 @@ cdef class Mc3:
             cdef int peerRank
 
             assert (runInd*self._ncoupled + dstChainInd) % self.mpiSize == \
-              self.mpiI
-            peerRank = self.mpiI2r[(runInd*self._ncoupled + srcChainInd) % \
-              self.mpiSize]
+              self.mpiRank
+            peerRank = (runInd*self._ncoupled + srcChainInd) % self.mpiSize
             if peerRank != self.mpiRank:
                 swapInfoSend = &self.swapInfo[((runInd*self._ncoupled + \
                   dstChainInd)*self._ncoupled + srcChainInd)*2 + \
@@ -496,7 +490,7 @@ cdef class Mc3:
                 mpi.MPI_Sendrecv(swapInfoSend, sizeof(Mc3SwapInfo), \
                   mpi.MPI_BYTE, peerRank, TagHeatSwap, swapInfoRecv, \
                   sizeof(Mc3SwapInfo), mpi.MPI_BYTE, peerRank, TagHeatSwap, \
-                  mpi.MPI_COMM_WORLD, mpi.MPI_STATUS_IGNORE)
+                  self.mpiActiveComm, mpi.MPI_STATUS_IGNORE)
 
                 IF @enable_debug@:
                     swapInfoSend.step = 0
@@ -517,12 +511,85 @@ cdef class Mc3:
             self.recvSwapInfoUni(runInd, dstChainInd, srcChainInd, step, heat, \
               lnL)
 
+    IF @enable_mpi@:
+        cdef list rank2interleave(self, unsigned nnodes):
+            cdef list r2i
+            cdef unsigned nphys, j, k
+
+            # Create a rank-->i lookup map that is used to interleave the order
+            # in which nodes are utilized.
+            r2i = []
+            nphys = nnodes / self.mpiPpn
+            for 0 <= j < nphys:
+                for 0 <= k < self.mpiPpn:
+                    r2i.append(j + k*nphys)
+            return r2i
+
+        cdef bint initActive(self) except *:
+            cdef int mpiSizeWorld, mpiRankWorld
+            cdef list r2i
+            cdef bint active
+            cdef dict activeDict
+            cdef unsigned i, j, owner
+            cdef list activeList
+            cdef int *activeArray
+            cdef mpi.MPI_Group worldGroup, activeGroup
+
+            mpi.MPI_Comm_size(mpi.MPI_COMM_WORLD, &mpiSizeWorld)
+            mpi.MPI_Comm_rank(mpi.MPI_COMM_WORLD, &mpiRankWorld)
+            r2i = self.rank2interleave(mpiSizeWorld)
+
+            active = False
+            activeDict = {}
+            activeList = []
+            for 0 <= i < self._nruns:
+                for 0 <= j < self._ncoupled:
+                    owner = r2i[(i*self._ncoupled + j) % mpiSizeWorld]
+                    if owner not in activeDict:
+                        # Merge owner's rank into active set.
+                        activeDict[owner] = None
+                        # Append owner's rank.  Order matters, since it
+                        # determines the mapping from world group rank to
+                        # active group rank.
+                        activeList.append(owner)
+
+                        if owner == mpiRankWorld:
+                            # Mark this node as active, since it owns a chain.
+                            active = True
+
+            if active:
+                # Create a communicator for active nodes.
+                activeArray = <int *>malloc(len(activeList) * sizeof(int))
+                if activeArray == NULL:
+                    raise MemoryError("Error allocating activeArray")
+                for 0 <= i < len(activeList):
+                    activeArray[i] = <int>activeList[i]
+
+                try:
+                    mpi.MPI_Comm_group(mpi.MPI_COMM_WORLD, &worldGroup)
+                    mpi.MPI_Group_incl(worldGroup, len(activeList), \
+                      activeArray, &activeGroup)
+                    mpi.MPI_Comm_create(mpi.MPI_COMM_WORLD, activeGroup, \
+                      &self.mpiActiveComm)
+                    # Don't set mpiActive until mpiActiveComm has been
+                    # initialized, since __dealloc__() uses mpiActive to decide
+                    # whether to call MPI_Comm_free().
+                    self.mpiActive = True
+                    mpi.MPI_Group_free(&activeGroup)
+                finally:
+                    free(activeArray)
+
+                mpi.MPI_Comm_size(self.mpiActiveComm, &self.mpiSize)
+                mpi.MPI_Comm_rank(self.mpiActiveComm, &self.mpiRank)
+
+            return active
+
     cdef void initLogs(self) except *:
         cdef file f
         cdef unsigned nchars, j
 
         IF @enable_mpi@:
-            if self.mpiI != 0:
+            if self.mpiRank != 0:
                 return
 
         nchars = 0
@@ -725,10 +792,16 @@ cdef class Mc3:
 
     IF @enable_mpi@:
         cdef void initRunsMpi(self, list liks) except *:
+            cdef int mpiSizeWorld, mpiRankWorld
+            cdef list r2i
             cdef uint32_t seed, swapSeed
-            cdef unsigned i, j
+            cdef unsigned i, j, owner
             cdef list run
             cdef Chain chain
+
+            mpi.MPI_Comm_size(mpi.MPI_COMM_WORLD, &mpiSizeWorld)
+            mpi.MPI_Comm_rank(mpi.MPI_COMM_WORLD, &mpiRankWorld)
+            r2i = self.rank2interleave(mpiSizeWorld)
 
             seed = random.randint(0, 0xffffffffU)
             self.runs = []
@@ -738,7 +811,8 @@ cdef class Mc3:
                 run = []
                 self.runs.append(run)
                 for 0 <= j < self._ncoupled:
-                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiI:
+                    if r2i[(i*self._ncoupled + j) % mpiSizeWorld] == \
+                      mpiRankWorld:
                         chain = Chain(self, i, j, swapSeed, seed, \
                           liks[i*self._ncoupled + j])
                     else:
@@ -790,14 +864,14 @@ cdef class Mc3:
             for 0 <= i < self._nruns:
                 run = <list>self.runs[i]
                 for 0 <= j < self._ncoupled:
-                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiI:
+                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiRank:
                         chain = <Chain>run[j]
                         chain.advance0()
 
             for 0 <= i < self._nruns:
                 run = <list>self.runs[i]
                 for 0 <= j < self._ncoupled:
-                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiI:
+                    if (i*self._ncoupled + j) % self.mpiSize == self.mpiRank:
                         chain = <Chain>run[j]
                         chain.advance1()
 
@@ -863,9 +937,9 @@ cdef class Mc3:
         cdef double computeRcovMpi(self, uint64_t step) except *:
             cdef double rcov
 
-            if self.mpiI == 0:
+            if self.mpiRank == 0:
                 rcov = self.computeRcovUni(step)
-            mpi.MPI_Bcast(&rcov, 1, mpi.MPI_DOUBLE, 0, mpi.MPI_COMM_WORLD)
+            mpi.MPI_Bcast(&rcov, 1, mpi.MPI_DOUBLE, 0, self.mpiActiveComm)
 
             return rcov
 
@@ -1050,9 +1124,10 @@ cdef class Mc3:
     # Write to .l log file.
     cdef void lWrite(self, str s) except *:
         IF @enable_mpi@:
-            if self.mpiI != 0:
+            if self.mpiRank != 0:
                 return
 
+        print "XXX %s" % s
         self.lFile.write(s)
         self.lFile.flush()
         if self.verbose:
@@ -1064,7 +1139,7 @@ cdef class Mc3:
         cdef Lik lik
 
         IF @enable_mpi@:
-            if self.mpiI != 0:
+            if self.mpiRank != 0:
                 return
 
         for 0 <= i < self._nruns:
@@ -1080,7 +1155,7 @@ cdef class Mc3:
         cdef Lik lik
 
         IF @enable_mpi@:
-            if self.mpiI != 0:
+            if self.mpiRank != 0:
                 return
 
         for 0 <= i < self._nruns:
@@ -1112,7 +1187,7 @@ cdef class Mc3:
         cdef str swapStats, propStats, rcovStr
 
         IF @enable_mpi@:
-            if self.mpiI != 0:
+            if self.mpiRank != 0:
                 return
 
         rcovStr = ("%.6f" % rcov if rcov != -1.0 else "--------")
@@ -1219,7 +1294,7 @@ cdef class Mc3:
 
         return lik
 
-    cpdef bint run(self, bint verbose=False, list liks=None) except *:
+    cpdef run(self, bint verbose=False, list liks=None):
         """
             Run until convergence is reached, or the maximum number of steps
             is reached, whichever comes first.  Collate the results from the
@@ -1234,6 +1309,9 @@ cdef class Mc3:
 
         self.verbose = verbose
 
+        IF @enable_mpi@:
+            if not self.initActive():
+                return
         try:
             self.initLogs()
             self.initSwapInfo()
@@ -1245,7 +1323,7 @@ cdef class Mc3:
             self.initRuns(liks)
 
             IF @enable_mpi@:
-                if self.mpiI == 0:
+                if self.mpiRank == 0:
                     graph = (self._graphDelay >= 0.0)
                 else:
                     graph = False
@@ -1280,7 +1358,8 @@ cdef class Mc3:
                     import traceback
                     sys.stderr.write("MPI node %s, rank %d of %d:" \
                       " Premature termination at %s: Exception %r\n" % \
-                      (MPI.Get_processor_name(), self.mpiRank, self.mpiSize, \
+                      (MPI.Get_processor_name(), MPI.COMM_WORLD.Get_rank(), \
+                      MPI.COMM_WORLD.Get_size(), \
                       time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
                       time.localtime(time.time())), sys.exc_info()[1]))
                     for l in traceback.format_exception(*error):
@@ -1299,25 +1378,15 @@ cdef class Mc3:
         cdef int getPpn(self):
             return self.mpiPpn
         cdef void setPpn(self, int ppn) except *:
-            cdef int nphys, i, j, k
+            cdef int mpiSizeWorld
+
+            mpi.MPI_Comm_size(mpi.MPI_COMM_WORLD, &mpiSizeWorld)
 
             if not (ppn > 0):
                 raise ValueError("Validation failure: ppn > 0")
-            if not (self.mpiSize % ppn == 0):
+            if not (mpiSizeWorld % ppn == 0):
                 raise ValueError(
                   "Validation failure: <#nodes evenly divisible by ppn>")
-
-            # Create a i-->rank reverse lookup map that is used to determine
-            # the ranks of peers, given that chains are assigned to nodes in an
-            # interleaved order.
-            nphys = self.mpiSize / ppn
-            i = 0
-            for 0 <= j < nphys:
-                for 0 <= k < ppn:
-                    if i == self.mpiRank:
-                        self.mpiI = j + k*nphys
-                    self.mpiI2r[j + k*nphys] = i
-                    i += 1
             self.mpiPpn = ppn
         property ppn:
             """

@@ -6,6 +6,8 @@ from Crux.CTMatrix cimport Alignment
 from Crux.Mc3.Chain cimport Chain, PropCnt
 from Crux.Tree cimport Tree
 from Crux.Tree.Lik cimport Lik
+IF @enable_mpi@:
+    cimport mpi4py.mpi_c as mpi
 
 cdef struct Mc3SwapInfo:
     uint64_t step
@@ -79,11 +81,11 @@ cdef class Mc3:
     cdef list runs
 
     IF @enable_mpi@:
+        cdef int mpiPpn
         cdef int mpiSize
         cdef int mpiRank
-        cdef int mpiPpn
-        cdef int mpiI
-        cdef int *mpiI2r
+        cdef bint mpiActive
+        cdef mpi.MPI_Comm mpiActiveComm
 
     # Matrix of heat swapInfo structures, two for each pair of
     # Metropolis-coupled chains (even/odd swaps).  The matrix is ordered as
@@ -147,6 +149,9 @@ cdef class Mc3:
           except *
     cdef void recvSwapInfo(self, unsigned runInd, unsigned dstChainInd, \
       unsigned srcChainInd, uint64_t step, double *heat, double *lnL) except *
+    IF @enable_mpi@:
+        cdef list rank2interleave(self, unsigned nnodes)
+        cdef bint initActive(self) except *
     cdef void initLogs(self) except *
     cdef void initSwapInfo(self) except *
     cdef void initSwapStats(self) except *
@@ -180,7 +185,7 @@ cdef class Mc3:
     cdef void sWrite(self, uint64_t step, double rcov) except *
     cdef bint sample(self, uint64_t step) except *
     cpdef Lik randomLik(self, Tree tree=*)
-    cpdef bint run(self, bint verbose=*, list liks=*) except *
+    cpdef run(self, bint verbose=*, list liks=*)
 
     IF @enable_mpi@:
         cdef int getPpn(self)
