@@ -322,7 +322,7 @@ cdef class Lik:
         self._init0(initArgs[0])
         self._init1(initArgs[0], initArgs[1], initArgs[2], 0)
 
-        for 0 <= i < self.lik.modelsLen:
+        for 0 <= i < len(models):
             mTuple = models[i]
             (weight, rmult, rclass, rates, freqs, alpha, ncat, catMedian) = \
               mTuple
