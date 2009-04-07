@@ -26,99 +26,66 @@ cdef class CL:
         Conditional likelihood, associated with a ring.
     """
     def __cinit__(self):
-        self.vec = NULL
+        cdef unsigned i
+
+        for 0 <= i < 2:
+            self.cLs[i].cLMat = NULL
+            self.cLs[i].lnScale = NULL
+            self.cLs[i].valid = False
+            self.cLs[i].parent = NULL
+            self.cLs[i].nSibs = 0
 
     def __dealloc__(self):
         cdef unsigned i
 
-        if self.vec != NULL:
-            for 0 <= i < self.vecMax:
-                if self.vec[i].cLMat != NULL:
-                    free(self.vec[i].cLMat)
-                    self.vec[i].cLMat = NULL
-            free(self.vec)
-            self.vec = NULL
+        for 0 <= i < 2:
+            if self.cLs[i].cLMat != NULL:
+                free(self.cLs[i].cLMat)
+                self.cLs[i].cLMat = NULL
+            if self.cLs[i].lnScale != NULL:
+                free(self.cLs[i].lnScale)
+                self.cLs[i].lnScale = NULL
 
-    def __init__(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      Lik lik, unsigned nmodels):
-        self.parent = None
-        self.nSibs = 0
+    def __init__(self):
+        pass
 
-        self.vec = <CxtLikCL *>calloc(nmodels, sizeof(CxtLikCL));
-        if self.vec == NULL:
-            raise MemoryError("Error allocating vector")
-        self.vecMax = nmodels
+    cdef void prepare(self, unsigned polarity, unsigned nchars, unsigned dim, \
+      unsigned ncomp) except *:
+        assert polarity < 2
 
-        for 0 <= i < nmodels:
-            if lik is None or lik.lik.models[i].weight != 0.0:
-                if posix_memalign(<void **>&self.vec[i].cLMat, cacheLine, \
-                  nchars * dim * ncat * sizeof(double)):
-                    raise MemoryError("Error allocating cLMat")
+        if self.cLs[polarity].cLMat == NULL:
+            if posix_memalign(<void **>&self.cLs[polarity].cLMat, cacheLine, \
+              nchars * dim * ncomp * sizeof(double)):
+                raise MemoryError("Error allocating cLMat")
 
-    cdef void expand(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      unsigned nmodels) except *:
-        cdef CxtLikCL *vec
+        if self.cLs[polarity].lnScale == NULL:
+            if posix_memalign(<void **>&self.cLs[polarity].lnScale, cacheLine, \
+              nchars * sizeof(double)):
+                raise MemoryError("Error allocating lnScale")
 
-        assert self.vecMax < nmodels
+    cdef void resize(self, unsigned polarity, unsigned nchars, unsigned dim, \
+      unsigned ncomp) except *:
+        cdef double *cLMat
 
-        vec = <CxtLikCL *>realloc(self.vec, nmodels * \
-          sizeof(CxtLikCL))
-        if vec == NULL:
-            raise MemoryError("Error reallocating vector")
-        self.vec = vec
-        memset(&self.vec[self.vecMax], 0, (nmodels - self.vecMax) * \
-          sizeof(CxtLikCL))
-        self.vecMax = nmodels
+        assert polarity < 2
 
-    cdef void prepare(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      CxtLikModel *models, unsigned nmodels) except *:
-        cdef unsigned i
+        # Always (re)allocate cLMat, since ncomp may have changed.
+        if self.cLs[polarity].cLMat != NULL:
+            free(self.cLs[polarity].cLMat)
+            self.cLs[polarity].cLMat = NULL
+        self.prepare(polarity, nchars, dim, ncomp)
 
-        if self.vecMax < nmodels:
-            self.expand(nchars, dim, ncat, nmodels)
+    cdef void flush(self, unsigned polarity) except *:
+        assert polarity < 2
 
-        for 0 <= i < nmodels:
-            if self.vec[i].cLMat == NULL and models[i].weight != 0.0:
-                if posix_memalign(<void **>&self.vec[i].cLMat, cacheLine, \
-                  nchars * dim * ncat * sizeof(double)):
-                    raise MemoryError("Error allocating cLMat")
-
-    cdef void dupModel(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      CxtLikModel *models, unsigned to, unsigned fr) except *:
-        assert models[to].weight != 0.0
-
-        self.prepare(nchars, dim, ncat, models, \
-          (fr+1 if (to < fr and models[fr].weight != 0.0) else to+1))
-
-        # Duplicate the cached values only if they are still valid.
-        if self.vec[fr].sn == models[fr].sn:
-            assert self.vec[to].cLMat != NULL
-            assert self.vec[fr].cLMat != NULL
-            self.vec[to].sn = self.vec[fr].sn
-            memcpy(self.vec[to].cLMat, self.vec[fr].cLMat, nchars * dim * \
-              ncat * sizeof(double))
-
-    cdef void trunc(self, unsigned nmodels) except *:
-        cdef unsigned i
-
-        # Clean up trailing unused elements.
-        for nmodels <= i < self.vecMax:
-            if self.vec[i].cLMat != NULL:
-                free(self.vec[i].cLMat)
-                self.vec[i].cLMat = NULL
-                self.vec[i].sn = 0
-
-    cdef void flush(self, CxtLikModel *models, unsigned nmodels) except *:
-        cdef unsigned i, lim
-
-        lim = (nmodels if nmodels < self.vecMax else self.vecMax)
-        for 0 <= i < lim:
-            if self.vec[i].cLMat != NULL and self.vec[i].sn != models[i].sn:
-                free(self.vec[i].cLMat)
-                self.vec[i].cLMat = NULL
-                self.vec[i].sn = 0
-
-        self.trunc(nmodels)
+        if self.cLs[polarity].cLMat != NULL:
+            free(self.cLs[polarity].cLMat)
+            self.cLs[polarity].cLMat = NULL
+        if self.cLs[polarity].lnScale != NULL:
+            free(self.cLs[polarity].lnScale)
+            self.cLs[polarity].lnScale = NULL
+        self.cLs[polarity].valid = False
+        self.cLs[polarity].parent = NULL
 
 cdef class Lik:
     """
@@ -159,14 +126,13 @@ cdef class Lik:
         * The elements on Q's diagonal are set such that each row sums to 0.
 
         By default:
-        * The rclass has only one rate ([0,0,0,0,0,0] in the example above).
-          The single rate is 1.0.
-        * The state frequencies are all equal (0.25 in the example above).
+        * The rclass has only one rate ([0,0,0,0,0,0] for DNA).  The single
+          rate is 1.0.
+        * The state frequencies are all equal (0.25 for DNA).
         * Gamma-distributed rates are disabled (alpha is infinite and ncat is
-          1).  If planning to enable Gamma-distributed rates, specify ncat
-          during construction.  Discretization uses category means by default,
-          but medians can be used instead by setting catMedian=True during
-          construction.
+          1).  Discretization uses category means by default, but medians can
+          be used instead by setting catMedian=True when adding to the mixture
+          via the constructor or addModel().
 
         When computing substitution probabilities for a branch of a particular
         length, numerical methods are used to compute Q's eigen decomposition,
@@ -194,36 +160,45 @@ cdef class Lik:
 
     def __dealloc__(self):
         cdef CxtLik *lik
-        cdef CxtLikModel *model
-        cdef unsigned i
+        cdef CxtLikModel *modelP
+        cdef int i
 
         if self.lik != NULL:
             lik = self.lik
-            for 0 <= i < lik.modelsMax:
-                model = &lik.models[i]
-                self._deallocModel(model)
+            # Iterate downward to avoid gratuitous memory moves.
+            for lik.modelsLen > i >= 0:
+                modelP = lik.models[i]
+                self._deallocModel(modelP, i)
             free(lik.models)
+            free(lik.comps)
+            free(lik.siteLnL)
             free(lik.steps)
             free(lik)
             self.lik = NULL
 
     def __init__(self, Tree tree=None, Alignment alignment=None, \
-      unsigned nmodels=1, unsigned ncat=0, bint catMedian=False):
+      unsigned nmodels=1, unsigned ncat=1, bint catMedian=False):
+        cdef unsigned i
+
         if alignment is not None:
-            self._init0(tree, alignment.nchars, \
-              alignment.charType.get().nstates(), nmodels, ncat, catMedian)
-            self._init1(alignment)
+            self._init0(tree)
+            self._init1(tree, alignment.nchars, \
+              alignment.charType.get().nstates(), 0)
+            self._init2(alignment)
+            for 0 <= i < nmodels:
+                self.addModel(1.0, ncat, catMedian)
 
-    cdef void _init0(self, Tree tree, unsigned nchars, unsigned dim, \
-      unsigned nmodels, unsigned ncat, bint catMedian) except *:
-        cdef unsigned stripeWidth, npad, i
-
+    cdef void _init0(self, Tree tree) except *:
         if tree.rooted:
             raise ValueError("Tree must be unrooted")
 
         # Make sure there's no left over cruft from some non-likelihood
         # anaylyis.
         tree.clearAux()
+
+    cdef void _init1(self, Tree tree, unsigned nchars, unsigned dim, \
+      unsigned polarity) except *:
+        cdef unsigned stripeWidth, npad, i
 
         # Configure striping.
         if Config.threaded:
@@ -246,32 +221,43 @@ cdef class Lik:
             npad = 0
             stripeWidth = nchars
 
-        self.sn = 0
+        self.mate = None
+
         self.tree = tree
 
         self.lik = <CxtLik *>calloc(1, sizeof(CxtLik))
         if self.lik == NULL:
             raise MemoryError("Error allocating lik")
 
+        self.lik.polarity = polarity
         self.lik.dim = dim
         self.lik.rlen = self.lik.dim * (self.lik.dim-1) / 2
-        self.lik.ncat = (ncat if ncat > 0 else 1)
-        self.lik.catMedian = catMedian
         self.lik.nchars = nchars + npad
         self.lik.npad = npad
         self.lik.stripeWidth = stripeWidth
         self.lik.nstripes = self.lik.nchars / stripeWidth
 
-        self.lik.models = <CxtLikModel *>calloc(nmodels, sizeof(CxtLikModel))
+        self.lik.invalidate = False
+        self.lik.resize = False
+        self.lik.reweight = False
+
+        self.lik.models = <CxtLikModel **>calloc(1, sizeof(CxtLikModel *))
         if self.lik.models == NULL:
             raise MemoryError("Error allocating models")
-        self.lik.modelsLen = nmodels
-        self.lik.modelsMax = nmodels
-        for 0 <= i < self.lik.modelsMax:
-            self._allocModel(&self.lik.models[i])
-            self._initModel(&self.lik.models[i], 1.0)
+        self.lik.modelsLen = 0
+        self.lik.modelsMax = 1
 
-    cdef void _init1(self, Alignment alignment) except *:
+        self.lik.comps = <CxtLikComp *>malloc(sizeof(CxtLikComp))
+        if self.lik.comps == NULL:
+            raise MemoryError("Error allocating comps")
+        self.lik.compsLen = 0
+        self.lik.compsMax = 1
+
+        self.lik.siteLnL = <double *>malloc(self.lik.nchars * sizeof(double))
+        if self.lik.siteLnL == NULL:
+            raise MemoryError("Error allocating siteLnL")
+
+    cdef void _init2(self, Alignment alignment) except *:
         cdef unsigned stepsMax, i
 
         self.char_ = alignment.charType.get()
@@ -286,7 +272,6 @@ cdef class Lik:
             assert self.alignment.nchars == self.lik.nchars
 
         self.lik.charFreqs = self.alignment.freqs
-        self.lik.renorm = True
 
         stepsMax = ((2 * self.alignment.ntaxa) - 2) * self.lik.modelsMax
         self.lik.steps = <CxtLikStep *>malloc(stepsMax * sizeof(CxtLikStep))
@@ -295,26 +280,20 @@ cdef class Lik:
         self.lik.stepsLen = 0
         self.lik.stepsMax = stepsMax
 
-        self.rootCL = CL(self.lik.nchars, self.lik.dim, self.lik.ncat, self, \
-          self.lik.modelsLen)
-        # Set each model's pointer to the CxtLikCL that is actually stored in
-        # rootCL, so that lnL computation can be completed in the C code.
-        # These pointers are maintained in addModel() when models are added
-        # later on.
-        for 0 <= i < self.lik.modelsMax:
-            self.lik.models[i].cL = &self.rootCL.vec[i]
+        self.rootCL = CL()
+        self.lik.rootCLC = &self.rootCL.cLs[self.lik.polarity]
 
     def __reduce__(self):
         return (type(self), (), self.__getstate__())
 
     def __getstate__(self):
         cdef initArgs, mTuple
-        cdef unsigned i, j
+        cdef unsigned i, j, ncat
         cdef list models, rclass, rates, freqs
         cdef double weight, rmult, alpha
+        cdef bint catMedian
 
-        initArgs = (self.tree, self.lik.nchars-self.lik.npad, self.lik.dim, \
-          self.lik.ncat, self.lik.catMedian)
+        initArgs = (self.tree, self.lik.nchars-self.lik.npad, self.lik.dim)
         models = []
         for 0 <= i < self.lik.modelsLen:
             weight = self.getWeight(i)
@@ -323,27 +302,32 @@ cdef class Lik:
             rates = [self.getRate(i, j) for j in xrange(self.getNrates(i))]
             freqs = [self.getFreq(i, j) for j in xrange(self.lik.dim)]
             alpha = self.getAlpha(i)
+            ncat = self.getNcat(i)
+            catMedian = self.getCatMedian(i)
 
-            mTuple = (weight, rmult, rclass, rates, freqs, alpha)
+            mTuple = (weight, rmult, rclass, rates, freqs, alpha, ncat, \
+              catMedian)
             models.append(mTuple)
 
         return (initArgs, models)
 
     def __setstate__(self, data):
         cdef initArgs, mTuple
-        cdef unsigned i, j
+        cdef unsigned i, j, m, ncat
         cdef list models, rclass, rates, freqs
         cdef double weight, rmult, alpha
+        cdef bint catMedian
 
         (initArgs, models) = data
-        self._init0(initArgs[0], initArgs[1], initArgs[2], len(models), \
-          initArgs[3], initArgs[4])
+        self._init0(initArgs[0])
+        self._init1(initArgs[0], initArgs[1], initArgs[2], 0)
 
         for 0 <= i < self.lik.modelsLen:
             mTuple = models[i]
-            (weight, rmult, rclass, rates, freqs, alpha) = mTuple
+            (weight, rmult, rclass, rates, freqs, alpha, ncat, catMedian) = \
+              mTuple
 
-            self.setWeight(i, weight)
+            m = self.addModel(weight, ncat, catMedian)
             self.setRmult(i, rmult)
             self.setRclass(i, rclass, rates)
 
@@ -354,102 +338,118 @@ cdef class Lik:
             if alpha != INFINITY:
                 self.setAlpha(i, alpha)
 
-    cdef uint64_t _assignSn(self):
-        self.sn += 1
-        return self.sn
+    cdef CxtLikModel *_allocModel(self, unsigned ncat) except *:
+        cdef CxtLikModel *modelP
+        cdef CxtLikComp *comps
 
-    cdef void _allocModel(self, CxtLikModel *model) except *:
-        cdef unsigned i
+        modelP = <CxtLikModel *>malloc(sizeof(CxtLikModel))
+        if modelP == NULL:
+            raise MemoryError("Error allocating model")
 
-        model.rclass = <unsigned *>malloc(self.lik.rlen * sizeof(unsigned))
-        if model.rclass == NULL:
+        modelP.rclass = <unsigned *>malloc(self.lik.rlen * sizeof(unsigned))
+        if modelP.rclass == NULL:
             raise MemoryError("Error allocating rclass")
 
-        model.rTri = <double *>malloc(self.lik.rlen * sizeof(double))
-        if model.rTri == NULL:
+        modelP.rTri = <double *>malloc(self.lik.rlen * sizeof(double))
+        if modelP.rTri == NULL:
             raise MemoryError("Error allocating rTri")
 
-        model.piDiag = <double *>malloc(self.lik.dim * sizeof(double))
-        if model.piDiag == NULL:
+        modelP.piDiag = <double *>malloc(self.lik.dim * sizeof(double))
+        if modelP.piDiag == NULL:
             raise MemoryError("Error allocating piDiag")
 
-        model.piDiagNorm = <double *>malloc(self.lik.dim * sizeof(double))
-        if model.piDiagNorm == NULL:
+        modelP.piDiagNorm = <double *>malloc(self.lik.dim * sizeof(double))
+        if modelP.piDiagNorm == NULL:
             raise MemoryError("Error allocating piDiagNorm")
 
-        model.qEigVecCube = <double *>malloc(self.lik.dim * self.lik.dim * \
+        modelP.qEigVecCube = <double *>malloc(self.lik.dim * self.lik.dim * \
           self.lik.dim * sizeof(double))
-        if model.qEigVecCube == NULL:
+        if modelP.qEigVecCube == NULL:
             raise MemoryError("Error allocating qEigVecCube")
 
-        model.qEigVals = <double *>malloc(self.lik.dim * sizeof(double))
-        if model.qEigVals == NULL:
+        modelP.qEigVals = <double *>malloc(self.lik.dim * sizeof(double))
+        if modelP.qEigVals == NULL:
             raise MemoryError("Error allocating qEigVals")
 
-        model.gammas = <double *>malloc(self.lik.ncat * sizeof(double))
-        if model.gammas == NULL:
-            raise MemoryError("Error allocating gammas")
+        if self.lik.compsLen + ncat > self.lik.compsMax:
+            comps = <CxtLikComp *>realloc(self.lik.comps, \
+              (self.lik.compsLen + ncat) * sizeof(CxtLikComp))
+            if comps == NULL:
+                raise MemoryError("Error reallocating comps")
+            self.lik.comps = comps
+        modelP.comp0 = self.lik.compsLen
+        self.lik.compsLen += ncat
+        modelP.clen = ncat
 
-        model.siteL = <double *>malloc(self.lik.nchars * sizeof(double))
-        if model.siteL == NULL:
-            raise MemoryError("Error allocating siteL")
+        return modelP
 
-    cdef void _initModel(self, CxtLikModel *model, double weight):
+    cdef void _initModel(self, CxtLikModel *modelP, double weight, \
+      bint catMedian):
         cdef unsigned i
 
-        model.sn = 0
-        model.reassign = True
-        model.weight = weight
+        modelP.decomp = True
+        modelP.weight = weight
 
         # Initialize to default equal relative rates.
-        model.rmult = 1.0
+        modelP.rmult = 1.0
         for 0 <= i < self.lik.rlen:
-            model.rclass[i] = 0
-            model.rTri[i] = 1.0
+            modelP.rclass[i] = 0
+            modelP.rTri[i] = 1.0
 
         # Initialize to default equal frequencies.
         for 0 <= i < self.lik.dim:
-            model.piDiag[i] = 1.0 / <double>self.lik.dim
+            modelP.piDiag[i] = 1.0 / <double>self.lik.dim
 
-        model.alpha = INFINITY
-        model.gammas[0] = 1.0
-        model.glen = 1
+        modelP.alpha = INFINITY
+        modelP.catMedian = catMedian
 
-    cdef void _reassignModel(self, CxtLikModel *model) except *:
-        model.sn = self._assignSn()
+        # Initialize comps.  Only the first one is used, unless alpha is
+        # changed to something other than INFINITY.
+        self.lik.comps[modelP.comp0].model = modelP
+        self.lik.comps[modelP.comp0].cweight = 1.0
+        self.lik.comps[modelP.comp0].cmult = 1.0
+        for 1 <= i < modelP.clen:
+            self.lik.comps[modelP.comp0+i].model = modelP
+            self.lik.comps[modelP.comp0+i].cweight = 0.0
+            self.lik.comps[modelP.comp0].cmult = 1.0
 
+    cdef void _decompModel(self, CxtLikModel *modelP) except *:
         # Normalize Pi as needed, and decompose Q.
-        if CxLikQDecomp(self.lik.dim, model.rTri, model.piDiag, \
-          model.piDiagNorm, &model.qNorm, model.qEigVecCube, model.qEigVals):
+        if CxLikQDecomp(self.lik.dim, modelP.rTri, modelP.piDiag, \
+          modelP.piDiagNorm, &modelP.qNorm, modelP.qEigVecCube, \
+          modelP.qEigVals):
             raise ValueError("Error decomposing Q")
 
-        model.reassign = False
+        modelP.decomp = False
 
-    cdef void _deallocModel(self, CxtLikModel *model):
-        if model.rclass != NULL:
-            free(model.rclass)
-            model.rclass = NULL
-        if model.rTri != NULL:
-            free(model.rTri)
-            model.rTri = NULL
-        if model.piDiag != NULL:
-            free(model.piDiag)
-            model.piDiag = NULL
-        if model.piDiagNorm != NULL:
-            free(model.piDiagNorm)
-            model.piDiagNorm = NULL
-        if model.qEigVecCube != NULL:
-            free(model.qEigVecCube)
-            model.qEigVecCube = NULL
-        if model.qEigVals != NULL:
-            free(model.qEigVals)
-            model.qEigVals = NULL
-        if model.gammas != NULL:
-            free(model.gammas)
-            model.gammas = NULL
-        if model.siteL != NULL:
-            free(model.siteL)
-            model.siteL = NULL
+    cdef void _deallocModel(self, CxtLikModel *modelP, unsigned model):
+        if modelP.rclass != NULL:
+            free(modelP.rclass)
+            modelP.rclass = NULL
+        if modelP.rTri != NULL:
+            free(modelP.rTri)
+            modelP.rTri = NULL
+        if modelP.piDiag != NULL:
+            free(modelP.piDiag)
+            modelP.piDiag = NULL
+        if modelP.piDiagNorm != NULL:
+            free(modelP.piDiagNorm)
+            modelP.piDiagNorm = NULL
+        if modelP.qEigVecCube != NULL:
+            free(modelP.qEigVecCube)
+            modelP.qEigVecCube = NULL
+        if modelP.qEigVals != NULL:
+            free(modelP.qEigVals)
+            modelP.qEigVals = NULL
+
+        if modelP.comp0 + modelP.clen < self.lik.compsLen:
+            # Fill the hole in the comps vector.
+            for model < i < self.lik.modelsLen:
+                self.lik.models[i].comp0 -= modelP.clen
+            self.lik.models[i-1] = self.lik.models[i]
+
+        self.lik.compsLen -= modelP.clen
+        free(modelP)
 
     cpdef Lik unpickle(self, str pickle):
         """
@@ -457,15 +457,39 @@ cdef class Lik:
             missing details by copying them from 'self'.
         """
         cdef Lik ret
-        cdef unsigned i
-        cdef double alpha
 
         ret = cPickle.loads(pickle)
 
         # Fill in missing details.
-        ret._init1(self.alignment)
+        ret._init2(self.alignment)
 
         return ret
+
+    cdef void _dup(self, Lik lik) except *:
+        cdef unsigned i, m
+        cdef CxtLikModel *toP, *frP
+
+        assert lik.lik.modelsLen == 0
+
+        for 0 <= i < self.lik.modelsLen:
+            frP = self.lik.models[i]
+            m = lik.addModel(frP.weight, frP.clen, frP.catMedian)
+            toP = lik.lik.models[m]
+            assert toP.decomp
+            assert toP.weight == frP.weight
+            toP.rmult = frP.rmult
+            memcpy(toP.rclass, frP.rclass, self.lik.rlen * sizeof(unsigned))
+            memcpy(toP.rTri, frP.rTri, self.lik.rlen * sizeof(double))
+            memcpy(toP.piDiag, frP.piDiag, self.lik.dim * sizeof(double))
+            memcpy(toP.piDiagNorm, frP.piDiagNorm, self.lik.dim * \
+              sizeof(double))
+
+            toP.alpha = frP.alpha
+            toP.catMedian = frP.catMedian
+
+        for 0 <= i < self.lik.compsLen:
+            lik.lik.comps[i].cweight = self.lik.comps[i].cweight
+            lik.lik.comps[i].cmult = self.lik.comps[i].cmult
 
     cpdef Lik dup(self):
         """
@@ -476,37 +500,65 @@ cdef class Lik:
             they can be recomputed if necessary.
         """
         cdef Lik ret
-        cdef unsigned i
-        cdef CxtLikModel *toP, *frP
 
-        ret = Lik(self.tree.dup(), self.alignment, self.lik.modelsLen, \
-          self.lik.ncat, self.lik.catMedian)
-
-        for 0 <= i < self.lik.modelsLen:
-            toP = &ret.lik.models[i]
-            frP = &self.lik.models[i]
-            assert toP.sn == 0
-            assert toP.reassign
-            toP.weight = frP.weight
-            toP.rmult = frP.rmult
-            memcpy(toP.rclass, frP.rclass, self.lik.rlen * sizeof(unsigned))
-            memcpy(toP.rTri, frP.rTri, self.lik.rlen * sizeof(double))
-            memcpy(toP.piDiag, frP.piDiag, self.lik.dim * sizeof(double))
-            memcpy(toP.piDiagNorm, frP.piDiagNorm, self.lik.dim * \
-              sizeof(double))
-
-            toP.alpha = frP.alpha
-            memcpy(toP.gammas, frP.gammas, frP.glen * sizeof(double))
-            toP.glen = frP.glen
+        ret = Lik(self.tree.dup(), self.alignment, 0)
+        self._dup(ret)
 
         return ret
 
-    cpdef unsigned getNcat(self):
+    cpdef Lik clone(self):
         """
-            Get the number of discrete rates for Gamma-distributed mutation
-            rate variation.
+            Return a Lik instance that has exactly the same model parameters,
+            and shares the same underlying tree.  Cached likelihood data are
+            not copied, since the intent of clone() is to provide a separate
+            Lik in which to modify model parameters such that the cached data
+            would be invalidated anyway.
+
+            Internally, each Lik has at most one mated Lik instance that is
+            used for clone().  This means that in the following code, lik0 and
+            lik2 are the same instance:
+
+              lik0 = Lik(...)
+              lik1 = lik0.clone()
+              lik2 = lik1.clone()
         """
-        return self.lik.ncat
+        cdef Lik ret
+        cdef int i
+        cdef CxtLikModel *modelP
+
+        if self.mate is not None:
+            ret = self.mate
+
+            ret.lik.invalidate = True
+            # Discard all internal-node cLMat's if compsLen differs between
+            # mates.
+            if ret.lik.compsLen != self.lik.compsLen:
+                ret.lik.resize = True
+            ret.lik.reweight = self.lik.reweight
+
+            # Clear ret's models/comps vectors.  Iterate downward to avoid
+            # gratuitous memory moves.
+            for ret.lik.modelsLen > i >= 0:
+                ret.delModel(i)
+        else:
+            assert self.lik.polarity == 0
+            ret = Lik()
+            ret._init1(self.tree, self.alignment.nchars, self.lik.dim, 1)
+            ret._init2(self.alignment)
+            ret.mate = self
+            self.mate = ret
+
+        self._dup(ret)
+
+        return ret
+
+    cpdef double getWNorm(self) except -1.0:
+        """
+            Get the weighted normalization factor that is used to normalize all
+            model Q matrices, so that the mixture's mean relative mutation
+            rate is 1.0.
+        """
+        return self.lik.wNorm
 
     cpdef unsigned nmodels(self):
         """
@@ -515,128 +567,54 @@ cdef class Lik:
         """
         return self.lik.modelsLen
 
-    cpdef unsigned addModel(self, double weight) except 0:
+    cpdef unsigned addModel(self, double weight, unsigned ncat=1, \
+      bint catMedian=False) except *:
         """
             Append a model to the mixture, and return its index in the model
             vector.
         """
         cdef unsigned ret, i
-        cdef CxtLikModel *models
+        cdef CxtLikModel **models
+
+        assert ncat > 0
 
         if self.lik.modelsLen == self.lik.modelsMax:
-            models = <CxtLikModel *>realloc(self.lik.models, \
-              (self.lik.modelsMax + 1) * sizeof(CxtLikModel))
+            models = <CxtLikModel **>realloc(self.lik.models, \
+              (self.lik.modelsMax + 1) * sizeof(CxtLikModel *))
             if models == NULL:
                 raise MemoryError("Error reallocating models")
             self.lik.models = models
-            self._allocModel(&self.lik.models[self.lik.modelsMax])
             self.lik.modelsMax += 1
-            # Expand rootCL to contain a vector element for the added model.
-            self.rootCL.expand(self.lik.nchars, self.lik.dim, self.lik.ncat, \
-              self.lik.modelsMax)
-            # Re-set all models' cL pointers, since rootCL's vector has been
-            # reallocated.
-            for 0 <= i < self.lik.modelsMax:
-                self.lik.models[i].cL = &self.rootCL.vec[i]
-        self._initModel(&self.lik.models[self.lik.modelsLen], weight)
+        self.lik.models[self.lik.modelsLen] = self._allocModel(ncat)
+        self._initModel(self.lik.models[self.lik.modelsLen], weight, catMedian)
         ret = self.lik.modelsLen
         self.lik.modelsLen += 1
 
+        self.lik.resize = True
+
         return ret
 
-    cpdef dupModel(self, unsigned to, unsigned fr, bint dupCLs=False):
+    cpdef delModel(self, unsigned model):
         """
-            Copy all model parameters from the model at offset 'fr' within the
-            mixture model vector to the model at offset 'to' (but leave the
-            weights unmodified).  If dupCLs is True, copy all valid cached
-            conditional likelihoods, with the expectation that those data will
-            be useful for future likelihood computations.
-
-            Among other uses, this method makes it possible to re-order the
-            mixture vector, in preparation for removing the last in the vector,
-            via delModel().
+            Remove the model from the mixture vector, and renumber remaining
+            models so that model numbers remain contiguous.
         """
-        cdef CxtLikModel *toP, *frP
-        cdef Edge edge
-        cdef Ring ring
-        cdef CL cL
-        cdef bint zeroWeight
+        cdef CxtLikModel *modelP
 
-        assert to < self.lik.modelsLen
-        assert fr < self.lik.modelsLen
-        assert to != fr
+        assert model < self.lik.modelsLen
+        modelP = self.lik.models[model]
 
-        toP = &self.lik.models[to]
-        frP = &self.lik.models[fr]
+        if self.lik.modelsLen == 0:
+            raise ValueError("No models remain")
 
-        toP.sn = frP.sn
-        # toP.qNorm may not be initialized, so take care not to access it
-        # unless toP.reassign is True.
-        if toP.weight != 0.0 and \
-          ((not toP.reassign) and toP.qNorm != frP.qNorm):
-            # Make a note to recompute wNorm, since this model duplication
-            # changes the mean qNorm.
-            self.lik.renorm = True
-        toP.reassign = frP.reassign
-        toP.qNorm = frP.qNorm
-        toP.wNorm = frP.wNorm
-        toP.rmult = frP.rmult
-        memcpy(toP.rclass, frP.rclass, self.lik.rlen * sizeof(unsigned))
-        memcpy(toP.rTri, frP.rTri, self.lik.rlen * sizeof(double))
-        memcpy(toP.piDiag, frP.piDiag, self.lik.dim * sizeof(double))
-        memcpy(toP.piDiagNorm, frP.piDiagNorm, self.lik.dim * sizeof(double))
-        memcpy(toP.qEigVecCube, frP.qEigVecCube, self.lik.dim * self.lik.dim * \
-          self.lik.dim * sizeof(double))
-        memcpy(toP.qEigVals, frP.qEigVals, self.lik.dim * sizeof(double))
+        self._deallocModel(modelP, model)
 
-        toP.alpha = frP.alpha
-        memcpy(toP.gammas, frP.gammas, self.lik.ncat * sizeof(double))
-        toP.glen = frP.glen
+        self.lik.resize = True
 
-        memcpy(toP.siteL, frP.siteL, self.lik.nchars * sizeof(double))
-
-        if dupCLs:
-            if toP.weight == 0.0:
-                # The destination model has zero weight, which would ordinarily
-                # cause associated CL matrices to be left
-                # uninitialized/unallocated.  However, the user has
-                # specifically asked for the cached data to be copied,
-                # presumably because they will be useful soon, so temporarily
-                # give the model non-zero weight so that the copying succeeds.
-                zeroWeight = True
-                toP.weight = 1.0
-            else:
-                zeroWeight = False
-
-            assert self.rootCL.vecMax >= self.lik.modelsLen
-            self.rootCL.dupModel(self.lik.nchars, self.lik.dim, self.lik.ncat, \
-              self.lik.models, to, fr)
-
-            for edge in self.tree.getEdges():
-                for ring in (edge.ring, edge.ring.other):
-                    if ring.node.getDegree() > 1:
-                        cL = <CL>ring.aux
-                        # Only duplicate the cL if it exists for the source
-                        # model, and it is valid (current sn).
-                        if cL is not None and cL.vecMax > fr \
-                          and cL.vec[fr].sn == frP.sn:
-                            cL.dupModel(self.lik.nchars, self.lik.dim, \
-                              self.lik.ncat, self.lik.models, to, fr)
-
-            if zeroWeight:
-                toP.weight = 0.0
-
-    cpdef delModel(self):
-        """
-            Remove the last model in the mixture vector.  Weights for the other
-            models are not modified, which if nothing else is changed will
-            result in automatic proportional rescaling during the next lnL()
-            computation.
-        """
-        cdef CxtLikModel *models
-
-        if self.lik.modelsLen == 1:
-            raise ValueError("At least one model must remain")
+        if model != self.lik.modelsLen - 1:
+            # Fill the hole in the models vector.
+            memmove(&self.lik.models[model], &self.lik.models[model+1], \
+              (self.lik.modelsLen - (model+1)) * sizeof(CxtLikModel *))
         self.lik.modelsLen -= 1
 
     cpdef double getWeight(self, unsigned model) except -1.0:
@@ -647,7 +625,7 @@ cdef class Lik:
         cdef CxtLikModel *modelP
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
 
         return modelP.weight
 
@@ -659,24 +637,11 @@ cdef class Lik:
         cdef CxtLikModel *modelP
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
         assert weight >= 0.0
 
         modelP.weight = weight
-        self.lik.renorm = True
-
-    cpdef double getWNorm(self, unsigned model) except -1.0:
-        """
-            Get the weighted normalization factor that is used to normalize a
-            model's Q matrix, so that the mixture's mean relative mutation
-            rate is 1.0.
-        """
-        cdef CxtLikModel *modelP
-
-        assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
-
-        return modelP.wNorm
+        self.lik.reweight = True
 
     cpdef double getRmult(self, unsigned model) except -1.0:
         """
@@ -685,7 +650,7 @@ cdef class Lik:
         cdef CxtLikModel *modelP
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
 
         return modelP.rmult
 
@@ -696,11 +661,11 @@ cdef class Lik:
         cdef CxtLikModel *modelP
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
         assert rmult >= 0.0
 
         modelP.rmult = rmult
-        self.lik.renorm = True
+        self.lik.reweight = True
 
     cpdef list getRclass(self, unsigned model):
         """
@@ -722,7 +687,7 @@ cdef class Lik:
         cdef unsigned i
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
 
         return [modelP.rclass[i] for i in xrange(self.lik.rlen)]
 
@@ -766,7 +731,7 @@ cdef class Lik:
         cdef unsigned rMax, r, i
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
 
         rMax = 0
         for 0 <= i < self.lik.rlen:
@@ -792,7 +757,7 @@ cdef class Lik:
             for 0 <= i < self.lik.rlen:
                 modelP.rTri[i] = rates[modelP.rclass[i]]
 
-        modelP.reassign = True
+        modelP.decomp = True
 
     cpdef unsigned getNrates(self, unsigned model) except 0:
         """
@@ -803,7 +768,7 @@ cdef class Lik:
         cdef CxtLikModel *modelP
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
 
         nrates = 1
         for 0 <= i < self.lik.rlen:
@@ -822,7 +787,7 @@ cdef class Lik:
         cdef unsigned j
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
         assert i < self.lik.rlen
 
         for 0 <= j < self.lik.rlen:
@@ -838,25 +803,25 @@ cdef class Lik:
         """
         cdef CxtLikModel *modelP
         cdef unsigned j
-        cdef bint iValid, reassign
+        cdef bint iValid, decomp
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
         assert i < self.lik.rlen
         assert rate > 0.0
 
         iValid = False
-        reassign = False
+        decomp = False
         for 0 <= j < self.lik.rlen:
             if modelP.rclass[j] == i:
                 if modelP.rTri[j] != rate:
-                    reassign = True
+                    decomp = True
                 modelP.rTri[j] = rate
                 iValid = True
         if not iValid:
             raise ValueError("Invalid rate class index")
-        if reassign:
-            modelP.reassign = True
+        if decomp:
+            modelP.decomp = True
 
     cpdef double getFreq(self, unsigned model, unsigned i) except -1.0:
         """
@@ -865,7 +830,7 @@ cdef class Lik:
         cdef CxtLikModel *modelP
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
         assert i < self.lik.dim
 
         return modelP.piDiag[i]
@@ -877,13 +842,13 @@ cdef class Lik:
         cdef CxtLikModel *modelP
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
         assert i < self.lik.dim
         assert freq > 0.0
 
         if modelP.piDiag[i] != freq:
             modelP.piDiag[i] = freq
-            modelP.reassign = True
+            modelP.decomp = True
 
     cpdef double getAlpha(self, unsigned model):
         """
@@ -893,7 +858,7 @@ cdef class Lik:
         cdef CxtLikModel *modelP
 
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
 
         return modelP.alpha
 
@@ -906,85 +871,116 @@ cdef class Lik:
         cdef double lnGammaA, lnGammaA1, pt, sum
         cdef unsigned i
 
-        assert self.lik.ncat > 1
         assert model < self.lik.modelsLen
-        modelP = &self.lik.models[model]
+        modelP = self.lik.models[model]
+        assert modelP.clen > 1
 
         if modelP.alpha != alpha:
             modelP.alpha = alpha
             if alpha != INFINITY:
                 # Discretize Gamma-distributed rates.
                 lnGammaA = lnGamma(alpha)
-                if not self.lik.catMedian: # Category means.
+                if not modelP.catMedian: # Category means.
                     # Use properly scaled ptChi2() results to compute boundaries
                     # between equal-size rate categories.  Then use the
                     # boundaries to compute category means.
                     lnGammaA1 = lnGamma(alpha+1.0)
-                    for 0 <= i < self.lik.ncat - 1:
-                        pt = ptChi2((<double>i+1.0) / <double>self.lik.ncat, \
+                    for 0 <= i < modelP.clen - 1:
+                        pt = ptChi2((<double>i+1.0) / <double>modelP.clen, \
                           alpha*2.0, lnGammaA)
                         if pt == -1.0:
                             raise OverflowError(\
                               "Error discretizing gamma (ncat=%d, alpha=%e)" % \
-                              (self.lik.ncat, alpha))
-                        modelP.gammas[i] = gammaI(pt/2.0, alpha+1.0, lnGammaA1)
-                    modelP.gammas[self.lik.ncat-1] = 1.0
+                              (modelP.clen, alpha))
+                        self.lik.comps[modelP.comp0+i].cmult = \
+                          gammaI(pt/2.0, alpha+1.0, lnGammaA1)
+                    self.lik.comps[modelP.comp0+modelP.clen-1].cmult = 1.0
 
                     # Convert to relative rates and rescale to a mean rate of 1.
-                    for self.lik.ncat - 1 >= i > 0:
-                        modelP.gammas[i] -= modelP.gammas[i-1]
-                        modelP.gammas[i] *= <double>self.lik.ncat
-                    modelP.gammas[0] *= <double>self.lik.ncat
+                    for modelP.clen - 1 >= i > 0:
+                        self.lik.comps[modelP.comp0+i].cmult -= \
+                          self.lik.comps[modelP.comp0+i-1].cmult
+                        self.lik.comps[modelP.comp0+i].cmult *= \
+                          <double>modelP.clen
+                    self.lik.comps[modelP.comp0].cmult *= <double>modelP.clen
                 else: # Category medians.
                     # Use properly scaled ptChi2() results to compute point
                     # values for the medians of ncat equal-sized partitions,
                     sum = 0.0
-                    for 0 <= i < self.lik.ncat:
+                    for 0 <= i < modelP.clen:
                         pt = ptChi2((<double>(i*2)+1.0) / \
-                          <double>(self.lik.ncat*2), alpha*2.0, lnGammaA)
+                          <double>(modelP.clen*2), alpha*2.0, lnGammaA)
                         if pt == -1.0:
                             raise OverflowError(\
                               "Error discretizing gamma (ncat=%d, alpha=%e)" % \
-                              (self.lik.ncat, alpha))
+                              (modelP.clen, alpha))
                         pt /= alpha * 2.0
                         sum += pt
-                        modelP.gammas[i] = pt
+                        self.lik.comps[modelP.comp0+i].cmult = pt
 
                     # Rescale to a mean rate of 1.
-                    for 0 <= i < self.lik.ncat:
-                        modelP.gammas[i] *= <double>self.lik.ncat / sum
+                    for 0 <= i < modelP.clen:
+                        self.lik.comps[modelP.comp0+i].cmult *= \
+                          <double>modelP.clen / sum
 
-                modelP.glen = self.lik.ncat
+                for 0 <= i < modelP.clen:
+                    self.lik.comps[modelP.comp0+i].cweight = \
+                      1.0 / <double>modelP.clen
             else:
                 # No Gamma-distributed rates.
-                modelP.gammas[0] = 1.0
-                modelP.glen = 1
+                self.lik.comps[modelP.comp0].cweight = 1.0
+                self.lik.comps[modelP.comp0].cmult = 1.0
+                for 1 <= i < modelP.clen:
+                    self.lik.comps[modelP.comp0+i].cweight = 0.0
+                    self.lik.comps[modelP.comp0+i].cmult = 1.0
 
-            modelP.reassign = True
+            self.lik.invalidate = True
 
-    cdef void _planAppend(self, unsigned model, CxeLikStep variant, \
-      CL parentCL, CL childCL, double edgeLen) except *:
-        cdef CxtLikStep *step
+    cpdef unsigned getNcat(self, unsigned model) except *:
+        """
+            Get the number of discrete rates for Gamma-distributed mutation
+            rate variation, for the specified model.
+        """
         cdef CxtLikModel *modelP
+
+        assert model < self.lik.modelsLen
+        modelP = self.lik.models[model]
+
+        return modelP.clen
+
+    cpdef bint getCatMedian(self, unsigned model) except *:
+        """
+            Get the Gamma-distributed rate discretization algorithm for the
+            specified model.  If False, category means are used; if True,
+            category medians are used.
+        """
+        cdef CxtLikModel *modelP
+
+        assert model < self.lik.modelsLen
+        modelP = self.lik.models[model]
+
+        return modelP.catMedian
+
+    cdef void _planAppend(self, CxeLikStep variant, CL parentCL, CL childCL, \
+      double edgeLen) except *:
+        cdef CxtLikStep *step
+
+        assert parentCL is not None
+        assert childCL is not None
 
         step = &self.lik.steps[self.lik.stepsLen]
         self.lik.stepsLen += 1
 
-        modelP = &self.lik.models[model]
-        # Clear the 'entire' attribute, in order to force re-aggregation of
-        # conditional likelihoods for the model.
-        modelP.entire = False
-
         step.variant = variant
-        step.model = modelP
-        step.parentCL = &parentCL.vec[model]
-        if childCL.vecMax == 1:
+        step.parentCL = &parentCL.cLs[self.lik.polarity]
+        if childCL.cLs[1].cLMat == NULL:
             # Be careful with leaf nodes to always use the first (and only)
-            # vector element.
-            step.childCL = &childCL.vec[0]
+            # cLs element.
+            assert childCL.cLs[0].cLMat != NULL
+            step.childCL = &childCL.cLs[0]
         else:
-            assert childCL.vecMax > model
-            step.childCL = &childCL.vec[model]
+            assert childCL.cLs[self.lik.polarity].cLMat != NULL
+            step.childCL = &childCL.cLs[self.lik.polarity]
         if edgeLen < 0.0:
             raise ValueError("Negative branch length")
         step.edgeLen = edgeLen
@@ -993,11 +989,12 @@ cdef class Lik:
       double edgeLen) except *:
         cdef CL cL, flushCL
         cdef Taxon taxon
-        cdef unsigned degree, i, j, k
+        cdef unsigned degree, i, j
         cdef char *chars
         cdef double *cLMat
         cdef int ind, val
         cdef Ring r
+        cdef CxtLikCL *cLC, *pCLC
 
         assert edgeLen == ring.edge.length or edgeLen == 0.0
 
@@ -1012,9 +1009,13 @@ cdef class Lik:
                 taxon = ring.node.taxon
                 if taxon is None:
                     raise ValueError("Leaf node missing taxon")
-                # Leaf nodes only need one vector element, since character data
-                # can be shared by all mixture models.
-                cL = CL(self.lik.nchars, self.lik.dim, self.lik.ncat, None, 1)
+                # Leaf nodes only need cLs[0], since character data can be
+                # shared by all model components.
+                cL = CL()
+                cL.prepare(0, self.lik.nchars, self.lik.dim, 1)
+                # Set lnScale entries to 0.0 for leaves.  This is the only
+                # place that explicit initialization of lnScale is necessary.
+                memset(cL.cLs[0].lnScale, 0, self.lik.nchars * sizeof(double))
                 ring.aux = cL
 
                 ind = self.alignment.taxaMap.indGet(taxon)
@@ -1023,85 +1024,83 @@ cdef class Lik:
                       "Taxon %r missing from alignment's taxa map" % \
                       taxon.label)
                 chars = self.alignment.getRow(ind)
-                cLMat = cL.vec[0].cLMat
+                cLMat = cL.cLs[0].cLMat
                 for 0 <= i < self.lik.nchars:
                     val = self.char_.code2val(chr(chars[i]))
                     if val == 0:
                         val = self.char_.any
                     for 0 <= j < self.lik.dim:
                         if val & (1 << j):
-                            cLMat[i*self.lik.dim*self.lik.ncat + j] = 1.0
+                            cLMat[i*self.lik.dim + j] = 1.0
                         else:
-                            cLMat[i*self.lik.dim*self.lik.ncat + j] = 0.0
-                    # Duplicate character states so that each rate category has
-                    # a copy.  This avoids special case code for cL computation.
-                    for 1 <= k < self.lik.ncat:
-                        memcpy(&cLMat[i*self.lik.dim*self.lik.ncat + \
-                          k*self.lik.dim], \
-                          &cLMat[i*self.lik.dim*self.lik.ncat], self.lik.dim * \
-                          sizeof(double))
+                            cLMat[i*self.lik.dim + j] = 0.0
         else:
             if cL is None:
-                cL = CL(self.lik.nchars, self.lik.dim, self.lik.ncat, self, \
-                  self.lik.modelsLen)
+                cL = CL()
+                cL.prepare(self.lik.polarity, self.lik.nchars, self.lik.dim, \
+                  self.lik.compsLen)
                 ring.aux = cL
             else:
-                cL.prepare(self.lik.nchars, self.lik.dim, self.lik.ncat, \
-                self.lik.models, self.lik.modelsLen)
+                if self.lik.resize:
+                    cL.resize(self.lik.polarity, self.lik.nchars, \
+                      self.lik.dim, self.lik.compsLen)
+                else:
+                    cL.prepare(self.lik.polarity, self.lik.nchars, \
+                      self.lik.dim, self.lik.compsLen)
 
         # Recurse.
         for r in ring.siblings():
-            # Try to clean up invalid CL caches.
-            flushCL = <CL>r.aux
-            if flushCL is not None:
-                flushCL.flush(self.lik.models, self.lik.modelsLen)
+            if self.lik.invalidate:
+                # Try to clean up invalid CL caches.
+                flushCL = <CL>r.aux
+                if flushCL is not None:
+                    flushCL.flush(self.lik.polarity)
 
             self._planRecurse(r.other, cL, degree, r.edge.length)
 
         # Check whether the current tree topology is compatible with the
-        # parent's cache.  If not, invalidate all of the parent's caches
-        # including those that currently have 0 weight or are currently unused
-        # -- [modelsLen..modelsMax) -- since there will be no way to detect the
-        # need for cache invalidation later on.
-        if cL.parent is not parent or cL.nSibs != nSibs or \
-          cL.edgeLen != edgeLen:
-            for 0 <= i < parent.vecMax:
-                parent.vec[i].sn = 0
-            cL.parent = parent
-            cL.nSibs = nSibs
-            cL.edgeLen = edgeLen
+        # parent's cache.  If not, invalidate the parent's cache.
+        cLC = &cL.cLs[self.lik.polarity]
+        pCLC = &parent.cLs[self.lik.polarity]
+        if self.lik.invalidate or cLC.parent is not pCLC or cLC.nSibs != nSibs \
+          or cLC.edgeLen != edgeLen:
+            pCLC.valid = False
+            cLC.parent = &parent.cLs[self.lik.polarity]
+            cLC.nSibs = nSibs
+            cLC.edgeLen = edgeLen
 
-        # Check cache validity for each model.
+        # Check cache validity.
         if degree != 1:
-            for 0 <= i < self.lik.modelsLen:
-                if cL.vec[i].sn != self.lik.models[i].sn:
-                    if self.lik.models[i].weightScaled != 0.0:
-                        r = ring.next
-                        for 1 <= j < degree:
-                            assert r != ring
-                            self._planAppend(i, (CxeLikStepComputeCL if j == 1 \
-                              else CxeLikStepMergeCL), cL, <CL>r.other.aux, \
-                              r.edge.length)
-                            r = r.next
-                        cL.vec[i].sn = self.lik.models[i].sn
+            if self.lik.invalidate or (not cLC.valid):
+                r = ring.next
+                for 1 <= j < degree:
+                    assert r != ring
+                    if r.other.node.getDegree() > 1:
+                        if j == 1:
+                            variant = CxeLikStepComputeI
+                        else:
+                            variant = CxeLikStepMergeI
                     else:
-                        # Try to clean up invalid cLMat.
-                        if cL.vec[i].cLMat != NULL:
-                            free(cL.vec[i].cLMat)
-                            cL.vec[i].cLMat = NULL
-                            cL.vec[i].sn = 0
-                    # Propagate invalidation to the parent.
-                    parent.vec[i].sn = 0
-            cL.trunc(self.lik.modelsLen)
+                        if j == 1:
+                            variant = CxeLikStepComputeL
+                        else:
+                            variant = CxeLikStepMergeL
+                    self._planAppend(variant, cL, <CL>r.other.aux, \
+                      r.edge.length)
+                    r = r.next
+                cLC.valid = True
+                # Propagate invalidation to the parent.
+                pCLC.valid = False
 
     cdef void _plan(self, Node root) except *:
         cdef Ring ring, r
-        cdef unsigned degree, i
+        cdef unsigned degree
         cdef CL flushCL
+        cdef CxeLikStep variant
 
-        assert self.rootCL.vecMax >= self.lik.modelsLen
-        self.rootCL.prepare(self.lik.nchars, self.lik.dim, self.lik.ncat, \
-          self.lik.models, self.lik.modelsMax)
+        if self.lik.resize:
+            self.rootCL.resize(self.lik.polarity, self.lik.nchars, \
+              self.lik.dim, self.lik.compsLen)
 
         if root is None:
             root = self.tree.base
@@ -1114,96 +1113,103 @@ cdef class Lik:
             self._planRecurse(ring.other, self.rootCL, 2, ring.edge.length)
             self._planRecurse(ring, self.rootCL, 2, 0.0)
 
-            for 0 <= i < self.lik.modelsLen:
-                if self.rootCL.vec[i].sn != self.lik.models[i].sn:
-                    if self.lik.models[i].weightScaled != 0.0:
-                        self._planAppend(i, CxeLikStepComputeCL, self.rootCL, \
-                          <CL>ring.other.aux, ring.edge.length)
-                        self._planAppend(i, CxeLikStepMergeCL, self.rootCL, \
-                          <CL>ring.aux, 0.0)
-                        self.rootCL.vec[i].sn = self.lik.models[i].sn
-                    else:
-                        # Try to clean up invalid cLMat.
-                        if self.rootCL.vec[i].cLMat != NULL:
-                            free(self.rootCL.vec[i].cLMat)
-                            self.rootCL.vec[i].cLMat = NULL
-                            self.rootCL.vec[i].sn = 0
-            self.rootCL.trunc(self.lik.modelsLen)
+            if self.lik.invalidate or \
+              (not self.rootCL.cLs[self.lik.polarity].valid):
+                if ring.other.node.getDegree() > 1:
+                    variant = CxeLikStepComputeI
+                else:
+                    variant = CxeLikStepComputeL
+                self._planAppend(variant, self.rootCL, <CL>ring.other.aux, \
+                  ring.edge.length)
+                self._planAppend(CxeLikStepMergeL, self.rootCL, <CL>ring.aux, \
+                  0.0)
+                self.rootCL.cLs[self.lik.polarity].valid = True
         else:
             for r in ring:
-                # Try to clean up invalid CL caches.
-                flushCL = <CL>r.aux
-                if flushCL is not None:
-                    flushCL.flush(self.lik.models, self.lik.modelsLen)
+                if self.lik.invalidate:
+                    # Try to clean up invalid CL caches.
+                    flushCL = <CL>r.aux
+                    if flushCL is not None:
+                        flushCL.flush(self.lik.polarity)
 
                 self._planRecurse(r.other, self.rootCL, degree, r.edge.length)
 
-            for 0 <= i < self.lik.modelsLen:
-                if self.rootCL.vec[i].sn != self.lik.models[i].sn:
-                    if self.lik.models[i].weightScaled != 0.0:
-                        self._planAppend(i, CxeLikStepComputeCL, self.rootCL, \
-                          <CL>ring.other.aux, ring.edge.length)
-                        for r in ring.siblings():
-                            self._planAppend(i, CxeLikStepMergeCL, \
-                              self.rootCL, <CL>r.other.aux, r.edge.length)
-                        self.rootCL.vec[i].sn = self.lik.models[i].sn
+            if self.lik.invalidate or \
+              (not self.rootCL.cLs[self.lik.polarity].valid):
+                if ring.other.node.getDegree() > 1:
+                    variant = CxeLikStepComputeI
+                else:
+                    variant = CxeLikStepComputeL
+                self._planAppend(variant, self.rootCL, <CL>ring.other.aux, \
+                  ring.edge.length)
+                for r in ring.siblings():
+                    if r.other.node.getDegree() > 1:
+                        variant = CxeLikStepMergeI
                     else:
-                        # Try to clean up invalid cLMat.
-                        if self.rootCL.vec[i].cLMat != NULL:
-                            free(self.rootCL.vec[i].cLMat)
-                            self.rootCL.vec[i].cLMat = NULL
-                            self.rootCL.vec[i].sn = 0
-            self.rootCL.trunc(self.lik.modelsLen)
+                        variant = CxeLikStepMergeL
+                    self._planAppend(variant, self.rootCL, <CL>r.other.aux, \
+                      r.edge.length)
+                self.rootCL.cLs[self.lik.polarity].valid = True
+
+        # Now that execution planning is complete, clear flags that have been
+        # acted on.
+        self.lik.resize = False
+        self.lik.invalidate = False
 
     cpdef prep(self):
-        cdef double wSum, qMean, wNorm
-        cdef unsigned i
+        cdef double wSum, wSumC, qMean, wNorm
+        cdef unsigned i, j
         cdef CxtLikModel *modelP
+        cdef CxtLikComp *comp
 
-        if self.lik.renorm:
+        if self.lik.modelsLen == 0:
+            raise ValueError("Empty model mixture")
+
+        if self.lik.resize:
+            self.lik.reweight = True
+
+        if self.lik.reweight:
             # Scale weights.
             wSum = 0.0
             for 0 <= i < self.lik.modelsLen:
-                wSum += self.lik.models[i].weight
+                modelP = self.lik.models[i]
+                wSum += modelP.weight
             if wSum == 0.0:
                 raise ValueError("At least one model must have non-zero weight")
+
             for 0 <= i < self.lik.modelsLen:
-                self.lik.models[i].weightScaled = \
-                  self.lik.models[i].weight / wSum
-            self.lik.renorm = False
+                modelP = self.lik.models[i]
+                wSumC = 0.0
+                for 0 <= j < modelP.clen:
+                    comp = &self.lik.comps[modelP.comp0+j]
+                    wSumC += comp.cweight
+                assert wSumC > 0.0
+                for 0 <= j < modelP.clen:
+                    comp = &self.lik.comps[modelP.comp0+j]
+                    comp.weightScaled = (modelP.weight / wSum) * \
+                      (comp.cweight / wSumC)
+            self.lik.invalidate = True
+            self.lik.reweight = False
 
         # Make sure that the mixture models are up to date.
         for 0 <= i < self.lik.modelsLen:
-            modelP = &self.lik.models[i]
-            if modelP.weightScaled != 0.0:
-                # Optimistically set the model's 'entire' attribute.
-                # _planAppend() clears the attribute if any computation at all
-                # is necessary to determine the tree's lnL under the model.
-                modelP.entire = True
-                # Update model parameters, if necessary.
-                if modelP.reassign:
-                    self._reassignModel(modelP)
-                else:
-                    # Make a note to reassign the serial number for this model
-                    # if wNorm changes below.
-                    modelP.reassign = True
+            modelP = self.lik.models[i]
+            # Update model parameters, if necessary.
+            if modelP.decomp:
+                self._decompModel(modelP)
 
         # Recompute wNorm.
         qMean = 0.0
-        for 0 <= i < self.lik.modelsLen:
-            modelP = &self.lik.models[i]
-            if modelP.weightScaled != 0.0:
-                qMean += modelP.weightScaled * (modelP.rmult / modelP.qNorm)
+        for 0 <= i < self.lik.compsLen:
+            comp = &self.lik.comps[i]
+            if comp.weightScaled != 0.0:
+                modelP = comp.model
+                qMean += comp.weightScaled * (modelP.rmult / modelP.qNorm)
         wNorm = 1.0 / qMean
-        for 0 <= i < self.lik.modelsLen:
-            modelP = &self.lik.models[i]
-            if modelP.weightScaled != 0.0:
-                if modelP.reassign:
-                    if modelP.wNorm != wNorm:
-                        # Invalidate the cache, since wNorm impacts all CL's.
-                        modelP.sn = self._assignSn()
-                    modelP.reassign = False
-                modelP.wNorm = wNorm
+        if wNorm != self.lik.wNorm:
+            # Invalidate the cache, since wNorm impacts all CL's.
+            self.lik.invalidate = True
+            self.lik.wNorm = wNorm
 
     cdef void _prep(self, Node root) except *:
         cdef unsigned stepsMax
@@ -1231,19 +1237,28 @@ cdef class Lik:
             for computation, unless a root is specified.
         """
         cdef double ret
+        cdef unsigned i
 
         # Prepare data structures and compute the execution plan.
         self._prep(root)
 
-        # Execute the plan, with the result being the full lnL.
-        ret = CxLikExecuteLnL(self.lik)
+        # Execute the plan.
+        CxLikExecute(self.lik)
+
+        # Sum site log-likelihoods.
+        ret = 0.0
+        for 0 <= i < self.lik.nchars - self.lik.npad:
+            ret += self.lik.siteLnL[i]
 
         IF LikDebug:
             # Validate with a fresh Lik, in order to detect cache-related
             # flaws.
             cdef Lik lik = self.dup()
             lik._prep(root)
-            cdef double lnL2 = CxLikExecuteLnL(lik.lik)
+            CxLikExecute(lik.lik)
+            cdef double lnL2 = 0.0
+            for 0 <= i < lik.lik.nchars - lik.lik.npad:
+                lnL2 += lik.lik.siteLnL[i]
             if not (0.99 < lnL2/ret and lnL2/ret < 1.01) and \
               not (isinf(lnL2) == -1 and isinf(ret) == -1):
                 raise AssertionError( \
@@ -1263,21 +1278,11 @@ cdef class Lik:
         # Prepare data structures and compute the execution plan.
         self._prep(root)
 
-        # Allocate temporary space for the site lnL's.  It would be possible to
-        # amortize this allocation, but there's little point since 1) this
-        # method is mainly used for diagnostics rather than high throughput,
-        # and 2) a Python list is created to contain the return values anyway.
-        lnLs = <double *>calloc(self.lik.nchars - self.lik.npad, sizeof(double))
-        if lnLs == NULL:
-            raise MemoryError("Error allocating lnLs")
+        # Execute the plan.
+        CxLikExecute(self.lik)
 
-        try:
-            # Execute the plan, with the result being sitewise lnL's.
-            CxLikExecuteSiteLnLs(self.lik, lnLs)
-
-            # Copy lnLs C array values into a Python list.
-            ret = [lnLs[i] for i in xrange(self.lik.nchars - self.lik.npad)]
-        finally:
-            free(lnLs)
+        # Copy lnLs C array values into a Python list.
+        ret = [self.lik.siteLnL[i] \
+          for i in xrange(self.lik.nchars-self.lik.npad)]
 
         return ret

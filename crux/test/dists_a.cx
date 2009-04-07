@@ -182,6 +182,7 @@ for (matrixStrs, charType) in ((dna, Crux.Character.Dna),
     for s in matrixStrs:
         matrix = Crux.CTMatrix.CTMatrix(s, charType)
         a = Crux.CTMatrix.Alignment(matrix=matrix)
+        a.compact()
 
         for scoreGaps in (True, False):
             print "=== dists(scoreGaps=%r) ===" % scoreGaps

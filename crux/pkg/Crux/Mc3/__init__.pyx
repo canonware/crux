@@ -385,9 +385,8 @@ cdef class Mc3:
                     if s == NULL:
                         raise MemoryError("Error allocating Lik pickle string")
                     # Get pickle.
-                    mpi.MPI_Recv(s, pSize, mpi.MPI_BYTE, \
-                      mpi.MPI_ANY_SOURCE, TagLikLnL, self.mpiActiveComm, \
-                      mpi.MPI_STATUS_IGNORE)
+                    mpi.MPI_Recv(s, pSize, mpi.MPI_BYTE, status.MPI_SOURCE, \
+                      TagLikLnL, self.mpiActiveComm, mpi.MPI_STATUS_IGNORE)
                     pickle = PyString_FromStringAndSize(s, pSize)
                     free(s)
                     # Unpickle.
@@ -1127,7 +1126,6 @@ cdef class Mc3:
             if self.mpiRank != 0:
                 return
 
-        print "XXX %s" % s
         self.lFile.write(s)
         self.lFile.flush()
         if self.verbose:
@@ -1170,14 +1168,14 @@ cdef class Mc3:
                 self.pFile.write("%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5e %.5e %s\n" \
                   % (i, step, m, w, lik.getRmult(m), \
                   self.formatRclass(lik, m), self.formatRates(lik, m, "%.5e"), \
-                  lik.getWNorm(m), lik.getAlpha(m), \
+                  lik.getWNorm(), lik.getAlpha(m), \
                   self.formatFreqs(lik, m, "%.5e")))
                 if self.verbose:
                     sys.stdout.write( \
                       "p\t%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5f %.5e %s\n" % \
                       (i, step, m, w, lik.getRmult(m), \
                       self.formatRclass(lik, m), \
-                      self.formatRates(lik, m, "%.4e"), lik.getWNorm(m), \
+                      self.formatRates(lik, m, "%.4e"), lik.getWNorm(), \
                       lik.getAlpha(m), self.formatFreqs(lik, m, "%.5f")))
         self.pFile.flush()
 

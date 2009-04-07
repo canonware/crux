@@ -126,6 +126,7 @@ for (matrixStrs, charType) in ((dna, Crux.Character.Dna),
         matrix = Crux.CTMatrix.CTMatrix(s, charType)
         matrix.fastaPrint(outFile=sys.stdout)
         a = Crux.CTMatrix.Alignment(matrix=matrix)
+        a.compact()
 
         for scoreGaps in (True, False):
             print "=== logdetDists(scoreGaps=%r) ===" % (scoreGaps)

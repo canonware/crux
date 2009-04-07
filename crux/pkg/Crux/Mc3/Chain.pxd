@@ -44,20 +44,19 @@ cdef class Chain:
     cdef bint rateShapeInvPropose(self) except *
     cdef bint brlenPropose(self) except *
     cdef bint etbrPropose(self) except *
-    cdef void rateMergePropose(self, unsigned m0Ind, unsigned m1Ind, \
-      list rclass, unsigned nrates) except *
-    cdef void rateSplitPropose(self, unsigned m0Ind, unsigned m1Ind, \
-      list rclass, unsigned nrates) except *
+    cdef void rateMergePropose(self, unsigned mInd, list rclass, \
+      unsigned nrates) except *
+    cdef void rateSplitPropose(self, unsigned mInd, list rclass, \
+      unsigned nrates) except *
     cdef bint rateJumpPropose(self) except *
     cdef void polytomyMergePropose(self, Tree tree, unsigned nedges, \
       unsigned ntaxa) except *
     cdef void polytomySplitPropose(self, Tree tree, unsigned nedges, \
       unsigned ntaxa) except *
     cdef bint polytomyJumpPropose(self) except *
-    cdef void rateShapeInvRemovePropose(self, unsigned m0Ind, unsigned m1Ind, \
-      double alpha0) except *
-    cdef void rateShapeInvAddPropose(self, unsigned m0Ind, unsigned m1Ind) \
+    cdef void rateShapeInvRemovePropose(self, unsigned mInd, double alpha0) \
       except *
+    cdef void rateShapeInvAddPropose(self, unsigned mInd) except *
     cdef bint rateShapeInvJumpPropose(self) except *
     cdef void advance0(self) except *
     cdef void advance1(self) except *

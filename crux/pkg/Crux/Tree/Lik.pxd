@@ -1,3 +1,7 @@
+# Forward declarations.
+cdef class CL
+cdef class Lik
+
 from Crux.Character cimport Character
 from Crux.Tree cimport Tree, Node, Ring
 from Crux.CTMatrix cimport Alignment
@@ -5,45 +9,20 @@ from Crux.CTMatrix cimport Alignment
 from CxLik cimport *
 
 cdef class CL:
-    # Parent which most recently used this cache when computing its conditional
-    # likelihood.  All siblings must still refer to the parent, the number of
-    # siblings must still be nSibs, and the branches separating them from the
-    # parent must remain the same length, in order for the parent's cache to be
-    # potentially valid.  (The model of evolution must also remain unchanged.)
-    cdef CL parent
-    cdef unsigned nSibs
-    cdef double edgeLen
+    # Array of CL's, one for each polarity.  In the case of leaf nodes, only
+    # the first element's cLMat/lnScale are used (but cache-related state is
+    # separate for each polarity even for leaf nodes).
+    cdef CxtLikCL cLs[2]
 
-    # Vector of CxtLikCL structures.  For internal nodes, there is one
-    # vector element for each model in the mixture.  For leaf nodes,  there is
-    # only one vector element, which contains the same encoding of the
-    # character data for the associated taxon, regardless of model.
-    #
-    # This vector is incrementally expanded as necessary, but never shrunk,
-    # under the presumption that the vector will likely re-expand in the
-    # future.  However, the CxtLikCL structures may be deallocated (and the
-    # appropriate pointers in the vector set to NULL) if execution planning
-    # finds them to be obsolete.
-    cdef CxtLikCL *vec
-    cdef unsigned vecMax # Number of usable elements.
-
-    cdef void expand(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      unsigned nmodels) except *
-    cdef void prepare(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      CxtLikModel *models, unsigned nmodels) except *
-    cdef void dupModel(self, unsigned nchars, unsigned dim, unsigned ncat, \
-      CxtLikModel *models, unsigned to, unsigned fr) except *
-    cdef void trunc(self, unsigned nmodels) except *
-    cdef void flush(self, CxtLikModel *models, unsigned nmodels) except *
+    cdef void prepare(self, unsigned polarity, unsigned nchars, unsigned dim, \
+      unsigned ncomp) except *
+    cdef void resize(self, unsigned polarity, unsigned nchars, unsigned dim, \
+      unsigned ncomp) except *
+    cdef void flush(self, unsigned polarity) except *
 
 cdef class Lik:
+    cdef Lik mate
     cdef readonly Character char_
-
-    # Every model of evolution is assigned a unique serial number, so that
-    # cached conditional likelihoods can be associated with them.  This field
-    # is the source for serial number assignments.  Serial numbers are in
-    # [1..2^64).
-    cdef uint64_t sn
 
     cdef readonly Tree tree
     cdef readonly Alignment alignment
@@ -58,25 +37,27 @@ cdef class Lik:
     # Ring; there is no extant ring object associated with the root.
     cdef CL rootCL
 
-    cdef void _init0(self, Tree tree, unsigned nchars, unsigned dim, \
-      unsigned nmodels, unsigned ncat, bint catMedian) except *
-    cdef void _init1(self, Alignment alignment) except *
-    cdef uint64_t _assignSn(self)
-    cdef void _allocModel(self, CxtLikModel *model) except *
-    cdef void _initModel(self, CxtLikModel *model, double weight)
-    cdef void _reassignModel(self, CxtLikModel *model) except *
-    cdef void _deallocModel(self, CxtLikModel *model)
+    cdef void _init0(self, Tree tree) except *
+    cdef void _init1(self, Tree tree, unsigned nchars, unsigned dim, \
+      unsigned polarity) except *
+    cdef void _init2(self, Alignment alignment) except *
+    cdef CxtLikModel *_allocModel(self, unsigned ncat) except *
+    cdef void _initModel(self, CxtLikModel *modelP, double weight, \
+      bint catMedian)
+    cdef void _decompModel(self, CxtLikModel *modelP) except *
+    cdef void _deallocModel(self, CxtLikModel *modelP, unsigned model)
 
     cpdef Lik unpickle(self, str pickle)
+    cdef void _dup(self, Lik lik) except *
     cpdef Lik dup(self)
-    cpdef unsigned getNcat(self)
+    cpdef Lik clone(self)
+    cpdef double getWNorm(self) except -1.0
     cpdef unsigned nmodels(self)
-    cpdef unsigned addModel(self, double weight) except 0
-    cpdef dupModel(self, unsigned to, unsigned fr, bint dupCLs=*)
-    cpdef delModel(self)
+    cpdef unsigned addModel(self, double weight, unsigned ncat=*, \
+      bint catMedian=*) except *
+    cpdef delModel(self, unsigned model)
     cpdef double getWeight(self, unsigned model) except -1.0
     cpdef setWeight(self, unsigned model, double weight)
-    cpdef double getWNorm(self, unsigned model) except -1.0
     cpdef double getRmult(self, unsigned model) except -1.0
     cpdef setRmult(self, unsigned model, double rmult)
     cpdef list getRclass(self, unsigned model)
@@ -87,9 +68,11 @@ cdef class Lik:
     cpdef double getFreq(self, unsigned model, unsigned i) except -1.0
     cpdef setFreq(self, unsigned model, unsigned i, double freq)
     cpdef double getAlpha(self, unsigned model)
+    cpdef unsigned getNcat(self, unsigned model) except *
+    cpdef bint getCatMedian(self, unsigned model) except *
     cpdef setAlpha(self, unsigned model, double alpha)
-    cdef void _planAppend(self, unsigned model, CxeLikStep variant, \
-      CL parentCL, CL childCL, double edgeLen) except *
+    cdef void _planAppend(self, CxeLikStep variant, CL parentCL, CL childCL, \
+      double edgeLen) except *
     cdef void _planRecurse(self, Ring ring, CL parent, unsigned nSibs,
       double edgeLen) except *
     cdef void _plan(self, Node root) except *

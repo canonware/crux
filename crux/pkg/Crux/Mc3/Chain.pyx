@@ -67,13 +67,17 @@ cdef class Chain:
           self.accepts, self.rejects, self.lik, self.lnL)
 
     cdef bint weightPropose(self) except *:
+        cdef Lik lik1
         cdef unsigned mInd
         cdef double u, lnM, m, w0, w1, lnL1, p
 
         assert self.master._nmodels > 1
 
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
         # Uniformly choose a random model within the mixture.
-        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
+        mInd = gen_rand64_range(self.prng, lik1.nmodels())
 
         # Generate the weight multiplier.
         u = genrand_res53(self.prng)
@@ -81,10 +85,10 @@ cdef class Chain:
         m = exp(lnM)
 
         # Compute lnL with modified weight.
-        w0 = self.lik.getWeight(mInd)
+        w0 = lik1.getWeight(mInd)
         w1 = w0 * m
-        self.lik.setWeight(mInd, w1)
-        lnL1 = self.lik.lnL()
+        lik1.setWeight(mInd, w1)
+        lnL1 = lik1.lnL()
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -98,28 +102,27 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
+            self.lik = lik1
             self.accepts[PropWeight] += 1
         else:
             # Reject.
-            self.lik.setWeight(mInd, w0)
             self.rejects[PropWeight] += 1
 
         return False
 
     cdef bint freqPropose(self) except *:
-        cdef unsigned m0Ind, m1Ind, fInd
-        cdef double w, f0, f1, u, lnM, m, lnL1
+        cdef Lik lik1
+        cdef unsigned mInd, fInd
+        cdef double f0, f1, u, lnM, m, lnL1
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
 
         # Uniformly choose a random model within the mixture.
-        m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
-        # Create a duplicate scratch model.
-        w = self.lik.getWeight(m0Ind)
-        m1Ind = self.lik.addModel(w)
-        self.lik.dupModel(m1Ind, m0Ind, False)
-        self.lik.setWeight(m0Ind, 0.0)
+        mInd = gen_rand64_range(self.prng, lik1.nmodels())
 
         # Uniformly choose a random frequency parameter.
-        fInd = gen_rand64_range(self.prng, self.lik.char_.nstates())
+        fInd = gen_rand64_range(self.prng, lik1.char_.nstates())
 
         # Generate the frequency multiplier.
         u = genrand_res53(self.prng)
@@ -127,10 +130,10 @@ cdef class Chain:
         m = exp(lnM)
 
         # Compute lnL with modified frequency.
-        f0 = self.lik.getFreq(m1Ind, fInd)
+        f0 = lik1.getFreq(mInd, fInd)
         f1 = f0 * m
-        self.lik.setFreq(m1Ind, fInd, f1)
-        lnL1 = self.lik.lnL()
+        lik1.setFreq(mInd, fInd, f1)
+        lnL1 = lik1.lnL()
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -144,23 +147,25 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
-            self.lik.dupModel(m0Ind, m1Ind, True)
+            self.lik = lik1
             self.accepts[PropFreq] += 1
         else:
             self.rejects[PropFreq] += 1
-        self.lik.setWeight(m0Ind, w)
-        self.lik.delModel()
 
         return False
 
     cdef bint rmultPropose(self) except *:
+        cdef Lik lik1
         cdef unsigned mInd
         cdef double u, lnM, m, rm0, rm1, lnL1, p
 
         assert self.master._nmodels > 1
 
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
         # Uniformly choose a random model within the mixture.
-        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
+        mInd = gen_rand64_range(self.prng, lik1.nmodels())
 
         # Generate the rmult multiplier.
         u = genrand_res53(self.prng)
@@ -168,10 +173,10 @@ cdef class Chain:
         m = exp(lnM)
 
         # Compute lnL with modified rmult.
-        rm0 = self.lik.getRmult(mInd)
+        rm0 = lik1.getRmult(mInd)
         rm1 = rm0 * m
-        self.lik.setRmult(mInd, rm1)
-        lnL1 = self.lik.lnL()
+        lik1.setRmult(mInd, rm1)
+        lnL1 = lik1.lnL()
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -185,33 +190,32 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
+            self.lik = lik1
             self.accepts[PropRmult] += 1
         else:
             # Reject.
-            self.lik.setRmult(mInd, rm0)
             self.rejects[PropRmult] += 1
 
         return False
 
     cdef bint ratePropose(self) except *:
-        cdef unsigned m0Ind, m1Ind, nrates, r, rInd
-        cdef double w, r0, r1, u, lnM, m, lnL1
+        cdef Lik lik1
+        cdef unsigned mInd, nrates, r, rInd
+        cdef double r0, r1, u, lnM, m, lnL1
         cdef list rclass
 
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
         # Uniformly choose a random model within the mixture.
-        m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
-        nrates = self.lik.getNrates(m0Ind)
+        mInd = gen_rand64_range(self.prng, lik1.nmodels())
+
+        # Uniformly choose a random rate parameter.
+        nrates = lik1.getNrates(mInd)
         if nrates == 1:
             # Only one rate class, so this proposal is bogus.
             return True
-        # Create a duplicate scratch model.
-        w = self.lik.getWeight(m0Ind)
-        m1Ind = self.lik.addModel(w)
-        self.lik.dupModel(m1Ind, m0Ind, False)
-        self.lik.setWeight(m0Ind, 0.0)
-
-        # Uniformly choose a random rate parameter.
-        rclass = self.lik.getRclass(m1Ind)
+        rclass = lik1.getRclass(mInd)
         rInd = gen_rand64_range(self.prng, nrates)
 
         # Generate the rate multiplier.
@@ -220,10 +224,10 @@ cdef class Chain:
         m = exp(lnM)
 
         # Compute lnL with modified rate.
-        r0 = self.lik.getRate(m1Ind, rInd)
+        r0 = lik1.getRate(mInd, rInd)
         r1 = r0 * m
-        self.lik.setRate(m1Ind, rInd, r1)
-        lnL1 = self.lik.lnL()
+        lik1.setRate(mInd, rInd, r1)
+        lnL1 = lik1.lnL()
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -237,29 +241,26 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
-            self.lik.dupModel(m0Ind, m1Ind, True)
+            self.lik = lik1
             self.accepts[PropRate] += 1
         else:
             self.rejects[PropRate] += 1
-        self.lik.setWeight(m0Ind, w)
-        self.lik.delModel()
 
         return False
 
     cdef bint rateShapeInvPropose(self) except *:
-        cdef unsigned m0Ind, m1Ind
-        cdef double w, u, lnM, m, a0, a1, a0Inv, a1Inv, lnPrior, lnL1, p
+        cdef Lik lik1
+        cdef unsigned mInd
+        cdef double u, lnM, m, a0, a1, a0Inv, a1Inv, lnPrior, lnL1, p
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
 
         # Uniformly choose a random model within the mixture.
-        m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
-        a0 = self.lik.getAlpha(m0Ind)
+        mInd = gen_rand64_range(self.prng, lik1.nmodels())
+        a0 = lik1.getAlpha(mInd)
         if a0 == INFINITY:
             return True
-        # Create a duplicate scratch model.
-        w = self.lik.getWeight(m0Ind)
-        m1Ind = self.lik.addModel(w)
-        self.lik.dupModel(m1Ind, m0Ind, False)
-        self.lik.setWeight(m0Ind, 0.0)
 
         # Generate the inverse rate shape multiplier.
         u = genrand_res53(self.prng)
@@ -270,8 +271,8 @@ cdef class Chain:
         a0Inv = 1.0 / a0
         a1Inv = a0Inv * m
         a1 = 1.0 / a1Inv
-        self.lik.setAlpha(m1Ind, a1)
-        lnL1 = self.lik.lnL()
+        lik1.setAlpha(mInd, a1)
+        lnL1 = lik1.lnL()
 
         lnPrior = -self.master._rateShapeInvPrior * (a1Inv-a0Inv)
 
@@ -282,12 +283,10 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
-            self.lik.dupModel(m0Ind, m1Ind, True)
+            self.lik = lik1
             self.accepts[PropRateShapeInv] += 1
         else:
             self.rejects[PropRateShapeInv] += 1
-        self.lik.setWeight(m0Ind, w)
-        self.lik.delModel()
 
         return False
 
@@ -322,7 +321,7 @@ cdef class Chain:
             self.lnL = lnL1
             # Re-base to make the cache fully usable if the next lnL() call
             # does not specify a rooting.
-            self.lik.tree.setBase(edge.ring.node)
+            self.tree.setBase(edge.ring.node)
             self.accepts[PropBrlen] += 1
         else:
             # Reject.
@@ -343,7 +342,7 @@ cdef class Chain:
         cdef double vY0, vY1, lnMY, mY
         cdef double u, lnL1, lnPrior, lnProp, p
 
-        assert self.lik.tree.getNtaxa() > 3
+        assert self.tree.getNtaxa() > 3
 
         # Uniformly choose a random edge.
         eA = <Edge>self.tree.getEdges()[gen_rand64_range(self.prng, \
@@ -598,7 +597,7 @@ cdef class Chain:
             self.lnL = lnL1
             # Re-base to make the cache fully usable if the next lnL() call
             # does not specify a rooting.
-            self.lik.tree.setBase(nX0)
+            self.tree.setBase(nX0)
             self.accepts[PropEtbr] += 1
         else:
             # Reject.
@@ -672,14 +671,18 @@ cdef class Chain:
 
         return False
 
-    cdef void rateMergePropose(self, unsigned m0Ind, unsigned m1Ind, \
-      list rclass, unsigned nrates) except *:
+    cdef void rateMergePropose(self, unsigned mInd, list rclass, \
+      unsigned nrates) except *:
+        cdef Lik lik1
         cdef unsigned a, b, na, nb, r, i, revSplit, n
         cdef double rateA, rateB, rateAB, lnL1, pSplit, pMerge, lnPrior
         cdef double lnProp, u, p
         cdef list rates, ns
 
         assert nrates > 1
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
 
         # Randomly choose two rates to merge.
         a = gen_rand64_range(self.prng, nrates)
@@ -698,8 +701,8 @@ cdef class Chain:
                 na += 1
             elif r == b:
                 nb += 1
-        rateA = self.lik.getRate(m1Ind, a)
-        rateB = self.lik.getRate(m1Ind, b)
+        rateA = lik1.getRate(mInd, a)
+        rateB = lik1.getRate(mInd, b)
         rateAB = (<double>na*rateA + <double>nb*rateB) / <double>(na+nb)
 
         # Update rate class list.
@@ -711,13 +714,13 @@ cdef class Chain:
                 rclass[i] -= 1
 
         # Create new list of rates.
-        rates = [self.lik.getRate(m1Ind, r) for r in xrange(nrates)]
+        rates = [lik1.getRate(mInd, r) for r in xrange(nrates)]
         rates[a] = rateAB
         rates.pop(b)
 
         # Compute lnL with modified rclass.
-        self.lik.setRclass(m1Ind, rclass, rates)
-        lnL1 = self.lik.lnL()
+        lik1.setRclass(mInd, rclass, rates)
+        lnL1 = lik1.lnL()
 
         if nrates == 2:
             # After this merge, rateJumpPropose() can only split.  Note also
@@ -728,11 +731,11 @@ cdef class Chain:
             pMerge = self.master.props[PropRateJump] / 2.0
         elif nrates == len(rclass):
             # Splitting was not an option in rateJumpPropose() for this step.
-            # (pSplit/pMerge is always 0.5 .)
+            # (pSplit/pMerge is always 0.5.)
             pSplit = self.master.props[PropRateJump] / 2.0
             pMerge = self.master.props[PropRateJump]
         else:
-            # (pSplit/pMerge is always 1.0 .)
+            # (pSplit/pMerge is always 1.0.)
             pSplit = self.master.props[PropRateJump] / 2.0
             pMerge = self.master.props[PropRateJump] / 2.0
         lnPrior = log(self.master._rateJumpPrior) + log(pSplit / pMerge)
@@ -758,18 +761,22 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
-            self.lik.dupModel(m0Ind, m1Ind, True)
+            self.lik = lik1
             self.accepts[PropRateJump] += 1
         else:
             self.rejects[PropRateJump] += 1
 
-    cdef void rateSplitPropose(self, unsigned m0Ind, unsigned m1Ind, \
-      list rclass, unsigned nrates) except *:
+    cdef void rateSplitPropose(self, unsigned mInd, list rclass, \
+      unsigned nrates) except *:
+        cdef Lik lik1
         cdef list ns, splittable, reorder, rates
         cdef unsigned i, r0, n0, r, n, rMax, ra, rb, na, nb, a0, b0
         cdef double rate0, u, rateA, rateB, pMerge, pSplit, lnPrior, lnProp
         cdef double lnL1, p
         cdef bint inA
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
 
         # Count how many rates are in each class, then create a list of
         # splittable rate classes.
@@ -789,7 +796,7 @@ cdef class Chain:
         # Uniformly choose a random splittable rate class.
         r0 = splittable[gen_rand64_range(self.prng, len(splittable))]
         n0 = ns[r0]
-        rate0 = self.lik.getRate(m1Ind, r0)
+        rate0 = lik1.getRate(mInd, r0)
 
         # Randomly partition the rate class.  Rate class re-numbering is
         # performed later.
@@ -828,7 +835,7 @@ cdef class Chain:
         rateA = rate0 + u / <double>na
         rateB = rate0 - u / <double>nb
 
-        rates0 = [self.lik.getRate(m1Ind, i) for i in xrange(nrates)]
+        rates0 = [lik1.getRate(mInd, i) for i in xrange(nrates)]
         rates0.append(-1.0) # Place holder for new rate.
 
         rates0[ra] = rateA
@@ -851,8 +858,8 @@ cdef class Chain:
             rates1[reorder[i]] = rates0[i]
 
         # Compute lnL with modified rclass.
-        self.lik.setRclass(m1Ind, rclass, rates1)
-        lnL1 = self.lik.lnL()
+        lik1.setRclass(mInd, rclass, rates1)
+        lnL1 = lik1.lnL()
 
         if nrates == len(rclass) - 1:
             # After this split, rateJumpPropose() can only merge.
@@ -882,30 +889,24 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
-            self.lik.dupModel(m0Ind, m1Ind, True)
+            self.lik = lik1
             self.accepts[PropRateJump] += 1
         else:
             self.rejects[PropRateJump] += 1
 
     cdef bint rateJumpPropose(self) except *:
-        cdef unsigned m0Ind, m1Ind, nrates, r
-        cdef double w
+        cdef unsigned mInd, nrates, r
         cdef list rclass
         cdef bint merge
 
         assert self.lik.char_.nstates() > 2
 
         # Uniformly choose a random model within the mixture.
-        m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
-        # Create a duplicate scratch model.
-        w = self.lik.getWeight(m0Ind)
-        m1Ind = self.lik.addModel(w)
-        self.lik.dupModel(m1Ind, m0Ind, False)
-        self.lik.setWeight(m0Ind, 0.0)
+        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
 
         # Determine the number of rate parameters.
-        rclass = self.lik.getRclass(m1Ind)
-        nrates = self.lik.getNrates(m1Ind)
+        rclass = self.lik.getRclass(mInd)
+        nrates = self.lik.getNrates(mInd)
         if nrates == 1:
             # Can't merge.
             merge = False
@@ -917,11 +918,9 @@ cdef class Chain:
             merge = <bint>gen_rand64_range(self.prng, 2)
 
         if merge:
-            self.rateMergePropose(m0Ind, m1Ind, rclass, nrates)
+            self.rateMergePropose(mInd, rclass, nrates)
         else:
-            self.rateSplitPropose(m0Ind, m1Ind, rclass, nrates)
-        self.lik.setWeight(m0Ind, w)
-        self.lik.delModel()
+            self.rateSplitPropose(mInd, rclass, nrates)
 
         return False
 
@@ -1174,7 +1173,7 @@ cdef class Chain:
         cdef unsigned nedges, ntaxa
         cdef bint merge
 
-        tree = self.lik.tree
+        tree = self.tree
         assert tree.getNtaxa() > 3
         nedges = tree.getNedges()
         ntaxa = tree.getNtaxa()
@@ -1195,18 +1194,22 @@ cdef class Chain:
 
         return False
 
-    cdef void rateShapeInvRemovePropose(self, unsigned m0Ind, unsigned m1Ind, \
-      double alpha0) except *:
+    cdef void rateShapeInvRemovePropose(self, unsigned mInd, double alpha0) \
+      except *:
+        cdef Lik lik1
         cdef double rateShapeInv0
         cdef double lnL1, lnPrior, lnJacob, lnProp, u, p
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
 
         rateShapeInv0 = 1.0 / alpha0
 
         # Disable +G.
-        self.lik.setAlpha(m1Ind, INFINITY)
+        lik1.setAlpha(mInd, INFINITY)
 
         # Compute lnL without +G.
-        lnL1 = self.lik.lnL()
+        lnL1 = lik1.lnL()
 
         lnPrior = log(self.master._rateShapeInvJumpPrior) \
           - log(self.master._rateShapeInvPrior) - \
@@ -1223,15 +1226,18 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
-            self.lik.dupModel(m0Ind, m1Ind, True)
+            self.lik = lik1
             self.accepts[PropRateShapeInvJump] += 1
         else:
             self.rejects[PropRateShapeInvJump] += 1
 
-    cdef void rateShapeInvAddPropose(self, unsigned m0Ind, unsigned m1Ind) \
-      except *:
+    cdef void rateShapeInvAddPropose(self, unsigned mInd) except *:
+        cdef Lik lik1
         cdef double rateShapeInv1, alpha1
         cdef double lnL1, lnPrior, lnJacob, lnProp, u, p
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
 
         # Draw the inverse shape parameter from the prior distribution.
         rateShapeInv1 = -log(1.0 - genrand_res53(self.prng)) / \
@@ -1239,10 +1245,10 @@ cdef class Chain:
         alpha1 = 1.0 / rateShapeInv1
 
         # Enable +G.
-        self.lik.setAlpha(m1Ind, alpha1)
+        lik1.setAlpha(mInd, alpha1)
 
         # Compute lnL with +G.
-        lnL1 = self.lik.lnL()
+        lnL1 = lik1.lnL()
 
         lnPrior = -log(self.master._rateShapeInvJumpPrior) \
           + log(self.master._rateShapeInvPrior) + \
@@ -1259,34 +1265,27 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
-            self.lik.dupModel(m0Ind, m1Ind, True)
+            self.lik = lik1
             self.accepts[PropRateShapeInvJump] += 1
         else:
             self.rejects[PropRateShapeInvJump] += 1
 
     cdef bint rateShapeInvJumpPropose(self) except *:
-        cdef unsigned m0Ind, m1Ind
-        cdef double w, alpha
+        cdef unsigned mInd
+        cdef double alpha
 
         assert self.master._ncat > 1
 
         # Uniformly choose a random model within the mixture.
-        m0Ind = gen_rand64_range(self.prng, self.lik.nmodels())
-        # Create a duplicate scratch model.
-        w = self.lik.getWeight(m0Ind)
-        m1Ind = self.lik.addModel(w)
-        self.lik.dupModel(m1Ind, m0Ind, False)
-        self.lik.setWeight(m0Ind, 0.0)
+        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
 
         # Determine whether the model is currently +G.
-        alpha = self.lik.getAlpha(m1Ind)
+        alpha = self.lik.getAlpha(mInd)
 
         if alpha != INFINITY:
-            self.rateShapeInvRemovePropose(m0Ind, m1Ind, alpha)
+            self.rateShapeInvRemovePropose(mInd, alpha)
         else:
-            self.rateShapeInvAddPropose(m0Ind, m1Ind)
-        self.lik.setWeight(m0Ind, w)
-        self.lik.delModel()
+            self.rateShapeInvAddPropose(mInd)
 
         return False
 

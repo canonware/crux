@@ -69,11 +69,9 @@ CxLikQ(int n, double *qNorm, double *Q, double *RTri, double *PiDiag,
 	    if (i == j) {
 		fprintf(stderr, " %10s", "-");
 	    } else if (i < j) {
-		fprintf(stderr, " %10.6f", RTri[CxpLikNxy2i(n,i,j)]
-		  / RTri[CxpLikNxy2i(n,n-2,n-1)]);
+		fprintf(stderr, " %10.6f", RTri[CxpLikNxy2i(n,i,j)]);
 	    } else {
-		fprintf(stderr, " %10.6f", RTri[CxpLikNxy2i(n,j,i)]
-		  / RTri[CxpLikNxy2i(n,n-2,n-1)]);
+		fprintf(stderr, " %10.6f", RTri[CxpLikNxy2i(n,j,i)]);
 	    }
 	}
 	fprintf(stderr, "\n");
@@ -283,8 +281,6 @@ CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double v) {
     }
 
 #ifdef CxmLikDebug
-    fprintf(stderr, "----------------------------------------"
-      "----------------------------------------\n");
     fprintf(stderr, "P(%f):\n", v);
     for (unsigned i = 0; i < n; i++) {
 	for (unsigned j = 0; j < n; j++) {
@@ -299,85 +295,210 @@ CxmpInline void
 CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
     unsigned dim = lik->dim;
     unsigned dimSq = dim * dim;
-    unsigned ncat = lik->ncat;
-    unsigned dn = dim * ncat;
+    unsigned ncomp = lik->compsLen;
+    unsigned dn = dim * ncomp;
     unsigned cMin = lik->stripeWidth * stripe;
     unsigned cLim = cMin + lik->stripeWidth;
-    double P[ncat][dimSq];
+    double P[ncomp][dimSq];
 
-    // Iteratively process the execution plan.
+    // Iteratively process the execution plan.  At each step, rescale
+    // likelihoods to avoid underflow.  Keep track of the total amount of
+    // rescaling performed (in lnScale vectors), so that the scalers can be
+    // used during cL aggregation to accurately compute full-tree site
+    // log-likelihoods.
     for (unsigned s = 0; s < lik->stepsLen; s++) {
 	CxtLikStep *step = &lik->steps[s];
 	double *parentMat = step->parentCL->cLMat;
+	double *parentLnScale = step->parentCL->lnScale;
 	double *childMat = step->childCL->cLMat;
-	unsigned glen = step->model->glen;
+	double *childLnScale = step->childCL->lnScale;
 
-	// Compute P matrices, one for each gamma-distributed rate.
-	for (unsigned g = 0; g < glen; g++) {
-	    CxLikPt(dim, P[g], step->model->qEigVecCube, step->model->qEigVals,
-	      step->edgeLen * step->model->gammas[g] * step->model->rmult *
-	      step->model->wNorm);
+#ifdef CxmLikDebug
+	const char *vstr[] = {
+	    "CxeLikStepComputeL",
+	    "CxeLikStepComputeI",
+	    "CxeLikStepMergeL",
+	    "CxeLikStepMergeI"
+	};
+	fprintf(stderr, "----------------------------------------"
+	  "----------------------------------------\n");
+	fprintf(stderr, "step %u: %s %p <-- %p (%f)\n",
+	  s, vstr[step->variant], step->parentCL, step->childCL, step->edgeLen);
+#endif
+
+	// Compute P matrices, one for each model component.
+	for (unsigned mc = 0; mc < ncomp; mc++) {
+	    CxtLikComp *comp = &lik->comps[mc];
+	    if (comp->weightScaled != 0.0) {
+		CxtLikModel *model = comp->model;
+#ifdef CxmLikDebug
+		fprintf(stderr,
+		  "Pt(edgeLen: %f, cmult: %f, rmult: %f, wNorm: %f\n",
+		  step->edgeLen, comp->cmult, model->rmult, lik->wNorm);
+#endif
+		CxLikPt(dim, P[mc], model->qEigVecCube, model->qEigVals,
+		  step->edgeLen * comp->cmult * model->rmult * lik->wNorm);
+	    }
 	}
 
-	if (step->variant == CxeLikStepComputeCL) {
-	    for (unsigned c = cMin; c < cLim; c++) {
-		for (unsigned g = 0; g < glen; g++) {
-		    for (unsigned iP = 0; iP < dim; iP++) {
-			double cL = 0.0;
-			for (unsigned iC = 0; iC < dim; iC++) {
-			    cL += P[g][iP*dim + iC] * childMat[c*dn + g*dim
-			      + iC];
+	// Compute partial conditional likelihood according to the step variant
+	// (a combination of compute/merge and leaf/internal child variations).
+	// The computational differences among variants are subtle; ^^^ markers
+	// indicate where differences are.
+	switch (step->variant) {
+	    case CxeLikStepComputeL: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    double scale = 0.0;
+		    for (unsigned mc = 0; mc < ncomp; mc++) {
+			if (lik->comps[mc].weightScaled != 0.0) {
+			    for (unsigned iP = 0; iP < dim; iP++) {
+				double cL = 0.0;
+				for (unsigned iC = 0; iC < dim; iC++) {
+				    cL += P[mc][iP*dim + iC]
+				      * childMat[c*dim + iC];
+				    //             ^^^
+				}
+				if (cL > scale) {
+				    scale = cL;
+				}
+				parentMat[c*dn + mc*dim + iP] = cL;
+				//                            ^
+			    }
 			}
-			parentMat[c*dn + g*dim + iP] = cL;
 		    }
-		}
-	    }
-	} else {
-	    CxmAssert(step->variant == CxeLikStepMergeCL);
-	    for (unsigned c = cMin; c < cLim; c++) {
-		for (unsigned g = 0; g < glen; g++) {
-		    for (unsigned iP = 0; iP < dim; iP++) {
-			double cL = 0.0;
-			for (unsigned iC = 0; iC < dim; iC++) {
-			    cL += P[g][iP*dim + iC] * childMat[c*dn + g*dim
-			      + iC];
+		    if (scale != 1.0) {
+			for (unsigned iP = 0; iP < dn; iP++) {
+			    parentMat[c*dn + iP] /= scale;
 			}
-			parentMat[c*dn + g*dim + iP] *= cL;
 		    }
+		    parentLnScale[c] = log(scale) + childLnScale[c];
+		    //               ^
 		}
+		break;
+	    } case CxeLikStepComputeI: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    double scale = 0.0;
+		    for (unsigned mc = 0; mc < ncomp; mc++) {
+			if (lik->comps[mc].weightScaled != 0.0) {
+			    for (unsigned iP = 0; iP < dim; iP++) {
+				double cL = 0.0;
+				for (unsigned iC = 0; iC < dim; iC++) {
+				    cL += P[mc][iP*dim + iC]
+				      * childMat[c*dn + mc*dim + iC];
+				    //             ^^ ^^^^^^^^
+				}
+				if (cL > scale) {
+				    scale = cL;
+				}
+				parentMat[c*dn + mc*dim + iP] = cL;
+				//                            ^
+			    }
+			}
+		    }
+		    if (scale != 1.0) {
+			for (unsigned iP = 0; iP < dn; iP++) {
+			    parentMat[c*dn + iP] /= scale;
+			}
+		    }
+		    parentLnScale[c] = log(scale) + childLnScale[c];
+		    //               ^
+		}
+		break;
+	    } case CxeLikStepMergeL: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    double scale = 0.0;
+		    for (unsigned mc = 0; mc < ncomp; mc++) {
+			if (lik->comps[mc].weightScaled != 0.0) {
+			    for (unsigned iP = 0; iP < dim; iP++) {
+				double cL = 0.0;
+				for (unsigned iC = 0; iC < dim; iC++) {
+				    cL += P[mc][iP*dim + iC]
+				      * childMat[c*dim + iC];
+				    //             ^^^
+				}
+				if (cL > scale) {
+				    scale = cL;
+				}
+				parentMat[c*dn + mc*dim + iP] *= cL;
+				//                            ^^
+			    }
+			}
+		    }
+		    if (scale != 1.0) {
+			for (unsigned iP = 0; iP < dn; iP++) {
+			    parentMat[c*dn + iP] /= scale;
+			}
+		    }
+		    parentLnScale[c] += log(scale) + childLnScale[c];
+		    //               ^^
+		}
+		break;
+	    } case CxeLikStepMergeI: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    double scale = 0.0;
+		    for (unsigned mc = 0; mc < ncomp; mc++) {
+			if (lik->comps[mc].weightScaled != 0.0) {
+			    for (unsigned iP = 0; iP < dim; iP++) {
+				double cL = 0.0;
+				for (unsigned iC = 0; iC < dim; iC++) {
+				    cL += P[mc][iP*dim + iC]
+				      * childMat[c*dn + mc*dim + iC];
+				    //             ^^ ^^^^^^^^
+				}
+				if (cL > scale) {
+				    scale = cL;
+				}
+				parentMat[c*dn + mc*dim + iP] *= cL;
+				//                            ^^
+			    }
+			}
+		    }
+		    if (scale != 1.0) {
+			for (unsigned iP = 0; iP < dn; iP++) {
+			    parentMat[c*dn + iP] /= scale;
+			}
+		    }
+		    parentLnScale[c] += log(scale) + childLnScale[c];
+		    //               ^^
+		}
+		break;
+	    } default: {
+		CxmNotReached();
 	    }
 	}
     }
 
-    // For each model in the mixture, aggregrate conditional likelihoods and
-    // weight them according to frequency priors, in order to compute
-    // site-specific likelihoods.
-    for (unsigned m = 0; m < lik->modelsLen; m++) {
-	CxtLikModel *model = &lik->models[m];
-
-	if (model->weightScaled == 0.0 || model->entire) {
-	    // Model is not part of the mixture, or its siteL vector is
-	    // already computed.
-	    continue;
+    // For each model component, aggregate conditional likelihoods and weight
+    // them according to frequency priors, in order to compute site-specific
+    // lnL's.
+    double pn[ncomp][dim];
+    for (unsigned mc = 0; mc < ncomp; mc++) {
+	CxtLikComp *comp = &lik->comps[mc];
+	if (comp->weightScaled != 0.0) {
+	    // Pre-compute state-specific weights, taking into account component
+	    // weights.
+	    CxtLikModel *model = comp->model;
+	    for (unsigned i = 0; i < dim; i++) {
+		pn[mc][i] = model->piDiagNorm[i] * comp->weightScaled;
+	    }
 	}
+    }
 
-	// Pre-compute state-specific weights, taking into account discretized
-	// gamma-distributed rates.
-	unsigned glen = model->glen;
-	double pn[dim];
-	for (unsigned i = 0; i < dim; i++) {
-	    pn[i] = model->piDiagNorm[i] / (double)glen;
-	}
-
-	for (unsigned c = cMin; c < cLim; c++) {
-	    double L = 0.0;
-	    for (unsigned g = 0; g < glen; g++) {
+    for (unsigned c = cMin; c < cLim; c++) {
+	double L = 0.0;
+	for (unsigned mc = 0; mc < ncomp; mc++) {
+	    if (lik->comps[mc].weightScaled != 0.0) {
 		for (unsigned i = 0; i < dim; i++) {
-		    L += pn[i] * model->cL->cLMat[c*dn + g*dim + i];
+		    L += pn[mc][i] * lik->rootCLC->cLMat[c*dn + mc*dim + i];
 		}
 	    }
-	    model->siteL[c] = L;
 	}
+	double lnL = (log(L) + lik->rootCLC->lnScale[c])
+	  * (double)lik->charFreqs[c];
+	if (isnan(lnL)) {
+	    lnL = -INFINITY;
+	}
+	lik->siteLnL[c] = lnL;
     }
 }
 
@@ -443,14 +564,14 @@ CxpLikThreaded(void) {
     }
 }
 
-CxmpInline void
-CxpLikExecute(CxtLik *lik) {
+void
+CxLikExecute(CxtLik *lik) {
     if (lik->stepsLen > 0) {
 	if (CxNcpus > 1) {
 	    pthread_once(&CxpLikOnce, CxpLikThreaded);
 	}
 
-	// Compute log-likelihoods for each model in the mixture, stripewise.
+	// Compute log-likelihoods for each stripe.
 	if (CxpLikNThreads > 0 && lik->nstripes > 1) {
 	    CxtLikMsg msgs[CxNcpus * CxmLikMqMult];
 	    CxtLikMsg *msg;
@@ -490,48 +611,5 @@ CxpLikExecute(CxtLik *lik) {
 		CxLikExecuteStripe(lik, stripe);
 	    }
 	}
-    }
-}
-
-double
-CxLikExecuteLnL(CxtLik *lik) {
-    CxpLikExecute(lik);
-
-    // Compute the weighted log-likelihood.
-    double lnL = 0.0;
-    for (unsigned c = 0; c < lik->nchars - lik->npad; c++) {
-	double L = 0.0;
-	for (unsigned m = 0; m < lik->modelsLen; m++) {
-	    CxtLikModel *model = &lik->models[m];
-	    if (model->weightScaled == 0.0) {
-		// Model is not part of the mixture.
-		continue;
-	    }
-	    L += model->siteL[c] * model->weightScaled;
-	}
-	lnL += log(L) * (double)lik->charFreqs[c];
-    }
-    CxmAssert(isnan(lnL) == 0);
-
-    return lnL;
-}
-
-void
-CxLikExecuteSiteLnLs(CxtLik *lik, double *lnLs) {
-    CxpLikExecute(lik);
-
-    for (unsigned c = 0; c < lik->nchars - lik->npad; c++) {
-	double L = 0.0;
-	for (unsigned m = 0; m < lik->modelsLen; m++) {
-	    CxtLikModel *model = &lik->models[m];
-	    if (model->weightScaled == 0.0) {
-		// Model is not part of the mixture.
-		continue;
-	    }
-	    L += model->siteL[c] * model->weightScaled;
-	}
-	double lnL = log(L);
-	CxmAssert(isnan(lnL) == 0);
-	lnLs[c] = lnL * (double)lik->charFreqs[c];
     }
 }

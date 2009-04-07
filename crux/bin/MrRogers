@@ -223,6 +223,7 @@ else:
     cTMatrix = Crux.CTMatrix.CTMatrix(opts.infile,
       charType=(Crux.Character.Dna if opts.dna else Crux.Character.Protein))
     alignment = Crux.CTMatrix.Alignment(matrix=cTMatrix)
+    alignment.compact()
     if opts.correction is None:
         matrix = alignment.dists()
     elif opts.correction is "jukes":

@@ -41,17 +41,17 @@ for s in fastaStrs:
     for i in xrange(4):
         lik.setFreq(0, i, 0.20)
     print "lnL: %.4f" % lik.lnL()
+    lik.setRate(0, 0, 1.0)
 
     # Make sure that mixtures work:
     lik.addModel(0.0)
-    lik.dupModel(1, 0, True)
+    print "lnL: %.4f" % lik.lnL()
     lik.setWeight(0, 0.5)
     lik.setWeight(1, 0.5)
     print "lnL: %.4f" % lik.lnL()
     lik.setWeight(0, 0.0)
     lik.setWeight(1, 0.3)
     lik.addModel(0.7)
-    lik.dupModel(2, 1, False)
     print "lnL: %.4f" % lik.lnL()
     lik.setWeight(0, 1.0)
     lik.setWeight(1, 1.0)

@@ -169,7 +169,7 @@ cdef class PctIdent:
                       <float>pop(iVal & jVal) / <float>(pop(iVal) * pop(jVal))
 
     # Compute comparison statistics for a vs. b.
-    cdef void stats(self, char *a, char *b, unsigned seqlen,
+    cdef void stats(self, char *a, char *b, unsigned seqlen, unsigned *freqs,
       float *fident, unsigned *nvalid) except *:
         cdef float ident
         cdef unsigned valid, j, elm
@@ -182,8 +182,8 @@ cdef class PctIdent:
             bC = b[j]
             elm = (aC << 7) + bC
             if self.tab[elm].isValid:
-                ident += self.tab[elm].fident
-                valid += 1
+                ident += self.tab[elm].fident * <double>freqs[j]
+                valid += freqs[j]
         fident[0] = ident
         nvalid[0] = valid
 
@@ -205,8 +205,8 @@ cdef class K2p:
             iCode = sCode[0]
             self.code2val[iCode] = dna.code2val(code)
 
-    cdef void stats(self, char *a, char *b, unsigned len, unsigned *rN,
-      unsigned *rKs, unsigned *rKv) except *:
+    cdef void stats(self, char *a, char *b, unsigned len, unsigned *freqs, \
+      unsigned *rN, unsigned *rKs, unsigned *rKv) except *:
         cdef unsigned j
         cdef int aC, bC, aI, bI
         cdef int ambiguous, aVal, bVal, aOff, bOff
@@ -223,7 +223,7 @@ cdef class K2p:
             if aC == bC and aPop== 1:
                 aOff = ffs(aVal) - 1
                 # Identical non-ambiguous characters.
-                A[aOff*4 + aOff] += 1.0
+                A[aOff*4 + aOff] += <double>freqs[j]
             else:
                 bVal = self.code2val[bC]
                 bPop = pop(bVal)
@@ -231,7 +231,7 @@ cdef class K2p:
                 if aPop== 1 and bPop == 1:
                     aOff = ffs(aVal) - 1
                     bOff = ffs(bVal) - 1
-                    A[aOff*4 + bOff] += 1.0
+                    A[aOff*4 + bOff] += <double>freqs[j]
                 elif not self.scoreGaps and (aPop== 0 or bPop == 0):
                     # Ignore this character.
                     pass
@@ -248,7 +248,7 @@ cdef class K2p:
 
                     # Each possible state combination is assigned an equal
                     # probability.  All combinations sum to 1.0.
-                    p = <double>1.0 / <double>(aPop * bPop)
+                    p = <double>freqs[j] / <double>(aPop * bPop)
 
                     # Iterate over every state combination, and add p to the
                     # combinations that are represented by the ambiguity.
@@ -365,10 +365,11 @@ cdef class K2p:
 
         return ret
 
-    cdef double dist(self, char *a, char *b, unsigned len) except -1.0:
+    cdef double dist(self, char *a, char *b, unsigned len, unsigned *freqs) \
+      except -1.0:
         cdef unsigned n, ks, kv
 
-        self.stats(a, b, len, &n, &ks, &kv)
+        self.stats(a, b, len, freqs, &n, &ks, &kv)
 
         if n == 0:
             return NAN
@@ -411,7 +412,8 @@ cdef class LogDet:
             raise MemoryError("Matrix allocation failed")
 
     # Compute LogDet/paralinear distance for a vs. b.
-    cdef double dist(self, char *a, char *b, unsigned seqlen) except -1.0:
+    cdef double dist(self, char *a, char *b, unsigned seqlen, unsigned *freqs) \
+      except -1.0:
         cdef unsigned i, j, aPop, bPop
         cdef int aC, bC, aI, bI
         cdef int ambiguous, aVal, bVal, aOff, bOff
@@ -428,7 +430,7 @@ cdef class LogDet:
             if aC == bC and aPop== 1:
                 aOff = ffs(aVal) - 1
                 # Identical non-ambiguous characters.
-                self.A[aOff*self.n + aOff] += 1.0
+                self.A[aOff*self.n + aOff] += <double>freqs[j]
             else:
                 bVal = self.code2val[bC]
                 bPop = pop(bVal)
@@ -436,7 +438,7 @@ cdef class LogDet:
                 if aPop== 1 and bPop == 1:
                     aOff = ffs(aVal) - 1
                     bOff = ffs(bVal) - 1
-                    self.A[aOff*self.n + bOff] += 1.0
+                    self.A[aOff*self.n + bOff] += <double>freqs[j]
                 elif not self.scoreGaps and (aPop== 0 or bPop == 0):
                     # Ignore this character.
                     pass
@@ -453,7 +455,7 @@ cdef class LogDet:
 
                     # Each possible state combination is assigned an equal
                     # probability.  All combinations sum to 1.0.
-                    p = <double>1.0 / <double>(aPop * bPop)
+                    p = <double>freqs[j] / <double>(aPop * bPop)
 
                     # Iterate over every state combination, and add p to the
                     # combinations that are represented by the ambiguity.
@@ -943,10 +945,10 @@ cdef class Alignment:
             compaction.  See the canonize() documentation for algorithmic
             details.
 
-            If 'fitch' is True, discard parsimony-uninformative sites are
-            discarded (in addition to the transformation made by the canonize()
-            method).  Return the number of discarded changes, so that they can
-            be included when computing total tree length.
+            If 'fitch' is True, discard parsimony-uninformative sites (in
+            addition to the transformation made by the canonize() method).
+            Return the number of discarded changes, so that they can be
+            included when computing total tree length.
         """
         cdef int ret
         cdef bint wasColMajor
@@ -1188,7 +1190,8 @@ cdef class Alignment:
                 iRow = self.getRow(i)
                 for i + 1 <= j < self.ntaxa:
                     jRow = self.getRow(j)
-                    tab.stats(iRow, jRow, self.nchars, &fident, &nvalid)
+                    tab.stats(iRow, jRow, self.nchars, self.freqs, &fident, \
+                      &nvalid)
                     if nvalid > 0:
                         dist = 1.0 - (fident / <float>nvalid)
                     else:
@@ -1229,7 +1232,7 @@ cdef class Alignment:
                 iRow = self.getRow(i)
                 for i + 1 <= j < self.ntaxa:
                     jRow = self.getRow(j)
-                    tab.stats(iRow, jRow, self.nchars, &fident, &n)
+                    tab.stats(iRow, jRow, self.nchars, self.freqs, &fident, &n)
                     if n > 0:
                         k = <float>n - fident
                         p = k / <float>n
@@ -1260,7 +1263,7 @@ cdef class Alignment:
             aRow = self.getRow(a)
             for a + 1 <= b < self.ntaxa:
                 bRow = self.getRow(b)
-                d = k2p.dist(aRow, bRow, self.nchars)
+                d = k2p.dist(aRow, bRow, self.nchars, self.freqs)
                 m.distanceSet(a, b, d)
 
     cdef void _kimuraDistsProtein(self, DistMatrix m, bint scoreGaps):
@@ -1295,7 +1298,7 @@ cdef class Alignment:
             aRow = self.getRow(a)
             for a + 1 <= b < self.ntaxa:
                 bRow = self.getRow(b)
-                tab.stats(aRow, bRow, self.nchars, &fident, &n)
+                tab.stats(aRow, bRow, self.nchars, self.freqs, &fident, &n)
                 if n == 0:
                     m.distanceSet(a, b, NAN)
                     continue
@@ -1423,7 +1426,7 @@ cdef class Alignment:
                 iRow = self.getRow(i)
                 for i + 1 <= j < self.ntaxa:
                     jRow = self.getRow(j)
-                    d = logDet.dist(iRow, jRow, self.nchars)
+                    d = logDet.dist(iRow, jRow, self.nchars, self.freqs)
                     if not allowNan and isnan(d):
                         raise OverflowError("NaN at (%d,%d)" % (i, j))
                     ret.distanceSet(i, j, d)

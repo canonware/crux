@@ -3,32 +3,16 @@
 
 #include "../Cx.h"
 
-// Each ring object in a tree has a vector of CxtLikCL elements
-// associated with it, one element for each mixture model.
-typedef struct {
-    // Model serial number associated with the cached conditional likelihood
-    // matrix.  In order for the cache to be usable, the stored serial number
-    // must match that of the model's current serial number.
-    uint64_t sn;
+typedef struct CxsLikCL CxtLikCL;
+typedef struct CxsLikModel CxtLikModel;
 
+struct CxsLikCL {
     // Conditional likelihood matrix, stored in row-major form, such that each
     // row contains conditional likelihoods for a single site.  For example,
-    // assuming DNA and no gamma-distributed rate categories:
+    // assuming DNA and 4 model components (whether due to mixture models
+    // and/or +G rate categories), cLMat for an internal node looks like:
     //
-    //     A C G T
-    //   -----------
-    //   | x x x x | 0
-    //   | x x x x | 1
-    //   | x x x x | 2
-    //   | ....... | ...
-    //   | x x x x | n-1
-    //   -----------
-    //
-    // If gamma-distributed rate categories are enabled, the matrix contains
-    // multiple sets of columns for each site (one per rate category).  For
-    // example, with 4 rate categories:
-    //
-    //     cat 0     cat 1     cat 2     cat 3
+    //     comp 0    comp 1    comp 2    comp 3
     //     A C G T   A C G T   A C G T   A C G T
     //   -----------------------------------------
     //   | x x x x | x x x x | x x x x | x x x x | 0
@@ -36,39 +20,86 @@ typedef struct {
     //   | ....... | ....... | ....... | ....... | ...
     //   | x x x x | x x x x | x x x x | x x x x | n-1
     //   -----------------------------------------
+    //
+    // cLMat may be deallocated (and the pointer set to NULL) if execution
+    // planning finds it to be obsolete.
+    //
+    // Leaf nodes only store one copy of the character data, regardless of the
+    // number of model components:
+    //
+    //     A C G T
+    //   -----------
+    //   | x x x x |
+    //   | x x x x |
+    //   | ....... |
+    //   | x x x x |
+    //   -----------
     double *cLMat;
-} CxtLikCL;
 
-// One or more mixture models are used to compute a tree's lnL.  Each model is
-// given a weight (weights sum to 1) and a Q normalization scaler to adjust the
-// mean rate to 1 across the entire mixture.  Additionally, each model may have
-// a discretized Gamma distribution of mutation rates (average rate of 1).  The
-// precomputed eigenvector/eigenvalue decompostion of the Q matrix is used to
-// compute the probability of substitutions along a branch of a specific
-// length.
+    // Vector of character-specific log-scale factors.  The conditional
+    // likelihoods for each character are rescaled such that the largest
+    // conditional likelihood is 1.0.  This avoids floating point underflow
+    // issues, but the rescaling has to be tracked so that it can be accounted
+    // for in final lnL computation.
+    double *lnScale;
+
+    // True if the contents of cLMat and lnScale are consistent with the
+    // current tree topology.  This field is cleared during recursive execution
+    // planning if any child determines the topology is incompatible with its
+    // parent's cache.
+    bool valid;
+
+    // Parent which most recently used this cache when computing its conditional
+    // likelihood.  All siblings must still refer to the parent, the number of
+    // siblings must still be nSibs, and the branches separating them from the
+    // parent must remain the same length, in order for the parent's cache to be
+    // potentially valid.  (The model of evolution must also remain unchanged.)
+    CxtLikCL *parent;
+    unsigned nSibs;
+    double edgeLen;
+};
+
+// Model component.  Each model in the mixture consists of one or more
+// model components.
 typedef struct {
-    // Model serial number.  sn is unique to each proposed model, and is used
-    // as the key to determine whether a cached conditional likelihood matrix
-    // (as stored in CxtLikCL) is potentially usable.
-    uint64_t sn;
+    // Model this component is associated with.
+    CxtLikModel *model;
 
-    // If any model parameters have changed since the last time the serial
-    // number was assigned, reassign is true.
-    bool reassign;
-
-    // Mixture model relative and scaled weight.  weightScaled is 1.0 if only a
-    // single model is in use.
-    double weight;
+    // Scaled weight, such that weightScaled for all model components sums to 1.
     double weightScaled;
 
-    // Where P(t) is the mutation probability matrix for time interval t, a
-    // (t == v*wNorm), where v is branch length.  qNorm is a normalization
-    // factor that scales qNorm*Q such that the mean substitution rate is 1.
-    // If only a single model is in use, (wNorm == qNorm); otherwise wNorm may
-    // deviate from qNorm in order to adjust the weighted mean substitution
-    // rate to 1 across the entire mixture.
+    // Component relative weight, with relation to other components associated
+    // with the same model.
+    double cweight;
+
+    // Component rate multiplier.  This is 1 unless used for a +G rate
+    // category, in which case the mean cmult across the model's components is
+    // 1.
+    double cmult;
+} CxtLikComp;
+
+// One or more mixture models are used to compute a tree's lnL.  Each model is
+// given a weight (scaled model component weights sum to 1) and a Q
+// normalization scaler to adjust the mean rate to 1 across the entire mixture.
+// Additionally, each model may have a discretized Gamma distribution of
+// mutation rates (average rate of 1).  The precomputed eigenvector/eigenvalue
+// decompostion of the Q matrix is used to compute the probability of
+// substitutions along a branch of a specific length.
+struct CxsLikModel {
+    // If any model parameters have changed since the last time eigen
+    // decomposition was performed, decomp is true.
+    bool decomp;
+
+    // Mixture model relative weight.
+    double weight;
+
+    // Where P(t) is the mutation probability matrix for time interval t,
+    // (t == v*wNorm) (wNorm is in CxtLik), where v is branch length.  qNorm is
+    // a normalization factor that scales qNorm*Q such that the mean
+    // substitution rate is 1.  If only a single model is in use, (wNorm ==
+    // qNorm); otherwise wNorm may deviate from qNorm in order to adjust the
+    // weighted mean substitution rate to 1 across the entire mixture.
     double qNorm;
-    double wNorm;
 
     // Upper triangle of the R matrix and the diagonal of the Pi matrix, where
     // Q = (rmult*R)*Pi (with diagonal set such that each row sums to 0).
@@ -82,34 +113,37 @@ typedef struct {
     double *qEigVecCube;
     double *qEigVals;
 
-    // Gamma-distributed mutation rates parameter, with discretization.  If
-    // alpha is INFINITY, variable rates are disabled for this model, glen is
-    // 1, and gammas[0] is 1.0.  Otherwise, (glen == ncat) and gammas[...] is
-    // set appropriately.
+    // Gamma-distributed mutation rates parameter.  If alpha is INFINITY,
+    // variable rates effectively disabled for this model, and only the first
+    // element of comps has a non-zero scaled weight.  Otherwise, each element
+    // of comps has equal weight, and cmult is set appropriately in each
+    // element to represent +G rates.
     double alpha;
-    double *gammas;
-    unsigned glen;
+    // Use category means if catMedian is false, category medians if true.
+    bool catMedian;
 
-    // Site-specific conditional likelihoods for the root node.
-    CxtLikCL *cL;
-
-    // False if execution planning finds any places where conditional
-    // likelihoods have to be recomputed.  If true, then the contents of
-    // siteL are valid.
-    bool entire;
-
-    // Array in which to place site likelihoods.
-    double *siteL;
-} CxtLikModel;
+    // comp0 is the index of the first component within CxtLik's comps vector
+    // that corresponds to this model; components for each model are contiguous
+    // within the comps vector.  clen is the number of components used by this
+    // model.
+    unsigned comp0;
+    unsigned clen;
+};
 
 // Updating the cache and computing the lnL of the tree can be broken down into
-// two types of computations.  The conditional likelihood of a node is updated
-// by computing the conditional likelihood of one child (StepComputeCL), then
-// computing and merging the conditional likelihoods of other children, one at
-// a time (StepMergeCL).
+// two basic types of computations.  The conditional likelihood of a node is
+// updated by computing the conditional likelihood of one child
+// (CxeLikStepCompute*), then computing and merging the conditional
+// likelihoods of other children, one at a time (CxeLikStepMerge*).
+//
+// Since CL's associated with leaves only store a single copy of the character
+// data, "L" variants of the algorithm are necessary to handle those CL's,
+// whereas "I" variants handle CL's associated with internal nodes.
 typedef enum {
-    CxeLikStepComputeCL = 0,
-    CxeLikStepMergeCL   = 1
+    CxeLikStepComputeL = 0,
+    CxeLikStepComputeI = 1,
+    CxeLikStepMergeL   = 2,
+    CxeLikStepMergeI   = 3
 } CxeLikStep;
 
 // Each update step needs the same basic pieces of information.  The data that
@@ -125,24 +159,22 @@ typedef enum {
 //       child
 typedef struct {
     CxeLikStep variant;
-    CxtLikModel *model;
     CxtLikCL *parentCL;
     CxtLikCL *childCL;
     double edgeLen;
 } CxtLikStep;
 
 typedef struct {
+    // Polarity of data structures (0 or 1).  It is possible for a Lik to have
+    // a clone (created via Lik.clone()) that uses the opposite polarity.
+    unsigned polarity;
+
     // Number of character states (i.e. dimensionality of Q matrix).
     unsigned dim;
 
     // Maximum number of independent relative mutation rate classes (i.e.
     // length of rclass and rTri).
     unsigned rlen;
-
-    // Number of discrete Gamma-distributed rate categories.
-    unsigned ncat;
-    // Use category means if catMedian is false, category medians if true.
-    bool catMedian;
 
     // Number of characters.
     unsigned nchars;
@@ -157,16 +189,43 @@ typedef struct {
     unsigned stripeWidth;
     unsigned nstripes;
 
+    // True if the cached CL's have been rendered invalid by some model change.
+    // This flag is cleared during execution planning, which is when cache
+    // invalidation happens.
+    bool invalidate;
+
+    // True if the mixture has grown/shrunk, which means that CL's need to
+    // re-size their cLMat's.
+    bool resize;
+
     // True if any relative weights have changed for the mixture models since
     // the last time wNorm was computed.
-    bool renorm;
+    bool reweight;
+
+    // See CxtLikModel's qNorm for explanation.
+    double wNorm;
 
     // Mixture models vector.  modelsLen indicates how many models are
     // currently in the mixture, and modelsMax indicates the total number of
     // model slots available without reallocating.
-    CxtLikModel *models;
+    CxtLikModel **models;
     unsigned modelsLen;
     unsigned modelsMax;
+
+    // Array of model components correpsonding to the mixture models vector.
+    // compsLen indicates how many components are currently in use, and
+    // compsMax indicates the total number of components available in the
+    // vector without reallocating.  Since models may use varying numbers of
+    // model components, modelsLen is not necessarily the same as compsLen.
+    CxtLikComp *comps;
+    unsigned compsLen;
+    unsigned compsMax;
+
+    // Site-specific conditional likelihoods for the root node.
+    CxtLikCL *rootCLC;
+
+    // Array in which to place site likelihoods.
+    double *siteLnL;
 
     // Updating a tree's conditional likelihoods in order to compute the tree's
     // lnL is performed in two stages.  The first stage is a post-order tree
@@ -196,9 +255,7 @@ CxLikQDecomp(int n, double *RTri, double *PiDiag, double *PiDiagNorm,
   double *qEigVecCube, double *qEigVals, double *qNorm);
 void
 CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double v);
-double
-CxLikExecuteLnL(CxtLik *lik);
 void
-CxLikExecuteSiteLnLs(CxtLik *lik, double *lnLs);
+CxLikExecute(CxtLik *lik);
 
 #endif // CxLik_h
