@@ -448,9 +448,9 @@ if opts.mode in ("run", "all"):
                 sys.exit(1)
 
         liks = []
-        for i in xrange(opts.nruns * opts.ncoupled):
+        for i in xrange(mc3.nruns * mc3.ncoupled):
             lik = mc3.randomLik(opts.tree)
-            for m in xrange((1 if opts.nmodels is None else opts.nmodels)):
+            for m in xrange(mc3.nmodels):
                 if opts.fixed_rates is not None:
                     lik.setRclass(m, opts.fixed_rclass, opts.fixed_rates)
                 elif opts.fixed_rclass is not None:
