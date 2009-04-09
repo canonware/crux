@@ -46,7 +46,8 @@ cdef class Tree:
         elif type(with_) == str:
             self._newickNew(with_, taxaMap)
         else:
-            assert with_ is None
+            if with_ is not None:
+                raise ValueError("Unexpected with_ argument")
 
     def __reduce__(self):
         return (type(self), (), self.__getstate__())
@@ -177,9 +178,7 @@ cdef class Tree:
               1(1):13-23.
         """
         if self.getTaxa() != other.getTaxa():
-            # The trees do not contain the same taxa, so treat them as being
-            # infinitely distant.
-            return 1.0
+            raise Malformed("Trees must contain identical taxa")
 
         return self.getBipart().rfDist(other.getBipart())
 
@@ -196,8 +195,7 @@ cdef class Tree:
         bipartSelf = self.getBipart()
         for other in others:
             if taxaSelf != other.getTaxa():
-                # The trees do not contain the same taxa, so treat them as being
-                # infinitely distant.
+                raise Malformed("Trees must contain identical taxa")
                 ret.append(1.0)
             else:
                 ret.append(bipartSelf.rfDist(other.getBipart()))

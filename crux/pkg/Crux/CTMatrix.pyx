@@ -1382,7 +1382,7 @@ cdef class Alignment:
         return ret
 
     cpdef DistMatrix logdetDists(self, bint scoreGaps=True, \
-      bint allowNan=False):
+      str nan="error"):
         """
             Calculate pairwise distances, corrected for unequal state
             frequencies using the LogDet/paralinear method described by:
@@ -1410,25 +1410,51 @@ cdef class Alignment:
             some of the other distance correction methods (such as
             jukesDists()), it would be completely non-sensical to treat
             ambiguities as unique states.
+
+            It is mathematically possible for the determinant to be
+            uncomputable, even for legitimate inputs (for example, DNA
+            sequences that do not contain all bases).  By default, an exception
+            is raised if this happens (nan="error", but NaN distances can
+            optionally be allowed (nan="allow") or arbitrarily converted to be
+            twice the maximum computable distance in the resulting distance
+            matrix (nan="convert").
         """
         cdef DistMatrix ret
         cdef LogDet logDet
         cdef int i, j
         cdef char *iRow, *jRow
-        cdef double d
+        cdef double d, max
+        cdef bint convertNan
+
+        assert nan in ("error", "allow", "convert")
 
         ret = DistMatrix(self.taxaMap)
 
         if self.ntaxa > 1:
             logDet = LogDet(self.charType, scoreGaps)
 
+            convertNan = False
+            max = 0.0
             for 0 <= i < self.ntaxa:
                 iRow = self.getRow(i)
                 for i + 1 <= j < self.ntaxa:
                     jRow = self.getRow(j)
                     d = logDet.dist(iRow, jRow, self.nchars, self.freqs)
-                    if not allowNan and isnan(d):
-                        raise OverflowError("NaN at (%d,%d)" % (i, j))
+                    if isnan(d):
+                        if nan == "error":
+                            raise OverflowError("NaN at (%d,%d)" % (i, j))
+                        elif nan == "convert":
+                            convertNan = True
+                    else:
+                        if d > max:
+                            max = d
                     ret.distanceSet(i, j, d)
+
+            if convertNan:
+                for 0 <= i < self.ntaxa:
+                    for i + 1 <= j < self.ntaxa:
+                        d = ret.distanceGet(i, j)
+                        if isnan(d):
+                            ret.distanceSet(i, j, max*2.0)
 
         return ret

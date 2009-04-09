@@ -16,12 +16,11 @@ from Crux.Tree cimport Tree
 
 cdef class Msamp:
     def __init__(self, double weight, double rmult, str rclass, list rates, \
-      double wNorm, double alpha, list freqs):
+      double alpha, list freqs):
         self.weight = weight
         self.rmult = rmult
         self.rclass = rclass
         self.rates = rates
-        self.wNorm = wNorm
         self.alpha = alpha
         self.freqs = freqs
 
@@ -29,6 +28,7 @@ cdef class Samp:
     def __init__(self, double lnL):
         self.lnL = lnL
         self.msamps = []
+        self.wNorm = -1.0
         self.tree = None
 
 cdef class Post:
@@ -316,9 +316,12 @@ cdef class Post:
                 freqs = []
                 for 0 <= i < nfreqs:
                     freqs.append(float(toks[i+nrates+12]))
-                msamp = Msamp(weight, rmult, rclass, rates, wNorm, alpha, freqs)
-                samp = <Samp>self.runs[run][(step-self.stepFirst)/stride]
+                msamp = Msamp(weight, rmult, rclass, rates, alpha, freqs)
+                samp = \
+                  <Samp>(<list>self.runs[run])[(step-self.stepFirst)/stride]
                 samp.msamps.append(msamp)
+                assert samp.wNorm == -1.0 or samp.wNorm == wNorm
+                samp.wNorm = wNorm
                 if len(samp.msamps) > self.maxModels:
                     self.maxModels = len(samp.msamps)
 
@@ -343,6 +346,7 @@ cdef class Post:
 
         if self._tDone:
             return
+        self.parseS()
 
         tFile = open("%s.t" % self.mc3.outPrefix, "r")
 
@@ -359,7 +363,8 @@ cdef class Post:
                 run = int(toks[0][1:])
                 tree = Tree(toks[2], None, False)
                 tree.deroot()
-                samp = <Samp>self.runs[run][(step-self.stepFirst)/stride]
+                samp = \
+                  <Samp>(<list>self.runs[run])[(step-self.stepFirst)/stride]
                 samp.tree = tree
 
         self._pDone = True
@@ -752,7 +757,7 @@ cdef class Post:
                 msamp = <Msamp>samp.msamps[0]
                 for 0 <= k < rlen:
                     ratesK = <list>rates[k]
-                    ratesK.append(<double>msamp.rates[k] * msamp.wNorm * \
+                    ratesK.append(<double>msamp.rates[k] * samp.wNorm * \
                       msamp.rmult)
         for 0 <= k < rlen:
             ratesK = <list>rates[k]

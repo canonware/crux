@@ -565,7 +565,8 @@ if opts.mode in ("post", "all"):
                     f.write("%s\t\tN/A\n" % freqsLabels[i])
 
             # +G shape.
-            if post.mc3.nmodels == 1 and post.mc3.ncat > 1:
+            if post.mc3.nmodels == 1 and post.mc3.ncat > 1 \
+              and post.mc3.rateShapeInvJumpProp == 0.0:
                 f.write("+G alpha\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n" % \
                   (post.alphaMean, post.alphaVar, post.alphaMinCred, \
                   post.alphaMaxCred, post.alphaMed))
@@ -578,12 +579,14 @@ if opts.mode in ("post", "all"):
         trprobs = post.sumt.trprobs
         if len(trprobs) > 0:
             f = open("%s.trprobs" % opts.outPrefix, "w")
-            f.write("[[#obs Probability MSE #runs] tree]\n")
+            f.write("[[#obs p P MSE #runs] tree]\n")
 
+            P = 0.0
             for trprob in trprobs:
-                f.write("[%d %f %f %d] " % (trprob.nobs, \
-                  float(trprob.nobs) / float(post.mc3.nruns * post.nsamples), \
-                  trprob.mse, trprob.nruns))
+                p = float(trprob.nobs) / float(post.mc3.nruns * post.nsamples)
+                P += p
+                f.write("[%d %f %f %f %d] " % (trprob.nobs, p, P, trprob.mse, \
+                  trprob.nruns))
                 trprob.tree.render(lengths=True, lengthFormat="%.12e", \
                   outFile=f)
 

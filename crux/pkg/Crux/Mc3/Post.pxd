@@ -8,14 +8,14 @@ cdef class Msamp:
     cdef readonly double rmult
     cdef readonly str rclass
     cdef readonly list rates
-    cdef readonly double wNorm
     cdef readonly double alpha
     cdef readonly list freqs
 
 cdef class Samp:
-    cdef readonly double lnL  # Call Post.parseS() before accessing.
-    cdef readonly list msamps # Call Post.parseP() before accessing.
-    cdef readonly Tree tree   # Call Post.parseT() before accessing.
+    cdef readonly double lnL   # Call Post.parseS() before accessing.
+    cdef readonly list msamps  # Call Post.parseP() before accessing.
+    cdef readonly double wNorm # Call Post.parseP() before accessing.
+    cdef readonly Tree tree    # Call Post.parseT() before accessing.
 
 cdef class Post:
     cdef bint verbose
