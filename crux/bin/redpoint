@@ -491,7 +491,7 @@ if opts.mode in ("post", "all"):
                 f.write("burnin: <half>\n")
             else:
                 f.write("burnin: %d\n" % post.burnin)
-            f.write("nsamples: %d\n" % post.nsamples)
+            f.write("nsamples: %d\n" % post.nsamples * post.mc3.nruns)
             f.write("stepFirst: %d\n" % post.stepFirst)
             f.write("stepLast: %d\n" % post.stepLast)
 
