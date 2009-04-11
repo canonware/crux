@@ -37,6 +37,8 @@ cdef class Lik:
     # Ring; there is no extant ring object associated with the root.
     cdef CL rootCL
 
+    cdef unsigned _computeStripeWidth(self, unsigned nchars)
+    cdef unsigned _computeNpad(self, unsigned nchars, unsigned stripeWidth)
     cdef void _init0(self, Tree tree) except *
     cdef void _init1(self, Tree tree, unsigned nchars, unsigned dim, \
       unsigned polarity) except *

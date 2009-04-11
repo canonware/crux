@@ -10,21 +10,37 @@ AAGGCCGGGGGGTTGG
 AA--CC--GG--TT--
 >five
 ----------------
-=== logdetDists(scoreGaps=True) ===
+=== logdetDists(scoreGaps=True, nan='allow') ===
 5
 one
 two        0.000000e+00
 three      3.744665e-01 3.744665e-01
 four       5.198604e-01 5.198604e-01 3.744665e-01
 five       nan nan nan nan
+=== logdetDists(scoreGaps=True, nan='convert') ===
+5
+one
+two        0.000000e+00
+three      3.744665e-01 3.744665e-01
+four       5.198604e-01 5.198604e-01 3.744665e-01
+five       1.039721e+00 1.039721e+00 1.039721e+00 1.039721e+00
+=== logdetDists(scoreGaps=True, nan='error') ===
 Exception <type 'exceptions.OverflowError'>: NaN at (0,4)
-=== logdetDists(scoreGaps=False) ===
+=== logdetDists(scoreGaps=False, nan='allow') ===
 5
 one
 two        0.000000e+00
 three      3.744665e-01 3.744665e-01
 four       0.000000e+00 0.000000e+00 0.000000e+00
 five       nan nan nan nan
+=== logdetDists(scoreGaps=False, nan='convert') ===
+5
+one
+two        0.000000e+00
+three      3.744665e-01 3.744665e-01
+four       0.000000e+00 0.000000e+00 0.000000e+00
+five       7.489331e-01 7.489331e-01 7.489331e-01 7.489331e-01
+=== logdetDists(scoreGaps=False, nan='error') ===
 Exception <type 'exceptions.OverflowError'>: NaN at (0,4)
 >Euglena_gracilis
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -52,17 +68,27 @@ GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
 GGGGGGGGGGGGGGTTTTAAAAACCCCCCCCCCCCCCCCCCCGGGGGGGGTTTTTTTTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-=== logdetDists(scoreGaps=True) ===
+=== logdetDists(scoreGaps=True, nan='allow') ===
 2
 Euglena gracilis
 Olithodiscus luteus 1.530623e-01
+=== logdetDists(scoreGaps=True, nan='convert') ===
 2
 Euglena gracilis
 Olithodiscus luteus 1.530623e-01
-=== logdetDists(scoreGaps=False) ===
+=== logdetDists(scoreGaps=True, nan='error') ===
 2
 Euglena gracilis
 Olithodiscus luteus 1.530623e-01
+=== logdetDists(scoreGaps=False, nan='allow') ===
+2
+Euglena gracilis
+Olithodiscus luteus 1.530623e-01
+=== logdetDists(scoreGaps=False, nan='convert') ===
+2
+Euglena gracilis
+Olithodiscus luteus 1.530623e-01
+=== logdetDists(scoreGaps=False, nan='error') ===
 2
 Euglena gracilis
 Olithodiscus luteus 1.530623e-01
@@ -70,15 +96,25 @@ Olithodiscus luteus 1.530623e-01
 ACG
 >two
 CAG
-=== logdetDists(scoreGaps=True) ===
+=== logdetDists(scoreGaps=True, nan='allow') ===
 2
 one
 two        nan
+=== logdetDists(scoreGaps=True, nan='convert') ===
+2
+one
+two        0.000000e+00
+=== logdetDists(scoreGaps=True, nan='error') ===
 Exception <type 'exceptions.OverflowError'>: NaN at (0,1)
-=== logdetDists(scoreGaps=False) ===
+=== logdetDists(scoreGaps=False, nan='allow') ===
 2
 one
 two        nan
+=== logdetDists(scoreGaps=False, nan='convert') ===
+2
+one
+two        0.000000e+00
+=== logdetDists(scoreGaps=False, nan='error') ===
 Exception <type 'exceptions.OverflowError'>: NaN at (0,1)
 === charType: <type 'Crux.Character.Protein'> ===
 Test end

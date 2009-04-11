@@ -549,6 +549,7 @@ cdef class Alignment:
         self.taxaMap = taxaMap
         self.ntaxa = ntaxa
         self.nchars = nchars
+        self.npad = 0
         self.rowMajor = rowMajor
         self.colMajor = colMajor
         if rowMajor:
@@ -654,6 +655,7 @@ cdef class Alignment:
         self.freqs = freqs
 
         self.nchars += npad
+        self.npad += npad
 
     cpdef deRow(self):
         """

@@ -24,6 +24,7 @@ cdef class Alignment:
     cdef readonly Taxa.Map taxaMap
     cdef readonly int ntaxa
     cdef readonly int nchars
+    cdef readonly int npad
     cdef readonly bint rowMajor
     cdef readonly bint colMajor
     cdef char *rows

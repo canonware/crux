@@ -178,15 +178,53 @@ cdef class Lik:
 
     def __init__(self, Tree tree=None, Alignment alignment=None, \
       unsigned nmodels=1, unsigned ncat=1, bint catMedian=False):
-        cdef unsigned i
+        cdef unsigned i, nchars, npad
 
         if alignment is not None:
             self._init0(tree)
-            self._init1(tree, alignment.nchars, \
-              alignment.charType.get().nstates(), 0)
+            # Pad the alignment if its width isn't a multiple of the stripe
+            # width.
+            nchars = alignment.nchars
+            npad = self._computeNpad(nchars, self._computeStripeWidth(nchars))
+            if npad != 0:
+                alignment.pad( \
+                  alignment.charType.get().val2code(self.char_.any), npad)
+                nchars += npad
+            self._init1(tree, nchars, alignment.charType.get().nstates(), 0)
             self._init2(alignment)
             for 0 <= i < nmodels:
                 self.addModel(1.0, ncat, catMedian)
+
+    cdef unsigned _computeStripeWidth(self, unsigned nchars):
+        cdef unsigned stripeQuantum, stripeWidth, nstripes
+
+        if Config.threaded:
+            # Stripe width should always be a multiple of the cacheline size in
+            # order to avoid false cacheline sharing between threads.
+            stripeQuantum = cacheLine / (4 * sizeof(double))
+            stripeWidth = stripeQuantum
+
+            # Limit the number of stripes.
+            nstripes = nchars / stripeWidth + \
+              (1 if nchars % stripeWidth != 0 else 0)
+            while nstripes > CxNcpus * CxmLikMqMult:
+                stripeWidth += stripeQuantum
+                nstripes = nchars / stripeWidth + \
+                  (1 if nchars % stripeWidth != 0 else 0)
+        else:
+            stripeWidth = nchars
+
+        return stripeWidth
+
+    cdef unsigned _computeNpad(self, unsigned nchars, unsigned stripeWidth):
+        cdef unsigned npad
+
+        if nchars % stripeWidth != 0:
+            npad = stripeWidth - (nchars % stripeWidth)
+        else:
+            npad = 0
+
+        return npad
 
     cdef void _init0(self, Tree tree) except *:
         if tree.rooted:
@@ -198,31 +236,7 @@ cdef class Lik:
 
     cdef void _init1(self, Tree tree, unsigned nchars, unsigned dim, \
       unsigned polarity) except *:
-        cdef unsigned stripeWidth, npad, i
-
-        # Configure striping.
-        if Config.threaded:
-            # Stripe width should always be a multiple of 2 (assuming 64-byte
-            # cachelines) in order to avoid false cacheline sharing between
-            # threads.
-            stripeWidth = cacheLine / (4 * sizeof(double))
-
-            # Limit the number of stripes.
-            while (nchars + (stripeWidth - (nchars % stripeWidth))) / \
-              stripeWidth > CxNcpus * CxmLikMqMult:
-                stripeWidth *= 2
-
-            # Pad the alignment, if necessary.
-            if nchars % stripeWidth != 0:
-                npad = stripeWidth - (nchars % stripeWidth)
-            else:
-                npad = 0
-        else:
-            npad = 0
-            stripeWidth = nchars
-
         self.mate = None
-
         self.tree = tree
 
         self.lik = <CxtLik *>calloc(1, sizeof(CxtLik))
@@ -232,10 +246,10 @@ cdef class Lik:
         self.lik.polarity = polarity
         self.lik.dim = dim
         self.lik.rlen = self.lik.dim * (self.lik.dim-1) / 2
-        self.lik.nchars = nchars + npad
-        self.lik.npad = npad
-        self.lik.stripeWidth = stripeWidth
-        self.lik.nstripes = self.lik.nchars / stripeWidth
+        self.lik.nchars = nchars
+        self.lik.stripeWidth = self._computeStripeWidth(nchars)
+        self.lik.nstripes = self.lik.nchars / self.lik.stripeWidth
+        assert self.lik.nstripes * self.lik.stripeWidth == self.lik.nchars
 
         self.lik.invalidate = False
         self.lik.resize = False
@@ -263,14 +277,7 @@ cdef class Lik:
         self.char_ = alignment.charType.get()
         self.alignment = alignment
 
-        # Pad the alignment if it hasn't already been done.  Padding is already
-        # done when the alignment is supplied by the unpickle() method.
-        if self.alignment.nchars != self.lik.nchars:
-            assert self.alignment.nchars == self.lik.nchars - self.lik.npad
-            self.alignment.pad(self.char_.val2code(self.char_.any), \
-              self.lik.npad)
-            assert self.alignment.nchars == self.lik.nchars
-
+        self.lik.npad = self.alignment.npad
         self.lik.charFreqs = self.alignment.freqs
 
         stepsMax = ((2 * self.alignment.ntaxa) - 2) * self.lik.modelsMax
@@ -293,7 +300,7 @@ cdef class Lik:
         cdef double weight, rmult, alpha
         cdef bint catMedian
 
-        initArgs = (self.tree, self.lik.nchars-self.lik.npad, self.lik.dim)
+        initArgs = (self.tree, self.lik.nchars, self.lik.dim)
         models = []
         for 0 <= i < self.lik.modelsLen:
             weight = self.getWeight(i)
@@ -500,8 +507,13 @@ cdef class Lik:
             they can be recomputed if necessary.
         """
         cdef Lik ret
+        cdef Tree tree
 
-        ret = Lik(self.tree.dup(), self.alignment, 0)
+        ret = Lik()
+        tree = self.tree.dup()
+        ret._init0(tree)
+        ret._init1(tree, self.lik.nchars, self.lik.dim, 0)
+        ret._init2(self.alignment)
         self._dup(ret)
 
         return ret
@@ -543,7 +555,7 @@ cdef class Lik:
         else:
             assert self.lik.polarity == 0
             ret = Lik()
-            ret._init1(self.tree, self.alignment.nchars, self.lik.dim, 1)
+            ret._init1(self.tree, self.lik.nchars, self.lik.dim, 1)
             ret._init2(self.alignment)
             ret.mate = self
             self.mate = ret
