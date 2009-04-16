@@ -39,8 +39,8 @@
       Metropolis coupled Markov chain Monte Carlo for Bayesian phylogentic
       inference.  Bioinformatics 20(3):407-415.
 
-      Brooks, S.P., A. Gelman (1998) General Methods for Monitoring Convergence
-      of Iterative Simulations.  J. Comput. Graph. Stat.  7(4):434-455.
+      Brooks, S.P., A. Gelman (1998) General methods for monitoring convergence
+      of iterative simulations.  J. Comput. Graph. Stat.  7(4):434-455.
 
       Huelsenbeck, J.P., B. Larget, M.E. Alfaro (2004) Bayesian phylogenetic
       model selection using reversible jump Markov chain Monte Carlo.  Mol.
@@ -751,8 +751,9 @@ cdef class Mc3:
         if self.alignment.charType.get().nstates() <= 2:
             # There are not enough states to allow rate class grouping.
             self.props[PropRateJump] = 0.0
-        if self.alignment.ntaxa <= 3:
-            # There are not enough taxa to allow topology changes.
+        if self.alignment.ntaxa < 3:
+            # There are not enough taxa to allow topology changes or multiple
+            # simultaneous branch length changes.
             self.props[PropEtbr] = 0.0
             self.props[PropPolytomyJump] = 0.0
         if self._ncat < 2:
@@ -1346,9 +1347,10 @@ cdef class Mc3:
                         if graphT1 - graphT0 >= self._graphDelay:
                             if not self.writeGraph(step):
                                 graphT0 = time.time()
-            if graph:
-                # Write a graph one last time.
-                self.writeGraph(step)
+
+            # Write a graph one last time, regardless of whether graphs were
+            # written previously.
+            self.writeGraph(step)
         except:
             error = sys.exc_info()
             IF @enable_mpi@:
@@ -1416,6 +1418,8 @@ cdef class Mc3:
             prompt:
 
               while (1) {source("outPrefix.lnL.R"); Sys.sleep(10)}
+
+            A final graph will always be written, regardless of this setting.
         """
         def __get__(self):
             return self.getGraphDelay()

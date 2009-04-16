@@ -1391,7 +1391,7 @@ cdef class Alignment:
 
               Lake, J.A. (1994) Reconstructing evolutionary trees from DNA and
               protein sequences: Paralinear distances.  Proc. Natl. Acad. Sci.
-              91:1455-1459.
+              91(4):1455-1459.
 
             The distances are scaled such that they represent the mean number
             of substitutions per site.
@@ -1402,7 +1402,7 @@ cdef class Alignment:
 
               Lockhart, P.J., M.A. Steel, M.D. Hendy, and D. Penny (1994)
               Recovering evolutionary trees under a more Realistic model of
-              sequence evolution.  Mol.  Biol. Evol. 11(4):605-612.
+              sequence evolution.  Mol. Biol. Evol. 11(4):605-612.
 
             If scoreGaps is enabled, gaps are treated as being ambiguous,
             rather than as missing.

@@ -342,7 +342,9 @@ cdef class Chain:
         cdef double vY0, vY1, lnMY, mY
         cdef double u, lnL1, lnPrior, lnProp, p
 
-        assert self.tree.getNtaxa() > 3
+        # eTBR degenerates to a single branch length change for less than 3
+        # taxa.
+        assert self.tree.getNtaxa() >= 3
 
         # Uniformly choose a random edge.
         eA = <Edge>self.tree.getEdges()[gen_rand64_range(self.prng, \
