@@ -42,7 +42,7 @@ cdef class Lik:
     cdef void _init0(self, Tree tree) except *
     cdef void _init1(self, Tree tree, unsigned nchars, unsigned dim, \
       unsigned polarity) except *
-    cdef void _init2(self, Alignment alignment) except *
+    cdef void _init2(self, Alignment alignment, Character char_) except *
     cdef CxtLikModel *_allocModel(self, unsigned ncat) except *
     cdef void _initModel(self, CxtLikModel *modelP, double weight, \
       bint catMedian)

@@ -179,6 +179,7 @@ cdef class Lik:
     def __init__(self, Tree tree=None, Alignment alignment=None, \
       unsigned nmodels=1, unsigned ncat=1, bint catMedian=False):
         cdef unsigned i, nchars, npad
+        cdef Character char_
 
         if alignment is not None:
             self._init0(tree)
@@ -186,12 +187,12 @@ cdef class Lik:
             # width.
             nchars = alignment.nchars
             npad = self._computeNpad(nchars, self._computeStripeWidth(nchars))
+            char_ = alignment.charType.get()
             if npad != 0:
-                alignment.pad( \
-                  alignment.charType.get().val2code(self.char_.any), npad)
+                alignment.pad(char_.val2code(char_.any), npad)
                 nchars += npad
-            self._init1(tree, nchars, alignment.charType.get().nstates(), 0)
-            self._init2(alignment)
+            self._init1(tree, nchars, char_.nstates(), 0)
+            self._init2(alignment, char_)
             for 0 <= i < nmodels:
                 self.addModel(1.0, ncat, catMedian)
 
@@ -271,10 +272,10 @@ cdef class Lik:
         if self.lik.siteLnL == NULL:
             raise MemoryError("Error allocating siteLnL")
 
-    cdef void _init2(self, Alignment alignment) except *:
+    cdef void _init2(self, Alignment alignment, Character char_) except *:
         cdef unsigned stepsMax, i
 
-        self.char_ = alignment.charType.get()
+        self.char_ = char_
         self.alignment = alignment
 
         self.lik.npad = self.alignment.npad
@@ -468,7 +469,7 @@ cdef class Lik:
         ret = cPickle.loads(pickle)
 
         # Fill in missing details.
-        ret._init2(self.alignment)
+        ret._init2(self.alignment, self.alignment.charType.get())
 
         return ret
 
@@ -513,7 +514,7 @@ cdef class Lik:
         tree = self.tree.dup()
         ret._init0(tree)
         ret._init1(tree, self.lik.nchars, self.lik.dim, 0)
-        ret._init2(self.alignment)
+        ret._init2(self.alignment, self.alignment.charType.get())
         self._dup(ret)
 
         return ret
@@ -556,7 +557,7 @@ cdef class Lik:
             assert self.lik.polarity == 0
             ret = Lik()
             ret._init1(self.tree, self.lik.nchars, self.lik.dim, 1)
-            ret._init2(self.alignment)
+            ret._init2(self.alignment, self.alignment.charType.get())
             ret.mate = self
             self.mate = ret
 
