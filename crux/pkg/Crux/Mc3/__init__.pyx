@@ -752,9 +752,11 @@ cdef class Mc3:
             # There are not enough states to allow rate class grouping.
             self.props[PropRateJump] = 0.0
         if self.alignment.ntaxa < 3:
-            # There are not enough taxa to allow topology changes or multiple
-            # simultaneous branch length changes.
+            # There are not enough taxa to allow multiple simultaneous branch
+            # length changes.
             self.props[PropEtbr] = 0.0
+        if self.alignment.ntaxa < 4:
+            # There are not enough taxa to allow topology changes.
             self.props[PropPolytomyJump] = 0.0
         if self._ncat < 2:
             # There aren't multiple rate categories, so Gamma-distributed rates
