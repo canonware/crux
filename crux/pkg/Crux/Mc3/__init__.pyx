@@ -1948,7 +1948,7 @@ cdef class Mc3:
         """
             Prior for presence/absence of the Gamma-distributed relative
             mutation rates shape parameter.  Such models are commonly referred
-            to as +G (plus Gamma) models (ex: GTR+G).  1.0 indicates a flat
+            to as +G (plus Gamma) models (e.g. GTR+G).  1.0 indicates a flat
             prior (no preference for/against +G models), <1.0 favors +G models,
             and >1.0 favors +G-less models.
 
