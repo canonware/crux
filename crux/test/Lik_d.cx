@@ -57,5 +57,9 @@ for s in fastaStrs:
     lik.setWeight(1, 1.0)
     lik.setWeight(2, 1.0)
     print "lnL: %.4f" % lik.lnL()
+    lik.delModel(1)
+    print "lnL: %.4f" % lik.lnL()
+    lik.delModel(1)
+    print "lnL: %.4f" % lik.lnL()
 
 print "Test end"

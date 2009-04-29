@@ -454,7 +454,10 @@ cdef class Lik:
             # Fill the hole in the comps vector.
             for model < i < self.lik.modelsLen:
                 self.lik.models[i].comp0 -= modelP.clen
-            self.lik.models[i-1] = self.lik.models[i]
+            memmove(&self.lik.comps[modelP.comp0], \
+              &self.lik.comps[modelP.comp0+modelP.clen], \
+              (self.lik.compsLen - (modelP.comp0+modelP.clen)) * \
+              sizeof(CxtLikComp))
 
         self.lik.compsLen -= modelP.clen
         free(modelP)
@@ -974,17 +977,19 @@ cdef class Lik:
 
         return modelP.catMedian
 
-    cdef void _planAppend(self, CxeLikStep variant, CL parentCL, CL childCL, \
-      double edgeLen) except *:
+    cdef void _planAppend(self, CxeLikStep variant, unsigned ntrail, \
+      CL parentCL, CL childCL, double edgeLen) except *:
         cdef CxtLikStep *step
 
         assert parentCL is not None
         assert childCL is not None
+        assert ntrail != 0 or variant in (CxeLikStepMergeL, CxeLikStepMergeI)
 
         step = &self.lik.steps[self.lik.stepsLen]
         self.lik.stepsLen += 1
 
         step.variant = variant
+        step.ntrail = ntrail
         step.parentCL = &parentCL.cLs[self.lik.polarity]
         if childCL.cLs[1].cLMat == NULL:
             # Be careful with leaf nodes to always use the first (and only)
@@ -1098,7 +1103,7 @@ cdef class Lik:
                             variant = CxeLikStepComputeL
                         else:
                             variant = CxeLikStepMergeL
-                    self._planAppend(variant, cL, <CL>r.other.aux, \
+                    self._planAppend(variant, degree-j-1, cL, <CL>r.other.aux, \
                       r.edge.length)
                     r = r.next
                 cLC.valid = True
@@ -1107,7 +1112,7 @@ cdef class Lik:
 
     cdef void _plan(self, Node root) except *:
         cdef Ring ring, r
-        cdef unsigned degree
+        cdef unsigned degree, ntrail
         cdef CL flushCL
         cdef CxeLikStep variant
 
@@ -1132,10 +1137,10 @@ cdef class Lik:
                     variant = CxeLikStepComputeI
                 else:
                     variant = CxeLikStepComputeL
-                self._planAppend(variant, self.rootCL, <CL>ring.other.aux, \
+                self._planAppend(variant, 1, self.rootCL, <CL>ring.other.aux, \
                   ring.edge.length)
-                self._planAppend(CxeLikStepMergeL, self.rootCL, <CL>ring.aux, \
-                  0.0)
+                self._planAppend(CxeLikStepMergeL, 0, self.rootCL, \
+                  <CL>ring.aux, 0.0)
                 self.rootCL.cLs[self.lik.polarity].valid = True
         else:
             for r in ring:
@@ -1153,15 +1158,17 @@ cdef class Lik:
                     variant = CxeLikStepComputeI
                 else:
                     variant = CxeLikStepComputeL
-                self._planAppend(variant, self.rootCL, <CL>ring.other.aux, \
-                  ring.edge.length)
+                ntrail = degree - 1
+                self._planAppend(variant, ntrail, self.rootCL, \
+                  <CL>ring.other.aux, ring.edge.length)
                 for r in ring.siblings():
                     if r.other.node.getDegree() > 1:
                         variant = CxeLikStepMergeI
                     else:
                         variant = CxeLikStepMergeL
-                    self._planAppend(variant, self.rootCL, <CL>r.other.aux, \
-                      r.edge.length)
+                    ntrail -= 1
+                    self._planAppend(variant, ntrail, self.rootCL, \
+                      <CL>r.other.aux, r.edge.length)
                 self.rootCL.cLs[self.lik.polarity].valid = True
 
         # Now that execution planning is complete, clear flags that have been

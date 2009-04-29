@@ -73,8 +73,8 @@ cdef class Lik:
     cpdef unsigned getNcat(self, unsigned model) except *
     cpdef bint getCatMedian(self, unsigned model) except *
     cpdef setAlpha(self, unsigned model, double alpha)
-    cdef void _planAppend(self, CxeLikStep variant, CL parentCL, CL childCL, \
-      double edgeLen) except *
+    cdef void _planAppend(self, CxeLikStep variant, unsigned ntrail, \
+      CL parentCL, CL childCL, double edgeLen) except *
     cdef void _planRecurse(self, Ring ring, CL parent, unsigned nSibs,
       double edgeLen) except *
     cdef void _plan(self, Node root) except *

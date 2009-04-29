@@ -159,6 +159,7 @@ typedef enum {
 //       child
 typedef struct {
     CxeLikStep variant;
+    unsigned ntrail; // Number of trailing merge steps.
     CxtLikCL *parentCL;
     CxtLikCL *childCL;
     double edgeLen;

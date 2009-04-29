@@ -71,7 +71,8 @@ cdef class Chain:
         cdef unsigned mInd
         cdef double u, lnM, m, w0, w1, lnL1, p
 
-        assert self.master._nmodels > 1
+        if self.lik.nmodels() == 1:
+            return True
 
         # Create a cloned scratch Lik.
         lik1 = self.lik.clone()
@@ -159,7 +160,8 @@ cdef class Chain:
         cdef unsigned mInd
         cdef double u, lnM, m, rm0, rm1, lnL1, p
 
-        assert self.master._nmodels > 1
+        if self.lik.nmodels() == 1:
+            return True
 
         # Create a cloned scratch Lik.
         lik1 = self.lik.clone()
@@ -1291,6 +1293,122 @@ cdef class Chain:
 
         return False
 
+    cdef void mixtureRemovePropose(self, unsigned nmodels) except *:
+        cdef Lik lik1
+        cdef double w, rmult, lnL1, rate, lnPrior, lnHast, u, p
+        cdef unsigned mInd, nrates, i
+        cdef list rates
+
+        assert nmodels > 1
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
+        # Remove a random Q.
+        mInd = gen_rand64_range(self.prng, nmodels)
+        w = lik1.getWeight(mInd)
+        rmult = lik1.getRmult(mInd)
+        nrates = lik1.getNrates(mInd)
+        rates = [lik1.getRate(mInd, i) for i in xrange(nrates)]
+        lik1.delModel(mInd)
+
+        # Compute lnL with removed Q.
+        lnL1 = lik1.lnL()
+
+        lnPrior = w
+        lnHast = -w
+        for 0 <= i < nrates:
+            rate = <double>rates[i]
+            lnPrior += rate
+            lnHast += -rate
+        lnPrior += rmult
+        lnHast += -rmult
+
+        lnPrior += -log(1.0 - self.master._mixtureJumpPrior)
+
+        if nmodels == 2:
+            lnHast += log(4.0)
+        else:
+            lnHast += log(<double>nmodels)
+
+        # Determine whether to accept proposal.
+        u = genrand_res53(self.prng)
+        # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
+        p = exp(((lnL1 - self.lnL) + lnPrior) * self.heat + lnHast)
+        if p >= u:
+            # Accept.
+            self.lnL = lnL1
+            self.lik = lik1
+            self.accepts[PropMixtureJump] += 1
+        else:
+            self.rejects[PropMixtureJump] += 1
+
+    cdef void mixtureAddPropose(self, unsigned nmodels) except *:
+        cdef Lik lik1
+        cdef double w, rmult, lnL1, rate, lnPrior, lnHast, u, p
+        cdef unsigned mInd, nrates, i
+        cdef list rates
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
+        # Draw a new Q from the prior.
+        mInd = lik1.addModel(0.0, self.master._ncat, self.master._catMedian)
+        self.master.randomDnaQ(lik1, mInd, self.prng)
+        w = lik1.getWeight(mInd)
+        rmult = lik1.getRmult(mInd)
+        nrates = lik1.getNrates(mInd)
+        rates = [lik1.getRate(mInd, i) for i in xrange(nrates)]
+
+        # Compute lnL with added Q.
+        lnL1 = lik1.lnL()
+
+        lnPrior = -w
+        lnHast = w
+        for 0 <= i < nrates:
+            rate = <double>rates[i]
+            lnPrior += -rate
+            lnHast += rate
+        lnPrior += -rmult
+        lnHast += rmult
+
+        lnPrior += log(1.0 - self.master._mixtureJumpPrior)
+
+        if nmodels == 1:
+            lnHast += log(0.25)
+        else:
+            lnHast += log(<double>(nmodels+1))
+
+        # Determine whether to accept proposal.
+        u = genrand_res53(self.prng)
+        # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
+        p = exp(((lnL1 - self.lnL) + lnPrior) * self.heat + lnHast)
+        if p >= u:
+            # Accept.
+            self.lnL = lnL1
+            self.lik = lik1
+            self.accepts[PropMixtureJump] += 1
+        else:
+            self.rejects[PropMixtureJump] += 1
+
+    cdef bint mixtureJumpPropose(self) except *:
+        cdef unsigned nmodels
+        cdef bint remove
+
+        nmodels = self.lik.nmodels()
+        if nmodels == 1:
+            # Can't remove a model.
+            remove = False
+        else:
+            remove = <bint>gen_rand64_range(self.prng, 2)
+
+        if remove:
+            self.mixtureRemovePropose(nmodels)
+        else:
+            self.mixtureAddPropose(nmodels)
+
+        return False
+
     cdef void advance0(self) except *:
         cdef bint again
         cdef unsigned propInd, a, b, other
@@ -1328,6 +1446,8 @@ cdef class Chain:
                 again = self.polytomyJumpPropose()
             elif propInd == PropRateShapeInvJump:
                 again = self.rateShapeInvJumpPropose()
+            elif propInd == PropMixtureJump:
+                again = self.mixtureJumpPropose()
             else:
                 assert False
 

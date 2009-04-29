@@ -2,6 +2,7 @@
 cdef class Mc3
 
 from libc cimport uint64_t
+from SFMT cimport *
 from Crux.CTMatrix cimport Alignment
 from Crux.Mc3.Chain cimport Chain, PropCnt
 from Crux.Tree cimport Tree
@@ -66,6 +67,7 @@ cdef class Mc3:
     cdef double _rateJumpPrior
     cdef double _polytomyJumpPrior
     cdef double _rateShapeInvJumpPrior
+    cdef double _mixtureJumpPrior
 
     # Relative proposal probabilities, and corresponding CDF.
     cdef double props[PropCnt]
@@ -184,6 +186,7 @@ cdef class Mc3:
     cdef void pWrite(self, uint64_t step) except *
     cdef void sWrite(self, uint64_t step, double rcov) except *
     cdef bint sample(self, uint64_t step) except *
+    cdef void randomDnaQ(self, Lik lik, unsigned model, sfmt_t *prng) except *
     cpdef Lik randomLik(self, Tree tree=*)
     cpdef run(self, bint verbose=*, list liks=*)
 
@@ -277,6 +280,9 @@ cdef class Mc3:
     cdef void setRateShapeInvJumpPrior(self, double rateShapeInvJumpPrior) \
       except *
     # property rateShapeInvJumpPrior
+    cdef double getMixtureJumpPrior(self)
+    cdef void setMixtureJumpPrior(self, double mixtureJumpPrior) except *
+    # property mixtureJumpPrior
     cdef double getWeightProp(self)
     cdef void setWeightProp(self, double weightProp) except *
     # property weightProp
@@ -308,3 +314,6 @@ cdef class Mc3:
     cdef void setRateShapeInvJumpProp(self, double rateShapeInvJumpProp) \
       except *
     # property rateShapeInvJumpProp
+    cdef double getMixtureJumpProp(self)
+    cdef void setMixtureJumpProp(self, double mixtureJumpProp) except *
+    # property mixtureJumpProp

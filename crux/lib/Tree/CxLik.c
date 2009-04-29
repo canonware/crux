@@ -300,8 +300,11 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
     unsigned cMin = lik->stripeWidth * stripe;
     unsigned cLim = cMin + lik->stripeWidth;
     double P[ncomp][dimSq];
+    double scale[cLim-cMin];
 
-    // Iteratively process the execution plan.  At each step, rescale
+    memset(scale, 0, sizeof(scale));
+
+    // Iteratively process the execution plan.  For each node, rescale
     // likelihoods to avoid underflow.  Keep track of the total amount of
     // rescaling performed (in lnScale vectors), so that the scalers can be
     // used during cL aggregation to accurately compute full-tree site
@@ -348,7 +351,6 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 	switch (step->variant) {
 	    case CxeLikStepComputeL: {
 		for (unsigned c = cMin; c < cLim; c++) {
-		    double scale = 0.0;
 		    for (unsigned mc = 0; mc < ncomp; mc++) {
 			if (lik->comps[mc].weightScaled != 0.0) {
 			    for (unsigned iP = 0; iP < dim; iP++) {
@@ -358,26 +360,20 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 				      * childMat[c*dim + iC];
 				    //             ^^^
 				}
-				if (cL > scale) {
-				    scale = cL;
+				if (cL > scale[c-cMin]) {
+				    scale[c-cMin] = cL;
 				}
 				parentMat[c*dn + mc*dim + iP] = cL;
 				//                            ^
 			    }
 			}
 		    }
-		    if (scale != 1.0) {
-			for (unsigned iP = 0; iP < dn; iP++) {
-			    parentMat[c*dn + iP] /= scale;
-			}
-		    }
-		    parentLnScale[c] = log(scale) + childLnScale[c];
+		    parentLnScale[c] = childLnScale[c];
 		    //               ^
 		}
 		break;
 	    } case CxeLikStepComputeI: {
 		for (unsigned c = cMin; c < cLim; c++) {
-		    double scale = 0.0;
 		    for (unsigned mc = 0; mc < ncomp; mc++) {
 			if (lik->comps[mc].weightScaled != 0.0) {
 			    for (unsigned iP = 0; iP < dim; iP++) {
@@ -387,26 +383,20 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 				      * childMat[c*dn + mc*dim + iC];
 				    //             ^^ ^^^^^^^^
 				}
-				if (cL > scale) {
-				    scale = cL;
+				if (cL > scale[c-cMin]) {
+				    scale[c-cMin] = cL;
 				}
 				parentMat[c*dn + mc*dim + iP] = cL;
 				//                            ^
 			    }
 			}
 		    }
-		    if (scale != 1.0) {
-			for (unsigned iP = 0; iP < dn; iP++) {
-			    parentMat[c*dn + iP] /= scale;
-			}
-		    }
-		    parentLnScale[c] = log(scale) + childLnScale[c];
+		    parentLnScale[c] = childLnScale[c];
 		    //               ^
 		}
 		break;
 	    } case CxeLikStepMergeL: {
 		for (unsigned c = cMin; c < cLim; c++) {
-		    double scale = 0.0;
 		    for (unsigned mc = 0; mc < ncomp; mc++) {
 			if (lik->comps[mc].weightScaled != 0.0) {
 			    for (unsigned iP = 0; iP < dim; iP++) {
@@ -416,26 +406,20 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 				      * childMat[c*dim + iC];
 				    //             ^^^
 				}
-				if (cL > scale) {
-				    scale = cL;
+				if (cL > scale[c-cMin]) {
+				    scale[c-cMin] = cL;
 				}
 				parentMat[c*dn + mc*dim + iP] *= cL;
 				//                            ^^
 			    }
 			}
 		    }
-		    if (scale != 1.0) {
-			for (unsigned iP = 0; iP < dn; iP++) {
-			    parentMat[c*dn + iP] /= scale;
-			}
-		    }
-		    parentLnScale[c] += log(scale) + childLnScale[c];
+		    parentLnScale[c] += childLnScale[c];
 		    //               ^^
 		}
 		break;
 	    } case CxeLikStepMergeI: {
 		for (unsigned c = cMin; c < cLim; c++) {
-		    double scale = 0.0;
 		    for (unsigned mc = 0; mc < ncomp; mc++) {
 			if (lik->comps[mc].weightScaled != 0.0) {
 			    for (unsigned iP = 0; iP < dim; iP++) {
@@ -445,20 +429,15 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 				      * childMat[c*dn + mc*dim + iC];
 				    //             ^^ ^^^^^^^^
 				}
-				if (cL > scale) {
-				    scale = cL;
+				if (cL > scale[c-cMin]) {
+				    scale[c-cMin] = cL;
 				}
 				parentMat[c*dn + mc*dim + iP] *= cL;
 				//                            ^^
 			    }
 			}
 		    }
-		    if (scale != 1.0) {
-			for (unsigned iP = 0; iP < dn; iP++) {
-			    parentMat[c*dn + iP] /= scale;
-			}
-		    }
-		    parentLnScale[c] += log(scale) + childLnScale[c];
+		    parentLnScale[c] += childLnScale[c];
 		    //               ^^
 		}
 		break;
@@ -466,6 +445,26 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 		CxmNotReached();
 	    }
 	}
+
+	if (step->ntrail == 0) {
+	    for (unsigned c = cMin; c < cLim; c++) {
+		double scaleElm = scale[c-cMin];
+		if (scaleElm != 1.0) {
+		    for (unsigned iP = 0; iP < dn; iP++) {
+			parentMat[c*dn + iP] /= scaleElm;
+		    }
+		}
+		parentLnScale[c] += log(scaleElm);
+	    }
+	    memset(scale, 0, sizeof(scale));
+	}
+#ifdef CxmDebug
+	  else {
+	    CxmAssert(s+1 < lik->stepsLen);
+	    CxmAssert(lik->steps[s+1].parentCL->cLMat == parentMat);
+	    CxmAssert(lik->steps[s+1].parentCL->lnScale == parentLnScale);
+	}
+#endif
     }
 
     // For each model component, aggregate conditional likelihoods and weight

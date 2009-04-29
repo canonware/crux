@@ -39,6 +39,7 @@ cdef extern from "CxLik.h":
         CxeLikStepMergeI   = 3
     ctypedef struct CxtLikStep:
         CxeLikStep variant
+        unsigned ntrail
         CxtLikCL *parentCL
         CxtLikCL *childCL
         double edgeLen

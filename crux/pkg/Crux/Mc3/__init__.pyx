@@ -16,6 +16,12 @@
     (including leaf edges).  The latter generalization allows topology
     tranformations even on trees that have a single internal edge.
 
+    Models with/without Gamma-distributed relative mutation rate variation (+G)
+    are sampled using novel methods.
+
+    Mixtures (weighted Q matrices) of varying degree are sampled using novel
+    methods.
+
     If MPI (http://www.mpi-forum.org/) support is enabled, the methods
     described by Altekar et al. (2004) are used to run chains in parallel.
     Ideally, the total number of chains (number of independent runs times
@@ -66,10 +72,12 @@ cdef extern from "Python.h":
     cdef object PyString_FromStringAndSize(char *s, Py_ssize_t len)
 from libc cimport *
 from libm cimport *
+from SFMT cimport *
 from Crux.Mc3.Chain cimport *
 from Crux.Mc3.Post cimport *
 from Crux.Tree cimport Tree, Edge
 from Crux.Tree.Lik cimport Lik
+from Crux.Character cimport Dna
 
 IF @enable_mpi@:
     from mpi4py import MPI
@@ -86,6 +94,88 @@ cdef int _lnLCmp(void *va, void *vb):
     cdef double b = (<double *>vb)[0]
 
     return (a > b) - (a < b)
+
+# Lookup table of DNA rclasses, used to randomly draw rclasses from the
+# appropriate resolution class when drawing a Q from the prior.
+cdef list _dnaRclasses = None
+cdef void _initRclasses() except *:
+    global _dnaRclasses
+
+    assert _dnaRclasses is None
+    _dnaRclasses = [
+        # 1
+        [
+            [0,0,0,0,0,0]
+        ],
+        # 2
+        [
+            [0,0,0,0,0,1], [0,0,0,0,1,0], [0,0,0,0,1,1], [0,0,0,1,0,0],
+            [0,0,0,1,0,1], [0,0,0,1,1,0], [0,0,0,1,1,1], [0,0,1,0,0,0],
+            [0,0,1,0,0,1], [0,0,1,0,1,0], [0,0,1,0,1,1], [0,0,1,1,0,0],
+            [0,0,1,1,0,1], [0,0,1,1,1,0], [0,0,1,1,1,1], [0,1,0,0,0,0],
+            [0,1,0,0,0,1], [0,1,0,0,1,0], [0,1,0,0,1,1], [0,1,0,1,0,0],
+            [0,1,0,1,0,1], [0,1,0,1,1,0], [0,1,0,1,1,1], [0,1,1,0,0,0],
+            [0,1,1,0,0,1], [0,1,1,0,1,0], [0,1,1,0,1,1], [0,1,1,1,0,0],
+            [0,1,1,1,0,1], [0,1,1,1,1,0], [0,1,1,1,1,1]
+        ],
+        # 3
+        [
+            [0,0,0,0,1,2], [0,0,0,1,0,2], [0,0,0,1,1,2], [0,0,0,1,2,0],
+            [0,0,0,1,2,1], [0,0,0,1,2,2], [0,0,1,0,0,2], [0,0,1,0,1,2],
+            [0,0,1,0,2,0], [0,0,1,0,2,1], [0,0,1,0,2,2], [0,0,1,1,0,2],
+            [0,0,1,1,1,2], [0,0,1,1,2,0], [0,0,1,1,2,1], [0,0,1,1,2,2],
+            [0,0,1,2,0,0], [0,0,1,2,0,1], [0,0,1,2,0,2], [0,0,1,2,1,0],
+            [0,0,1,2,1,1], [0,0,1,2,1,2], [0,0,1,2,2,0], [0,0,1,2,2,1],
+            [0,0,1,2,2,2], [0,1,0,0,0,2], [0,1,0,0,1,2], [0,1,0,0,2,0],
+            [0,1,0,0,2,1], [0,1,0,0,2,2], [0,1,0,1,0,2], [0,1,0,1,1,2],
+            [0,1,0,1,2,0], [0,1,0,1,2,1], [0,1,0,1,2,2], [0,1,0,2,0,0],
+            [0,1,0,2,0,1], [0,1,0,2,0,2], [0,1,0,2,1,0], [0,1,0,2,1,1],
+            [0,1,0,2,1,2], [0,1,0,2,2,0], [0,1,0,2,2,1], [0,1,0,2,2,2],
+            [0,1,1,0,0,2], [0,1,1,0,1,2], [0,1,1,0,2,0], [0,1,1,0,2,1],
+            [0,1,1,0,2,2], [0,1,1,1,0,2], [0,1,1,1,1,2], [0,1,1,1,2,0],
+            [0,1,1,1,2,1], [0,1,1,1,2,2], [0,1,1,2,0,0], [0,1,1,2,0,1],
+            [0,1,1,2,0,2], [0,1,1,2,1,0], [0,1,1,2,1,1], [0,1,1,2,1,2],
+            [0,1,1,2,2,0], [0,1,1,2,2,1], [0,1,1,2,2,2], [0,1,2,0,0,0],
+            [0,1,2,0,0,1], [0,1,2,0,0,2], [0,1,2,0,1,0], [0,1,2,0,1,1],
+            [0,1,2,0,1,2], [0,1,2,0,2,0], [0,1,2,0,2,1], [0,1,2,0,2,2],
+            [0,1,2,1,0,0], [0,1,2,1,0,1], [0,1,2,1,0,2], [0,1,2,1,1,0],
+            [0,1,2,1,1,1], [0,1,2,1,1,2], [0,1,2,1,2,0], [0,1,2,1,2,1],
+            [0,1,2,1,2,2], [0,1,2,2,0,0], [0,1,2,2,0,1], [0,1,2,2,0,2],
+            [0,1,2,2,1,0], [0,1,2,2,1,1], [0,1,2,2,1,2], [0,1,2,2,2,0],
+            [0,1,2,2,2,1], [0,1,2,2,2,2]
+        ],
+        # 4
+        [
+            [0,0,0,1,2,3], [0,0,1,0,2,3], [0,0,1,1,2,3], [0,0,1,2,0,3],
+            [0,0,1,2,1,3], [0,0,1,2,2,3], [0,0,1,2,3,0], [0,0,1,2,3,1],
+            [0,0,1,2,3,2], [0,0,1,2,3,3], [0,1,0,0,2,3], [0,1,0,1,2,3],
+            [0,1,0,2,0,3], [0,1,0,2,1,3], [0,1,0,2,2,3], [0,1,0,2,3,0],
+            [0,1,0,2,3,1], [0,1,0,2,3,2], [0,1,0,2,3,3], [0,1,1,0,2,3],
+            [0,1,1,1,2,3], [0,1,1,2,0,3], [0,1,1,2,1,3], [0,1,1,2,2,3],
+            [0,1,1,2,3,0], [0,1,1,2,3,1], [0,1,1,2,3,2], [0,1,1,2,3,3],
+            [0,1,2,0,0,3], [0,1,2,0,1,3], [0,1,2,0,2,3], [0,1,2,0,3,0],
+            [0,1,2,0,3,1], [0,1,2,0,3,2], [0,1,2,0,3,3], [0,1,2,1,0,3],
+            [0,1,2,1,1,3], [0,1,2,1,2,3], [0,1,2,1,3,0], [0,1,2,1,3,1],
+            [0,1,2,1,3,2], [0,1,2,1,3,3], [0,1,2,2,0,3], [0,1,2,2,1,3],
+            [0,1,2,2,2,3], [0,1,2,2,3,0], [0,1,2,2,3,1], [0,1,2,2,3,2],
+            [0,1,2,2,3,3], [0,1,2,3,0,0], [0,1,2,3,0,1], [0,1,2,3,0,2],
+            [0,1,2,3,0,3], [0,1,2,3,1,0], [0,1,2,3,1,1], [0,1,2,3,1,2],
+            [0,1,2,3,1,3], [0,1,2,3,2,0], [0,1,2,3,2,1], [0,1,2,3,2,2],
+            [0,1,2,3,2,3], [0,1,2,3,3,0], [0,1,2,3,3,1], [0,1,2,3,3,2],
+            [0,1,2,3,3,3]
+        ],
+        # 5
+        [
+            [0,0,1,2,3,4], [0,1,0,2,3,4], [0,1,1,2,3,4], [0,1,2,0,3,4],
+            [0,1,2,1,3,4], [0,1,2,2,3,4], [0,1,2,3,0,4], [0,1,2,3,1,4],
+            [0,1,2,3,2,4], [0,1,2,3,3,4], [0,1,2,3,4,0], [0,1,2,3,4,1],
+            [0,1,2,3,4,2], [0,1,2,3,4,3], [0,1,2,3,4,4]
+        ],
+        # 6
+        [
+            [0,1,2,3,4,5]
+        ]
+    ]
 
 cdef class Mc3:
     """
@@ -168,16 +258,18 @@ cdef class Mc3:
         self._rateJumpPrior = 1.0
         self._polytomyJumpPrior = 1.0
         self._rateShapeInvJumpPrior = 1.0
-        self.props[PropWeight] = 3.0
-        self.props[PropFreq] = 1.0
-        self.props[PropRmult] = 1.0
-        self.props[PropRate] = 3.0
-        self.props[PropRateShapeInv] = 1.0
-        self.props[PropBrlen] = 2.0
-        self.props[PropEtbr] = 8.0
-        self.props[PropRateJump] = 1.0
-        self.props[PropPolytomyJump] = 4.0
-        self.props[PropRateShapeInvJump] = 1.0
+        self._mixtureJumpPrior = 1.0 / 3.0
+        self.props[PropWeight] = 30.0
+        self.props[PropFreq] = 10.0
+        self.props[PropRmult] = 10.0
+        self.props[PropRate] = 30.0
+        self.props[PropRateShapeInv] = 10.0
+        self.props[PropBrlen] = 20.0
+        self.props[PropEtbr] = 80.0
+        self.props[PropRateJump] = 10.0
+        self.props[PropPolytomyJump] = 40.0
+        self.props[PropRateShapeInvJump] = 10.0
+        self.props[PropMixtureJump] = 5.0
 
         IF @enable_mpi@:
             self.setPpn(1)
@@ -215,6 +307,7 @@ cdef class Mc3:
         ret._rateJumpPrior = self._rateJumpPrior
         ret._polytomyJumpPrior = self._polytomyJumpPrior
         ret._rateShapeInvJumpPrior = self._rateShapeInvJumpPrior
+        ret._mixtureJumpPrior = self._mixtureJumpPrior
 
         for 0 <= i < PropCnt:
             ret.props[i] = self.props[i]
@@ -640,6 +733,7 @@ cdef class Mc3:
             f.write("  polytomyJumpPrior: %r\n" % self._polytomyJumpPrior)
             f.write("  rateShapeInvJumpPrior: %r\n" % \
               self._rateShapeInvJumpPrior)
+            f.write("  mixtureJumpPrior: %r\n" % self._mixtureJumpPrior)
             f.write("  weightProp: %r\n" % self.props[PropWeight])
             f.write("  freqProp: %r\n" % self.props[PropFreq])
             f.write("  rmultProp: %r\n" % self.props[PropRmult])
@@ -653,6 +747,8 @@ cdef class Mc3:
               self.props[PropPolytomyJump])
             f.write("  rateShapeInvJumpProp: %r\n" % \
               self.props[PropRateShapeInvJump])
+            f.write("  mixtureJumpProp: %r\n" % \
+              self.props[PropMixtureJump])
         self.lFile.flush()
 
         self.tFile = open("%s.t" % self.outPrefix, "w")
@@ -674,7 +770,7 @@ cdef class Mc3:
           " [ weightPropRates ] [ freqPropRates ] [ rmultPropRates ]" \
           " [ ratePropRates ] [ rateShapeInvPropRates ] [ brlenPropRates ]" \
           " [ etbrPropRates ] [ rateJumpPropRates ] [ polytomyJumpPropRates ]" \
-          " [ rateShapeInvJumpPropRates ] }\n")
+          " [ rateShapeInvJumpPropRates ] [ mixtureJumpPropRates ] }\n")
         self.sFile.flush()
         if self.verbose:
             sys.stdout.write("s\tstep\t[ lnLs ] Rcov\n")
@@ -743,7 +839,10 @@ cdef class Mc3:
 
         assert sizeof(self.props)/sizeof(double) == PropCnt
         assert sizeof(self.propsCdf)/sizeof(double) == PropCnt + 1
-        if self._nmodels < 2:
+        if self.alignment.charType is not Dna:
+            # Mixture jumps are only implemented for DNA.
+            self.props[PropMixtureJump] = 0.0
+        if self._nmodels < 2 and self.props[PropMixtureJump] == 0.0:
             # There are not enough models in the mixture for weights or rate
             # multipliers to be relevant.
             self.props[PropWeight] = 0.0
@@ -1229,6 +1328,70 @@ cdef class Mc3:
 
         return converged
 
+    cdef void randomDnaQ(self, Lik lik, unsigned model, sfmt_t *prng) except *:
+        """
+            Initialize the specified model within lik's mixture vector with
+            parameters drawn from their respective prior distributions.
+        """
+        cdef unsigned nstates, rlen, nrates, i
+        cdef list rclasses, rclass
+        cdef double u, norm, factor, cum
+        global _dnaRclasses
+
+        nstates = lik.char_.nstates()
+        rlen = nstates * (nstates-1) / 2
+
+        if lik.nmodels() > 1:
+            # Relative weight.
+            if self.props[PropWeight] > 0.0:
+                lik.setWeight(model, -log(1.0 - genrand_res53(prng)))
+
+            # Rate multiplier.
+            if self.props[PropRmult] > 0.0:
+                lik.setRmult(model, -log(1.0 - genrand_res53(prng)))
+
+        # State frequencies.
+        if self.props[PropFreq] > 0.0:
+            for 0 <= i < nstates:
+                lik.setFreq(model, i, -log(1.0 - genrand_res53(prng)))
+
+        # Relative mutation rates.
+        if self.props[PropRate] > 0.0:
+            if self.props[PropRateJump] > 0.0:
+                u = genrand_res53(prng)
+                # Number of rates, chosen according to the rclass resolution
+                # prior (_rateJumpPrior).
+                norm = 0.0
+                factor = 1.0
+                for 0 <= i < rlen:
+                    norm += 1.0 / factor
+                    factor *= self._rateJumpPrior
+                cum = 0.0
+                factor = 1.0
+                for 1 <= nrates < rlen+1:
+                    cum += (1.0 / factor) / norm
+                    if cum >= u:
+                        break
+                    factor *= self._rateJumpPrior
+                # Rate class, randomly chosen from the appropriate resolution
+                # class.
+                if _dnaRclasses is None:
+                    _initRclasses()
+                rclasses = _dnaRclasses[nrates-1]
+                rclass = rclasses[gen_rand64_range(prng, len(rclasses))]
+            else:
+                nrates = rlen
+                rclass = range(rlen)
+            lik.setRclass(model, rclass)
+            for 0 <= i < nrates:
+                lik.setRate(model, i, -log(1.0 - genrand_res53(prng)))
+
+        if self.props[PropRateShapeInv] > 0.0:
+            # Gamma-distributed rates shape parameter.
+            if self._ncat > 1:
+                lik.setAlpha(model, -log(1.0 - genrand_res53(prng)) \
+                  * self._rateShapeInvPrior)
+
     cpdef Lik randomLik(self, Tree tree=None):
         """
             Generate a Lik instance with all parameters drawn from their
@@ -1246,52 +1409,42 @@ cdef class Mc3:
         """
         cdef Lik lik
         cdef Edge edge
-        cdef unsigned nstates, rlen, m, i
+        cdef unsigned m, i
+        cdef sfmt_t *prng
 
-        # Generate a random fully resolved tree.  Polytomous starting trees are
-        # never generated, but that is okay since there is no requirement to
-        # draw the starting tree from the prior.  The main goal here is to
-        # avoid systematic starting point dependence.
-        if tree is None:
-            tree = Tree(self.alignment.taxaMap.ntaxa, self.alignment.taxaMap)
-            tree.deroot()
+        prng = init_gen_rand(random.randint(0, 0xffffffff))
+        if prng == NULL:
+            raise MemoryError("Error allocating prng")
 
-        # Branch lengths.
-        for edge in tree.getEdges():
-            edge.length = -log(1.0 - random.random()) / self._brlenPrior
+        try:
+            # Generate a random fully resolved tree.  Polytomous starting trees
+            # are never generated, but that is okay since there is no
+            # requirement to draw the starting tree from the prior.  The main
+            # goal here is to avoid systematic starting point dependence.
+            if tree is None:
+                tree = Tree(self.alignment.taxaMap.ntaxa, \
+                  self.alignment.taxaMap)
+                tree.deroot()
 
-        lik = Lik(tree, self.alignment, self._nmodels, self._ncat, \
-          self._catMedian)
+            # Branch lengths.
+            for edge in tree.getEdges():
+                edge.length = -log(1.0 - genrand_res53(prng)) / self._brlenPrior
 
-        # Randomly draw model parameters from their prior distributions.
-        nstates = lik.char_.nstates()
-        rlen = nstates * (nstates-1) / 2
-        for 0 <= m < self._nmodels:
-            if self._nmodels > 1:
-                # Relative weight.
-                if self.props[PropWeight] > 0.0:
-                    lik.setWeight(m, -log(1.0 - random.random()))
+            if self.props[PropMixtureJump] != 0.0:
+                # Randomly draw _nmodels from the geometrically distributed
+                # prior.
+                self._nmodels = 1
+                while genrand_res53(prng) > self._mixtureJumpPrior:
+                    self._nmodels += 1
 
-                # Rate multiplier.
-                if self.props[PropRmult] > 0.0:
-                    lik.setRmult(m, -log(1.0 - random.random()))
+            lik = Lik(tree, self.alignment, self._nmodels, self._ncat, \
+              self._catMedian)
 
-            # State frequencies.
-            if self.props[PropFreq] > 0.0:
-                for 0 <= i < nstates:
-                    lik.setFreq(m, i, -log(1.0 - random.random()))
-
-            # Relative mutation rates.
-            if self.props[PropRate] > 0.0:
-                lik.setRclass(m, range(rlen))
-                for 0 <= i < rlen:
-                    lik.setRate(m, i, -log(1.0 - random.random()))
-
-            if self.props[PropRateShapeInv] > 0.0:
-                # Gamma-distributed rates shape parameter.
-                if self._ncat > 1:
-                    lik.setAlpha(m, -log(1.0 - random.random()) \
-                      * self._rateShapeInvPrior)
+            # Randomly draw model parameters from their prior distributions.
+            for 0 <= m < self._nmodels:
+                self.randomDnaQ(lik, m, prng)
+        finally:
+            fini_gen_rand(prng)
 
         return lik
 
@@ -1615,7 +1768,8 @@ cdef class Mc3:
         self._nmodels = nmodels
     property nmodels:
         """
-            Number of mixture models.
+            Number of mixture models.  This setting is irrelevant if mixture
+            jumps are enabled (default).
         """
         def __get__(self):
             return self.getNmodels()
@@ -1963,6 +2117,26 @@ cdef class Mc3:
         def __set__(self, double rateShapeInvJumpPrior):
             self.setRateShapeInvJumpPrior(rateShapeInvJumpPrior)
 
+    cdef double getMixtureJumpPrior(self):
+        return self._mixtureJumpPrior
+    cdef void setMixtureJumpPrior(self, double mixtureJumpPrior) \
+      except *:
+        if not mixtureJumpPrior > 0.0:
+            raise ValueError("Validation failure: mixtureJumpPrior > 0.0")
+        self._mixtureJumpPrior = mixtureJumpPrior
+    property mixtureJumpPrior:
+        """
+            Prior inverse mean number of models in the mixture, assuming a
+            geometric distribution.  The prior probability of mixture degree
+            d(M) is defined as:
+                                                k
+              P(d(M)=k) = (1.0-mixtureJumpPrior) * mixtureJumpPrior
+        """
+        def __get__(self):
+            return self.getMixtureJumpPrior()
+        def __set__(self, double mixtureJumpPrior):
+            self.setMixtureJumpPrior(mixtureJumpPrior)
+
     cdef double getWeightProp(self):
         return self.props[PropWeight]
     cdef void setWeightProp(self, double weightProp) except *:
@@ -2118,3 +2292,20 @@ cdef class Mc3:
             return self.getRateShapeInvJumpProp()
         def __set__(self, double rateShapeInvJumpProp):
             self.setRateShapeInvJumpProp(rateShapeInvJumpProp)
+
+    cdef double getMixtureJumpProp(self):
+        return self.props[PropMixtureJump]
+    cdef void setMixtureJumpProp(self, double mixtureJumpProp) \
+      except *:
+        if not mixtureJumpProp >= 0.0:
+            raise ValueError("Validation failure: mixtureJumpProp >= 0.0")
+        self.props[PropMixtureJump] = mixtureJumpProp
+    property mixtureJumpProp:
+        """
+            Relative proportion of proposals that add/remove Q matrices to/from
+            the model mixture.
+        """
+        def __get__(self):
+            return self.getMixtureJumpProp()
+        def __set__(self, double mixtureJumpProp):
+            self.setMixtureJumpProp(mixtureJumpProp)

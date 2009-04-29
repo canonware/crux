@@ -87,21 +87,20 @@ redpoint usage:
       --cvgAlpha=<float>                  --rateJumpPrior=<float>
       --cvgEpsilon=<float>                --polytomyJumpPrior=<float>
       --minStep=<uint>                    --rateShapeInvJumpPrior=<float>
-      --maxStep=<uint>
-      --stride=<uint>                   Proposal probabilities:
-      --nruns=<uint>                      --weightProp=<float>
-      --ncoupled=<uint>                   --freqProp=<float>
-      --heatDelta=<float>                 --rmultProp=<float>
-      --swapStride=<uint>                 --rateProp=<float>
-                                          --rateShapeInvProp=<float>
-    Proposal parameters:                  --brlenProp=<float>
-      --nmodels=<uint>                    --etbrProp=<float>
-      --ncat=<uint>                       --rateJumpProp=<float>
-      --catMedian=<bool>                  --polytomyJumpProp=<float>
-      --weightLambda=<float>              --rateShapeInvJumpProp=<float>
-      --freqLambda=<float>
-      --rmultLambda=<float>
-      --rateLambda=<float>
+      --maxStep=<uint>                    --mixtureJumpPrior=<float>
+      --stride=<uint>
+      --nruns=<uint>                    Proposal probabilities:
+      --ncoupled=<uint>                   --weightProp=<float>
+      --heatDelta=<float>                 --freqProp=<float>
+      --swapStride=<uint>                 --rmultProp=<float>
+                                          --rateProp=<float>
+    Proposal parameters:                  --rateShapeInvProp=<float>
+      --ncat=<uint>                       --brlenProp=<float>
+      --catMedian=<bool>                  --etbrProp=<float>
+      --weightLambda=<float>              --rateJumpProp=<float>
+      --freqLambda=<float>                --polytomyJumpProp=<float>
+      --rmultLambda=<float>               --rateShapeInvJumpProp=<float>
+      --rateLambda=<float>                --mixtureJumpProp=<float>
       --rateShapeInvLambda=<float>
       --brlenLambda=<float>
       --etbrPExt=<float>
@@ -112,6 +111,7 @@ redpoint usage:
                                    topology.
     --fixed-tree=<file>          Use the Newick tree in <file> to fix the tree
                                    topology and branch lengths.
+    --fixed-nmodels=<uint>       Fix the number of models in the mixture.
     --fixed-rclass=<rclass>      Fix the comma-separated rclass.
     --fixed-rates=<rates>        Fix the comma-separated rates associated with
                                    the fixed rclass.
@@ -172,7 +172,6 @@ def parse_options():
       default=None)
     parser.add_option("--swapStride", dest="swapStride", type="uint",
       default=None)
-    parser.add_option("--nmodels", dest="nmodels", type="uint", default=None)
     parser.add_option("--ncat", dest="ncat", type="uint", default=None)
     parser.add_option("--catMedian", dest="catMedian", type="bool",
       default=None)
@@ -202,6 +201,8 @@ def parse_options():
       type="float", default=None)
     parser.add_option("--rateShapeInvJumpPrior", dest="rateShapeInvJumpPrior",
       type="float", default=None)
+    parser.add_option("--mixtureJumpPrior", dest="mixtureJumpPrior",
+      type="float", default=None)
     parser.add_option("--weightProp", dest="weightProp", type="float",
       default=None)
     parser.add_option("--freqProp", dest="freqProp", type="float",
@@ -222,9 +223,13 @@ def parse_options():
       type="float", default=None)
     parser.add_option("--rateShapeInvJumpProp", dest="rateShapeInvJumpProp",
       type="float", default=None)
+    parser.add_option("--mixtureJumpProp", dest="mixtureJumpProp", type="float",
+      default=None)
 
     parser.add_option("--fixed-topology", dest="fixed_topology", default=None)
     parser.add_option("--fixed-tree", dest="fixed_tree", default=None)
+    parser.add_option("--fixed-nmodels", dest="fixed_nmodels", type="uint",
+      default=None)
     parser.add_option("--fixed-rclass", dest="fixed_rclass", default=None)
     parser.add_option("--fixed-rates", dest="fixed_rates", default=None)
     parser.add_option("--fixed-shape", dest="fixed_shape", type="float",
@@ -283,6 +288,9 @@ def parse_options():
         opts.tree.deroot()
     else:
         opts.tree = None
+
+    if opts.fixed_nmodels is not None:
+        opts.mixtureJumpProp = 0.0
 
     if opts.fixed_rclass is not None:
         opts.fixed = True
@@ -390,7 +398,7 @@ if opts.mode in ("run", "all"):
     if opts.ncoupled is not None: mc3.ncoupled = opts.ncoupled
     if opts.heatDelta is not None: mc3.heatDelta = opts.heatDelta
     if opts.swapStride is not None: mc3.swapStride = opts.swapStride
-    if opts.nmodels is not None: mc3.nmodels = opts.nmodels
+    if opts.fixed_nmodels is not None: mc3.nmodels = opts.fixed_nmodels
     if opts.ncat is not None: mc3.ncat = opts.ncat
     if opts.catMedian is not None: mc3.catMedian = opts.catMedian
     if opts.weightLambda is not None: mc3.weightLambda = opts.weightLambda
@@ -410,6 +418,8 @@ if opts.mode in ("run", "all"):
         mc3.polytomyJumpPrior = opts.polytomyJumpPrior
     if opts.rateShapeInvJumpPrior is not None:
         mc3.rateShapeInvJumpPrior = opts.rateShapeInvJumpPrior
+    if opts.mixtureJumpPrior is not None:
+        mc3.mixtureJumpPrior = opts.mixtureJumpPrior
     if opts.weightProp is not None: mc3.weightProp = opts.weightProp
     if opts.freqProp is not None: mc3.freqProp = opts.freqProp
     if opts.rmultProp is not None: mc3.rmultProp = opts.rmultProp
@@ -423,6 +433,8 @@ if opts.mode in ("run", "all"):
         mc3.polytomyJumpProp = opts.polytomyJumpProp
     if opts.rateShapeInvJumpProp is not None:
         mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
+    if opts.mixtureJumpProp is not None:
+        mc3.mixtureJumpProp = opts.mixtureJumpProp
 
     if opts.fixed:
         # --fixed-freqs has to be handled here since the number of character
@@ -476,6 +488,9 @@ if opts.mode in ("post", "all"):
     post = Crux.Mc3.Post.Post(alignment, opts.outPrefix, opts.burnin, \
       opts.verbose)
     post.parseS()
+    if post.nsamples == 0:
+        print >> sys.stderr, "No samples"
+        sys.exit(1)
 
     if opts.sum:
         fSum = open("%s.sum" % opts.outPrefix, "w")
@@ -506,11 +521,12 @@ if opts.mode in ("post", "all"):
                   1.0 - post.mc3.cvgAlpha - post.mc3.cvgEpsilon))
             else:
                 f.write("lnL\t\tN/A\n")
-            if post.mc3.nruns > 1 and post.mc3.nmodels == 1:
+            if post.mc3.nruns > 1 and post.mc3.mixtureJumpProp == 0.0 \
+              and post.mc3.nmodels == 1:
                 f.write("rclass\t\t%.6f\t%.6f\n" % \
                   (post.rcovRclass, 1.0 - post.mc3.cvgAlpha))
             else:
-                f.write("rclass\t\tN/A (nmodels != 1)\n")
+                f.write("rclass\t\tN/A (nmodels not fixed at 1)\n")
 
             f.write("\n")
 
@@ -532,7 +548,8 @@ if opts.mode in ("post", "all"):
             for i in xrange(len(states)):
                 for j in xrange(i+1, len(states)):
                     ratesLabels.append("r(%s<->%s)" % (states[i], states[j]))
-            if post.mc3.nmodels == 1 and post.mc3.rateJumpProp == 0.0:
+            if post.mc3.mixtureJumpProp == 0.0 and post.mc3.nmodels == 1 \
+              and post.mc3.rateJumpProp == 0.0:
                 ratesMinCred = post.ratesMinCred
                 ratesMaxCred = post.ratesMaxCred
                 ratesMean = post.ratesMean
@@ -550,7 +567,7 @@ if opts.mode in ("post", "all"):
             freqsLabels = []
             for i in xrange(len(states)):
                 freqsLabels.append("pi(%s)" % states[i])
-            if post.mc3.nmodels == 1:
+            if post.mc3.mixtureJumpProp == 0.0 and post.mc3.nmodels == 1:
                 freqsMinCred = post.freqsMinCred
                 freqsMaxCred = post.freqsMaxCred
                 freqsMean = post.freqsMean
@@ -565,8 +582,8 @@ if opts.mode in ("post", "all"):
                     f.write("%s\t\tN/A\n" % freqsLabels[i])
 
             # +G shape.
-            if post.mc3.nmodels == 1 and post.mc3.ncat > 1 \
-              and post.mc3.rateShapeInvJumpProp == 0.0:
+            if post.mc3.mixtureJumpProp == 0.0 and post.mc3.nmodels == 1 \
+              and post.mc3.ncat > 1 and post.mc3.rateShapeInvJumpProp == 0.0:
                 f.write("+G alpha\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n" % \
                   (post.alphaMean, post.alphaVar, post.alphaMinCred, \
                   post.alphaMaxCred, post.alphaMed))

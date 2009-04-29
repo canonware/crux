@@ -184,6 +184,8 @@ cdef class Post:
                     self.mc3.setPolytomyJumpPrior(float(v))
                 elif k == 'rateShapeInvJumpPrior':
                     self.mc3.setRateShapeInvJumpPrior(float(v))
+                elif k == 'mixtureJumpPrior':
+                    self.mc3.setMixtureJumpPrior(float(v))
                 elif k == 'weightProp':
                     self.mc3.setWeightProp(float(v))
                 elif k == 'freqProp':
@@ -204,6 +206,8 @@ cdef class Post:
                     self.mc3.setPolytomyJumpProp(float(v))
                 elif k == 'rateShapeInvJumpProp':
                     self.mc3.setRateShapeInvJumpProp(float(v))
+                elif k == 'mixtureJumpProp':
+                    self.mc3.setMixtureJumpProp(float(v))
                 else:
                     assert False
 
@@ -385,12 +389,16 @@ cdef class Post:
         if nruns < 2:
             raise ValueError("Rcov computation requires at least 2 runs")
 
+        if self.nsamples == 0:
+            raise ValueError("No samples")
+
         rcovLnL = 0.0
 
         # Compute the lower and upper bounds for the credibility intervals.
         cvgAlpha = self.mc3.getCvgAlpha()
         lower = <uint64_t>floor(cvgAlpha/2.0 * <double>self.nsamples)
         upper = self.nsamples - 1 - lower
+        print "[%d..%d] (%d)" % (lower, upper, self.nsamples)
 
         for 0 <= i < nruns:
             # Accumulate sorted lnLs for run i, in order to make the bounds of
@@ -450,6 +458,9 @@ cdef class Post:
         nruns = self.mc3.getNruns()
         if nruns < 2:
             raise ValueError("Rcov computation requires at least 2 runs")
+
+        if self.nsamples == 0:
+            raise ValueError("No samples")
 
         rcovRclass = 0.0
 
@@ -536,6 +547,9 @@ cdef class Post:
         cdef double cvgAlpha, lnL, lnLMean, diff, lnLVar
 
         self.parseS()
+
+        if self.nsamples == 0:
+            raise ValueError("No samples")
 
         lnLs = []
         nruns = self.mc3.getNruns()
@@ -637,6 +651,9 @@ cdef class Post:
         cdef double cvgAlpha, nmodels, nmodelsMean, diff, nmodelsVar
 
         self.parseP()
+
+        if self.nsamples == 0:
+            raise ValueError("No samples")
 
         modelCnts = []
         nruns = self.mc3.getNruns()
@@ -744,6 +761,9 @@ cdef class Post:
               "Rates cannot be summarized for chosen model parameters")
 
         self.parseP()
+
+        if self.nsamples == 0:
+            raise ValueError("No samples")
 
         samp = <Samp>(<list>self.runs[0])[0]
         msamp = <Msamp>samp.msamps[0]
@@ -867,6 +887,9 @@ cdef class Post:
 
         self.parseP()
 
+        if self.nsamples == 0:
+            raise ValueError("No samples")
+
         samp = <Samp>(<list>self.runs[0])[0]
         msamp = <Msamp>samp.msamps[0]
         flen = len(msamp.freqs)
@@ -988,6 +1011,9 @@ cdef class Post:
 
         self.parseP()
 
+        if self.nsamples == 0:
+            raise ValueError("No samples")
+
         alphas = []
         nruns = self.mc3.getNruns()
         for 0 <= i < nruns:
@@ -1090,6 +1116,9 @@ cdef class Post:
         cdef Tree tree
 
         self.parseT()
+
+        if self.nsamples == 0:
+            raise ValueError("No samples")
 
         treeLists = []
         nruns = self.mc3.getNruns()
