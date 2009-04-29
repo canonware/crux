@@ -184,6 +184,8 @@ cdef class Post:
                     self.mc3.setPolytomyJumpPrior(float(v))
                 elif k == 'rateShapeInvJumpPrior':
                     self.mc3.setRateShapeInvJumpPrior(float(v))
+                elif k == 'freqJumpPrior':
+                    self.mc3.setFreqJumpPrior(float(v))
                 elif k == 'mixtureJumpPrior':
                     self.mc3.setMixtureJumpPrior(float(v))
                 elif k == 'weightProp':
@@ -206,6 +208,8 @@ cdef class Post:
                     self.mc3.setPolytomyJumpProp(float(v))
                 elif k == 'rateShapeInvJumpProp':
                     self.mc3.setRateShapeInvJumpProp(float(v))
+                elif k == 'freqJumpProp':
+                    self.mc3.setFreqJumpProp(float(v))
                 elif k == 'mixtureJumpProp':
                     self.mc3.setMixtureJumpProp(float(v))
                 else:
@@ -295,7 +299,7 @@ cdef class Post:
 
         pFile = open("%s.p" % self.mc3.outPrefix, "r")
 
-        nfreqs = self.mc3.alignment.charType.get().nstates()
+        nfreqs = self.mc3.alignment.charType.get().nstates
         nrates = (nfreqs*(nfreqs-1))/2
         stride = self.mc3.getStride()
 

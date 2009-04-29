@@ -12,8 +12,9 @@ cdef enum:
     PropRateJump         =  7
     PropPolytomyJump     =  8
     PropRateShapeInvJump =  9
-    PropMixtureJump      = 10
-    PropCnt              = 11 # Number of proposals.
+    PropFreqJump         = 10
+    PropMixtureJump      = 11
+    PropCnt              = 12 # Number of proposals.
 
 from libc cimport uint64_t
 from SFMT cimport sfmt_t
@@ -39,6 +40,7 @@ cdef class Chain:
     cdef uint64_t step
 
     cdef bint weightPropose(self) except *
+    cdef bint freqsEqual(self, unsigned mInd)
     cdef bint freqPropose(self) except *
     cdef bint rmultPropose(self) except *
     cdef bint ratePropose(self) except *
@@ -59,6 +61,9 @@ cdef class Chain:
       except *
     cdef void rateShapeInvAddPropose(self, unsigned mInd) except *
     cdef bint rateShapeInvJumpPropose(self) except *
+    cdef void freqEqualPropose(self, unsigned mInd) except *
+    cdef void freqEstimPropose(self, unsigned mInd) except *
+    cdef bint freqJumpPropose(self) except *
     cdef void mixtureRemovePropose(self, unsigned nmodels) except *
     cdef void mixtureAddPropose(self, unsigned nmodels) except *
     cdef bint mixtureJumpPropose(self) except *

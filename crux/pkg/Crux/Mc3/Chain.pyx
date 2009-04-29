@@ -111,19 +111,38 @@ cdef class Chain:
 
         return False
 
+    cdef bint freqsEqual(self, unsigned mInd):
+        cdef unsigned i
+        cdef double f
+
+        # Determine whether a model is currently using estimated frequencies.
+        # We assume that identical frequencies indicate fixed frequencies.
+        # Mathematically it does not affect correctness in the (extremely
+        # unlikely) event that the the frequencies happen to have been
+        # estimated as identical.
+        f = self.lik.getFreq(mInd, 0)
+        for 1 <= i < self.lik.char_.nstates:
+            if self.lik.getFreq(mInd, i) != f:
+                return False
+        return True
+
     cdef bint freqPropose(self) except *:
         cdef Lik lik1
         cdef unsigned mInd, fInd
         cdef double f0, f1, u, lnM, m, lnL1
 
+        # Uniformly choose a random model within the mixture.
+        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
+        if self.master.props[PropFreqJump] != 0.0 and self.freqsEqual(mInd):
+            # We assume identical frequencies indicate fixed frequencies when
+            # frequency jump proposals are enabled.
+            return True
+
         # Create a cloned scratch Lik.
         lik1 = self.lik.clone()
 
-        # Uniformly choose a random model within the mixture.
-        mInd = gen_rand64_range(self.prng, lik1.nmodels())
-
         # Uniformly choose a random frequency parameter.
-        fInd = gen_rand64_range(self.prng, lik1.char_.nstates())
+        fInd = gen_rand64_range(self.prng, lik1.char_.nstates)
 
         # Generate the frequency multiplier.
         u = genrand_res53(self.prng)
@@ -903,7 +922,7 @@ cdef class Chain:
         cdef list rclass
         cdef bint merge
 
-        assert self.lik.char_.nstates() > 2
+        assert self.lik.char_.nstates > 2
 
         # Uniformly choose a random model within the mixture.
         mInd = gen_rand64_range(self.prng, self.lik.nmodels())
@@ -1293,6 +1312,84 @@ cdef class Chain:
 
         return False
 
+    cdef void freqEqualPropose(self, unsigned mInd) except *:
+        cdef Lik lik1
+        cdef unsigned i, nstates
+        cdef double f, lnPrior, lnHast, lnL1, u, p
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
+        # Fix frequencies and compute proposal ratio factors.
+        lnPrior = log(self.master._freqJumpPrior)
+        lnHast = 0.0
+        nstates = lik1.char_.nstates
+        for 0 <= i < nstates:
+            f = lik1.getFreq(mInd, i)
+            lnPrior += f
+            lnHast += -f
+            lik1.setFreq(mInd, i, 1.0 / <double>nstates)
+
+        # Compute lnL with equal frequencies.
+        lnL1 = lik1.lnL()
+
+        # Determine whether to accept proposal.
+        u = genrand_res53(self.prng)
+        # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
+        p = exp(((lnL1 - self.lnL) + lnPrior) * self.heat + lnHast)
+        if p >= u:
+            # Accept.
+            self.lnL = lnL1
+            self.lik = lik1
+            self.accepts[PropFreqJump] += 1
+        else:
+            self.rejects[PropFreqJump] += 1
+
+    cdef void freqEstimPropose(self, unsigned mInd) except *:
+        cdef Lik lik1
+        cdef unsigned i
+        cdef double f, lnPrior, lnHast, lnL1, u, p
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
+        # Draw frequencies from the prior and compute proposal ratio factors.
+        lnPrior = -log(self.master._freqJumpPrior)
+        lnHast = 0.0
+        for 0 <= i < lik1.char_.nstates:
+            f = -log(1.0 - genrand_res53(self.prng))
+            lnPrior += -f
+            lnHast += f
+            lik1.setFreq(mInd, i, f)
+
+        # Compute lnL with estimated frequencies.
+        lnL1 = lik1.lnL()
+
+        # Determine whether to accept proposal.
+        u = genrand_res53(self.prng)
+        # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
+        p = exp(((lnL1 - self.lnL) + lnPrior) * self.heat + lnHast)
+        if p >= u:
+            # Accept.
+            self.lnL = lnL1
+            self.lik = lik1
+            self.accepts[PropFreqJump] += 1
+        else:
+            self.rejects[PropFreqJump] += 1
+
+    cdef bint freqJumpPropose(self) except *:
+        cdef unsigned mInd
+
+        # Uniformly choose a random model within the mixture.
+        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
+
+        if self.freqsEqual(mInd):
+            self.freqEstimPropose(mInd)
+        else:
+            self.freqEqualPropose(mInd)
+
+        return False
+
     cdef void mixtureRemovePropose(self, unsigned nmodels) except *:
         cdef Lik lik1
         cdef double w, rmult, lnL1, rate, lnPrior, lnHast, u, p
@@ -1446,6 +1543,8 @@ cdef class Chain:
                 again = self.polytomyJumpPropose()
             elif propInd == PropRateShapeInvJump:
                 again = self.rateShapeInvJumpPropose()
+            elif propInd == PropFreqJump:
+                again = self.freqJumpPropose()
             elif propInd == PropMixtureJump:
                 again = self.mixtureJumpPropose()
             else:

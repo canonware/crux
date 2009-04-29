@@ -258,6 +258,7 @@ cdef class Mc3:
         self._rateJumpPrior = 1.0
         self._polytomyJumpPrior = 1.0
         self._rateShapeInvJumpPrior = 1.0
+        self._freqJumpPrior = 1.0
         self._mixtureJumpPrior = 1.0 / 3.0
         self.props[PropWeight] = 30.0
         self.props[PropFreq] = 10.0
@@ -269,6 +270,7 @@ cdef class Mc3:
         self.props[PropRateJump] = 10.0
         self.props[PropPolytomyJump] = 40.0
         self.props[PropRateShapeInvJump] = 10.0
+        self.props[PropFreqJump] = 10.0
         self.props[PropMixtureJump] = 5.0
 
         IF @enable_mpi@:
@@ -307,6 +309,7 @@ cdef class Mc3:
         ret._rateJumpPrior = self._rateJumpPrior
         ret._polytomyJumpPrior = self._polytomyJumpPrior
         ret._rateShapeInvJumpPrior = self._rateShapeInvJumpPrior
+        ret._freqJumpPrior = self._freqJumpPrior
         ret._mixtureJumpPrior = self._mixtureJumpPrior
 
         for 0 <= i < PropCnt:
@@ -733,6 +736,7 @@ cdef class Mc3:
             f.write("  polytomyJumpPrior: %r\n" % self._polytomyJumpPrior)
             f.write("  rateShapeInvJumpPrior: %r\n" % \
               self._rateShapeInvJumpPrior)
+            f.write("  freqJumpPrior: %r\n" % self._freqJumpPrior)
             f.write("  mixtureJumpPrior: %r\n" % self._mixtureJumpPrior)
             f.write("  weightProp: %r\n" % self.props[PropWeight])
             f.write("  freqProp: %r\n" % self.props[PropFreq])
@@ -743,12 +747,11 @@ cdef class Mc3:
             f.write("  brlenProp: %r\n" % self.props[PropBrlen])
             f.write("  etbrProp: %r\n" % self.props[PropEtbr])
             f.write("  rateJumpProp: %r\n" % self.props[PropRateJump])
-            f.write("  polytomyJumpProp: %r\n" % \
-              self.props[PropPolytomyJump])
+            f.write("  polytomyJumpProp: %r\n" % self.props[PropPolytomyJump])
             f.write("  rateShapeInvJumpProp: %r\n" % \
               self.props[PropRateShapeInvJump])
-            f.write("  mixtureJumpProp: %r\n" % \
-              self.props[PropMixtureJump])
+            f.write("  freqJumpProp: %r\n" % self.props[PropFreqJump])
+            f.write("  mixtureJumpProp: %r\n" % self.props[PropMixtureJump])
         self.lFile.flush()
 
         self.tFile = open("%s.t" % self.outPrefix, "w")
@@ -770,7 +773,8 @@ cdef class Mc3:
           " [ weightPropRates ] [ freqPropRates ] [ rmultPropRates ]" \
           " [ ratePropRates ] [ rateShapeInvPropRates ] [ brlenPropRates ]" \
           " [ etbrPropRates ] [ rateJumpPropRates ] [ polytomyJumpPropRates ]" \
-          " [ rateShapeInvJumpPropRates ] [ mixtureJumpPropRates ] }\n")
+          " [ rateShapeInvJumpPropRates ] [ freqJumpPropRates ]" \
+          " [ mixtureJumpPropRates ] }\n")
         self.sFile.flush()
         if self.verbose:
             sys.stdout.write("s\tstep\t[ lnLs ] Rcov\n")
@@ -847,7 +851,7 @@ cdef class Mc3:
             # multipliers to be relevant.
             self.props[PropWeight] = 0.0
             self.props[PropRmult] = 0.0
-        if self.alignment.charType.get().nstates() <= 2:
+        if self.alignment.charType.get().nstates <= 2:
             # There are not enough states to allow rate class grouping.
             self.props[PropRateJump] = 0.0
         if self.alignment.ntaxa < 3:
@@ -1157,7 +1161,7 @@ cdef class Mc3:
         strs = []
         strs.append("[ ")
 
-        nstates = lik.char_.nstates()
+        nstates = lik.char_.nstates
         fSum = 0.0
         for 0 <= i < nstates:
             f = lik.getFreq(model, i)
@@ -1338,7 +1342,7 @@ cdef class Mc3:
         cdef double u, norm, factor, cum
         global _dnaRclasses
 
-        nstates = lik.char_.nstates()
+        nstates = lik.char_.nstates
         rlen = nstates * (nstates-1) / 2
 
         if lik.nmodels() > 1:
@@ -1352,15 +1356,36 @@ cdef class Mc3:
 
         # State frequencies.
         if self.props[PropFreq] > 0.0:
-            for 0 <= i < nstates:
-                lik.setFreq(model, i, -log(1.0 - genrand_res53(prng)))
+            if self.props[PropFreqJump] > 0.0:
+                u = genrand_res53(prng)
+                # Equal/estimated frequencies, chosen according to the
+                # frequency resolution prior (freqJumpPrior).
+                norm = 0.0
+                factor = 1.0
+                for 0 <= i < 2:
+                    norm += 1.0 / factor
+                    factor *= self._freqJumpPrior
+                cum = 0.0
+                factor = 1.0
+                for 1 <= i < 2:
+                    cum += (1.0 / factor) / norm
+                    if cum >= u:
+                        break
+                    factor *= self._freqJumpPrior
+                if i == 2:
+                    # Estimate frequencies.
+                    for 0 <= i < nstates:
+                        lik.setFreq(model, i, -log(1.0 - genrand_res53(prng)))
+            else:
+                for 0 <= i < nstates:
+                    lik.setFreq(model, i, -log(1.0 - genrand_res53(prng)))
 
         # Relative mutation rates.
         if self.props[PropRate] > 0.0:
             if self.props[PropRateJump] > 0.0:
                 u = genrand_res53(prng)
                 # Number of rates, chosen according to the rclass resolution
-                # prior (_rateJumpPrior).
+                # prior (rateJumpPrior).
                 norm = 0.0
                 factor = 1.0
                 for 0 <= i < rlen:
@@ -1389,8 +1414,29 @@ cdef class Mc3:
         if self.props[PropRateShapeInv] > 0.0:
             # Gamma-distributed rates shape parameter.
             if self._ncat > 1:
-                lik.setAlpha(model, -log(1.0 - genrand_res53(prng)) \
-                  * self._rateShapeInvPrior)
+                if self.props[PropRateShapeInvJump] > 0.0:
+                    u = genrand_res53(prng)
+                    # Flat/+G, chosen according to the +G resolution prior
+                    # (rateShapeInvJumpPrior).
+                    norm = 0.0
+                    factor = 1.0
+                    for 0 <= i < 2:
+                        norm += 1.0 / factor
+                        factor *= self._rateShapeInvJumpPrior
+                    cum = 0.0
+                    factor = 1.0
+                    for 1 <= i < 2:
+                        cum += (1.0 / factor) / norm
+                        if cum >= u:
+                            break
+                        factor *= self._rateShapeInvJumpPrior
+                    if i == 2:
+                        # +G.
+                        lik.setAlpha(model, -log(1.0 - genrand_res53(prng)) \
+                          * self._rateShapeInvPrior)
+                else:
+                    lik.setAlpha(model, -log(1.0 - genrand_res53(prng)) \
+                      * self._rateShapeInvPrior)
 
     cpdef Lik randomLik(self, Tree tree=None):
         """
@@ -2107,20 +2153,42 @@ cdef class Mc3:
             and >1.0 favors +G-less models.
 
             The rateShapeInvJumpPrior parameterization is chosen to be
-            consistent with rateJumpPrior and polytomyJumpPrior.  Conceptually,
-            all three are structured the same way, but rateShapeInvJumpPrior
-            only applies to two levels of nested models, whereas the other
-            priors may apply to many levels.
+            consistent with priors such as rateJumpPrior and polytomyJumpPrior.
+            Conceptually, all three are structured the same way, but
+            rateShapeInvJumpPrior only applies to two levels of nested models,
+            whereas the other priors may apply to many levels.
         """
         def __get__(self):
             return self.getRateShapeInvJumpPrior()
         def __set__(self, double rateShapeInvJumpPrior):
             self.setRateShapeInvJumpPrior(rateShapeInvJumpPrior)
 
+    cdef double getFreqJumpPrior(self):
+        return self._freqJumpPrior
+    cdef void setFreqJumpPrior(self, double freqJumpPrior) except *:
+        if not freqJumpPrior > 0.0:
+            raise ValueError("Validation failure: freqJumpPrior > 0.0")
+        self._freqJumpPrior = freqJumpPrior
+    property freqJumpPrior:
+        """
+            Prior for estimated/equal state frequencies.  1.0 indicates a flat
+            prior (no preference for/against estimated frequencies), <1.0
+            favors estimated frequencies, and >1.0 favors equal frequencies.
+
+            The freqJumpPrior parameterization is chosen to be consistent with
+            priors such as rateJumpPrior and polytomyJumpPrior.  Conceptually,
+            all three are structured the same way, but freqJumpPrior only
+            applies to two levels of nested models, whereas the other priors
+            may apply to many levels.
+        """
+        def __get__(self):
+            return self.getFreqJumpPrior()
+        def __set__(self, double freqJumpPrior):
+            self.setFreqJumpPrior(freqJumpPrior)
+
     cdef double getMixtureJumpPrior(self):
         return self._mixtureJumpPrior
-    cdef void setMixtureJumpPrior(self, double mixtureJumpPrior) \
-      except *:
+    cdef void setMixtureJumpPrior(self, double mixtureJumpPrior) except *:
         if not mixtureJumpPrior > 0.0:
             raise ValueError("Validation failure: mixtureJumpPrior > 0.0")
         self._mixtureJumpPrior = mixtureJumpPrior
@@ -2293,10 +2361,25 @@ cdef class Mc3:
         def __set__(self, double rateShapeInvJumpProp):
             self.setRateShapeInvJumpProp(rateShapeInvJumpProp)
 
+    cdef double getFreqJumpProp(self):
+        return self.props[PropFreqJump]
+    cdef void setFreqJumpProp(self, double freqJumpProp) except *:
+        if not freqJumpProp >= 0.0:
+            raise ValueError("Validation failure: freqJumpProp >= 0.0")
+        self.props[PropFreqJump] = freqJumpProp
+    property freqJumpProp:
+        """
+            Relative proportion of proposals that switch between
+            estimated/equal state frequencies.
+        """
+        def __get__(self):
+            return self.getFreqJumpProp()
+        def __set__(self, double freqJumpProp):
+            self.setFreqJumpProp(freqJumpProp)
+
     cdef double getMixtureJumpProp(self):
         return self.props[PropMixtureJump]
-    cdef void setMixtureJumpProp(self, double mixtureJumpProp) \
-      except *:
+    cdef void setMixtureJumpProp(self, double mixtureJumpProp) except *:
         if not mixtureJumpProp >= 0.0:
             raise ValueError("Validation failure: mixtureJumpProp >= 0.0")
         self.props[PropMixtureJump] = mixtureJumpProp

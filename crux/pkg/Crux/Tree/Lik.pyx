@@ -191,7 +191,7 @@ cdef class Lik:
             if npad != 0:
                 alignment.pad(char_.val2code(char_.any), npad)
                 nchars += npad
-            self._init1(tree, nchars, char_.nstates(), 0)
+            self._init1(tree, nchars, char_.nstates, 0)
             self._init2(alignment, char_)
             for 0 <= i < nmodels:
                 self.addModel(1.0, ncat, catMedian)

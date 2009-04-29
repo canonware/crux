@@ -3,8 +3,8 @@ cdef class Character:
     cdef dict _aStates
     cdef dict _vals
     cdef readonly int any
+    cdef readonly int nstates
 
-    cpdef int nstates(self)
     cpdef list pcodes(self)
     cpdef list codes(self)
     cdef void _stateCodeAdd(self, str code) except *

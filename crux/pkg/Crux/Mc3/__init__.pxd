@@ -67,6 +67,7 @@ cdef class Mc3:
     cdef double _rateJumpPrior
     cdef double _polytomyJumpPrior
     cdef double _rateShapeInvJumpPrior
+    cdef double _freqJumpPrior
     cdef double _mixtureJumpPrior
 
     # Relative proposal probabilities, and corresponding CDF.
@@ -280,6 +281,9 @@ cdef class Mc3:
     cdef void setRateShapeInvJumpPrior(self, double rateShapeInvJumpPrior) \
       except *
     # property rateShapeInvJumpPrior
+    cdef double getFreqJumpPrior(self)
+    cdef void setFreqJumpPrior(self, double freqJumpPrior) except *
+    # property freqJumpPrior
     cdef double getMixtureJumpPrior(self)
     cdef void setMixtureJumpPrior(self, double mixtureJumpPrior) except *
     # property mixtureJumpPrior
@@ -314,6 +318,9 @@ cdef class Mc3:
     cdef void setRateShapeInvJumpProp(self, double rateShapeInvJumpProp) \
       except *
     # property rateShapeInvJumpProp
+    cdef double getFreqJumpProp(self)
+    cdef void setFreqJumpProp(self, double freqJumpProp) except *
+    # property freqJumpProp
     cdef double getMixtureJumpProp(self)
     cdef void setMixtureJumpProp(self, double mixtureJumpProp) except *
     # property mixtureJumpProp

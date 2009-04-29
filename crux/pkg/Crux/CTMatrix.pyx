@@ -406,7 +406,7 @@ cdef class LogDet:
 
         self.scoreGaps = scoreGaps
 
-        self.n = self.char_.nstates()
+        self.n = self.char_.nstates
         self.A = <double *>calloc(self.n * self.n, sizeof(double))
         if self.A == NULL:
             raise MemoryError("Matrix allocation failed")
@@ -785,7 +785,7 @@ cdef class Alignment:
         if not self.colMajor:
             self._initColMajor()
 
-        nstates = char_.nstates()
+        nstates = char_.nstates
 
         for 0 <= j < self.nchars:
             # Scan down the column and track the order in which the
@@ -885,7 +885,7 @@ cdef class Alignment:
         cdef int val, bit
 
         char_ = self.charType.get()
-        nstates = char_.nstates()
+        nstates = char_.nstates
 
         ret = 0
         j = 0
@@ -1227,7 +1227,7 @@ cdef class Alignment:
 
         if self.ntaxa > 1:
             tab = PctIdent(self.charType, scoreGaps)
-            nstates = self.charType.get().nstates()
+            nstates = self.charType.get().nstates
             b = <float>(nstates - 1) / <float>nstates
 
             for 0 <= i < self.ntaxa:

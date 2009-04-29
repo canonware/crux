@@ -87,8 +87,8 @@ redpoint usage:
       --cvgAlpha=<float>                  --rateJumpPrior=<float>
       --cvgEpsilon=<float>                --polytomyJumpPrior=<float>
       --minStep=<uint>                    --rateShapeInvJumpPrior=<float>
-      --maxStep=<uint>                    --mixtureJumpPrior=<float>
-      --stride=<uint>
+      --maxStep=<uint>                    --freqJumpPrior=<float>
+      --stride=<uint>                     --mixtureJumpPrior=<float>
       --nruns=<uint>                    Proposal probabilities:
       --ncoupled=<uint>                   --weightProp=<float>
       --heatDelta=<float>                 --freqProp=<float>
@@ -100,8 +100,8 @@ redpoint usage:
       --weightLambda=<float>              --rateJumpProp=<float>
       --freqLambda=<float>                --polytomyJumpProp=<float>
       --rmultLambda=<float>               --rateShapeInvJumpProp=<float>
-      --rateLambda=<float>                --mixtureJumpProp=<float>
-      --rateShapeInvLambda=<float>
+      --rateLambda=<float>                --freqJumpProp=<float>
+      --rateShapeInvLambda=<float>        --mixtureJumpProp=<float>
       --brlenLambda=<float>
       --etbrPExt=<float>
       --etbrLambda=<float>
@@ -201,6 +201,8 @@ def parse_options():
       type="float", default=None)
     parser.add_option("--rateShapeInvJumpPrior", dest="rateShapeInvJumpPrior",
       type="float", default=None)
+    parser.add_option("--freqJumpPrior", dest="freqJumpPrior", type="float",
+      default=None)
     parser.add_option("--mixtureJumpPrior", dest="mixtureJumpPrior",
       type="float", default=None)
     parser.add_option("--weightProp", dest="weightProp", type="float",
@@ -223,6 +225,8 @@ def parse_options():
       type="float", default=None)
     parser.add_option("--rateShapeInvJumpProp", dest="rateShapeInvJumpProp",
       type="float", default=None)
+    parser.add_option("--freqJumpProp", dest="freqJumpProp", type="float",
+      default=None)
     parser.add_option("--mixtureJumpProp", dest="mixtureJumpProp", type="float",
       default=None)
 
@@ -330,6 +334,7 @@ def parse_options():
         # Conversion to a list of floats is done later, once the number of
         # character states is known.
         opts.freqProp = 0.0
+        opts.freqJumpProp = 0.0
 
     if opts.fixed_shape is not None:
         opts.fixed = True
@@ -418,6 +423,7 @@ if opts.mode in ("run", "all"):
         mc3.polytomyJumpPrior = opts.polytomyJumpPrior
     if opts.rateShapeInvJumpPrior is not None:
         mc3.rateShapeInvJumpPrior = opts.rateShapeInvJumpPrior
+    if opts.freqJumpPrior is not None: mc3.freqJumpPrior = opts.freqJumpPrior
     if opts.mixtureJumpPrior is not None:
         mc3.mixtureJumpPrior = opts.mixtureJumpPrior
     if opts.weightProp is not None: mc3.weightProp = opts.weightProp
@@ -433,6 +439,7 @@ if opts.mode in ("run", "all"):
         mc3.polytomyJumpProp = opts.polytomyJumpProp
     if opts.rateShapeInvJumpProp is not None:
         mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
+    if opts.freqJumpProp is not None: mc3.freqJumpProp = opts.freqJumpProp
     if opts.mixtureJumpProp is not None:
         mc3.mixtureJumpProp = opts.mixtureJumpProp
 
@@ -567,7 +574,8 @@ if opts.mode in ("post", "all"):
             freqsLabels = []
             for i in xrange(len(states)):
                 freqsLabels.append("pi(%s)" % states[i])
-            if post.mc3.mixtureJumpProp == 0.0 and post.mc3.nmodels == 1:
+            if post.mc3.freqJumpProp == 0.0 \
+              and post.mc3.mixtureJumpProp == 0.0 and post.mc3.nmodels == 1:
                 freqsMinCred = post.freqsMinCred
                 freqsMaxCred = post.freqsMaxCred
                 freqsMean = post.freqsMean

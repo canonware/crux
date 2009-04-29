@@ -43,7 +43,7 @@ for code in aliases.keys():
 codes = c.codes()
 codes.sort()
 print "Codes: %r" % codes
-print "nstates: %d" % c.nstates()
+print "nstates: %d" % c.nstates
 
 # Error conditions.
 try:
@@ -105,7 +105,7 @@ c = Crux.Character.Dna.get()
 codes = c.codes()
 codes.sort()
 print "Codes: %r" % codes
-print "nstates: %d" % c.nstates()
+print "nstates: %d" % c.nstates
 for code in codes:
     val =  c.code2val(code)
     print "%s --> 0x%x --> %s" % (code, val, c.val2code(val))
@@ -118,7 +118,7 @@ c = Crux.Character.Protein.get()
 codes = c.codes()
 codes.sort()
 print "Codes: %r" % codes
-print "nstates: %d" % c.nstates()
+print "nstates: %d" % c.nstates
 for code in codes:
     val =  c.code2val(code)
     print "%s --> 0x%08x --> %s" % (code, val, c.val2code(val))

@@ -32,6 +32,7 @@ cdef class Character:
 
         self.any = 0 # Union of all primary states.
         self._pStates = {} # Primary states.
+        self.nstates = len(self._pStates)
         self._aStates = {} # All states (including primary states).
         self._vals = {} # Reverse lookup of states.
 
@@ -44,16 +45,13 @@ cdef class Character:
         for alias in aliases:
             self._aliasCodeAdd(alias, aliases[alias])
 
-    cpdef int nstates(self):
-        return len(self._pStates)
-
     cpdef list pcodes(self):
         cdef list ret
         cdef unsigned i
 
         ret = []
 
-        for 0 <= i < len(self._pStates):
+        for 0 <= i < self.nstates:
             ret.append(self.val2code(1 << i))
 
         return ret
@@ -72,6 +70,7 @@ cdef class Character:
         # the state's value in constant time.
         pval = len(self._pStates) + 1
         self._pStates[code] = pval
+        self.nstates = len(self._pStates)
         val = 1 << (pval - 1)
         self._aStates[code] = val
 
