@@ -292,6 +292,348 @@ CxLikPt(int n, double *P, double *qEigVecCube, double *qEigVals, double v) {
 }
 
 CxmpInline void
+CxLikExecuteStripeDna(CxtLik *lik, unsigned stripe) {
+    unsigned dim = lik->dim;
+    unsigned dimSq = dim * dim;
+    unsigned ncomp = lik->compsLen;
+    unsigned dn = dim * ncomp;
+    unsigned cMin = lik->stripeWidth * stripe;
+    unsigned cLim = cMin + lik->stripeWidth;
+    double P[ncomp][dimSq];
+    double scale[cLim-cMin];
+
+    CxmAssert(dim == 4);
+
+    memset(scale, 0, sizeof(scale));
+
+    // Iteratively process the execution plan.  For each node, rescale
+    // likelihoods to avoid underflow.  Keep track of the total amount of
+    // rescaling performed (in lnScale vectors), so that the scalers can be
+    // used during cL aggregation to accurately compute full-tree site
+    // log-likelihoods.
+    for (unsigned s = 0; s < lik->stepsLen; s++) {
+	CxtLikStep *step = &lik->steps[s];
+	double *parentMat = step->parentCL->cLMat;
+	double *parentLnScale = step->parentCL->lnScale;
+	double *childMat = step->childCL->cLMat;
+	double *childLnScale = step->childCL->lnScale;
+
+#ifdef CxmLikDebug
+	const char *vstr[] = {
+	    "CxeLikStepComputeL",
+	    "CxeLikStepComputeI",
+	    "CxeLikStepMergeL",
+	    "CxeLikStepMergeI"
+	};
+	fprintf(stderr, "----------------------------------------"
+	  "----------------------------------------\n");
+	fprintf(stderr, "step %u: %s %p <-- %p (%f)\n",
+	  s, vstr[step->variant], step->parentCL, step->childCL, step->edgeLen);
+#endif
+
+	// Compute P matrices, one for each model component.
+	for (unsigned mc = 0; mc < ncomp; mc++) {
+	    CxtLikComp *comp = &lik->comps[mc];
+	    if (comp->weightScaled != 0.0) {
+		CxtLikModel *model = comp->model;
+#ifdef CxmLikDebug
+		fprintf(stderr,
+		  "Pt(edgeLen: %f, cmult: %f, rmult: %f, wNorm: %f\n",
+		  step->edgeLen, comp->cmult, model->rmult, lik->wNorm);
+#endif
+		CxLikPt(dim, P[mc], model->qEigVecCube, model->qEigVals,
+		  step->edgeLen * comp->cmult * model->rmult * lik->wNorm);
+	    }
+	}
+
+	// Compute partial conditional likelihood according to the step variant
+	// (a combination of compute/merge and leaf/internal child variations).
+	// The computational differences among variants are subtle; the ^^^
+	// markers in CxLikExecuteStripe() indicate where differences are.
+	switch (step->variant) {
+	    case CxeLikStepComputeL: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    for (unsigned mc = 0; mc < ncomp; mc++) {
+			if (lik->comps[mc].weightScaled != 0.0) {
+			    unsigned cdim = c*dim;
+
+			    double cM = childMat[cdim];
+			    double cL0 = P[mc][0] * cM;
+			    double cL1 = P[mc][4] * cM;
+			    double cL2 = P[mc][8] * cM;
+			    double cL3 = P[mc][12] * cM;
+
+			    cM = childMat[cdim + 1];
+			    cL0 += P[mc][1] * cM;
+			    cL1 += P[mc][5] * cM;
+			    cL2 += P[mc][9] * cM;
+			    cL3 += P[mc][13] * cM;
+
+			    cM = childMat[cdim + 2];
+			    cL0 += P[mc][2] * cM;
+			    cL1 += P[mc][6] * cM;
+			    cL2 += P[mc][10] * cM;
+			    cL3 += P[mc][14] * cM;
+
+			    cM = childMat[cdim + 3];
+			    cL0 += P[mc][3] * cM;
+			    cL1 += P[mc][7] * cM;
+			    cL2 += P[mc][11] * cM;
+			    cL3 += P[mc][15] * cM;
+
+			    unsigned cdn_mcdim = c*dn + mc*dim;
+			    parentMat[cdn_mcdim] = cL0;
+			    parentMat[cdn_mcdim + 1] = cL1;
+			    parentMat[cdn_mcdim + 2] = cL2;
+			    parentMat[cdn_mcdim + 3] = cL3;
+
+			    double sc = scale[c-cMin];
+			    if (cL0 > sc) {
+				sc = cL0;
+			    }
+			    if (cL1 > sc) {
+				sc = cL1;
+			    }
+			    if (cL2 > sc) {
+				sc = cL2;
+			    }
+			    if (cL3 > sc) {
+				sc = cL3;
+			    }
+			    scale[c-cMin] = sc;
+			}
+		    }
+		    parentLnScale[c] = childLnScale[c];
+		    //               ^
+		}
+		break;
+	    } case CxeLikStepComputeI: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    for (unsigned mc = 0; mc < ncomp; mc++) {
+			if (lik->comps[mc].weightScaled != 0.0) {
+			    unsigned cdn_mcdim = c*dn + mc*dim;
+
+			    double cM = childMat[cdn_mcdim];
+			    double cL0 = P[mc][0] * cM;
+			    double cL1 = P[mc][4] * cM;
+			    double cL2 = P[mc][8] * cM;
+			    double cL3 = P[mc][12] * cM;
+
+			    cM = childMat[cdn_mcdim + 1];
+			    cL0 += P[mc][1] * cM;
+			    cL1 += P[mc][5] * cM;
+			    cL2 += P[mc][9] * cM;
+			    cL3 += P[mc][13] * cM;
+
+			    cM = childMat[cdn_mcdim + 2];
+			    cL0 += P[mc][2] * cM;
+			    cL1 += P[mc][6] * cM;
+			    cL2 += P[mc][10] * cM;
+			    cL3 += P[mc][14] * cM;
+
+			    cM = childMat[cdn_mcdim + 3];
+			    cL0 += P[mc][3] * cM;
+			    cL1 += P[mc][7] * cM;
+			    cL2 += P[mc][11] * cM;
+			    cL3 += P[mc][15] * cM;
+
+			    parentMat[cdn_mcdim] = cL0;
+			    parentMat[cdn_mcdim + 1] = cL1;
+			    parentMat[cdn_mcdim + 2] = cL2;
+			    parentMat[cdn_mcdim + 3] = cL3;
+
+			    double sc = scale[c-cMin];
+			    if (cL0 > sc) {
+				sc = cL0;
+			    }
+			    if (cL1 > sc) {
+				sc = cL1;
+			    }
+			    if (cL2 > sc) {
+				sc = cL2;
+			    }
+			    if (cL3 > sc) {
+				sc = cL3;
+			    }
+			    scale[c-cMin] = sc;
+			}
+		    }
+		    parentLnScale[c] = childLnScale[c];
+		    //               ^
+		}
+		break;
+	    } case CxeLikStepMergeL: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    for (unsigned mc = 0; mc < ncomp; mc++) {
+			if (lik->comps[mc].weightScaled != 0.0) {
+			    unsigned cdim = c*dim;
+
+			    double cM = childMat[cdim];
+			    double cL0 = P[mc][0] * cM;
+			    double cL1 = P[mc][4] * cM;
+			    double cL2 = P[mc][8] * cM;
+			    double cL3 = P[mc][12] * cM;
+
+			    cM = childMat[cdim + 1];
+			    cL0 += P[mc][1] * cM;
+			    cL1 += P[mc][5] * cM;
+			    cL2 += P[mc][9] * cM;
+			    cL3 += P[mc][13] * cM;
+
+			    cM = childMat[cdim + 2];
+			    cL0 += P[mc][2] * cM;
+			    cL1 += P[mc][6] * cM;
+			    cL2 += P[mc][10] * cM;
+			    cL3 += P[mc][14] * cM;
+
+			    cM = childMat[cdim + 3];
+			    cL0 += P[mc][3] * cM;
+			    cL1 += P[mc][7] * cM;
+			    cL2 += P[mc][11] * cM;
+			    cL3 += P[mc][15] * cM;
+
+			    unsigned cdn_mcdim = c*dn + mc*dim;
+			    parentMat[cdn_mcdim] *= cL0;
+			    parentMat[cdn_mcdim + 1] *= cL1;
+			    parentMat[cdn_mcdim + 2] *= cL2;
+			    parentMat[cdn_mcdim + 3] *= cL3;
+
+			    double sc = scale[c-cMin];
+			    if (cL0 > sc) {
+				sc = cL0;
+			    }
+			    if (cL1 > sc) {
+				sc = cL1;
+			    }
+			    if (cL2 > sc) {
+				sc = cL2;
+			    }
+			    if (cL3 > sc) {
+				sc = cL3;
+			    }
+			    scale[c-cMin] = sc;
+			}
+		    }
+		    parentLnScale[c] += childLnScale[c];
+		    //               ^^
+		}
+		break;
+	    } case CxeLikStepMergeI: {
+		for (unsigned c = cMin; c < cLim; c++) {
+		    for (unsigned mc = 0; mc < ncomp; mc++) {
+			if (lik->comps[mc].weightScaled != 0.0) {
+			    unsigned cdn_mcdim = c*dn + mc*dim;
+
+			    double cM = childMat[cdn_mcdim];
+			    double cL0 = P[mc][0] * cM;
+			    double cL1 = P[mc][4] * cM;
+			    double cL2 = P[mc][8] * cM;
+			    double cL3 = P[mc][12] * cM;
+
+			    cM = childMat[cdn_mcdim + 1];
+			    cL0 += P[mc][1] * cM;
+			    cL1 += P[mc][5] * cM;
+			    cL2 += P[mc][9] * cM;
+			    cL3 += P[mc][13] * cM;
+
+			    cM = childMat[cdn_mcdim + 2];
+			    cL0 += P[mc][2] * cM;
+			    cL1 += P[mc][6] * cM;
+			    cL2 += P[mc][10] * cM;
+			    cL3 += P[mc][14] * cM;
+
+			    cM = childMat[cdn_mcdim + 3];
+			    cL0 += P[mc][3] * cM;
+			    cL1 += P[mc][7] * cM;
+			    cL2 += P[mc][11] * cM;
+			    cL3 += P[mc][15] * cM;
+
+			    parentMat[cdn_mcdim] *= cL0;
+			    parentMat[cdn_mcdim + 1] *= cL1;
+			    parentMat[cdn_mcdim + 2] *= cL2;
+			    parentMat[cdn_mcdim + 3] *= cL3;
+
+			    double sc = scale[c-cMin];
+			    if (cL0 > sc) {
+				sc = cL0;
+			    }
+			    if (cL1 > sc) {
+				sc = cL1;
+			    }
+			    if (cL2 > sc) {
+				sc = cL2;
+			    }
+			    if (cL3 > sc) {
+				sc = cL3;
+			    }
+			    scale[c-cMin] = sc;
+			}
+		    }
+		    parentLnScale[c] += childLnScale[c];
+		    //               ^^
+		}
+		break;
+	    } default: {
+		CxmNotReached();
+	    }
+	}
+
+	if (step->ntrail == 0) {
+	    for (unsigned c = cMin; c < cLim; c++) {
+		double scaleElm = scale[c-cMin];
+		if (scaleElm != 1.0) {
+		    for (unsigned iP = 0; iP < dn; iP++) {
+			parentMat[c*dn + iP] /= scaleElm;
+		    }
+		}
+		parentLnScale[c] += log(scaleElm);
+	    }
+	    memset(scale, 0, sizeof(scale));
+	}
+#ifdef CxmDebug
+	  else {
+	    CxmAssert(s+1 < lik->stepsLen);
+	    CxmAssert(lik->steps[s+1].parentCL->cLMat == parentMat);
+	    CxmAssert(lik->steps[s+1].parentCL->lnScale == parentLnScale);
+	}
+#endif
+    }
+
+    // For each model component, aggregate conditional likelihoods and weight
+    // them according to frequency priors, in order to compute site-specific
+    // lnL's.
+    double pn[ncomp][dim];
+    for (unsigned mc = 0; mc < ncomp; mc++) {
+	CxtLikComp *comp = &lik->comps[mc];
+	if (comp->weightScaled != 0.0) {
+	    // Pre-compute state-specific weights, taking into account component
+	    // weights.
+	    CxtLikModel *model = comp->model;
+	    for (unsigned i = 0; i < dim; i++) {
+		pn[mc][i] = model->piDiagNorm[i] * comp->weightScaled;
+	    }
+	}
+    }
+
+    for (unsigned c = cMin; c < cLim; c++) {
+	double L = 0.0;
+	for (unsigned mc = 0; mc < ncomp; mc++) {
+	    if (lik->comps[mc].weightScaled != 0.0) {
+		for (unsigned i = 0; i < dim; i++) {
+		    L += pn[mc][i] * lik->rootCLC->cLMat[c*dn + mc*dim + i];
+		}
+	    }
+	}
+	double lnL = (log(L) + lik->rootCLC->lnScale[c])
+	  * (double)lik->charFreqs[c];
+	if (isnan(lnL)) {
+	    lnL = -INFINITY;
+	}
+	lik->siteLnL[c] = lnL;
+    }
+}
+
+static void
 CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
     unsigned dim = lik->dim;
     unsigned dimSq = dim * dim;
@@ -510,7 +852,11 @@ CxpLikWorker(void *arg) {
     // Iteratively get a job, perform it, then send a return message to
     // indicate completion status.
     while (CxMqGet(&CxpLikTodoMq, &msg) == false) {
-	CxLikExecuteStripe(msg->lik, msg->stripe);
+	if (msg->lik->dim == 4) {
+	    CxLikExecuteStripeDna(msg->lik, msg->stripe);
+	} else {
+	    CxLikExecuteStripe(msg->lik, msg->stripe);
+	}
 	CxMqPut(&CxpLikDoneMq, msg);
     }
 
@@ -606,8 +952,14 @@ CxLikExecute(CxtLik *lik) {
 	    }
 	} else {
 	    // No worker threads; do all computations in the main thread.
-	    for (unsigned stripe = 0; stripe < lik->nstripes; stripe++) {
-		CxLikExecuteStripe(lik, stripe);
+	    if (lik->dim == 4) {
+		for (unsigned stripe = 0; stripe < lik->nstripes; stripe++) {
+		    CxLikExecuteStripeDna(lik, stripe);
+		}
+	    } else {
+		for (unsigned stripe = 0; stripe < lik->nstripes; stripe++) {
+		    CxLikExecuteStripe(lik, stripe);
+		}
 	    }
 	}
     }
