@@ -40,10 +40,13 @@ cdef class Chain:
     cdef uint64_t step
 
     cdef bint weightPropose(self) except *
-    cdef bint freqsEqual(self, unsigned mInd)
+    cdef bint freqsEqual(self, Lik lik, unsigned mInd)
+    cdef unsigned nModelsFreqsEstim(self, Lik lik)
     cdef bint freqPropose(self) except *
     cdef bint rmultPropose(self) except *
+    cdef unsigned nModelsRatesEstim(self, Lik lik)
     cdef bint ratePropose(self) except *
+    cdef unsigned nModelsRatesGamma(self, Lik lik)
     cdef bint rateShapeInvPropose(self) except *
     cdef bint brlenPropose(self) except *
     cdef bint etbrPropose(self) except *

@@ -111,7 +111,7 @@ cdef class Chain:
 
         return False
 
-    cdef bint freqsEqual(self, unsigned mInd):
+    cdef bint freqsEqual(self, Lik lik, unsigned mInd):
         cdef unsigned i
         cdef double f
 
@@ -120,23 +120,43 @@ cdef class Chain:
         # Mathematically it does not affect correctness in the (extremely
         # unlikely) event that the the frequencies happen to have been
         # estimated as identical.
-        f = self.lik.getFreq(mInd, 0)
-        for 1 <= i < self.lik.char_.nstates:
-            if self.lik.getFreq(mInd, i) != f:
+        f = lik.getFreq(mInd, 0)
+        for 1 <= i < lik.char_.nstates:
+            if lik.getFreq(mInd, i) != f:
                 return False
         return True
 
+    cdef unsigned nModelsFreqsEstim(self, Lik lik):
+        cdef unsigned ret, i
+
+        # Count how many models contain estimated frequencies.
+        ret = 0
+        for 0 <= i < lik.nmodels():
+            if not self.freqsEqual(lik, i):
+                ret += 1
+        return ret
+
     cdef bint freqPropose(self) except *:
         cdef Lik lik1
-        cdef unsigned mInd, fInd
+        cdef unsigned nMEstim, mChoice, mInd, fInd
         cdef double f0, f1, u, lnM, m, lnL1
 
         # Uniformly choose a random model within the mixture.
-        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
-        if self.master.props[PropFreqJump] != 0.0 and self.freqsEqual(mInd):
+        if self.master.propsPdf[PropFreqJump] != 0.0:
             # We assume identical frequencies indicate fixed frequencies when
             # frequency jump proposals are enabled.
-            return True
+            nMEstim = self.nModelsFreqsEstim(self.lik)
+            if nMEstim == 0:
+                return True
+            mChoice = gen_rand64_range(self.prng, nMEstim)
+            # Map mChoice onto the set of models with estimated frequencies.
+            for 0 <= mInd < self.lik.nmodels():
+                if not self.freqsEqual(self.lik, mInd):
+                    if mChoice == 0:
+                        break
+                    mChoice -= 1
+        else:
+            mInd = gen_rand64_range(self.prng, self.lik.nmodels())
 
         # Create a cloned scratch Lik.
         lik1 = self.lik.clone()
@@ -219,23 +239,38 @@ cdef class Chain:
 
         return False
 
+    cdef unsigned nModelsRatesEstim(self, Lik lik):
+        cdef unsigned ret, i
+
+        # Count how many models contain estimated rates.
+        ret = 0
+        for 0 <= i < lik.nmodels():
+            if lik.getNrates(i) != 1:
+                ret += 1
+        return ret
+
     cdef bint ratePropose(self) except *:
         cdef Lik lik1
-        cdef unsigned mInd, nrates, r, rInd
+        cdef unsigned nMEstim, mChoice, mInd, nrates, r, rInd
         cdef double r0, r1, u, lnM, m, lnL1
         cdef list rclass
+
+        # Uniformly choose a random model within the mixture.
+        nMEstim = self.nModelsRatesEstim(self.lik)
+        if nMEstim == 0:
+            return True
+        mChoice = gen_rand64_range(self.prng, nMEstim)
+        # Map mChoice onto the set of models with estimated rates.
+        for 0 <= mInd < self.lik.nmodels():
+            nrates = self.lik.getNrates(mInd)
+            if nrates != 1:
+                if mChoice == 0:
+                    break
+                mChoice -= 1
 
         # Create a cloned scratch Lik.
         lik1 = self.lik.clone()
 
-        # Uniformly choose a random model within the mixture.
-        mInd = gen_rand64_range(self.prng, lik1.nmodels())
-
-        # Uniformly choose a random rate parameter.
-        nrates = lik1.getNrates(mInd)
-        if nrates == 1:
-            # Only one rate class, so this proposal is bogus.
-            return True
         rclass = lik1.getRclass(mInd)
         rInd = gen_rand64_range(self.prng, nrates)
 
@@ -269,19 +304,36 @@ cdef class Chain:
 
         return False
 
+    cdef unsigned nModelsRatesGamma(self, Lik lik):
+        cdef unsigned ret, i
+
+        # Count how many models contain +G rates.
+        ret = 0
+        for 0 <= i < lik.nmodels():
+            if lik.getAlpha(i) != INFINITY:
+                ret += 1
+        return ret
+
     cdef bint rateShapeInvPropose(self) except *:
         cdef Lik lik1
-        cdef unsigned mInd
+        cdef unsigned nMGamma, mChoice, mInd
         cdef double u, lnM, m, a0, a1, a0Inv, a1Inv, lnPrior, lnL1, p
+
+        # Uniformly choose a random model within the mixture.
+        nMGamma = self.nModelsRatesGamma(self.lik)
+        if nMGamma == 0:
+            return True
+        mChoice = gen_rand64_range(self.prng, nMGamma)
+        # Map mChoice onto the set of models with +G rates.
+        for 0 <= mInd < self.lik.nmodels():
+            a0 = self.lik.getAlpha(mInd)
+            if a0 != INFINITY:
+                if mChoice == 0:
+                    break
+                mChoice -= 1
 
         # Create a cloned scratch Lik.
         lik1 = self.lik.clone()
-
-        # Uniformly choose a random model within the mixture.
-        mInd = gen_rand64_range(self.prng, lik1.nmodels())
-        a0 = lik1.getAlpha(mInd)
-        if a0 == INFINITY:
-            return True
 
         # Generate the inverse rate shape multiplier.
         u = genrand_res53(self.prng)
@@ -747,20 +799,21 @@ cdef class Chain:
 
         if nrates == 2:
             # After this merge, rateJumpPropose() can only split.  Note also
-            # that rate change proposals become invalid, since there will be no
-            # free rate parameters.
-            pSplit = self.master.props[PropRateJump] / \
-              (1.0 - self.master.props[PropRate])
-            pMerge = self.master.props[PropRateJump] / 2.0
+            pSplit = self.master.propsPdf[PropRateJump]
+            if self.nModelsRatesEstim(lik1) == 0:
+                # Rate change proposals become invalid, since there will be no
+                # free rate parameters.
+                pSplit /= (1.0 - self.master.propsPdf[PropRate])
+            pMerge = self.master.propsPdf[PropRateJump] / 2.0
         elif nrates == len(rclass):
             # Splitting was not an option in rateJumpPropose() for this step.
             # (pSplit/pMerge is always 0.5.)
-            pSplit = self.master.props[PropRateJump] / 2.0
-            pMerge = self.master.props[PropRateJump]
+            pSplit = self.master.propsPdf[PropRateJump] / 2.0
+            pMerge = self.master.propsPdf[PropRateJump]
         else:
             # (pSplit/pMerge is always 1.0.)
-            pSplit = self.master.props[PropRateJump] / 2.0
-            pMerge = self.master.props[PropRateJump] / 2.0
+            pSplit = self.master.propsPdf[PropRateJump] / 2.0
+            pMerge = self.master.propsPdf[PropRateJump] / 2.0
         lnPrior = log(self.master._rateJumpPrior) + log(pSplit / pMerge)
 
         # Count how many rate classes could be split during a reverse jump.
@@ -887,19 +940,20 @@ cdef class Chain:
         if nrates == len(rclass) - 1:
             # After this split, rateJumpPropose() can only merge.
             # (pMerge/pSplit is always 2.0 .)
-            pMerge = self.master.props[PropRateJump]
-            pSplit = self.master.props[PropRateJump] / 2.0
+            pMerge = self.master.propsPdf[PropRateJump]
+            pSplit = self.master.propsPdf[PropRateJump] / 2.0
         elif nrates == 1:
             # Merging was not an option in rateJumpPropose() for this step.
-            # Note also that rate change proposals were invalid, since there
-            # were no free rate parameters.
-            pMerge = self.master.props[PropRateJump] / 2.0
-            pSplit = self.master.props[PropRateJump] / \
-              (1.0 - self.master.props[PropRate])
+            pMerge = self.master.propsPdf[PropRateJump] / 2.0
+            pSplit = self.master.propsPdf[PropRateJump]
+            if self.nModelsRatesEstim(lik1) == 1:
+                # Rate change proposals were invalid, since there were no free
+                # rate parameters.
+                pSplit /= (1.0 - self.master.propsPdf[PropRate])
         else:
             # (pMerge/pSplit is always 1.0 .)
-            pMerge = self.master.props[PropRateJump] / 2.0
-            pSplit = self.master.props[PropRateJump] / 2.0
+            pMerge = self.master.propsPdf[PropRateJump] / 2.0
+            pSplit = self.master.propsPdf[PropRateJump] / 2.0
         lnPrior = -log(self.master._rateJumpPrior) + log(pMerge / pSplit)
 
         lnProp = log((<double>len(splittable) * (pow(2.0, n0)-2.0) * \
@@ -1242,6 +1296,10 @@ cdef class Chain:
           (-self.master._rateShapeInvPrior*rateShapeInv0)
         lnProp = lnJacob
 
+        if self.nModelsRatesGamma(lik1) == 0:
+            # This proposal implicitly disables the PropRateShapeInv proposal.
+            lnProp += -log(1.0 - self.master.propsPdf[PropRateShapeInv])
+
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
         # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
@@ -1280,6 +1338,10 @@ cdef class Chain:
         lnJacob = -log(self.master._rateShapeInvPrior) \
           - (-self.master._rateShapeInvPrior*rateShapeInv1)
         lnProp = lnJacob
+
+        if self.nModelsRatesGamma(lik1) == 1:
+            # This proposal implicitly enables the PropRateShapeInv proposal.
+            lnProp += log(1.0 - self.master.propsPdf[PropRateShapeInv])
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -1330,6 +1392,10 @@ cdef class Chain:
             lnHast += -f
             lik1.setFreq(mInd, i, 1.0 / <double>nstates)
 
+        if self.nModelsFreqsEstim(lik1) == 0:
+            # This proposal implicitly disables the PropFreq proposal.
+            lnHast += -log(1.0 - self.master.propsPdf[PropFreq])
+
         # Compute lnL with equal frequencies.
         lnL1 = lik1.lnL()
 
@@ -1362,6 +1428,10 @@ cdef class Chain:
             lnHast += f
             lik1.setFreq(mInd, i, f)
 
+        if self.nModelsFreqsEstim(lik1) == 1:
+            # This proposal implicitly enables the PropFreq proposal.
+            lnHast += log(1.0 - self.master.propsPdf[PropFreq])
+
         # Compute lnL with estimated frequencies.
         lnL1 = lik1.lnL()
 
@@ -1383,7 +1453,7 @@ cdef class Chain:
         # Uniformly choose a random model within the mixture.
         mInd = gen_rand64_range(self.prng, self.lik.nmodels())
 
-        if self.freqsEqual(mInd):
+        if self.freqsEqual(self.lik, mInd):
             self.freqEstimPropose(mInd)
         else:
             self.freqEqualPropose(mInd)
@@ -1392,9 +1462,10 @@ cdef class Chain:
 
     cdef void mixtureRemovePropose(self, unsigned nmodels) except *:
         cdef Lik lik1
-        cdef double w, rmult, lnL1, rate, lnPrior, lnHast, u, p
-        cdef unsigned mInd, nrates, i
-        cdef list rates
+        cdef double w, rmult, lnL1, freq, rate, alpha, omega
+        cdef double lnPrior, lnHast, u, p
+        cdef unsigned mInd, nfreqs, nrates, i
+        cdef list freqs, rates
 
         assert nmodels > 1
 
@@ -1405,8 +1476,11 @@ cdef class Chain:
         mInd = gen_rand64_range(self.prng, nmodels)
         w = lik1.getWeight(mInd)
         rmult = lik1.getRmult(mInd)
+        nfreqs = (1 if self.freqsEqual(lik1, mInd) else self.lik.char_.nstates)
+        freqs = [lik1.getFreq(mInd, i) for i in xrange(nfreqs)]
         nrates = lik1.getNrates(mInd)
         rates = [lik1.getRate(mInd, i) for i in xrange(nrates)]
+        alpha = lik1.getAlpha(mInd)
         lik1.delModel(mInd)
 
         # Compute lnL with removed Q.
@@ -1414,19 +1488,48 @@ cdef class Chain:
 
         lnPrior = w
         lnHast = -w
-        for 0 <= i < nrates:
-            rate = <double>rates[i]
-            lnPrior += rate
-            lnHast += -rate
         lnPrior += rmult
         lnHast += -rmult
+        if nfreqs > 1:
+            for 0 <= i < nfreqs:
+                freq = <double>freqs[i]
+                lnPrior += freq
+                lnHast += -freq
+        if nrates > 1:
+            for 0 <= i < nrates:
+                rate = <double>rates[i]
+                lnPrior += rate
+                lnHast += -rate
+        if alpha != INFINITY:
+            omega = 1.0 / alpha
+            lnPrior += log(self.master._rateShapeInvPrior) + \
+              (omega * self.master._rateShapeInvPrior)
+            lnHast += -log(self.master._rateShapeInvPrior) - \
+              (omega * self.master._rateShapeInvPrior)
 
         lnPrior += -log(1.0 - self.master._mixtureJumpPrior)
 
         if nmodels == 2:
-            lnHast += log(4.0)
-        else:
-            lnHast += log(<double>nmodels)
+            lnHast += log(2.0)
+            # This proposal implicitly disables the PropWeight and PropRmult
+            # proposals.
+            lnHast += log(1.0 - self.master.propsPdf[PropWeight] - \
+              self.master.propsPdf[PropRmult])
+        #else:
+        #    lnHast += log(1.0)
+
+        if self.nModelsFreqsEstim(self.lik) == 1 and \
+          self.nModelsFreqsEstim(lik1) == 0:
+            # This proposal implicitly disables the PropFreq proposal.
+            lnHast += -log(1.0 - self.master.propsPdf[PropFreq])
+        if self.nModelsRatesEstim(self.lik) == 1 and \
+          self.nModelsRatesEstim(lik1) == 0:
+            # This proposal implicitly disables the PropRate proposal.
+            lnHast += -log(1.0 - self.master.propsPdf[PropRate])
+        if self.nModelsRatesGamma(self.lik) == 1 and \
+          self.nModelsRatesGamma(lik1) == 0:
+            # This proposal implicitly disables the PropRateShapeInv proposal.
+            lnHast += -log(1.0 - self.master.propsPdf[PropRateShapeInv])
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -1442,39 +1545,72 @@ cdef class Chain:
 
     cdef void mixtureAddPropose(self, unsigned nmodels) except *:
         cdef Lik lik1
-        cdef double w, rmult, lnL1, rate, lnPrior, lnHast, u, p
+        cdef double w, rmult, lnL1, freq, rate, alpha, omega
+        cdef double lnPrior, lnHast, u, p
         cdef unsigned mInd, nrates, i
-        cdef list rates
+        cdef list freqs, rates
 
         # Create a cloned scratch Lik.
         lik1 = self.lik.clone()
 
         # Draw a new Q from the prior.
-        mInd = lik1.addModel(0.0, self.master._ncat, self.master._catMedian)
+        mInd = lik1.addModel(1.0, self.master._ncat, self.master._catMedian)
         self.master.randomDnaQ(lik1, mInd, self.prng)
         w = lik1.getWeight(mInd)
         rmult = lik1.getRmult(mInd)
+        nfreqs = (1 if self.freqsEqual(lik1, mInd) else self.lik.char_.nstates)
+        freqs = [lik1.getFreq(mInd, i) for i in xrange(nfreqs)]
         nrates = lik1.getNrates(mInd)
         rates = [lik1.getRate(mInd, i) for i in xrange(nrates)]
+        alpha = lik1.getAlpha(mInd)
 
         # Compute lnL with added Q.
         lnL1 = lik1.lnL()
 
         lnPrior = -w
         lnHast = w
-        for 0 <= i < nrates:
-            rate = <double>rates[i]
-            lnPrior += -rate
-            lnHast += rate
         lnPrior += -rmult
         lnHast += rmult
+        if nfreqs > 1:
+            for 0 <= i < nfreqs:
+                freq = <double>freqs[i]
+                lnPrior += -freq
+                lnHast += freq
+        if nrates > 1:
+            for 0 <= i < nrates:
+                rate = <double>rates[i]
+                lnPrior += -rate
+                lnHast += rate
+        if alpha != INFINITY:
+            omega = 1.0 / alpha
+            lnPrior += -log(self.master._rateShapeInvPrior) - \
+              (omega * self.master._rateShapeInvPrior)
+            lnHast += log(self.master._rateShapeInvPrior) + \
+              (omega * self.master._rateShapeInvPrior)
 
         lnPrior += log(1.0 - self.master._mixtureJumpPrior)
 
         if nmodels == 1:
-            lnHast += log(0.25)
-        else:
-            lnHast += log(<double>(nmodels+1))
+            lnHast += log(0.5)
+            # This proposal implicitly enables the PropWeight and PropRmult
+            # proposals.
+            lnHast += log(1.0 - self.master.propsPdf[PropWeight] - \
+              self.master.propsPdf[PropRmult])
+        #else:
+        #    lnHast += log(1.0)
+
+        if self.nModelsFreqsEstim(self.lik) == 0 and \
+          self.nModelsFreqsEstim(lik1) == 1:
+            # This proposal implicitly enables the PropFreq proposal.
+            lnHast += log(1.0 - self.master.propsPdf[PropFreq])
+        if self.nModelsRatesEstim(self.lik) == 0 and \
+          self.nModelsRatesEstim(lik1) == 1:
+            # This proposal implicitly enables the PropRate proposal.
+            lnHast += log(1.0 - self.master.propsPdf[PropRate])
+        if self.nModelsRatesGamma(self.lik) == 0 and \
+          self.nModelsRatesGamma(lik1) == 1:
+            # This proposal implicitly enables the PropRateShapeInv proposal.
+            lnHast += log(1.0 - self.master.propsPdf[PropRateShapeInv])
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)

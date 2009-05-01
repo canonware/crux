@@ -528,12 +528,11 @@ if opts.mode in ("post", "all"):
                   1.0 - post.mc3.cvgAlpha - post.mc3.cvgEpsilon))
             else:
                 f.write("lnL\t\tN/A\n")
-            if post.mc3.nruns > 1 and post.mc3.mixtureJumpProp == 0.0 \
-              and post.mc3.nmodels == 1:
+            if post.mc3.nruns > 1 and post.maxModels == 1:
                 f.write("rclass\t\t%.6f\t%.6f\n" % \
                   (post.rcovRclass, 1.0 - post.mc3.cvgAlpha))
             else:
-                f.write("rclass\t\tN/A (nmodels not fixed at 1)\n")
+                f.write("rclass\t\tN/A\n")
 
             f.write("\n")
 
@@ -555,8 +554,7 @@ if opts.mode in ("post", "all"):
             for i in xrange(len(states)):
                 for j in xrange(i+1, len(states)):
                     ratesLabels.append("r(%s<->%s)" % (states[i], states[j]))
-            if post.mc3.mixtureJumpProp == 0.0 and post.mc3.nmodels == 1 \
-              and post.mc3.rateJumpProp == 0.0:
+            if post.maxModels == 1 and post.mc3.rateJumpProp == 0.0:
                 ratesMinCred = post.ratesMinCred
                 ratesMaxCred = post.ratesMaxCred
                 ratesMean = post.ratesMean
@@ -574,8 +572,7 @@ if opts.mode in ("post", "all"):
             freqsLabels = []
             for i in xrange(len(states)):
                 freqsLabels.append("pi(%s)" % states[i])
-            if post.mc3.freqJumpProp == 0.0 \
-              and post.mc3.mixtureJumpProp == 0.0 and post.mc3.nmodels == 1:
+            if post.mc3.freqJumpProp == 0.0 and post.maxModels == 1:
                 freqsMinCred = post.freqsMinCred
                 freqsMaxCred = post.freqsMaxCred
                 freqsMean = post.freqsMean
@@ -590,8 +587,8 @@ if opts.mode in ("post", "all"):
                     f.write("%s\t\tN/A\n" % freqsLabels[i])
 
             # +G shape.
-            if post.mc3.mixtureJumpProp == 0.0 and post.mc3.nmodels == 1 \
-              and post.mc3.ncat > 1 and post.mc3.rateShapeInvJumpProp == 0.0:
+            if post.maxModels == 1 and post.mc3.ncat > 1 \
+              and post.mc3.rateShapeInvJumpProp == 0.0:
                 f.write("+G alpha\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n" % \
                   (post.alphaMean, post.alphaVar, post.alphaMinCred, \
                   post.alphaMaxCred, post.alphaMed))

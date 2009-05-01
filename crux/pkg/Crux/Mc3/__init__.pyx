@@ -836,12 +836,14 @@ cdef class Mc3:
         if self.lnLs == NULL:
             raise MemoryError("Error allocating lnLs")
 
-    # Initialize propsCdf, which is used to choose proposal types.
-    cdef void initPropsCdf(self) except *:
+    # Initialize props[PC]df, which are used to compute proposal ratios and
+    # choose proposal types.
+    cdef void initProps(self) except *:
         cdef double propsSum
         cdef unsigned i
 
         assert sizeof(self.props)/sizeof(double) == PropCnt
+        assert sizeof(self.propsPdf)/sizeof(double) == PropCnt
         assert sizeof(self.propsCdf)/sizeof(double) == PropCnt + 1
         if self.alignment.charType is not Dna:
             # Mixture jumps are only implemented for DNA.
@@ -867,12 +869,14 @@ cdef class Mc3:
             self.props[PropRateShapeInv] = 0.0
             self.props[PropRateShapeInvJump] = 0.0
         propsSum = 0.0
-        for 0 <= i < sizeof(self.props) / sizeof(double):
+        for 0 <= i < PropCnt:
             propsSum += self.props[i]
         if propsSum == 0.0:
             raise ValueError("No proposals are enabled")
+        for 0 <= i < PropCnt:
+            self.propsPdf[i] = self.props[i] / propsSum
         self.propsCdf[0] = 0.0
-        for 1 <= i < sizeof(self.propsCdf) / sizeof(double):
+        for 1 <= i < PropCnt+1:
             self.propsCdf[i] = self.propsCdf[i-1] + (self.props[i-1] / propsSum)
 
     cdef void initRunsUni(self, list liks) except *:
@@ -1074,6 +1078,7 @@ cdef class Mc3:
         # Compute which sample will be at the edge of the right graph.
         xsp = (samp/2)+1
         assert xsp > 0
+        assert xsp < self.lnLsMax
 
         # Write to a temporary file, in order to be able to make the complete
         # file appear atomically in its final location.
@@ -1476,7 +1481,7 @@ cdef class Mc3:
             for edge in tree.getEdges():
                 edge.length = -log(1.0 - genrand_res53(prng)) / self._brlenPrior
 
-            if self.props[PropMixtureJump] != 0.0:
+            if self.props[PropMixtureJump] > 0.0:
                 # Randomly draw _nmodels from the geometrically distributed
                 # prior.
                 self._nmodels = 1
@@ -1519,7 +1524,7 @@ cdef class Mc3:
             self.initPropStats()
             self.initLiks()
             self.initLnLs()
-            self.initPropsCdf()
+            self.initProps()
             self.initRuns(liks)
 
             IF @enable_mpi@:
@@ -1551,7 +1556,11 @@ cdef class Mc3:
 
             # Write a graph one last time, regardless of whether graphs were
             # written previously.
-            self.writeGraph(step)
+            IF @enable_mpi@:
+                if self.mpiRank == 0:
+                    self.writeGraph(step)
+            ELSE:
+                self.writeGraph(step)
         except:
             error = sys.exc_info()
             IF @enable_mpi@:
@@ -2189,8 +2198,9 @@ cdef class Mc3:
     cdef double getMixtureJumpPrior(self):
         return self._mixtureJumpPrior
     cdef void setMixtureJumpPrior(self, double mixtureJumpPrior) except *:
-        if not mixtureJumpPrior > 0.0:
-            raise ValueError("Validation failure: mixtureJumpPrior > 0.0")
+        if not (0.0 <= mixtureJumpPrior and mixtureJumpPrior < 1.0):
+            raise ValueError( \
+              "Validation failure: 0.0 <= mixtureJumpPrior < 1.0")
         self._mixtureJumpPrior = mixtureJumpPrior
     property mixtureJumpPrior:
         """

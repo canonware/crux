@@ -402,7 +402,6 @@ cdef class Post:
         cvgAlpha = self.mc3.getCvgAlpha()
         lower = <uint64_t>floor(cvgAlpha/2.0 * <double>self.nsamples)
         upper = self.nsamples - 1 - lower
-        print "[%d..%d] (%d)" % (lower, upper, self.nsamples)
 
         for 0 <= i < nruns:
             # Accumulate sorted lnLs for run i, in order to make the bounds of
@@ -760,11 +759,11 @@ cdef class Post:
         cdef uint64_t i, j, N, lower, upper
         cdef double cvgAlpha, rate, diff, rateMean, rateVar
 
-        if self.mc3.nmodels != 1 or self.mc3.rateJumpProp != 0.0:
+        self.parseP()
+
+        if self.maxModels != 1 or self.mc3.rateJumpProp != 0.0:
             raise ValueError( \
               "Rates cannot be summarized for chosen model parameters")
-
-        self.parseP()
 
         if self.nsamples == 0:
             raise ValueError("No samples")
@@ -885,11 +884,11 @@ cdef class Post:
         cdef uint64_t i, j, N, lower, upper
         cdef double cvgAlpha, freq, diff, freqMean, freqVar
 
-        if self.mc3.nmodels != 1:
+        self.parseP()
+
+        if self.maxModels != 1:
             raise ValueError( \
               "Freqs cannot be summarized for chosen model parameters")
-
-        self.parseP()
 
         if self.nsamples == 0:
             raise ValueError("No samples")
@@ -1009,11 +1008,11 @@ cdef class Post:
         cdef Msamp msamp
         cdef double cvgAlpha, alpha, diff, alphaMean, alphaVar
 
-        if self.mc3.nmodels != 1 or self.mc3.ncat <= 1:
+        self.parseP()
+
+        if self.maxModels != 1 or self.mc3.ncat <= 1:
             raise ValueError( \
               "+G alpha cannot be summarized for chosen model parameters")
-
-        self.parseP()
 
         if self.nsamples == 0:
             raise ValueError("No samples")

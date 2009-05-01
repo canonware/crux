@@ -72,6 +72,7 @@ cdef class Mc3:
 
     # Relative proposal probabilities, and corresponding CDF.
     cdef double props[PropCnt]
+    cdef double propsPdf[PropCnt] # Sums to 1.0.
     cdef double propsCdf[PropCnt+1] # [1..PropCnt] corresponds to props.
 
     # Output files.
@@ -162,7 +163,7 @@ cdef class Mc3:
     cdef void initLiks(self) except *
     cdef void resetLiks(self) except *
     cdef void initLnLs(self) except *
-    cdef void initPropsCdf(self) except *
+    cdef void initProps(self) except *
     cdef void initRunsUni(self, list liks) except *
     IF @enable_mpi@:
         cdef void initRunsMpi(self, list liks) except *
