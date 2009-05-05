@@ -1,3 +1,8 @@
+# Forward declarations.
+cdef class Msamp
+cdef class Samp
+cdef class Post
+
 from libc cimport *
 from Crux.Mc3 cimport Mc3
 from Crux.Tree cimport Tree

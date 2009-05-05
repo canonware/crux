@@ -692,18 +692,21 @@ cdef class Mc3:
             nchars += self.alignment.getFreq(j)
 
         self.lFile = open("%s.l" % self.outPrefix, "w")
-        self.lFile.write("Begin run: %s\n" % \
-          time.strftime("%Y/%m/%d %H:%M:%S (%Z)", time.localtime(time.time())))
-        self.lFile.write("Crux version: @crux_version@\n")
-        self.lFile.write("Host machine: %r\n" % (os.uname(),))
-        IF @enable_mpi@:
-            self.lFile.write("MPI node count: %d\n" % self.mpiSize)
-            self.lFile.write("MPI processors per node: %d\n" % self.mpiPpn)
         for f in ((self.lFile, sys.stdout) if self.verbose else (self.lFile,)):
+            f.write("Begin run: %s\n" % \
+              time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
+              time.localtime(time.time())))
+            f.write("Crux version: @crux_version@\n")
+            f.write("Host machine: %r\n" % (os.uname(),))
+            IF @enable_mpi@:
+                f.write("MPI node count: %d\n" % self.mpiSize)
+                f.write("MPI processors per node: %d\n" % self.mpiPpn)
             f.write("PRNG seed: %d\n" % Crux.Config.seed)
             f.write("Taxa: %d\n" % self.alignment.ntaxa)
             f.write("Characters: %d\n" % nchars)
             f.write("Unique site patterns: %d\n" % self.alignment.nchars)
+            f.write("Prelim: %s\n" % \
+              ("specified" if self._prelim is not None else "unspecified"))
 
             f.write("Configuration parameters:\n")
             f.write("  outPrefix: %r\n" % self.outPrefix)
@@ -1583,6 +1586,21 @@ cdef class Mc3:
             self.lWrite("Finish run: %s\n" % \
               time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
               time.localtime(time.time())))
+
+    cdef Post getPrelim(self):
+        return self._prelim
+    cdef void setPrelim(self, Post prelim) except *:
+        self._prelim = prelim
+    property prelim:
+        """
+            Preliminary posterior distribution, used to compute topological
+            risk.  If set, relative risk is incorporated into the proposal
+            ratio for proposals that change the tree.
+        """
+        def __get__(self):
+            return self.getPrelim()
+        def __set__(self, Post prelim):
+            self.setPrelim(prelim)
 
     IF @enable_mpi@:
         cdef int getPpn(self):

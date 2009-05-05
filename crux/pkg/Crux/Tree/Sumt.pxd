@@ -23,6 +23,10 @@ cdef class Part:
     cdef list _nobs       # Number of times observed in each run.
     cdef list _edges      # List of edges, used to compute mean/variance.
 
+    cdef double _mse
+    cdef double _mean
+    cdef double _var
+
     cdef void _observe(self, unsigned run, Edge edge) except *
 
     cdef uint64_t getNobs(self)

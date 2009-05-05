@@ -117,6 +117,9 @@ cdef class Part:
         self.vec = vec
         self._nobs = [0] * nruns
         self._edges = []
+        self._mse = -1.0
+        self._mean = -1.0
+        self._var = -1.0
 
     cdef void _observe(self, unsigned run, Edge edge) except *:
         self._nobs[run] += 1
@@ -132,18 +135,19 @@ cdef class Part:
             return self.getNobs()
 
     cdef double getMse(self):
-        cdef double mse, mean, diff
+        cdef double mean, diff
         cdef unsigned i, nruns
         cdef uint64_t nobs
 
-        mse = 0.0
-        nobs = len(self._edges)
-        nruns = len(self._nobs)
-        mean = <double>nobs / <double>nruns
-        for 0 <= i < nruns:
-            diff = <double>self._nobs[i] - mean
-            mse += (diff * diff) / <double>nobs
-        return mse
+        if self._mse == -1.0:
+            self._mse = 0.0
+            nobs = len(self._edges)
+            nruns = len(self._nobs)
+            mean = <double>nobs / <double>nruns
+            for 0 <= i < nruns:
+                diff = <double>self._nobs[i] - mean
+                self._mse += (diff * diff) / <double>nobs
+        return self._mse
     property mse:
         """
             Mean squared error (MSE) of observation frequencies among runs.
@@ -152,16 +156,16 @@ cdef class Part:
             return self.getMse()
 
     cdef double getMean(self):
-        cdef double mean
         cdef uint64_t i, nobs
         cdef Edge edge
 
-        mean = 0.0
-        nobs = len(self._edges)
-        for 0 <= i < nobs:
-            edge = <Edge>self._edges[i]
-            mean += edge.length / <double>nobs
-        return mean
+        if self._mean == -1.0:
+            self._mean = 0.0
+            nobs = len(self._edges)
+            for 0 <= i < nobs:
+                edge = <Edge>self._edges[i]
+                self._mean += edge.length / <double>nobs
+        return self._mean
     property mean:
         """
             Branch length mean.
@@ -170,18 +174,20 @@ cdef class Part:
             return self.getMean()
 
     cdef double getVar(self):
-        cdef double var, mean, diff
+        cdef double mean, diff
         cdef uint64_t i, nobs
         cdef Edge edge
 
-        var = 0.0
-        mean = self.getMean()
-        nobs = len(self._edges)
-        for 0 <= i < nobs:
-            edge = <Edge>self._edges[i]
-            diff = (edge.length - mean)
-            var += (diff * diff) / <double>nobs
-        return var
+        if self._var == -1.0:
+            self._var = 0.0
+            mean = self.getMean()
+            nobs = len(self._edges)
+            for 0 <= i < nobs:
+                edge = <Edge>self._edges[i]
+                diff = (edge.length - mean)
+                self._var += (diff * diff) / <double>nobs
+
+        return self._var
     property var:
         """
             Branch length variance.
@@ -241,7 +247,7 @@ cdef class Sumt:
     cdef list getTrprobs(self):
         if self._trprobs is None:
             self._summarizeTrprobs()
-            return self._trprobs
+        return self._trprobs
     property trprobs:
         """
             List of all observed trees, ordered from most- to least-represented.

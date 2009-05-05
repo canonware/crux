@@ -19,6 +19,7 @@ cdef enum:
 from libc cimport uint64_t
 from SFMT cimport sfmt_t
 from Crux.Tree cimport Tree
+from Crux.Tree.Bipart cimport Bipart
 from Crux.Tree.Lik cimport Lik
 from Crux.Mc3 cimport Mc3
 
@@ -37,8 +38,11 @@ cdef class Chain:
     cdef Tree tree
     cdef Lik lik
     cdef double lnL
+    cdef double lnRisk
     cdef uint64_t step
 
+    cdef unsigned rfUnscaled(self, Bipart a, Bipart b)
+    cdef double computeLnRisk(self) except *
     cdef bint weightPropose(self) except *
     cdef bint freqsEqual(self, Lik lik, unsigned mInd)
     cdef unsigned nModelsFreqsEstim(self, Lik lik)

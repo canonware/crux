@@ -6,6 +6,8 @@ from SFMT cimport *
 from CxRi cimport *
 from Crux.Tree cimport Tree, Node, Edge, Ring
 from Crux.Tree.Lik cimport Lik
+from Crux.Tree.Bipart cimport Vec, Bipart
+from Crux.Tree.Sumt cimport Trprob, Sumt
 from Crux.Mc3 cimport Mc3
 
 # Used to search for the appropriate proposal, based on k.
@@ -61,10 +63,73 @@ cdef class Chain:
         self.lik = lik
         self.tree = self.lik.tree
         self.lnL = self.lik.lnL()
+        if self.master._prelim is not None:
+            self.lnRisk = self.computeLnRisk()
 
         self.step = 0
         self.master.sendSample(self.run, self.step, self.heat, self.nswap, \
           self.accepts, self.rejects, self.lik, self.lnL)
+
+    cdef unsigned rfUnscaled(self, Bipart a, Bipart b):
+        cdef unsigned nUnique, iA, iB, lenA, lenB
+        cdef double falseNegativeRate, falsePositiveRate
+        cdef int rel
+        cdef Vec vecA, vecB
+
+        if a is b:
+            return 0
+
+        nUnique = iA = iB = 0
+        lenA = len(a.edgeVecs)
+        lenB = len(b.edgeVecs)
+        while iA < lenA and iB < lenB:
+            vecA = <Vec>a.edgeVecs[iA]
+            vecB = <Vec>b.edgeVecs[iB]
+
+            rel = vecA.cmp(vecB)
+            if rel == -1:
+                # a has a unique bipartition.
+                nUnique += 1
+                iA += 1
+            elif rel == 0:
+                iA += 1
+                iB += 1
+            elif rel == 1:
+                # b has a unique bipartition.
+                nUnique += 1
+                iB += 1
+            else:
+                assert False
+
+        if iA < lenA:
+            nUnique += lenA - iA
+        elif iB < lenB:
+            nUnique += lenB - iB
+
+        return nUnique
+
+    cdef double computeLnRisk(self) except *:
+        cdef double risk
+        cdef Bipart bipart
+        cdef uint64_t nsamples, i
+        cdef Sumt sumt
+        cdef list trprobs
+        cdef Trprob trprob
+        cdef Tree tree
+
+        bipart = self.tree.getBipart()
+        risk = 0.0
+        nsamples = self.master._prelim.nsamples * self.master._prelim.mc3.nruns
+        sumt = self.master._prelim.getSumt()
+        trprobs = sumt.getTrprobs()
+        for 0 <= i < len(trprobs):
+            trprob = <Trprob>trprobs[i]
+
+            tree = trprob.getTree()
+            risk += (<double>self.rfUnscaled(tree.getBipart(), bipart) * \
+              <double>trprob.getNobs()) / <double>nsamples
+
+        return log(risk)
 
     cdef bint weightPropose(self) except *:
         cdef Lik lik1
@@ -413,7 +478,7 @@ cdef class Chain:
         cdef double vA0, vA1, lnMA, mA
         cdef double vX0, vX1, lnMX, mX
         cdef double vY0, vY1, lnMY, mY
-        cdef double u, lnL1, lnPrior, lnProp, p
+        cdef double u, lnL1, lnRisk1, lnPrior, lnProp, p
 
         # eTBR degenerates to a single branch length change for less than 3
         # taxa.
@@ -663,6 +728,11 @@ cdef class Chain:
             elif nS0Uncon:
                 lnProp += log(1.0 / (1.0 - self.master._etbrPExt))
 
+        if self.master._prelim is not None:
+            # Incorporate risk.
+            lnRisk1 = self.computeLnRisk()
+            lnProp += (lnRisk1 - self.lnRisk)
+
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
         # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
@@ -670,6 +740,8 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
+            if self.master._prelim is not None:
+                self.lnRisk = lnRisk1
             # Re-base to make the cache fully usable if the next lnL() call
             # does not specify a rooting.
             self.tree.setBase(nX0)
@@ -1008,7 +1080,7 @@ cdef class Chain:
         cdef Edge edge
         cdef Node n, nodeA, nodeB, base
         cdef Ring r, rnext
-        cdef double lnL1, lnPrior, lnGam, lnJacob, lnProp, u, p
+        cdef double lnL1, lnRisk1, lnPrior, lnGam, lnJacob, lnProp, u, p
 
         # Uniformly choose a random internal edge to remove.
         edges = tree.getEdges()
@@ -1088,6 +1160,11 @@ cdef class Chain:
           - log(pow(2.0, <double>(nodeADeg+nodeBDeg-2)-1.0) - \
           <double>(nodeADeg+nodeBDeg-2) - 1.0) + lnJacob
 
+        if self.master._prelim is not None:
+            # Incorporate risk.
+            lnRisk1 = self.computeLnRisk()
+            lnProp += (lnRisk1 - self.lnRisk)
+
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
         # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
@@ -1095,6 +1172,8 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
+            if self.master._prelim is not None:
+                self.lnRisk = lnRisk1
             self.accepts[PropPolytomyJump] += 1
             # Dissociate edge's cached CL's in order to allow them to be
             # reclaimed by GC sooner.
@@ -1127,7 +1206,7 @@ cdef class Chain:
         cdef Edge e
         cdef unsigned i, deg0, a0, aa0, b0, bb0, degA, degB
         cdef bint inA
-        cdef double lnL1, lnPrior, lnGam, lnJacob, lnProp, u, p
+        cdef double lnL1, lnRisk1, lnPrior, lnGam, lnJacob, lnProp, u, p
 
         # Uniformly choose a random polytomy to split.
         nodes = tree.getNodes()
@@ -1219,6 +1298,11 @@ cdef class Chain:
           + log(pow(2.0, <double>(deg0-1)) - <double>deg0 - 1.0) \
           - log(<double>(nedges-ntaxa+1))
 
+        if self.master._prelim is not None:
+            # Incorporate risk.
+            lnRisk1 = self.computeLnRisk()
+            lnProp += (lnRisk1 - self.lnRisk)
+
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
         # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
@@ -1226,6 +1310,8 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
+            if self.master._prelim is not None:
+                self.lnRisk = lnRisk1
             self.accepts[PropPolytomyJump] += 1
         else:
             # Reject.

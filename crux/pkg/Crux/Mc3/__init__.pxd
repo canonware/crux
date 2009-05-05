@@ -9,6 +9,7 @@ from Crux.Tree cimport Tree
 from Crux.Tree.Lik cimport Lik
 IF @enable_mpi@:
     cimport mpi4py.mpi_c as mpi
+from Crux.Mc3.Post cimport Post
 
 cdef struct Mc3SwapInfo:
     uint64_t step
@@ -23,6 +24,9 @@ cdef struct Mc3RateStats:
 cdef class Mc3:
     cdef readonly Alignment alignment
     cdef public str outPrefix
+
+    # If set, used as the basis for computing topological risk.
+    cdef Post _prelim
 
     # Control parameters for diagnostic output.
     cdef double _graphDelay
@@ -191,6 +195,10 @@ cdef class Mc3:
     cdef void randomDnaQ(self, Lik lik, unsigned model, sfmt_t *prng) except *
     cpdef Lik randomLik(self, Tree tree=*)
     cpdef run(self, bint verbose=*, list liks=*)
+
+    cdef Post getPrelim(self)
+    cdef void setPrelim(self, Post prelim) except *
+    # property prelim
 
     IF @enable_mpi@:
         cdef int getPpn(self)

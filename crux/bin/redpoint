@@ -68,16 +68,27 @@ redpoint usage:
                                    resolution).
 
   Input/output options:
+    -g <stages>,
+       --stages=<stages>         Comma-separated list composed of:
+                                   mc3: Run Mc3 analysis (*enabled).
+                                   mc3post: Compute statistics on 'mc3'
+                                            posterior distribution (*enabled).
+                                   dt: Run Mc3 analysis that incorporates
+                                       decision-theoretic topological risk,
+                                       using 'mc3post' results as the
+                                       preliminary distribution.
+                                   dtpost: Compute statistics on 'dt' posterior
+                                           distribution.
     -i <file>,                   Input DNA alignment, in FASTA format.
        --input-file=<file>
-    -o <prefix>,                 Output path prefix, used as the base name for
-       --output-prefix=<prefix>    output files.
-    -m <mode>, --mode=<mode>     Set mode to one of:
-                                    run: Run Mc3 analysis.
-                                   post: Compute statistics on previously
-                                         generated Mc3 posterior distribution.
-                                    all: Run Mc3 and compute statistics
-                                         (*default).
+    -m <prefix>,
+       --mc3-prefix=<prefix>     Input/output path prefix, used as the base
+                                   name for files assocated with the 'mc3' and
+                                   'mc3post' execution stages.
+    -d <prefix>,
+       --dt-prefix=<prefix>      Output path prefix, used as the base name for
+                                   files associated with the 'dt' and 'dtpost'
+                                   execution stages.
 
   Mc3 options (see Crux.Mc3.Mc3.optName for documentation):
 
@@ -151,9 +162,10 @@ def parse_options():
     parser.add_option("-s", "--seed", dest="seed", type="uint",
       default=int(time.time() * 1000000) & 0xffffffff)
 
+    parser.add_option("-g", "--stages", dest="stages", default="mc3,mc3post")
     parser.add_option("-i", "--input-file", dest="inFilename", default=None)
-    parser.add_option("-o", "--output-prefix", dest="outPrefix", default=None)
-    parser.add_option("-m", "--mode", dest="mode", default="all")
+    parser.add_option("-m", "--mc3-prefix", dest="mc3Prefix", default=None)
+    parser.add_option("-d", "--dt-prefix", dest="dtPrefix", default=None)
 
     parser.add_option("--graphDelay", dest="graphDelay", type="float",
       default=None)
@@ -261,18 +273,37 @@ def parse_options():
         print "redpoint, Crux version @crux_version@"
         sys.exit(0)
 
+    opts.stage_mc3 = False
+    opts.stage_mc3post = False
+    opts.stage_dt = False
+    opts.stage_dtpost = False
+    stages = opts.stages.split(",")
+    for stage in stages:
+        if stage == "mc3":
+            opts.stage_mc3 = True
+        elif stage == "mc3post":
+            opts.stage_mc3post = True
+        elif stage == "dt":
+            opts.stage_dt = True
+        elif stage == "dtpost":
+            opts.stage_dtpost = True
+        else:
+            print >> sys.stderr, "Invalid stage: %s" % stage
+            print >> sys.stderr, helpformatter.format_usage("")
+            sys.exit(1)
+
     if opts.inFilename is None:
         print >> sys.stderr, "Input file must be specified"
         print >> sys.stderr, helpformatter.format_usage("")
         sys.exit(1)
 
-    if opts.outPrefix is None:
-        print >> sys.stderr, "Output prefix must be specified"
+    if opts.mc3Prefix is None:
+        print >> sys.stderr, "Mc3 input/output prefix must be specified"
         print >> sys.stderr, helpformatter.format_usage("")
         sys.exit(1)
 
-    if opts.mode not in ("run", "post", "all"):
-        print >> sys.stderr, "Invalid mode: %s" % opts.mode
+    if (opts.stage_dt or opts.stage_dtpost) and opts.dtPrefix is None:
+        print >> sys.stderr, "DT output prefix must be specified"
         print >> sys.stderr, helpformatter.format_usage("")
         sys.exit(1)
 
@@ -362,145 +393,9 @@ def formatVecStr(s):
 
     return " ".join(strs)
 
-#===============================================================================
-# Beginning of main execution.
-
-# Parse command line options.
-opts = parse_options()
-
-Crux.Config.verbose = opts.verbose
-
-# Set threading mode.
-if opts.threaded:
-    Crux.threaded()
-
-# Seed the PRNG.
-Crux.seed(opts.seed)
-
-cTMatrix = Crux.CTMatrix.CTMatrix(open(opts.inFilename, "r"))
-alignment = Crux.CTMatrix.Alignment(matrix=cTMatrix)
-alignment.compact()
-
-if opts.mode in ("run", "all"):
-    mc3 = Crux.Mc3.Mc3(alignment, opts.outPrefix)
-    if @enable_mpi@:
-        mc3.ppn = opts.ppn
-
-    # Set optional Mc3 configuration parameters.
-    if opts.graphDelay is not None: mc3.graphDelay = opts.graphDelay
-    if opts.cvgSampStride is not None: mc3.cvgSampStride = opts.cvgSampStride
-    if opts.cvgAlpha is not None: mc3.cvgAlpha = opts.cvgAlpha
-    if opts.cvgEpsilon is not None: mc3.cvgEpsilon = opts.cvgEpsilon
-    if opts.minStep is not None: mc3.minStep = opts.minStep
-    if opts.maxStep is not None:
-        # Automatically reduce the default minStep if necessary to avoid a
-        # validation error.
-        if opts.minStep is None and mc3.minStep > opts.maxStep:
-            mc3.minStep = opts.maxStep
-        mc3.maxStep = opts.maxStep
-    if opts.stride is not None: mc3.stride = opts.stride
-    if opts.nruns is not None: mc3.nruns = opts.nruns
-    if opts.ncoupled is not None: mc3.ncoupled = opts.ncoupled
-    if opts.heatDelta is not None: mc3.heatDelta = opts.heatDelta
-    if opts.swapStride is not None: mc3.swapStride = opts.swapStride
-    if opts.fixed_nmodels is not None: mc3.nmodels = opts.fixed_nmodels
-    if opts.ncat is not None: mc3.ncat = opts.ncat
-    if opts.catMedian is not None: mc3.catMedian = opts.catMedian
-    if opts.weightLambda is not None: mc3.weightLambda = opts.weightLambda
-    if opts.freqLambda is not None: mc3.freqLambda = opts.freqLambda
-    if opts.rmultLambda is not None: mc3.rmultLambda = opts.rmultLambda
-    if opts.rateLambda is not None: mc3.rateLambda = opts.rateLambda
-    if opts.rateShapeInvLambda is not None:
-        mc3.rateShapeInvLambda = opts.rateShapeInvLambda
-    if opts.brlenLambda is not None: mc3.brlenLambda = opts.brlenLambda
-    if opts.etbrPExt is not None: mc3.etbrPExt = opts.etbrPExt
-    if opts.etbrLambda is not None: mc3.etbrLambda = opts.etbrLambda
-    if opts.rateShapeInvPrior is not None:
-        mc3.rateShapeInvPrior = opts.rateShapeInvPrior
-    if opts.brlenPrior is not None: mc3.brlenPrior = opts.brlenPrior
-    if opts.rateJumpPrior is not None: mc3.rateJumpPrior = opts.rateJumpPrior
-    if opts.polytomyJumpPrior is not None:
-        mc3.polytomyJumpPrior = opts.polytomyJumpPrior
-    if opts.rateShapeInvJumpPrior is not None:
-        mc3.rateShapeInvJumpPrior = opts.rateShapeInvJumpPrior
-    if opts.freqJumpPrior is not None: mc3.freqJumpPrior = opts.freqJumpPrior
-    if opts.mixtureJumpPrior is not None:
-        mc3.mixtureJumpPrior = opts.mixtureJumpPrior
-    if opts.weightProp is not None: mc3.weightProp = opts.weightProp
-    if opts.freqProp is not None: mc3.freqProp = opts.freqProp
-    if opts.rmultProp is not None: mc3.rmultProp = opts.rmultProp
-    if opts.rateProp is not None: mc3.rateProp = opts.rateProp
-    if opts.rateShapeInvProp is not None:
-        mc3.rateShapeInvProp = opts.rateShapeInvProp
-    if opts.brlenProp is not None: mc3.brlenProp = opts.brlenProp
-    if opts.etbrProp is not None: mc3.etbrProp = opts.etbrProp
-    if opts.rateJumpProp is not None: mc3.rateJumpProp = opts.rateJumpProp
-    if opts.polytomyJumpProp is not None:
-        mc3.polytomyJumpProp = opts.polytomyJumpProp
-    if opts.rateShapeInvJumpProp is not None:
-        mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
-    if opts.freqJumpProp is not None: mc3.freqJumpProp = opts.freqJumpProp
-    if opts.mixtureJumpProp is not None:
-        mc3.mixtureJumpProp = opts.mixtureJumpProp
-
-    if opts.fixed:
-        # --fixed-freqs has to be handled here since the number of character
-        # states wasn't yet known in parse_options().
-        if opts.fixed_freqs is not None:
-            try:
-                opts.fixed_freqs = [float(s) for s in \
-                  opts.fixed_freqs.split(",")]
-            except:
-                print >> sys.stderr, "Malformed argument: --fixed-freqs=%s" % \
-                  opts.fixed_freqs
-                helpformatter = RedpointHelpFormatter()
-                print >> sys.stderr, helpformatter.format_usage("")
-                sys.exit(1)
-            char_ = alignment.charType.get()
-            states = char_.pcodes()
-            if len(opts.fixed_freqs) != len(states):
-                print >> sys.stderr, \
-                  "Incorrect number of fixed rates for rclass (%d vs. %d)" % \
-                  (len(opts.fixed_freqs), len(states))
-                helpformatter = RedpointHelpFormatter()
-                print >> sys.stderr, helpformatter.format_usage("")
-                sys.exit(1)
-
-        liks = []
-        for i in xrange(mc3.nruns * mc3.ncoupled):
-            lik = mc3.randomLik(opts.tree)
-            for m in xrange(mc3.nmodels):
-                if opts.fixed_rates is not None:
-                    lik.setRclass(m, opts.fixed_rclass, opts.fixed_rates)
-                elif opts.fixed_rclass is not None:
-                    lik.setRclass(m, opts.fixed_rclass)
-                if opts.fixed_shape is not None:
-                    lik.setAlpha(m, opts.fixed_shape)
-                if opts.fixed_freqs is not None:
-                    for f in xrange(len(opts.fixed_freqs)):
-                        lik.setFreq(m, f, opts.fixed_freqs[f])
-            liks.append(lik)
-    else:
-        liks = None
-    mc3.run(verbose=opts.verbose, liks=liks)
-
-if @enable_mpi@:
-    from mpi4py import MPI
-    rank = MPI.COMM_WORLD.Get_rank()
-    if rank != 0:
-        # Only one node needs to do post-processing.
-        sys.exit(0)
-
-if opts.mode in ("post", "all"):
-    post = Crux.Mc3.Post.Post(alignment, opts.outPrefix, opts.burnin, \
-      opts.verbose)
-    post.parseS()
-    if post.nsamples == 0:
-        print >> sys.stderr, "No samples"
-        sys.exit(1)
-
+def writePostStats(post, prefix, opts):
     if opts.sum:
-        fSum = open("%s.sum" % opts.outPrefix, "w")
+        fSum = open("%s.sum" % prefix, "w")
         files = [fSum]
         if opts.verbose:
             files.append(sys.stdout)
@@ -600,7 +495,7 @@ if opts.mode in ("post", "all"):
     if opts.trprobs:
         trprobs = post.sumt.trprobs
         if len(trprobs) > 0:
-            f = open("%s.trprobs" % opts.outPrefix, "w")
+            f = open("%s.trprobs" % prefix, "w")
             f.write("[[#obs p P MSE #runs] tree]\n")
 
             P = 0.0
@@ -617,7 +512,7 @@ if opts.mode in ("post", "all"):
     if opts.parts:
         parts = post.sumt.parts
         if len(parts) > 0:
-            f = open("%s.parts" % opts.outPrefix, "w")
+            f = open("%s.parts" % prefix, "w")
             part = parts[0]
             plen = max(len(formatVecStr("%r" % part.vec)), len("Partition"))
             olen = max(len("%d" % (post.mc3.nruns * post.nsamples)), \
@@ -653,7 +548,7 @@ if opts.mode in ("post", "all"):
 
     if opts.con:
         conTree = post.sumt.getConTree()
-        f = open("%s.con" % opts.outPrefix, "w")
+        f = open("%s.con" % prefix, "w")
         # Render with mean branch lengths.
         conTree.render(lengths=True, lengthFormat="%.12e", outFile=f)
 
@@ -662,3 +557,163 @@ if opts.mode in ("post", "all"):
             edge.length = edge.aux
         conTree.render(lengths=True, lengthFormat="%.6f", outFile=f)
         f.close()
+
+def run(alignment, prefix, prelim, opts):
+    mc3 = Crux.Mc3.Mc3(alignment, prefix)
+
+    if prelim is not None:
+        mc3.prelim = prelim
+
+    if @enable_mpi@:
+        mc3.ppn = opts.ppn
+
+    # Set optional Mc3 configuration parameters.
+    if opts.graphDelay is not None: mc3.graphDelay = opts.graphDelay
+    if opts.cvgSampStride is not None: mc3.cvgSampStride = opts.cvgSampStride
+    if opts.cvgAlpha is not None: mc3.cvgAlpha = opts.cvgAlpha
+    if opts.cvgEpsilon is not None: mc3.cvgEpsilon = opts.cvgEpsilon
+    if opts.minStep is not None: mc3.minStep = opts.minStep
+    if opts.maxStep is not None:
+        # Automatically reduce the default minStep if necessary to avoid a
+        # validation error.
+        if opts.minStep is None and mc3.minStep > opts.maxStep:
+            mc3.minStep = opts.maxStep
+        mc3.maxStep = opts.maxStep
+    if opts.stride is not None: mc3.stride = opts.stride
+    if opts.nruns is not None: mc3.nruns = opts.nruns
+    if opts.ncoupled is not None: mc3.ncoupled = opts.ncoupled
+    if opts.heatDelta is not None: mc3.heatDelta = opts.heatDelta
+    if opts.swapStride is not None: mc3.swapStride = opts.swapStride
+    if opts.fixed_nmodels is not None: mc3.nmodels = opts.fixed_nmodels
+    if opts.ncat is not None: mc3.ncat = opts.ncat
+    if opts.catMedian is not None: mc3.catMedian = opts.catMedian
+    if opts.weightLambda is not None: mc3.weightLambda = opts.weightLambda
+    if opts.freqLambda is not None: mc3.freqLambda = opts.freqLambda
+    if opts.rmultLambda is not None: mc3.rmultLambda = opts.rmultLambda
+    if opts.rateLambda is not None: mc3.rateLambda = opts.rateLambda
+    if opts.rateShapeInvLambda is not None:
+        mc3.rateShapeInvLambda = opts.rateShapeInvLambda
+    if opts.brlenLambda is not None: mc3.brlenLambda = opts.brlenLambda
+    if opts.etbrPExt is not None: mc3.etbrPExt = opts.etbrPExt
+    if opts.etbrLambda is not None: mc3.etbrLambda = opts.etbrLambda
+    if opts.rateShapeInvPrior is not None:
+        mc3.rateShapeInvPrior = opts.rateShapeInvPrior
+    if opts.brlenPrior is not None: mc3.brlenPrior = opts.brlenPrior
+    if opts.rateJumpPrior is not None: mc3.rateJumpPrior = opts.rateJumpPrior
+    if opts.polytomyJumpPrior is not None:
+        mc3.polytomyJumpPrior = opts.polytomyJumpPrior
+    if opts.rateShapeInvJumpPrior is not None:
+        mc3.rateShapeInvJumpPrior = opts.rateShapeInvJumpPrior
+    if opts.freqJumpPrior is not None: mc3.freqJumpPrior = opts.freqJumpPrior
+    if opts.mixtureJumpPrior is not None:
+        mc3.mixtureJumpPrior = opts.mixtureJumpPrior
+    if opts.weightProp is not None: mc3.weightProp = opts.weightProp
+    if opts.freqProp is not None: mc3.freqProp = opts.freqProp
+    if opts.rmultProp is not None: mc3.rmultProp = opts.rmultProp
+    if opts.rateProp is not None: mc3.rateProp = opts.rateProp
+    if opts.rateShapeInvProp is not None:
+        mc3.rateShapeInvProp = opts.rateShapeInvProp
+    if opts.brlenProp is not None: mc3.brlenProp = opts.brlenProp
+    if opts.etbrProp is not None: mc3.etbrProp = opts.etbrProp
+    if opts.rateJumpProp is not None: mc3.rateJumpProp = opts.rateJumpProp
+    if opts.polytomyJumpProp is not None:
+        mc3.polytomyJumpProp = opts.polytomyJumpProp
+    if opts.rateShapeInvJumpProp is not None:
+        mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
+    if opts.freqJumpProp is not None: mc3.freqJumpProp = opts.freqJumpProp
+    if opts.mixtureJumpProp is not None:
+        mc3.mixtureJumpProp = opts.mixtureJumpProp
+
+    if opts.fixed:
+        # --fixed-freqs has to be handled here since the number of character
+        # states wasn't yet known in parse_options().
+        if opts.fixed_freqs is not None:
+            try:
+                opts.fixed_freqs = [float(s) for s in \
+                  opts.fixed_freqs.split(",")]
+            except:
+                print >> sys.stderr, "Malformed argument: --fixed-freqs=%s" % \
+                  opts.fixed_freqs
+                helpformatter = RedpointHelpFormatter()
+                print >> sys.stderr, helpformatter.format_usage("")
+                sys.exit(1)
+            char_ = alignment.charType.get()
+            states = char_.pcodes()
+            if len(opts.fixed_freqs) != len(states):
+                print >> sys.stderr, \
+                  "Incorrect number of fixed rates for rclass (%d vs. %d)" % \
+                  (len(opts.fixed_freqs), len(states))
+                helpformatter = RedpointHelpFormatter()
+                print >> sys.stderr, helpformatter.format_usage("")
+                sys.exit(1)
+
+        liks = []
+        for i in xrange(mc3.nruns * mc3.ncoupled):
+            lik = mc3.randomLik(opts.tree)
+            for m in xrange(mc3.nmodels):
+                if opts.fixed_rates is not None:
+                    lik.setRclass(m, opts.fixed_rclass, opts.fixed_rates)
+                elif opts.fixed_rclass is not None:
+                    lik.setRclass(m, opts.fixed_rclass)
+                if opts.fixed_shape is not None:
+                    lik.setAlpha(m, opts.fixed_shape)
+                if opts.fixed_freqs is not None:
+                    for f in xrange(len(opts.fixed_freqs)):
+                        lik.setFreq(m, f, opts.fixed_freqs[f])
+            liks.append(lik)
+    else:
+        liks = None
+
+    mc3.run(verbose=opts.verbose, liks=liks)
+
+#===============================================================================
+# Beginning of main execution.
+
+# Parse command line options.
+opts = parse_options()
+
+Crux.Config.verbose = opts.verbose
+
+# Set threading mode.
+if opts.threaded:
+    Crux.threaded()
+
+# Seed the PRNG.
+Crux.seed(opts.seed)
+
+cTMatrix = Crux.CTMatrix.CTMatrix(open(opts.inFilename, "r"))
+alignment = Crux.CTMatrix.Alignment(matrix=cTMatrix)
+alignment.compact()
+
+if opts.stage_mc3:
+    run(alignment, opts.mc3Prefix, None, opts)
+
+if @enable_mpi@:
+    # Only one node needs to do post-processing.
+    from mpi4py import MPI
+    rank = MPI.COMM_WORLD.Get_rank()
+else:
+    rank = 0
+
+if (opts.stage_mc3post and rank == 0) or opts.stage_dt:
+    mc3post = Crux.Mc3.Post.Post(alignment, opts.mc3Prefix, opts.burnin, \
+      opts.verbose)
+    mc3post.parseS()
+    if mc3post.nsamples == 0:
+        print >> sys.stderr, "No samples"
+        sys.exit(1)
+
+if opts.stage_mc3post and rank == 0:
+    writePostStats(mc3post, opts.mc3Prefix, opts)
+
+if opts.stage_dt:
+    run(alignment, opts.dtPrefix, mc3post, opts)
+
+if opts.stage_dtpost and rank == 0:
+    dtpost = Crux.Mc3.Post.Post(alignment, opts.dtPrefix, opts.burnin, \
+      opts.verbose)
+    dtpost.parseS()
+    if dtpost.nsamples == 0:
+        print >> sys.stderr, "No samples"
+        sys.exit(1)
+    writePostStats(dtpost, opts.dtPrefix, opts)
