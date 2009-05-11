@@ -93,6 +93,7 @@ cdef class Mc3:
         cdef int mpiSize
         cdef int mpiRank
         cdef bint mpiActive
+        cdef bint mpiActiveCommAlloced
         cdef mpi.MPI_Comm mpiActiveComm
 
     # Matrix of heat swapInfo structures, two for each pair of

@@ -195,7 +195,7 @@ cdef class Mc3:
         self.cachedLnLs = NULL
         self.lnLs = NULL
         IF @enable_mpi@:
-            self.mpiActive = False
+            self.mpiActiveCommAlloced = False
 
     def __dealloc__(self):
         cdef unsigned i
@@ -221,9 +221,9 @@ cdef class Mc3:
             free(self.lnLs)
             self.lnLs = NULL
         IF @enable_mpi@:
-            if self.mpiActive:
+            if self.mpiActiveCommAlloced:
                 mpi.MPI_Comm_free(&self.mpiActiveComm)
-                self.mpiActive = False
+                self.mpiActiveCommAlloced = False
 
     def __init__(self, Alignment alignment, str outPrefix):
         self.alignment = alignment
@@ -651,31 +651,29 @@ cdef class Mc3:
                         if owner == mpiRankWorld:
                             # Mark this node as active, since it owns a chain.
                             active = True
-
             if active:
-                # Create a communicator for active nodes.
-                activeArray = <int *>malloc(len(activeList) * sizeof(int))
-                if activeArray == NULL:
-                    raise MemoryError("Error allocating activeArray")
-                for 0 <= i < len(activeList):
-                    activeArray[i] = <int>activeList[i]
+                self.mpiActive = True
 
-                try:
-                    mpi.MPI_Comm_group(mpi.MPI_COMM_WORLD, &worldGroup)
-                    mpi.MPI_Group_incl(worldGroup, len(activeList), \
-                      activeArray, &activeGroup)
-                    mpi.MPI_Comm_create(mpi.MPI_COMM_WORLD, activeGroup, \
-                      &self.mpiActiveComm)
-                    # Don't set mpiActive until mpiActiveComm has been
-                    # initialized, since __dealloc__() uses mpiActive to decide
-                    # whether to call MPI_Comm_free().
-                    self.mpiActive = True
-                    mpi.MPI_Group_free(&activeGroup)
-                finally:
-                    free(activeArray)
+            # Create a communicator for active nodes.
+            activeArray = <int *>malloc(len(activeList) * sizeof(int))
+            if activeArray == NULL:
+                raise MemoryError("Error allocating activeArray")
+            for 0 <= i < len(activeList):
+                activeArray[i] = <int>activeList[i]
 
-                mpi.MPI_Comm_size(self.mpiActiveComm, &self.mpiSize)
-                mpi.MPI_Comm_rank(self.mpiActiveComm, &self.mpiRank)
+            try:
+                mpi.MPI_Comm_group(mpi.MPI_COMM_WORLD, &worldGroup)
+                mpi.MPI_Group_incl(worldGroup, len(activeList), \
+                  activeArray, &activeGroup)
+                mpi.MPI_Comm_create(mpi.MPI_COMM_WORLD, activeGroup, \
+                  &self.mpiActiveComm)
+                self.mpiActiveCommAlloced = True
+                mpi.MPI_Group_free(&activeGroup)
+            finally:
+                free(activeArray)
+
+            mpi.MPI_Comm_size(self.mpiActiveComm, &self.mpiSize)
+            mpi.MPI_Comm_rank(self.mpiActiveComm, &self.mpiRank)
 
             return active
 
