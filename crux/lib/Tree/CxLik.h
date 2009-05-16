@@ -29,10 +29,10 @@ struct CxsLikCL {
     //
     //     A C G T
     //   -----------
-    //   | x x x x |
-    //   | x x x x |
-    //   | ....... |
-    //   | x x x x |
+    //   | x x x x | 0
+    //   | x x x x | 1
+    //   | ....... | ...
+    //   | x x x x | n-1
     //   -----------
     double *cLMat;
 

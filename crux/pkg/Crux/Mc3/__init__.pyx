@@ -615,9 +615,9 @@ cdef class Mc3:
             # in which nodes are utilized.
             r2i = []
             nphys = nnodes / self.mpiPpn
-            for 0 <= j < nphys:
-                for 0 <= k < self.mpiPpn:
-                    r2i.append(j + k*nphys)
+            for 0 <= j < self.mpiPpn:
+                for 0 <= k < nphys:
+                    r2i.append(k*self.mpiPpn)
             return r2i
 
         cdef bint initActive(self) except *:

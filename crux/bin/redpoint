@@ -123,11 +123,18 @@ redpoint usage:
     --fixed-tree=<file>          Use the Newick tree in <file> to fix the tree
                                    topology and branch lengths.
     --fixed-nmodels=<uint>       Fix the number of models in the mixture.
-    --fixed-rclass=<rclass>      Fix the comma-separated rclass.
+    --fixed-rclass=<rclass>      Fix the comma-separated rclass.  Semantics are
+                                   strange unless --fixed-nmodels is also
+                                   specified.
     --fixed-rates=<rates>        Fix the comma-separated rates associated with
-                                   the fixed rclass.
-    --fixed-shape=<alpha>        Fix the +G shape parameter.
+                                   the fixed rclass.  Semantics are strange
+                                   unless --fixed-nmodels is also specified.
+    --fixed-shape=<alpha>        Fix the +G shape parameter.  Semantics are
+                                   strange unless --fixed-nmodels is also
+                                   specified.
     --fixed-freqs=<freqs>        Fix the comma-separated state frequencies.
+                                   Semantics are strange unless --fixed-nmodels
+                                   is also specified.
 
   Posterior distribution statistics options (*all enabled by default):
     --burnin=<burnin>  Set number of burn-in samples.  Specify --burnin=half for
