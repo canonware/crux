@@ -281,7 +281,7 @@ cdef class Lik:
         self.lik.npad = self.alignment.npad
         self.lik.charFreqs = self.alignment.freqs
 
-        stepsMax = ((2 * self.alignment.ntaxa) - 2) * self.lik.modelsMax
+        stepsMax = (2 * self.alignment.ntaxa) - 2
         self.lik.steps = <CxtLikStep *>malloc(stepsMax * sizeof(CxtLikStep))
         if self.lik.steps == NULL:
             raise MemoryError("Error allocating steps")
@@ -385,6 +385,7 @@ cdef class Lik:
             if comps == NULL:
                 raise MemoryError("Error reallocating comps")
             self.lik.comps = comps
+            self.lik.compsMax = (self.lik.compsLen + ncat)
         modelP.comp0 = self.lik.compsLen
         self.lik.compsLen += ncat
         modelP.clen = ncat
@@ -419,7 +420,7 @@ cdef class Lik:
         for 1 <= i < modelP.clen:
             self.lik.comps[modelP.comp0+i].model = modelP
             self.lik.comps[modelP.comp0+i].cweight = 0.0
-            self.lik.comps[modelP.comp0].cmult = 1.0
+            self.lik.comps[modelP.comp0+i].cmult = 1.0
 
     cdef void _decompModel(self, CxtLikModel *modelP) except *:
         # Normalize Pi as needed, and decompose Q.
@@ -472,7 +473,7 @@ cdef class Lik:
         ret = cPickle.loads(pickle)
 
         # Fill in missing details.
-        ret._init2(self.alignment, self.alignment.charType.get())
+        ret._init2(self.alignment, self.char_)
 
         return ret
 
@@ -517,7 +518,7 @@ cdef class Lik:
         tree = self.tree.dup()
         ret._init0(tree)
         ret._init1(tree, self.lik.nchars, self.lik.dim, 0)
-        ret._init2(self.alignment, self.alignment.charType.get())
+        ret._init2(self.alignment, self.char_)
         self._dup(ret)
 
         return ret
@@ -541,30 +542,34 @@ cdef class Lik:
         cdef Lik ret
         cdef int i
         cdef CxtLikModel *modelP
+        cdef bint resize
 
         if self.mate is not None:
             ret = self.mate
 
             ret.lik.invalidate = True
-            # Discard all internal-node cLMat's if compsLen differs between
-            # mates.
-            if ret.lik.compsLen != self.lik.compsLen:
-                ret.lik.resize = True
-            ret.lik.reweight = self.lik.reweight
+            # There's no need to discard internal-node cLMat's unless compsLen
+            # differs between mates.
+            resize = (ret.lik.compsLen != self.lik.compsLen)
 
             # Clear ret's models/comps vectors.  Iterate downward to avoid
             # gratuitous memory moves.
             for ret.lik.modelsLen > i >= 0:
                 ret.delModel(i)
+            assert ret.lik.modelsLen == 0
+            assert ret.lik.compsLen == 0
         else:
             assert self.lik.polarity == 0
+            resize = False
             ret = Lik()
             ret._init1(self.tree, self.lik.nchars, self.lik.dim, 1)
-            ret._init2(self.alignment, self.alignment.charType.get())
+            ret._init2(self.alignment, self.char_)
             ret.mate = self
             self.mate = ret
 
         self._dup(ret)
+        ret.lik.resize = resize
+        ret.lik.reweight = True
 
         return ret
 
@@ -991,6 +996,9 @@ cdef class Lik:
         step.variant = variant
         step.ntrail = ntrail
         step.parentCL = &parentCL.cLs[self.lik.polarity]
+        assert step.parentCL != NULL
+        assert step.parentCL.cLMat != NULL
+        assert step.parentCL.lnScale != NULL
         if childCL.cLs[1].cLMat == NULL:
             # Be careful with leaf nodes to always use the first (and only)
             # cLs element.
@@ -999,6 +1007,9 @@ cdef class Lik:
         else:
             assert childCL.cLs[self.lik.polarity].cLMat != NULL
             step.childCL = &childCL.cLs[self.lik.polarity]
+        assert step.childCL != NULL
+        assert step.childCL.cLMat != NULL
+        assert step.childCL.lnScale != NULL
         if edgeLen < 0.0:
             raise ValueError("Negative branch length")
         step.edgeLen = edgeLen
@@ -1119,6 +1130,9 @@ cdef class Lik:
         if self.lik.resize:
             self.rootCL.resize(self.lik.polarity, self.lik.nchars, \
               self.lik.dim, self.lik.compsLen)
+        else:
+            self.rootCL.prepare(self.lik.polarity, self.lik.nchars, \
+              self.lik.dim, self.lik.compsLen)
 
         if root is None:
             root = self.tree.base
@@ -1238,7 +1252,7 @@ cdef class Lik:
         self.prep()
 
         # Expand steps, if necessary.
-        stepsMax = ((2 * self.alignment.ntaxa) - 2) * self.lik.modelsMax
+        stepsMax = (2 * self.alignment.ntaxa) - 2
         if self.lik.stepsMax < stepsMax:
             steps = <CxtLikStep *>realloc(self.lik.steps, stepsMax * \
               sizeof(CxtLikStep))
@@ -1306,3 +1320,27 @@ cdef class Lik:
           for i in xrange(self.lik.nchars-self.lik.npad)]
 
         return ret
+
+    cpdef flush(self):
+        """
+            Flush all cached conditional likelihood data.
+        """
+        cdef list edges
+        cdef unsigned i
+        cdef Edge edge
+        cdef Ring ring
+        cdef CL cL
+
+        edges = self.tree.getEdges()
+        for 0 <= i < len(edges):
+            edge = <Edge>edges[i]
+            ring = edge.ring
+            if ring.node.getDegree() > 1:
+                cL = <CL>ring.aux
+                if cL is not None:
+                    cL.flush(self.lik.polarity)
+            ring = ring.other
+            if ring.node.getDegree() > 1:
+                cL = <CL>ring.aux
+                if cL is not None:
+                    cL.flush(self.lik.polarity)

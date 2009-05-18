@@ -27,4 +27,6 @@
 #undef CxmOsDarwin
 #undef CxmOsSolaris
 
+#undef CxmHaveMallopt
+
 #undef HAVE_STDBOOL_H

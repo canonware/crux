@@ -164,8 +164,7 @@ cdef class Bipart:
           else len(self.edgeVecs))
         hash = 0
         for 0 <= i < lim:
-            hash += (<Vec>self.edgeVecs[i]).__hash__()
-            hash &= 0x7fffffff
+            hash = (hash + (<Vec>self.edgeVecs[i]).__hash__()) & 0x7fffffff
         return <int>hash
 
     def __richcmp__(Bipart self, Bipart other, int op):

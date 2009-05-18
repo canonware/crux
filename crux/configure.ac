@@ -608,6 +608,19 @@ AC_HEADER_STDBOOL
 
 AC_CHECK_LIB([m], [log], [], [AC_MSG_ERROR([Cannot build without libm])])
 
+AC_MSG_CHECKING([for mallopt])
+AC_RUN_IFELSE([AC_LANG_PROGRAM(
+[[#include <malloc.h>
+]], [[
+    mallopt(M_MMAP_THRESHOLD, 128*1024);
+
+    return 0;
+]])],
+              AC_MSG_RESULT([yes])
+              AC_DEFINE([CxmHaveMallopt]),
+              AC_MSG_RESULT([no]))
+
+
 dnl ============================================================================
 dnl Use system ATLAS/LAPACK by default.
 AC_ARG_ENABLE([sys_linalg],

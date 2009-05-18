@@ -61,6 +61,7 @@
 """
 
 import cPickle
+import gc
 import os
 import random
 import sys
@@ -817,7 +818,7 @@ cdef class Mc3:
     cdef void resetLiks(self) except *:
         cdef unsigned i
 
-        for 0 <= i <  self._nruns:
+        for 0 <= i < self._nruns:
             self.liks[i] = None
 
     cdef void initLnLs(self) except *:
@@ -1335,6 +1336,7 @@ cdef class Mc3:
         self.sWrite(step, rcov)
 
         self.resetLiks()
+        gc.collect()
 
         return converged
 

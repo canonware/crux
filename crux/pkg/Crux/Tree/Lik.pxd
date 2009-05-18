@@ -82,3 +82,4 @@ cdef class Lik:
     cdef void _prep(self, Node root) except *
     cpdef double lnL(self, Node root=*) except 1.0
     cpdef list siteLnLs(self, Node root=*)
+    cpdef flush(self)

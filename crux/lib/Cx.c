@@ -1,5 +1,8 @@
 #define Cx_c
 #include "Cx.h"
+#ifdef CxmHaveMallopt
+#include <malloc.h>
+#endif
 
 unsigned CxNcpus = 1;
 
@@ -8,6 +11,11 @@ static pthread_once_t CxpThreadedOnce = PTHREAD_ONCE_INIT;
 void
 CxInit(void) {
     CxmCpuInit();
+#ifdef CxmHaveMallopt
+    // Disable ptmalloc's sliding mmap() threshold, which can cause unbounded
+    // fragmentation.
+    mallopt(M_MMAP_THRESHOLD, 128*1024);
+#endif
 }
 
 #if (defined(CxmOsBSD) || defined(CxmOsLinux) || defined(CxmOsSolaris))

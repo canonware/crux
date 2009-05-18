@@ -41,6 +41,7 @@ cdef class Tree:
         self.sn = 0
         self._cacheSn = -1
         self.rooted = rooted
+        self.aux = None
         if type(with_) == int:
             self._randomNew(with_, taxaMap)
         elif type(with_) == str:
@@ -657,6 +658,7 @@ cdef class Node:
         self.tree = tree
         self.ring = None
         self._taxon = None
+        self.aux = None
 
     def __reduce__(self):
         return (type(self), (), self.__getstate__())
@@ -827,6 +829,7 @@ cdef class Edge:
         other = Ring(self, self.ring)
         self.ring.other = other
         self.length = 0.0
+        self.aux = None
 
     def __reduce__(self):
         return (type(self), (), self.__getstate__())
@@ -932,6 +935,7 @@ cdef class Ring:
         self.other = other
         self.next = self
         self.prev = self
+        self.aux = None
 
     def __reduce__(self):
         return (type(self), (), self.__getstate__())
