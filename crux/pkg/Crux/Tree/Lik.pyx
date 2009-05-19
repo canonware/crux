@@ -964,11 +964,16 @@ cdef class Lik:
                         self.lik.comps[modelP.comp0+i].cmult *= \
                           <double>ncat / sum
 
-                cweight = self.lik.comps[modelP.comp0].cweight / <double>ncat
+                # Evenly weight the +G components.
+                cweight = 0.0
+                for 0 <= i < ncat:
+                    cweight += self.lik.comps[modelP.comp0+i].cweight
+                cweight /= <double>ncat
                 for 0 <= i < ncat:
                     self.lik.comps[modelP.comp0+i].cweight = cweight
             else:
                 # No Gamma-distributed rates.
+                # Use only the first +G component.
                 cweight = 0.0
                 for 0 <= i < ncat:
                     cweight += self.lik.comps[modelP.comp0+i].cweight
