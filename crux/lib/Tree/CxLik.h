@@ -72,9 +72,11 @@ typedef struct {
     // with the same model.
     double cweight;
 
-    // Component rate multiplier.  This is 1 unless used for a +G rate
-    // category, in which case the mean cmult across the model's components is
-    // 1.
+    // Component rate multiplier.  This is 1 unless:
+    //
+    // * used for a +G rate category, in which case the mean cmult across the
+    //   model's +G rate category components is 1, or
+    // * used for a +I component, in which case it is 0.
     double cmult;
 } CxtLikComp;
 
@@ -121,6 +123,12 @@ struct CxsLikModel {
     double alpha;
     // Use category means if catMedian is false, category medians if true.
     bool catMedian;
+
+    // If true, the model incorporates invariable sites via an extra model
+    // component that is at index comp0+clen-1.  The proportion of invariable
+    // sites is implicit in the cweight ratio between the invar component and
+    // all the other components for this model.
+    bool invar;
 
     // comp0 is the index of the first component within CxtLik's comps vector
     // that corresponds to this model; components for each model are contiguous

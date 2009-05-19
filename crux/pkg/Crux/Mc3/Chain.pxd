@@ -7,14 +7,16 @@ cdef enum:
     PropRmult            =  2
     PropRate             =  3
     PropRateShapeInv     =  4
-    PropBrlen            =  5
-    PropEtbr             =  6
-    PropRateJump         =  7
-    PropPolytomyJump     =  8
-    PropRateShapeInvJump =  9
-    PropFreqJump         = 10
-    PropMixtureJump      = 11
-    PropCnt              = 12 # Number of proposals.
+    PropInvar            =  5
+    PropBrlen            =  6
+    PropEtbr             =  7
+    PropRateJump         =  8
+    PropPolytomyJump     =  9
+    PropRateShapeInvJump = 10
+    PropInvarJump        = 11
+    PropFreqJump         = 12
+    PropMixtureJump      = 13
+    PropCnt              = 14 # Number of proposals.
 
 from libc cimport uint64_t
 from SFMT cimport sfmt_t
@@ -52,6 +54,8 @@ cdef class Chain:
     cdef bint ratePropose(self) except *
     cdef unsigned nModelsRatesGamma(self, Lik lik)
     cdef bint rateShapeInvPropose(self) except *
+    cdef unsigned nModelsInvar(self, Lik lik)
+    cdef bint invarPropose(self) except *
     cdef bint brlenPropose(self) except *
     cdef bint etbrPropose(self) except *
     cdef void rateMergePropose(self, unsigned mInd, list rclass, \
@@ -68,6 +72,10 @@ cdef class Chain:
       except *
     cdef void rateShapeInvAddPropose(self, unsigned mInd) except *
     cdef bint rateShapeInvJumpPropose(self) except *
+    cdef void invarRemovePropose(self, unsigned mInd, double wVar, \
+      double wInvar) except *
+    cdef void invarAddPropose(self, unsigned mInd) except *
+    cdef bint invarJumpPropose(self) except *
     cdef void freqEqualPropose(self, unsigned mInd) except *
     cdef void freqEstimPropose(self, unsigned mInd) except *
     cdef bint freqJumpPropose(self) except *

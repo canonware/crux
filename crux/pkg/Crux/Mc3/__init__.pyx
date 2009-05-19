@@ -246,19 +246,23 @@ cdef class Mc3:
         self._nmodels = 1
         self._ncat = 1
         self._catMedian = False
+        self._invar = False
         self._weightLambda = 2.0 * log(1.6)
         self._freqLambda = 2.0 * log(1.6)
         self._rmultLambda = 2.0 * log(1.6)
         self._rateLambda = 2.0 * log(1.6)
         self._rateShapeInvLambda = 2.0 * log(1.6)
+        self._invarLambda = 2.0 * log(1.6)
         self._brlenLambda = 2.0 * log(1.6)
         self._etbrPExt = 0.8
         self._etbrLambda = 2.0 * log(1.6)
         self._rateShapeInvPrior = 1.0
+        self._invarPrior = 0.5
         self._brlenPrior = 10.0
         self._rateJumpPrior = 1.0
         self._polytomyJumpPrior = 1.0
         self._rateShapeInvJumpPrior = 1.0
+        self._invarJumpPrior = 1.0
         self._freqJumpPrior = 1.0
         self._mixtureJumpPrior = 1.0 / 3.0
         self.props[PropWeight] = 30.0
@@ -266,11 +270,13 @@ cdef class Mc3:
         self.props[PropRmult] = 10.0
         self.props[PropRate] = 30.0
         self.props[PropRateShapeInv] = 10.0
+        self.props[PropInvar] = 5.0
         self.props[PropBrlen] = 20.0
         self.props[PropEtbr] = 80.0
         self.props[PropRateJump] = 10.0
         self.props[PropPolytomyJump] = 40.0
         self.props[PropRateShapeInvJump] = 10.0
+        self.props[PropInvarJump] = 5.0
         self.props[PropFreqJump] = 10.0
         self.props[PropMixtureJump] = 5.0
 
@@ -297,19 +303,23 @@ cdef class Mc3:
         ret._nmodels = self._nmodels
         ret._ncat = self._ncat
         ret._catMedian = self._catMedian
+        ret._invar = self._invar
         ret._weightLambda = self._weightLambda
         ret._freqLambda = self._freqLambda
         ret._rmultLambda = self._rmultLambda
         ret._rateLambda = self._rateLambda
         ret._rateShapeInvLambda = self._rateShapeInvLambda
+        ret._invarLambda = self._invarLambda
         ret._brlenLambda = self._brlenLambda
         ret._etbrPExt = self._etbrPExt
         ret._etbrLambda = self._etbrLambda
         ret._rateShapeInvPrior = self._rateShapeInvPrior
+        ret._invarPrior = self._invarPrior
         ret._brlenPrior = self._brlenPrior
         ret._rateJumpPrior = self._rateJumpPrior
         ret._polytomyJumpPrior = self._polytomyJumpPrior
         ret._rateShapeInvJumpPrior = self._rateShapeInvJumpPrior
+        ret._invarJumpPrior = self._invarJumpPrior
         ret._freqJumpPrior = self._freqJumpPrior
         ret._mixtureJumpPrior = self._mixtureJumpPrior
 
@@ -724,20 +734,24 @@ cdef class Mc3:
             f.write("  nmodels: %r\n" % self._nmodels)
             f.write("  ncat: %r\n" % self._ncat)
             f.write("  catMedian: %r\n" % self._catMedian)
+            f.write("  invar: %r\n" % self._invar)
             f.write("  weightLambda: %r\n" % self._weightLambda)
             f.write("  freqLambda: %r\n" % self._freqLambda)
             f.write("  rmultLambda: %r\n" % self._rmultLambda)
             f.write("  rateLambda: %r\n" % self._rateLambda)
             f.write("  rateShapeInvLambda: %r\n" % self._rateShapeInvLambda)
+            f.write("  invarLambda: %r\n" % self._invarLambda)
             f.write("  brlenLambda: %r\n" % self._brlenLambda)
             f.write("  etbrPExt: %r\n" % self._etbrPExt)
             f.write("  etbrLambda: %r\n" % self._etbrLambda)
             f.write("  rateShapeInvPrior: %r\n" % self._rateShapeInvPrior)
+            f.write("  invarPrior: %r\n" % self._invarPrior)
             f.write("  brlenPrior: %r\n" % self._brlenPrior)
             f.write("  rateJumpPrior: %r\n" % self._rateJumpPrior)
             f.write("  polytomyJumpPrior: %r\n" % self._polytomyJumpPrior)
             f.write("  rateShapeInvJumpPrior: %r\n" % \
               self._rateShapeInvJumpPrior)
+            f.write("  invarJumpPrior: %r\n" % self._invarJumpPrior)
             f.write("  freqJumpPrior: %r\n" % self._freqJumpPrior)
             f.write("  mixtureJumpPrior: %r\n" % self._mixtureJumpPrior)
             f.write("  weightProp: %r\n" % self.props[PropWeight])
@@ -746,12 +760,14 @@ cdef class Mc3:
             f.write("  rateProp: %r\n" % self.props[PropRate])
             f.write("  rateShapeInvProp: %r\n" % \
               self.props[PropRateShapeInv])
+            f.write("  invarProp: %r\n" % self.props[PropInvar])
             f.write("  brlenProp: %r\n" % self.props[PropBrlen])
             f.write("  etbrProp: %r\n" % self.props[PropEtbr])
             f.write("  rateJumpProp: %r\n" % self.props[PropRateJump])
             f.write("  polytomyJumpProp: %r\n" % self.props[PropPolytomyJump])
             f.write("  rateShapeInvJumpProp: %r\n" % \
               self.props[PropRateShapeInvJump])
+            f.write("  invarJumpProp: %r\n" % self.props[PropInvarJump])
             f.write("  freqJumpProp: %r\n" % self.props[PropFreqJump])
             f.write("  mixtureJumpProp: %r\n" % self.props[PropMixtureJump])
         self.lFile.flush()
@@ -768,14 +784,15 @@ cdef class Mc3:
         if self.verbose:
             sys.stdout.write( \
               "p\trun\tstep\tmodel\tweight\trmult\t( rclass )[ R ] wNorm" \
-              " alpha [ Pi ]\n")
+              " alpha pinvar [ Pi ]\n")
 
         self.sFile = open("%s.s" % self.outPrefix, "w")
         self.sFile.write("step\t[ lnLs ] Rcov [ swapRates ] {" \
           " [ weightPropRates ] [ freqPropRates ] [ rmultPropRates ]" \
-          " [ ratePropRates ] [ rateShapeInvPropRates ] [ brlenPropRates ]" \
-          " [ etbrPropRates ] [ rateJumpPropRates ] [ polytomyJumpPropRates ]" \
-          " [ rateShapeInvJumpPropRates ] [ freqJumpPropRates ]" \
+          " [ ratePropRates ] [ rateShapeInvPropRates ] [ invarPropRates ]" \
+          " [ brlenPropRates ] [ etbrPropRates ] [ rateJumpPropRates ]" \
+          " [ polytomyJumpPropRates ] [ rateShapeInvJumpPropRates ]" \
+          " [ invarJumpPropRates ] [ freqJumpPropRates ]" \
           " [ mixtureJumpPropRates ] }\n")
         self.sFile.flush()
         if self.verbose:
@@ -870,6 +887,10 @@ cdef class Mc3:
             # are irrelevant.
             self.props[PropRateShapeInv] = 0.0
             self.props[PropRateShapeInvJump] = 0.0
+        if not self._invar:
+            # Invariable sites are not supported.
+            self.props[PropInvar] = 0.0
+            self.props[PropInvarJump] = 0.0
         propsSum = 0.0
         for 0 <= i < PropCnt:
             propsSum += self.props[i]
@@ -1262,7 +1283,7 @@ cdef class Mc3:
     # Write to .p log file.
     cdef void pWrite(self, uint64_t step) except *:
         cdef unsigned i, m
-        cdef double wsum, w
+        cdef double wsum, w, wVar, wInvar, pinvar
         cdef Lik lik
 
         IF @enable_mpi@:
@@ -1278,18 +1299,23 @@ cdef class Mc3:
             assert wsum > 0.0
             for 0 <= m < nmodels:
                 w = lik.getWeight(m)/wsum
-                self.pFile.write("%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5e %.5e %s\n" \
+                wVar = lik.getWVar(m)
+                wInvar = lik.getWInvar(m)
+                pinvar = wInvar / (wVar+wInvar)
+                self.pFile.write( \
+                  "%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5e %.5e %.5f %s\n" \
                   % (i, step, m, w, lik.getRmult(m), \
                   self.formatRclass(lik, m), self.formatRates(lik, m, "%.5e"), \
-                  lik.getWNorm(), lik.getAlpha(m), \
+                  lik.getWNorm(), lik.getAlpha(m), pinvar, \
                   self.formatFreqs(lik, m, "%.5e")))
                 if self.verbose:
                     sys.stdout.write( \
-                      "p\t%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5f %.5e %s\n" % \
+                      "p\t%d\t%d\t%d\t%.5f\t%.5f\t%s%s %.5f %.5e %.5f %s\n" % \
                       (i, step, m, w, lik.getRmult(m), \
                       self.formatRclass(lik, m), \
                       self.formatRates(lik, m, "%.4e"), lik.getWNorm(), \
-                      lik.getAlpha(m), self.formatFreqs(lik, m, "%.5f")))
+                      lik.getAlpha(m), pinvar, \
+                      self.formatFreqs(lik, m, "%.5f")))
         self.pFile.flush()
 
     # Write to .s log file.
@@ -1446,6 +1472,37 @@ cdef class Mc3:
                     lik.setAlpha(model, -log(1.0 - genrand_res53(prng)) \
                       * self._rateShapeInvPrior)
 
+        if self.props[PropInvar] > 0.0:
+            # +I variable/invariable relative weight parameters.
+            if self._invar:
+                if self.props[PropInvarJump] > 0.0:
+                    u = genrand_res53(prng)
+                    # [not +I]/+I, chosen according to the +I resolution prior
+                    # (invarJumpPrior).
+                    norm = 0.0
+                    factor = 1.0
+                    for 0 <= i < 2:
+                        norm += 1.0 / factor
+                        factor *= self._invarJumpPrior
+                    cum = 0.0
+                    factor = 1.0
+                    for 1 <= i < 2:
+                        cum += (1.0 / factor) / norm
+                        if cum >= u:
+                            break
+                        factor *= self._invarJumpPrior
+                    if i == 2:
+                        # +I.
+                        lik.setWVar(model, -log(1.0 - genrand_res53(prng)) \
+                          * (1.0 - self._invarPrior))
+                        lik.setWInvar(model, -log(1.0 - genrand_res53(prng)) \
+                          * self._invarPrior)
+                else:
+                    lik.setWVar(model, -log(1.0 - genrand_res53(prng)) \
+                      * (1.0 - self._invarPrior))
+                    lik.setWInvar(model, -log(1.0 - genrand_res53(prng)) \
+                      * self._invarPrior)
+
     cpdef Lik randomLik(self, Tree tree=None):
         """
             Generate a Lik instance with all parameters drawn from their
@@ -1492,7 +1549,7 @@ cdef class Mc3:
                     self._nmodels += 1
 
             lik = Lik(tree, self.alignment, self._nmodels, self._ncat, \
-              self._catMedian)
+              self._catMedian, self._invar)
 
             # Randomly draw model parameters from their prior distributions.
             for 0 <= m < self._nmodels:
@@ -1879,6 +1936,19 @@ cdef class Mc3:
         def __set__(self, bint catMedian):
             self.setCatMedian(catMedian)
 
+    cdef bint getInvar(self):
+        return self._invar
+    cdef void setInvar(self, bint invar):
+        self._invar = invar
+    property invar:
+        """
+            Support a proportion of invariable sites if true.
+        """
+        def __get__(self):
+            return self.getInvar()
+        def __set__(self, bint invar):
+            self.setInvar(invar)
+
     cdef double getWeightLambda(self):
         return self._weightLambda
     cdef void setWeightLambda(self, double weightLambda) except *:
@@ -2035,6 +2105,40 @@ cdef class Mc3:
         def __set__(self, double rateShapeInvLambda):
             self.setRateShapeInvLambda(rateShapeInvLambda)
 
+    cdef double getInvarLambda(self):
+        return self._invarLambda
+    cdef void setInvarLambda(self, double invarLambda) except *:
+        if not invarLambda >= 0.0:
+            raise ValueError("Validation failure: invarLambda >= 0.0")
+        self._invarLambda = invarLambda
+    property invarLambda:
+        """
+            Variable/invariable site relative weight multiplier.  This controls
+            the range of weight change for variable/invariable weight change
+            proposals.  Variable and invariable site weights are exponentially
+            distributed, which is equivalent in effect to using a flat
+            Dirichlet prior for the proportion of invariant sites.
+
+            Proposed weights are drawn from a log-transformed sliding
+            window.  A multiplier, m, is drawn from
+
+                         1
+            g(m) = ---------------
+                   invarLambda * m
+
+                            /        1             invarLambda/2 \ 
+            in the interval | ----------------- , e              | .
+                            |   invarLambda/2                    |
+                            \  e                                 /
+
+            Where invarLambda = 2 * log(a), proposed weights w* are in the
+            interval (w/a, aw).
+        """
+        def __get__(self):
+            return self.getInvarLambda()
+        def __set__(self, double invarLambda):
+            self.setInvarLambda(invarLambda)
+
     cdef double getBrlenLambda(self):
         return self._brlenLambda
     cdef void setBrlenLambda(self, double brlenLambda) except *:
@@ -2114,6 +2218,21 @@ cdef class Mc3:
         def __set__(self, double rateShapeInvPrior):
             self.setRateShapeInvPrior(rateShapeInvPrior)
 
+    cdef double getInvarPrior(self):
+        return self._invarPrior
+    cdef void setInvarPrior(self, double invarPrior) except *:
+        if not invarPrior > 0.0:
+            raise ValueError("Validation failure: invarPrior > 0.0")
+        self._invarPrior = invarPrior
+    property invarPrior:
+        """
+            Prior mean for proportion of invariable sites.
+        """
+        def __get__(self):
+            return self.getInvarPrior()
+        def __set__(self, double invarPrior):
+            self.setInvarPrior(invarPrior)
+
     cdef double getBrlenPrior(self):
         return self._brlenPrior
     cdef void setBrlenPrior(self, double brlenPrior) except *:
@@ -2189,6 +2308,31 @@ cdef class Mc3:
             return self.getRateShapeInvJumpPrior()
         def __set__(self, double rateShapeInvJumpPrior):
             self.setRateShapeInvJumpPrior(rateShapeInvJumpPrior)
+
+    cdef double getInvarJumpPrior(self):
+        return self._invarJumpPrior
+    cdef void setInvarJumpPrior(self, double invarJumpPrior) \
+      except *:
+        if not invarJumpPrior > 0.0:
+            raise ValueError("Validation failure: invarJumpPrior > 0.0")
+        self._invarJumpPrior = invarJumpPrior
+    property invarJumpPrior:
+        """
+            Prior for presence/absence of the proportion of invariable sites
+            parameter.  Such models are commonly referred to as +I models (e.g.
+            GTR+I).  1.0 indicates a flat prior (no preference for/against +I
+            models), <1.0 favors +I models, and >1.0 favors +I-less models.
+
+            The invarJumpPrior parameterization is chosen to be consistent with
+            priors such as rateJumpPrior and polytomyJumpPrior.  Conceptually,
+            all three are structured the same way, but invarJumpPrior only
+            applies to two levels of nested models, whereas the other priors
+            may apply to many levels.
+        """
+        def __get__(self):
+            return self.getInvarJumpPrior()
+        def __set__(self, double invarJumpPrior):
+            self.setInvarJumpPrior(invarJumpPrior)
 
     cdef double getFreqJumpPrior(self):
         return self._freqJumpPrior
@@ -2310,6 +2454,22 @@ cdef class Mc3:
         def __set__(self, double rateShapeInvProp):
             self.setRateShapeInvProp(rateShapeInvProp)
 
+    cdef double getInvarProp(self):
+        return self.props[PropInvar]
+    cdef void setInvarProp(self, double invarProp) except *:
+        if not invarProp >= 0.0:
+            raise ValueError("Validation failure: invarProp >= 0.0")
+        self.props[PropInvar] = invarProp
+    property invarProp:
+        """
+            Relative proportion of proposals that modify the proportion of
+            invariable sites.
+        """
+        def __get__(self):
+            return self.getInvarProp()
+        def __set__(self, double invarProp):
+            self.setInvarProp(invarProp)
+
     cdef double getBrlenProp(self):
         return self.props[PropBrlen]
     cdef void setBrlenProp(self, double brlenProp) except *:
@@ -2388,6 +2548,23 @@ cdef class Mc3:
             return self.getRateShapeInvJumpProp()
         def __set__(self, double rateShapeInvJumpProp):
             self.setRateShapeInvJumpProp(rateShapeInvJumpProp)
+
+    cdef double getInvarJumpProp(self):
+        return self.props[PropInvarJump]
+    cdef void setInvarJumpProp(self, double invarJumpProp) \
+      except *:
+        if not invarJumpProp >= 0.0:
+            raise ValueError("Validation failure: invarJumpProp >= 0.0")
+        self.props[PropInvarJump] = invarJumpProp
+    property invarJumpProp:
+        """
+            Relative proportion of proposals that add/remove invariable site
+            proportion parameters (+I models).
+        """
+        def __get__(self):
+            return self.getInvarJumpProp()
+        def __set__(self, double invarJumpProp):
+            self.setInvarJumpProp(invarJumpProp)
 
     cdef double getFreqJumpProp(self):
         return self.props[PropFreqJump]

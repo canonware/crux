@@ -428,6 +428,75 @@ cdef class Chain:
 
         return False
 
+    cdef unsigned nModelsInvar(self, Lik lik):
+        cdef unsigned ret, i
+
+        # Count how many models contain +I pinvar.
+        ret = 0
+        for 0 <= i < lik.nmodels():
+            if lik.getWInvar(i) != 0:
+                ret += 1
+        return ret
+
+    cdef bint invarPropose(self) except *:
+        cdef Lik lik1
+        cdef unsigned nMInvar, mChoice, mInd, which
+        cdef double wInvar, u, lnM, m, w0, w1, lnL1, lnPrior, p
+
+        # Uniformly choose a random model within the mixture.
+        nMInvar = self.nModelsInvar(self.lik)
+        if nMInvar == 0:
+            return True
+        mChoice = gen_rand64_range(self.prng, nMInvar)
+        # Map mChoice onto the set of models with +I pinvar.
+        for 0 <= mInd < self.lik.nmodels():
+            wInvar = self.lik.getWInvar(mInd)
+            if wInvar != INFINITY:
+                if mChoice == 0:
+                    break
+                mChoice -= 1
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
+        # Randomly choose which weight to modify.
+        which = gen_rand64_range(self.prng, 2)
+
+        # Generate weight multiplier.
+        u = genrand_res53(self.prng)
+        lnM = self.master._invarLambda * (u - 0.5)
+        m = exp(lnM)
+
+        # Compute lnL with modified weight.
+        if which == 0:
+            w0 = lik1.getWVar(mInd)
+            w1 = w0 * m
+            lik1.setWVar(mInd, w1)
+        else:
+            w0 = lik1.getWInvar(mInd)
+            w1 = w0 * m
+            lik1.setWInvar(mInd, w1)
+        lnL1 = lik1.lnL()
+
+        if which == 0:
+            lnPrior = -(1.0-self.master._invarPrior) * (w1-w0)
+        else:
+            lnPrior = -self.master._invarPrior * (w1-w0)
+
+        # Determine whether to accept proposal.
+        u = genrand_res53(self.prng)
+        # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
+        p = exp(((lnL1 - self.lnL) + lnPrior) * self.heat + lnM)
+        if p >= u:
+            # Accept.
+            self.lnL = lnL1
+            self.lik = lik1
+            self.accepts[PropInvar] += 1
+        else:
+            self.rejects[PropInvar] += 1
+
+        return False
+
     cdef bint brlenPropose(self) except *:
         cdef Edge edge
         cdef double v0, v1, u, lnM, m, lnL1, lnPrior, lnProp, p
@@ -1460,6 +1529,104 @@ cdef class Chain:
 
         return False
 
+    cdef void invarRemovePropose(self, unsigned mInd, double wVar, \
+      double wInvar) except *:
+        cdef Lik lik1
+        cdef double lnPrior, lnHast, lnL1, u, p
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
+        lnPrior = log(self.master._invarJumpPrior)
+        lnHast = 0.0
+
+        lnPrior += -log(1.0 - self.master._invarPrior) + \
+          (1.0-self.master._invarPrior)*wVar
+        lnHast += log(1.0 - self.master._invarPrior) - \
+          self.master._invarPrior*wVar
+        lik1.setWVar(mInd, 1.0)
+
+        lnPrior += log(self.master._invarPrior) + wInvar
+        lnHast += -log(self.master._invarPrior) - wInvar
+        lik1.setWInvar(mInd, 0.0)
+
+        if self.nModelsInvar(lik1) == 0:
+            # This proposal implicitly disables the PropInvar proposal.
+            lnHast += -log(1.0 - self.master.propsPdf[PropInvar])
+
+        # Compute lnL with no invariable sites.
+        lnL1 = lik1.lnL()
+
+        # Determine whether to accept proposal.
+        u = genrand_res53(self.prng)
+        # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
+        p = exp(((lnL1 - self.lnL) + lnPrior) * self.heat + lnHast)
+        if p >= u:
+            # Accept.
+            self.lnL = lnL1
+            self.lik = lik1
+            self.accepts[PropInvarJump] += 1
+        else:
+            self.rejects[PropInvarJump] += 1
+
+    cdef void invarAddPropose(self, unsigned mInd) except *:
+        cdef Lik lik1
+        cdef double lnPrior, lnHast, wVar, wInvar, lnL1, u, p
+
+        # Create a cloned scratch Lik.
+        lik1 = self.lik.clone()
+
+        # Draw weights from the prior and compute proposal ratio factors.
+        lnPrior = -log(self.master._invarJumpPrior)
+        lnHast = 0.0
+
+        wVar = -log(1.0 - genrand_res53(self.prng)) * \
+          (1.0 - self.master._invarPrior)
+        lnPrior += -log(1.0-self.master._invarPrior) - wVar
+        lnHast += log(1.0-self.master._invarPrior) + wVar
+        lik1.setWVar(mInd, wVar)
+
+        wInvar = -log(1.0 - genrand_res53(self.prng)) * self.master._invarPrior
+        lnPrior += log(self.master._invarPrior) - wInvar
+        lnHast += -log(self.master._invarPrior) + wInvar
+        lik1.setWInvar(mInd, wInvar)
+
+        if self.nModelsInvar(lik1) == 1:
+            # This proposal implicitly enables the PropInvar proposal.
+            lnHast += log(1.0 - self.master.propsPdf[PropInvar])
+
+        # Compute lnL with invariable sites.
+        lnL1 = lik1.lnL()
+
+        # Determine whether to accept proposal.
+        u = genrand_res53(self.prng)
+        # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
+        p = exp(((lnL1 - self.lnL) + lnPrior) * self.heat + lnHast)
+        if p >= u:
+            # Accept.
+            self.lnL = lnL1
+            self.lik = lik1
+            self.accepts[PropInvarJump] += 1
+        else:
+            self.rejects[PropInvarJump] += 1
+
+    cdef bint invarJumpPropose(self) except *:
+        cdef unsigned mInd
+        cdef double wInvar
+
+        # Uniformly choose a random model within the mixture.
+        mInd = gen_rand64_range(self.prng, self.lik.nmodels())
+
+        # Determine whether the model is currently +I.
+        wInvar = self.lik.getWInvar(mInd)
+
+        if wInvar != 0.0:
+            self.invarRemovePropose(mInd, self.lik.getWVar(mInd), wInvar)
+        else:
+            self.invarAddPropose(mInd)
+
+        return False
+
     cdef void freqEqualPropose(self, unsigned mInd) except *:
         cdef Lik lik1
         cdef unsigned i, nstates
@@ -1640,7 +1807,8 @@ cdef class Chain:
         lik1 = self.lik.clone()
 
         # Draw a new Q from the prior.
-        mInd = lik1.addModel(1.0, self.master._ncat, self.master._catMedian)
+        mInd = lik1.addModel(1.0, self.master._ncat, self.master._catMedian, \
+          self.master._invar)
         self.master.randomDnaQ(lik1, mInd, self.prng)
         w = lik1.getWeight(mInd)
         rmult = lik1.getRmult(mInd)
@@ -1755,6 +1923,8 @@ cdef class Chain:
                 again = self.ratePropose()
             elif propInd == PropRateShapeInv:
                 again = self.rateShapeInvPropose()
+            elif propInd == PropInvar:
+                again = self.invarPropose()
             elif propInd == PropBrlen:
                 again = self.brlenPropose()
             elif propInd == PropEtbr:
@@ -1765,6 +1935,8 @@ cdef class Chain:
                 again = self.polytomyJumpPropose()
             elif propInd == PropRateShapeInvJump:
                 again = self.rateShapeInvJumpPropose()
+            elif propInd == PropInvarJump:
+                again = self.invarJumpPropose()
             elif propInd == PropFreqJump:
                 again = self.freqJumpPropose()
             elif propInd == PropMixtureJump:

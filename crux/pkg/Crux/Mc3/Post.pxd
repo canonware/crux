@@ -14,6 +14,7 @@ cdef class Msamp:
     cdef readonly str rclass
     cdef readonly list rates
     cdef readonly double alpha
+    cdef readonly double pinvar
     cdef readonly list freqs
 
 cdef class Samp:
@@ -42,6 +43,8 @@ cdef class Post:
     cdef list _ratesMinCred, _ratesMaxCred, _ratesMean, _ratesVar, _ratesMed
     cdef list _freqsMinCred, _freqsMaxCred, _freqsMean, _freqsVar, _freqsMed
     cdef double _alphaMinCred, _alphaMaxCred, _alphaMean, _alphaVar, _alphaMed
+    cdef double _pinvarMinCred, _pinvarMaxCred, _pinvarMean, _pinvarVar, \
+      _pinvarMed
     cdef Sumt _sumt
 
     cdef readonly list runs
@@ -117,6 +120,18 @@ cdef class Post:
     # property alphaVar
     cdef double getAlphaMed(self) except -1.0
     # property alphaMed
+
+    cdef void _summarizePinvar(self) except *
+    cdef double getPinvarMinCred(self) except -1.0
+    # property pinvarMinCred
+    cdef double getPinvarMaxCred(self) except -1.0
+    # property pinvarMaxCred
+    cdef double getPinvarMean(self) except -1.0
+    # property pinvarMean
+    cdef double getPinvarVar(self) except -1.0
+    # property pinvarVar
+    cdef double getPinvarMed(self) except -1.0
+    # property pinvarMed
 
     cdef void _summarizeTrees(self) except *
     cdef Sumt getSumt(self)

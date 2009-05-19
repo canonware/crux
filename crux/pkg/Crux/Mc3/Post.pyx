@@ -16,12 +16,13 @@ from Crux.Tree cimport Tree
 
 cdef class Msamp:
     def __init__(self, double weight, double rmult, str rclass, list rates, \
-      double alpha, list freqs):
+      double alpha, double pinvar, list freqs):
         self.weight = weight
         self.rmult = rmult
         self.rclass = rclass
         self.rates = rates
         self.alpha = alpha
+        self.pinvar = pinvar
         self.freqs = freqs
 
 cdef class Samp:
@@ -93,6 +94,12 @@ cdef class Post:
         self._alphaVar = -1.0
         self._alphaMed = -1.0
 
+        self._pinvarMinCred = -1.0
+        self._pinvarMaxCred = -1.0
+        self._pinvarMean = -1.0
+        self._pinvarVar = -1.0
+        self._pinvarMed = -1.0
+
         self._sumt = None
 
         self.runs = None
@@ -158,6 +165,8 @@ cdef class Post:
                     self.mc3.setNcat(long(v))
                 elif k == 'catMedian':
                     self.mc3.setCatMedian(v == 'True')
+                elif k == 'invar':
+                    self.mc3.setInvar(v == 'True')
                 elif k == 'weightLambda':
                     self.mc3.setWeightLambda(float(v))
                 elif k == 'freqLambda':
@@ -168,6 +177,8 @@ cdef class Post:
                     self.mc3.setRateLambda(float(v))
                 elif k == 'rateShapeInvLambda':
                     self.mc3.setRateShapeInvLambda(float(v))
+                elif k == 'invarLambda':
+                    self.mc3.setInvarLambda(float(v))
                 elif k == 'brlenLambda':
                     self.mc3.setBrlenLambda(float(v))
                 elif k == 'etbrPExt':
@@ -176,6 +187,8 @@ cdef class Post:
                     self.mc3.setEtbrLambda(float(v))
                 elif k == 'rateShapeInvPrior':
                     self.mc3.setRateShapeInvPrior(float(v))
+                elif k == 'invarPrior':
+                    self.mc3.setInvarPrior(float(v))
                 elif k == 'brlenPrior':
                     self.mc3.setBrlenPrior(float(v))
                 elif k == 'rateJumpPrior':
@@ -184,6 +197,8 @@ cdef class Post:
                     self.mc3.setPolytomyJumpPrior(float(v))
                 elif k == 'rateShapeInvJumpPrior':
                     self.mc3.setRateShapeInvJumpPrior(float(v))
+                elif k == 'invarJumpPrior':
+                    self.mc3.setInvarJumpPrior(float(v))
                 elif k == 'freqJumpPrior':
                     self.mc3.setFreqJumpPrior(float(v))
                 elif k == 'mixtureJumpPrior':
@@ -198,6 +213,8 @@ cdef class Post:
                     self.mc3.setRateProp(float(v))
                 elif k == 'rateShapeInvProp':
                     self.mc3.setRateShapeInvProp(float(v))
+                elif k == 'invarProp':
+                    self.mc3.setInvarProp(float(v))
                 elif k == 'brlenProp':
                     self.mc3.setBrlenProp(float(v))
                 elif k == 'etbrProp':
@@ -208,6 +225,8 @@ cdef class Post:
                     self.mc3.setPolytomyJumpProp(float(v))
                 elif k == 'rateShapeInvJumpProp':
                     self.mc3.setRateShapeInvJumpProp(float(v))
+                elif k == 'invarJumpProp':
+                    self.mc3.setInvarJumpProp(float(v))
                 elif k == 'freqJumpProp':
                     self.mc3.setFreqJumpProp(float(v))
                 elif k == 'mixtureJumpProp':
@@ -321,10 +340,12 @@ cdef class Post:
                     rates.append(float(toks[i+8]))
                 wNorm = float(toks[nrates+9])
                 alpha = float(toks[nrates+10])
+                pinvar = float(toks[nrates+11])
                 freqs = []
                 for 0 <= i < nfreqs:
-                    freqs.append(float(toks[i+nrates+12]))
-                msamp = Msamp(weight, rmult, rclass, rates, alpha, freqs)
+                    freqs.append(float(toks[i+nrates+13]))
+                msamp = Msamp(weight, rmult, rclass, rates, alpha, pinvar, \
+                  freqs)
                 samp = \
                   <Samp>(<list>self.runs[run])[(step-self.stepFirst)/stride]
                 samp.msamps.append(msamp)
@@ -1110,6 +1131,117 @@ cdef class Post:
         """
         def __get__(self):
             return self.getAlphaMed()
+
+    cdef void _summarizePinvar(self) except *:
+        cdef list pinvars
+        cdef unsigned nruns
+        cdef uint64_t i, j, N, lower, upper
+        cdef Samp samp
+        cdef Msamp msamp
+        cdef double cvgAlpha, pinvar, diff, pinvarMean, pinvarVar
+
+        self.parseP()
+
+        if self.maxModels != 1 or (not self.mc3.invar):
+            raise ValueError( \
+              "+I pinvar cannot be summarized for chosen model parameters")
+
+        if self.nsamples == 0:
+            raise ValueError("No samples")
+
+        pinvars = []
+        nruns = self.mc3.getNruns()
+        for 0 <= i < nruns:
+            for 0 <= j < self.nsamples:
+                samp = <Samp>(<list>self.runs[i])[j]
+                msamp = <Msamp>samp.msamps[0]
+                pinvars.append(msamp.pinvar)
+        pinvars.sort()
+        N = len(pinvars)
+        # Compute the lower and upper bounds for the credibility interval.
+        cvgAlpha = self.mc3.getCvgAlpha()
+        lower = <uint64_t>floor(cvgAlpha/2.0 * N)
+        upper = N - 1 - lower
+
+        self._pinvarMinCred = <double>pinvars[lower]
+        self._pinvarMaxCred = <double>pinvars[upper]
+
+        pinvarMean = 0.0
+        for 0 <= i < N:
+            pinvar = <double>pinvars[i]
+            pinvarMean += pinvar / <double>N
+        self._pinvarMean = pinvarMean
+
+        pinvarVar = 0.0
+        for 0 <= i < N:
+            pinvar = <double>pinvars[i]
+            diff = pinvar - pinvarMean
+            pinvarVar += (diff * diff) / <double>N
+        self._pinvarVar = pinvarVar
+
+        if N % 2 == 1:
+            self._pinvarMed = <double>pinvars[N/2]
+        else:
+            # Average the middle two samples.
+            self._pinvarMed = (<double>pinvars[N/2 - 1] + \
+              <double>pinvars[N/2]) / 2.0
+
+    cdef double getPinvarMinCred(self) except -1.0:
+        if self._pinvarMinCred == -1.0:
+            self._summarizePinvar()
+        return self._pinvarMinCred
+    property pinvarMinCred:
+        """
+            Minimum pinvar within the credibility interval, as defined by the
+            cvgAlpha parameter used during sampling.
+        """
+        def __get__(self):
+            return self.getPinvarMinCred()
+
+    cdef double getPinvarMaxCred(self) except -1.0:
+        if self._pinvarMaxCred == -1.0:
+            self._summarizePinvar()
+        return self._pinvarMaxCred
+    property pinvarMaxCred:
+        """
+            Maximum pinvar within the credibility interval, as defined by the
+            cvgAlpha parameter used during sampling.
+        """
+        def __get__(self):
+            return self.getPinvarMaxCred()
+
+    cdef double getPinvarMean(self) except -1.0:
+        if self._pinvarMean == -1.0:
+            self._summarizePinvar()
+        return self._pinvarMean
+    property pinvarMean:
+        """
+            pinvar sample mean.
+        """
+        def __get__(self):
+            return self.getPinvarMean()
+
+    cdef double getPinvarVar(self) except -1.0:
+        if self._pinvarVar == -1.0:
+            self._summarizePinvar()
+        return self._pinvarVar
+    property pinvarVar:
+        """
+            pinvar sample variance.
+        """
+        def __get__(self):
+            return self.getPinvarVar()
+
+    cdef double getPinvarMed(self) except -1.0:
+        if self._pinvarMed == -1.0:
+            self._summarizePinvar()
+        return self._pinvarMed
+    property pinvarMed:
+        """
+            pinvar sample median.
+        """
+        def __get__(self):
+            return self.getPinvarMed()
 
     cdef void _summarizeTrees(self) except *:
         cdef list treeLists, trees

@@ -1,0 +1,56 @@
+import sys
+
+print "Test begin"
+
+fastaStr = """\
+>one
+ACGT
+>two
+ACGT
+>three
+AAAA
+"""
+
+trees = [
+    "(one:0.0,two:0.0,three:1.25);"
+]
+
+alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(fastaStr))
+print alignment.render()
+distMatrix = alignment.jukesDists(scoreGaps=True)
+for newickStr in trees:
+    t = Crux.Tree.Tree(newickStr)
+    t.deroot()
+    t.canonize(distMatrix.taxaMap)
+    t.render(lengths=True, outFile=sys.stdout)
+    lik = Crux.Tree.Lik.Lik(t, alignment, invar=True)
+
+    print "=== Direct +I ==="
+    for pinvar in (0.0, 0.25, 0.5, 0.75):
+        print "  pinvar: %.2f" % pinvar
+        lik.setWVar(0, 1.0-pinvar)
+        lik.setWInvar(0, pinvar)
+        print "    lnL: %.5f" % lik.lnL()
+        print "    Site lnL's:",
+        lnLs = lik.siteLnLs()
+        for i in xrange(len(lnLs)):
+            print "%.6f" % lnLs[i],
+        print
+
+    print "=== Emulated +I ==="
+    lik.setWInvar(0, 0.0)
+    lik.addModel(1.0)
+    lik.setRate(1, 0, 0.0)
+    for pinvar in (0.0, 0.25, 0.5, 0.75):
+        print "  pinvar: %.2f" % pinvar
+        lik.setWeight(0, 1.0-pinvar)
+        lik.setWeight(1, pinvar)
+        print "    lnL: %.5f" % lik.lnL()
+        print "    Site lnL's:",
+        lnLs = lik.siteLnLs()
+        for i in xrange(len(lnLs)):
+            print "%.6f" % lnLs[i],
+        print
+
+print "Test end"
+

@@ -177,7 +177,8 @@ cdef class Lik:
             self.lik = NULL
 
     def __init__(self, Tree tree=None, Alignment alignment=None, \
-      unsigned nmodels=1, unsigned ncat=1, bint catMedian=False):
+      unsigned nmodels=1, unsigned ncat=1, bint catMedian=False, \
+      bint invar=False):
         cdef unsigned i, nchars, npad
         cdef Character char_
 
@@ -194,7 +195,7 @@ cdef class Lik:
             self._init1(tree, nchars, char_.nstates, 0)
             self._init2(alignment, char_)
             for 0 <= i < nmodels:
-                self.addModel(1.0, ncat, catMedian)
+                self.addModel(1.0, ncat, catMedian, invar)
 
     cdef unsigned _computeStripeWidth(self, unsigned nchars):
         cdef unsigned stripeQuantum, stripeWidth, nstripes
@@ -298,8 +299,8 @@ cdef class Lik:
         cdef initArgs, mTuple
         cdef unsigned i, j, ncat
         cdef list models, rclass, rates, freqs
-        cdef double weight, rmult, alpha
-        cdef bint catMedian
+        cdef double weight, rmult, alpha, wVar, wInvar
+        cdef bint catMedian, invar
 
         initArgs = (self.tree, self.lik.nchars, self.lik.dim)
         models = []
@@ -312,9 +313,12 @@ cdef class Lik:
             alpha = self.getAlpha(i)
             ncat = self.getNcat(i)
             catMedian = self.getCatMedian(i)
+            invar = self.getInvar(i)
+            wVar = self.getWVar(i)
+            wInvar = self.getWInvar(i)
 
             mTuple = (weight, rmult, rclass, rates, freqs, alpha, ncat, \
-              catMedian)
+              catMedian, invar, wVar, wInvar)
             models.append(mTuple)
 
         return (initArgs, models)
@@ -323,8 +327,8 @@ cdef class Lik:
         cdef initArgs, mTuple
         cdef unsigned i, j, m, ncat
         cdef list models, rclass, rates, freqs
-        cdef double weight, rmult, alpha
-        cdef bint catMedian
+        cdef double weight, rmult, alpha, wVar, wInvar
+        cdef bint catMedian, invar
 
         (initArgs, models) = data
         self._init0(initArgs[0])
@@ -332,10 +336,10 @@ cdef class Lik:
 
         for 0 <= i < len(models):
             mTuple = models[i]
-            (weight, rmult, rclass, rates, freqs, alpha, ncat, catMedian) = \
-              mTuple
+            (weight, rmult, rclass, rates, freqs, alpha, ncat, catMedian, \
+              invar, wVar, wInvar) = mTuple
 
-            m = self.addModel(weight, ncat, catMedian)
+            m = self.addModel(weight, ncat, catMedian, invar)
             self.setRmult(i, rmult)
             self.setRclass(i, rclass, rates)
 
@@ -346,9 +350,14 @@ cdef class Lik:
             if alpha != INFINITY:
                 self.setAlpha(i, alpha)
 
-    cdef CxtLikModel *_allocModel(self, unsigned ncat) except *:
+            if invar:
+                self.setWVar(i, wVar)
+                self.setWInvar(i, wInvar)
+
+    cdef CxtLikModel *_allocModel(self, unsigned ncat, bint invar) except *:
         cdef CxtLikModel *modelP
         cdef CxtLikComp *comps
+        cdef unsigned ncomp
 
         modelP = <CxtLikModel *>malloc(sizeof(CxtLikModel))
         if modelP == NULL:
@@ -379,21 +388,24 @@ cdef class Lik:
         if modelP.qEigVals == NULL:
             raise MemoryError("Error allocating qEigVals")
 
-        if self.lik.compsLen + ncat > self.lik.compsMax:
+        ncomp = ncat
+        if invar:
+            ncomp += 1
+        if self.lik.compsLen + ncomp > self.lik.compsMax:
             comps = <CxtLikComp *>realloc(self.lik.comps, \
-              (self.lik.compsLen + ncat) * sizeof(CxtLikComp))
+              (self.lik.compsLen + ncomp) * sizeof(CxtLikComp))
             if comps == NULL:
                 raise MemoryError("Error reallocating comps")
             self.lik.comps = comps
-            self.lik.compsMax = (self.lik.compsLen + ncat)
+            self.lik.compsMax = (self.lik.compsLen + ncomp)
         modelP.comp0 = self.lik.compsLen
-        self.lik.compsLen += ncat
-        modelP.clen = ncat
+        self.lik.compsLen += ncomp
+        modelP.clen = ncomp
 
         return modelP
 
     cdef void _initModel(self, CxtLikModel *modelP, double weight, \
-      bint catMedian):
+      bint catMedian, bint invar):
         cdef unsigned i
 
         modelP.decomp = True
@@ -411,16 +423,18 @@ cdef class Lik:
 
         modelP.alpha = INFINITY
         modelP.catMedian = catMedian
+        modelP.invar = invar
 
         # Initialize comps.  Only the first one is used, unless alpha is
-        # changed to something other than INFINITY.
+        # changed to something other than INFINITY, or the relative weight for
+        # invariable sites is set to something other than 0.0.
         self.lik.comps[modelP.comp0].model = modelP
         self.lik.comps[modelP.comp0].cweight = 1.0
         self.lik.comps[modelP.comp0].cmult = 1.0
         for 1 <= i < modelP.clen:
             self.lik.comps[modelP.comp0+i].model = modelP
             self.lik.comps[modelP.comp0+i].cweight = 0.0
-            self.lik.comps[modelP.comp0+i].cmult = 1.0
+            self.lik.comps[modelP.comp0+i].cmult = 0.0
 
     cdef void _decompModel(self, CxtLikModel *modelP) except *:
         # Normalize Pi as needed, and decompose Q.
@@ -478,14 +492,17 @@ cdef class Lik:
         return ret
 
     cdef void _dup(self, Lik lik) except *:
-        cdef unsigned i, m
+        cdef unsigned i, m, ncat
         cdef CxtLikModel *toP, *frP
 
         assert lik.lik.modelsLen == 0
 
         for 0 <= i < self.lik.modelsLen:
             frP = self.lik.models[i]
-            m = lik.addModel(frP.weight, frP.clen, frP.catMedian)
+            ncat = frP.clen
+            if frP.invar:
+                ncat -= 1
+            m = lik.addModel(frP.weight, ncat, frP.catMedian, frP.invar)
             toP = lik.lik.models[m]
             assert toP.decomp
             assert toP.weight == frP.weight
@@ -589,7 +606,7 @@ cdef class Lik:
         return self.lik.modelsLen
 
     cpdef unsigned addModel(self, double weight, unsigned ncat=1, \
-      bint catMedian=False) except *:
+      bint catMedian=False, bint invar=False) except *:
         """
             Append a model to the mixture, and return its index in the model
             vector.
@@ -606,8 +623,9 @@ cdef class Lik:
                 raise MemoryError("Error reallocating models")
             self.lik.models = models
             self.lik.modelsMax += 1
-        self.lik.models[self.lik.modelsLen] = self._allocModel(ncat)
-        self._initModel(self.lik.models[self.lik.modelsLen], weight, catMedian)
+        self.lik.models[self.lik.modelsLen] = self._allocModel(ncat, invar)
+        self._initModel(self.lik.models[self.lik.modelsLen], weight, \
+          catMedian, invar)
         ret = self.lik.modelsLen
         self.lik.modelsLen += 1
 
@@ -829,7 +847,7 @@ cdef class Lik:
         assert model < self.lik.modelsLen
         modelP = self.lik.models[model]
         assert i < self.lik.rlen
-        assert rate > 0.0
+        assert rate >= 0.0
 
         iValid = False
         decomp = False
@@ -889,12 +907,15 @@ cdef class Lik:
             mutation rate variation, for the specified model.
         """
         cdef CxtLikModel *modelP
-        cdef double lnGammaA, lnGammaA1, pt, sum
-        cdef unsigned i
+        cdef double lnGammaA, lnGammaA1, pt, sum, cweight
+        cdef unsigned ncat, i
 
         assert model < self.lik.modelsLen
         modelP = self.lik.models[model]
-        assert modelP.clen > 1
+        ncat = modelP.clen
+        if modelP.invar:
+            ncat -= 1
+        assert ncat > 1
 
         if modelP.alpha != alpha:
             modelP.alpha = alpha
@@ -906,54 +927,56 @@ cdef class Lik:
                     # between equal-size rate categories.  Then use the
                     # boundaries to compute category means.
                     lnGammaA1 = lnGamma(alpha+1.0)
-                    for 0 <= i < modelP.clen - 1:
-                        pt = ptChi2((<double>i+1.0) / <double>modelP.clen, \
-                          alpha*2.0, lnGammaA)
+                    for 0 <= i < ncat - 1:
+                        pt = ptChi2((<double>i+1.0) / <double>ncat, alpha*2.0, \
+                          lnGammaA)
                         if pt == -1.0:
                             raise OverflowError(\
                               "Error discretizing gamma (ncat=%d, alpha=%e)" % \
-                              (modelP.clen, alpha))
+                              (ncat, alpha))
                         self.lik.comps[modelP.comp0+i].cmult = \
                           gammaI(pt/2.0, alpha+1.0, lnGammaA1)
-                    self.lik.comps[modelP.comp0+modelP.clen-1].cmult = 1.0
+                    self.lik.comps[modelP.comp0+ncat-1].cmult = 1.0
 
                     # Convert to relative rates and rescale to a mean rate of 1.
-                    for modelP.clen - 1 >= i > 0:
+                    for ncat - 1 >= i > 0:
                         self.lik.comps[modelP.comp0+i].cmult -= \
                           self.lik.comps[modelP.comp0+i-1].cmult
-                        self.lik.comps[modelP.comp0+i].cmult *= \
-                          <double>modelP.clen
-                    self.lik.comps[modelP.comp0].cmult *= <double>modelP.clen
+                        self.lik.comps[modelP.comp0+i].cmult *= <double>ncat
+                    self.lik.comps[modelP.comp0].cmult *= <double>ncat
                 else: # Category medians.
                     # Use properly scaled ptChi2() results to compute point
                     # values for the medians of ncat equal-sized partitions,
                     sum = 0.0
-                    for 0 <= i < modelP.clen:
+                    for 0 <= i < ncat:
                         pt = ptChi2((<double>(i*2)+1.0) / \
-                          <double>(modelP.clen*2), alpha*2.0, lnGammaA)
+                          <double>(ncat*2), alpha*2.0, lnGammaA)
                         if pt == -1.0:
                             raise OverflowError(\
                               "Error discretizing gamma (ncat=%d, alpha=%e)" % \
-                              (modelP.clen, alpha))
+                              (ncat, alpha))
                         pt /= alpha * 2.0
                         sum += pt
                         self.lik.comps[modelP.comp0+i].cmult = pt
 
                     # Rescale to a mean rate of 1.
-                    for 0 <= i < modelP.clen:
+                    for 0 <= i < ncat:
                         self.lik.comps[modelP.comp0+i].cmult *= \
-                          <double>modelP.clen / sum
+                          <double>ncat / sum
 
-                for 0 <= i < modelP.clen:
-                    self.lik.comps[modelP.comp0+i].cweight = \
-                      1.0 / <double>modelP.clen
+                cweight = self.lik.comps[modelP.comp0].cweight / <double>ncat
+                for 0 <= i < ncat:
+                    self.lik.comps[modelP.comp0+i].cweight = cweight
             else:
                 # No Gamma-distributed rates.
-                self.lik.comps[modelP.comp0].cweight = 1.0
+                cweight = 0.0
+                for 0 <= i < ncat:
+                    cweight += self.lik.comps[modelP.comp0+i].cweight
+                self.lik.comps[modelP.comp0].cweight = cweight
                 self.lik.comps[modelP.comp0].cmult = 1.0
-                for 1 <= i < modelP.clen:
+                for 1 <= i < ncat:
                     self.lik.comps[modelP.comp0+i].cweight = 0.0
-                    self.lik.comps[modelP.comp0+i].cmult = 1.0
+                    self.lik.comps[modelP.comp0+i].cmult = 0.0
 
             self.lik.invalidate = True
 
@@ -962,12 +985,16 @@ cdef class Lik:
             Get the number of discrete rates for Gamma-distributed mutation
             rate variation, for the specified model.
         """
+        cdef unsigned ncat
         cdef CxtLikModel *modelP
 
         assert model < self.lik.modelsLen
         modelP = self.lik.models[model]
 
-        return modelP.clen
+        ncat = modelP.clen
+        if modelP.invar:
+            ncat -= 1
+        return ncat
 
     cpdef bint getCatMedian(self, unsigned model) except *:
         """
@@ -981,6 +1008,91 @@ cdef class Lik:
         modelP = self.lik.models[model]
 
         return modelP.catMedian
+
+    cpdef bint getInvar(self, unsigned model) except *:
+        """
+            Get whether the specified model supports a proportion of invariable
+            sites (i.e. whether it is a +I model).
+        """
+        cdef CxtLikModel *modelP
+
+        assert model < self.lik.modelsLen
+        modelP = self.lik.models[model]
+
+        return modelP.invar
+
+    cpdef double getWVar(self, unsigned model) except *:
+        """
+            Get the relative weight for variable sites.
+        """
+        cdef double wVar
+        cdef CxtLikModel *modelP
+        cdef unsigned ncat, i
+
+        assert model < self.lik.modelsLen
+        modelP = self.lik.models[model]
+
+        if modelP.alpha == INFINITY:
+            wVar = self.lik.comps[modelP.comp0].cweight
+        else:
+            ncat = modelP.clen
+            if modelP.invar:
+                ncat -= 1
+
+            wVar = 0.0
+            for 0 <= i < ncat:
+                wVar += self.lik.comps[modelP.comp0+i].cweight
+
+        return wVar
+
+    cpdef setWVar(self, unsigned model, double wVar):
+        """
+            Set the relative weight for variable sites.
+        """
+        cdef CxtLikModel *modelP
+        cdef unsigned ncat, i
+
+        assert model < self.lik.modelsLen
+        modelP = self.lik.models[model]
+
+        if modelP.alpha == INFINITY:
+            self.lik.comps[modelP.comp0].cweight = wVar
+        else:
+            ncat = modelP.clen
+            if modelP.invar:
+                ncat -= 1
+
+            for 0 <= i < ncat:
+                self.lik.comps[modelP.comp0+i].cweight = wVar / <double>ncat
+        self.lik.reweight = True
+
+    cpdef double getWInvar(self, unsigned model) except *:
+        """
+            Get the relative weight for invariable sites.
+        """
+        cdef CxtLikModel *modelP
+
+        assert model < self.lik.modelsLen
+        modelP = self.lik.models[model]
+        if not modelP.invar:
+            return 0.0
+        else:
+            return self.lik.comps[modelP.comp0+modelP.clen-1].cweight
+
+    cpdef setWInvar(self, unsigned model, double wInvar):
+        """
+            Set the relative weight for invariable sites.
+        """
+        cdef CxtLikModel *modelP
+
+        assert model < self.lik.modelsLen
+        modelP = self.lik.models[model]
+        if not modelP.invar and wInvar != 0.0:
+            raise ValueError("Model does not support invariable sites.")
+        assert wInvar >= 0.0
+
+        self.lik.comps[modelP.comp0+modelP.clen-1].cweight = wInvar
+        self.lik.reweight = True
 
     cdef void _planAppend(self, CxeLikStep variant, unsigned ntrail, \
       CL parentCL, CL childCL, double edgeLen) except *:
@@ -1237,8 +1349,13 @@ cdef class Lik:
         for 0 <= i < self.lik.compsLen:
             comp = &self.lik.comps[i]
             if comp.weightScaled != 0.0:
-                modelP = comp.model
-                qMean += comp.weightScaled * (modelP.rmult / modelP.qNorm)
+                # Take special care to skip over +I components, since we don't
+                # actually create Q matrices for them.  Were the Q matrices to
+                # exist, qNorm would be INFINITY for them, and they would
+                # contribute 0 to qMean.
+                if comp.cmult != 0.0:
+                    modelP = comp.model
+                    qMean += comp.weightScaled * (modelP.rmult / modelP.qNorm)
         wNorm = 1.0 / qMean
         if wNorm != self.lik.wNorm:
             # Invalidate the cache, since wNorm impacts all CL's.

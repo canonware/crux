@@ -94,27 +94,29 @@ redpoint usage:
 
     General:                            Model parameter priors:
       --graphDelay=<float>                --rateShapeInvPrior=<float>
-      --cvgSampStride=<uint>              --brlenPrior=<float>
-      --cvgAlpha=<float>                  --rateJumpPrior=<float>
-      --cvgEpsilon=<float>                --polytomyJumpPrior=<float>
-      --minStep=<uint>                    --rateShapeInvJumpPrior=<float>
-      --maxStep=<uint>                    --freqJumpPrior=<float>
-      --stride=<uint>                     --mixtureJumpPrior=<float>
-      --nruns=<uint>                    Proposal probabilities:
-      --ncoupled=<uint>                   --weightProp=<float>
-      --heatDelta=<float>                 --freqProp=<float>
-      --swapStride=<uint>                 --rmultProp=<float>
-                                          --rateProp=<float>
-    Proposal parameters:                  --rateShapeInvProp=<float>
-      --ncat=<uint>                       --brlenProp=<float>
-      --catMedian=<bool>                  --etbrProp=<float>
-      --weightLambda=<float>              --rateJumpProp=<float>
-      --freqLambda=<float>                --polytomyJumpProp=<float>
-      --rmultLambda=<float>               --rateShapeInvJumpProp=<float>
-      --rateLambda=<float>                --freqJumpProp=<float>
-      --rateShapeInvLambda=<float>        --mixtureJumpProp=<float>
-      --brlenLambda=<float>
-      --etbrPExt=<float>
+      --cvgSampStride=<uint>              --invarPrior=<float>
+      --cvgAlpha=<float>                  --brlenPrior=<float>
+      --cvgEpsilon=<float>                --rateJumpPrior=<float>
+      --minStep=<uint>                    --polytomyJumpPrior=<float>
+      --maxStep=<uint>                    --rateShapeInvJumpPrior=<float>
+      --stride=<uint>                     --invarJumpPrior=<float>
+      --nruns=<uint>                      --freqJumpPrior=<float>
+      --ncoupled=<uint>                   --mixtureJumpPrior=<float>
+      --heatDelta=<float>               Proposal probabilities:
+      --swapStride=<uint>                 --weightProp=<float>
+                                          --freqProp=<float>
+    Proposal parameters:                  --rmultProp=<float>
+      --ncat=<uint>                       --rateProp=<float>
+      --catMedian=<bool>                  --rateShapeInvProp=<float>
+      --invar=<bool>                      --invarProp=<float>
+      --weightLambda=<float>              --brlenProp=<float>
+      --freqLambda=<float>                --etbrProp=<float>
+      --rmultLambda=<float>               --rateJumpProp=<float>
+      --rateLambda=<float>                --polytomyJumpProp=<float>
+      --rateShapeInvLambda=<float>        --rateShapeInvJumpProp=<float>
+      --invarLambda=<float>               --invarJumpProp=<float>
+      --brlenLambda=<float>               --freqJumpProp=<float>
+      --etbrPExt=<float>                  --mixtureJumpProp=<float>
       --etbrLambda=<float>
 
   Fixed parameter overrides (appropriate proposals are implicitly disabled):
@@ -132,6 +134,9 @@ redpoint usage:
     --fixed-shape=<alpha>        Fix the +G shape parameter.  Semantics are
                                    strange unless --fixed-nmodels is also
                                    specified.
+    --fixed-pinvar=<pinvar>      Fix the +I proportion of invariable sites.
+                                   Semantics are strange unless --fixed-nmodels
+                                   is also specified.
     --fixed-freqs=<freqs>        Fix the comma-separated state frequencies.
                                    Semantics are strange unless --fixed-nmodels
                                    is also specified.
@@ -194,6 +199,7 @@ def parse_options():
     parser.add_option("--ncat", dest="ncat", type="uint", default=None)
     parser.add_option("--catMedian", dest="catMedian", type="bool",
       default=None)
+    parser.add_option("--invar", dest="invar", type="bool", default=None)
     parser.add_option("--weightLambda", dest="weightLambda", type="float",
       default=None)
     parser.add_option("--freqLambda", dest="freqLambda", type="float",
@@ -204,6 +210,8 @@ def parse_options():
       default=None)
     parser.add_option("--rateShapeInvLambda", dest="rateShapeInvLambda",
       type="float", default=None)
+    parser.add_option("--invarLambda", dest="invarLambda", type="float",
+      default=None)
     parser.add_option("--brlenLambda", dest="brlenLambda", type="float",
       default=None)
     parser.add_option("--etbrPExt", dest="etbrPExt", type="float",
@@ -212,6 +220,8 @@ def parse_options():
       default=None)
     parser.add_option("--rateShapeInvPrior", dest="rateShapeInvPrior",
       type="float", default=None)
+    parser.add_option("--invarPrior", dest="invarPrior", type="float",
+      default=None)
     parser.add_option("--brlenPrior", dest="brlenPrior", type="float",
       default=None)
     parser.add_option("--rateJumpPrior", dest="rateJumpPrior", type="float",
@@ -220,6 +230,8 @@ def parse_options():
       type="float", default=None)
     parser.add_option("--rateShapeInvJumpPrior", dest="rateShapeInvJumpPrior",
       type="float", default=None)
+    parser.add_option("--invarJumpPrior", dest="invarJumpPrior", type="float",
+      default=None)
     parser.add_option("--freqJumpPrior", dest="freqJumpPrior", type="float",
       default=None)
     parser.add_option("--mixtureJumpPrior", dest="mixtureJumpPrior",
@@ -234,6 +246,8 @@ def parse_options():
       default=None)
     parser.add_option("--rateShapeInvProp", dest="rateShapeInvProp",
       type="float", default=None)
+    parser.add_option("--invarProp", dest="invarProp", type="float",
+      default=None)
     parser.add_option("--brlenProp", dest="brlenProp", type="float",
       default=None)
     parser.add_option("--etbrProp", dest="etbrProp", type="float",
@@ -244,6 +258,8 @@ def parse_options():
       type="float", default=None)
     parser.add_option("--rateShapeInvJumpProp", dest="rateShapeInvJumpProp",
       type="float", default=None)
+    parser.add_option("--invarJumpProp", dest="invarJumpProp", type="float",
+      default=None)
     parser.add_option("--freqJumpProp", dest="freqJumpProp", type="float",
       default=None)
     parser.add_option("--mixtureJumpProp", dest="mixtureJumpProp", type="float",
@@ -256,6 +272,8 @@ def parse_options():
     parser.add_option("--fixed-rclass", dest="fixed_rclass", default=None)
     parser.add_option("--fixed-rates", dest="fixed_rates", default=None)
     parser.add_option("--fixed-shape", dest="fixed_shape", type="float",
+      default=None)
+    parser.add_option("--fixed-pinvar", dest="fixed_pinvar", type="float",
       default=None)
     parser.add_option("--fixed-freqs", dest="fixed_freqs", default=None)
 
@@ -379,6 +397,11 @@ def parse_options():
         opts.rateShapeInvProp = 0.0
         opts.rateShapeInvJumpProp = 0.0
 
+    if opts.fixed_pinvar is not None:
+        opts.fixed = True
+        opts.invarProp = 0.0
+        opts.invarJumpProp = 0.0
+
     if opts.burnin == "half":
         opts.burnin = 0xffffffffffffffff
     else:
@@ -497,6 +520,15 @@ def writePostStats(post, prefix, opts):
             else:
                 f.write("+G alpha\tN/A\n")
 
+            # +I pinvar.
+            if post.maxModels == 1 and post.mc3.invar \
+              and post.mc3.invarJumpProp == 0.0:
+                f.write("+I pinvar\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n" % \
+                  (post.pinvarMean, post.pinvarVar, post.pinvarMinCred, \
+                  post.pinvarMaxCred, post.pinvarMed))
+            else:
+                f.write("+I pinvar\tN/A\n")
+
         fSum.close()
 
     if opts.trprobs:
@@ -594,23 +626,30 @@ def run(alignment, prefix, prelim, opts):
     if opts.fixed_nmodels is not None: mc3.nmodels = opts.fixed_nmodels
     if opts.ncat is not None: mc3.ncat = opts.ncat
     if opts.catMedian is not None: mc3.catMedian = opts.catMedian
+    if opts.invar is not None: mc3.invar = opts.invar
     if opts.weightLambda is not None: mc3.weightLambda = opts.weightLambda
     if opts.freqLambda is not None: mc3.freqLambda = opts.freqLambda
     if opts.rmultLambda is not None: mc3.rmultLambda = opts.rmultLambda
     if opts.rateLambda is not None: mc3.rateLambda = opts.rateLambda
     if opts.rateShapeInvLambda is not None:
         mc3.rateShapeInvLambda = opts.rateShapeInvLambda
+    if opts.invarLambda is not None:
+        mc3.invarLambda = opts.invarLambda
     if opts.brlenLambda is not None: mc3.brlenLambda = opts.brlenLambda
     if opts.etbrPExt is not None: mc3.etbrPExt = opts.etbrPExt
     if opts.etbrLambda is not None: mc3.etbrLambda = opts.etbrLambda
     if opts.rateShapeInvPrior is not None:
         mc3.rateShapeInvPrior = opts.rateShapeInvPrior
+    if opts.invarPrior is not None:
+        mc3.invarPrior = opts.invarPrior
     if opts.brlenPrior is not None: mc3.brlenPrior = opts.brlenPrior
     if opts.rateJumpPrior is not None: mc3.rateJumpPrior = opts.rateJumpPrior
     if opts.polytomyJumpPrior is not None:
         mc3.polytomyJumpPrior = opts.polytomyJumpPrior
     if opts.rateShapeInvJumpPrior is not None:
         mc3.rateShapeInvJumpPrior = opts.rateShapeInvJumpPrior
+    if opts.invarJumpPrior is not None:
+        mc3.invarJumpPrior = opts.invarJumpPrior
     if opts.freqJumpPrior is not None: mc3.freqJumpPrior = opts.freqJumpPrior
     if opts.mixtureJumpPrior is not None:
         mc3.mixtureJumpPrior = opts.mixtureJumpPrior
@@ -620,6 +659,8 @@ def run(alignment, prefix, prelim, opts):
     if opts.rateProp is not None: mc3.rateProp = opts.rateProp
     if opts.rateShapeInvProp is not None:
         mc3.rateShapeInvProp = opts.rateShapeInvProp
+    if opts.invarProp is not None:
+        mc3.invarProp = opts.invarProp
     if opts.brlenProp is not None: mc3.brlenProp = opts.brlenProp
     if opts.etbrProp is not None: mc3.etbrProp = opts.etbrProp
     if opts.rateJumpProp is not None: mc3.rateJumpProp = opts.rateJumpProp
@@ -627,6 +668,8 @@ def run(alignment, prefix, prelim, opts):
         mc3.polytomyJumpProp = opts.polytomyJumpProp
     if opts.rateShapeInvJumpProp is not None:
         mc3.rateShapeInvJumpProp = opts.rateShapeInvJumpProp
+    if opts.invarJumpProp is not None:
+        mc3.invarJumpProp = opts.invarJumpProp
     if opts.freqJumpProp is not None: mc3.freqJumpProp = opts.freqJumpProp
     if opts.mixtureJumpProp is not None:
         mc3.mixtureJumpProp = opts.mixtureJumpProp
@@ -664,6 +707,9 @@ def run(alignment, prefix, prelim, opts):
                     lik.setRclass(m, opts.fixed_rclass)
                 if opts.fixed_shape is not None:
                     lik.setAlpha(m, opts.fixed_shape)
+                if opts.fixed_pinvar is not None:
+                    lik.setWVar(m, 1.0-opts.fixed_pinvar)
+                    lik.setWInvar(m, opts.fixed_pinvar)
                 if opts.fixed_freqs is not None:
                     for f in xrange(len(opts.fixed_freqs)):
                         lik.setFreq(m, f, opts.fixed_freqs[f])

@@ -55,22 +55,28 @@ cdef class Mc3:
     cdef unsigned _ncat
     cdef bint _catMedian
 
+    # Use +I models if true.
+    cdef bint _invar
+
     # Proposal parameters.
     cdef double _weightLambda
     cdef double _freqLambda
     cdef double _rmultLambda
     cdef double _rateLambda
     cdef double _rateShapeInvLambda
+    cdef double _invarLambda
     cdef double _brlenLambda
     cdef double _etbrPExt
     cdef double _etbrLambda
 
     # Model parameter priors.
     cdef double _rateShapeInvPrior
+    cdef double _invarPrior
     cdef double _brlenPrior
     cdef double _rateJumpPrior
     cdef double _polytomyJumpPrior
     cdef double _rateShapeInvJumpPrior
+    cdef double _invarJumpPrior
     cdef double _freqJumpPrior
     cdef double _mixtureJumpPrior
 
@@ -251,6 +257,9 @@ cdef class Mc3:
     cdef bint getCatMedian(self)
     cdef void setCatMedian(self, bint catMedian)
     # property catMedian
+    cdef bint getInvar(self)
+    cdef void setInvar(self, bint invar)
+    # property invar
     cdef double getWeightLambda(self)
     cdef void setWeightLambda(self, double weightLambda) except *
     # property weightLambda
@@ -266,6 +275,9 @@ cdef class Mc3:
     cdef double getRateShapeInvLambda(self)
     cdef void setRateShapeInvLambda(self, double rateShapeInvLambda) except *
     # property rateShapeInvLambda
+    cdef double getInvarLambda(self)
+    cdef void setInvarLambda(self, double invarLambda) except *
+    # property invarLambda
     cdef double getBrlenLambda(self)
     cdef void setBrlenLambda(self, double brlenLambda) except *
     # property brlenLambda
@@ -278,6 +290,9 @@ cdef class Mc3:
     cdef double getRateShapeInvPrior(self)
     cdef void setRateShapeInvPrior(self, double rateShapeInvPrior) except *
     # property rateShapeInvPrior
+    cdef double getInvarPrior(self)
+    cdef void setInvarPrior(self, double invarPrior) except *
+    # property invarPrior
     cdef double getBrlenPrior(self)
     cdef void setBrlenPrior(self, double brlenPrior) except *
     # property brlenPrior
@@ -291,6 +306,9 @@ cdef class Mc3:
     cdef void setRateShapeInvJumpPrior(self, double rateShapeInvJumpPrior) \
       except *
     # property rateShapeInvJumpPrior
+    cdef double getInvarJumpPrior(self)
+    cdef void setInvarJumpPrior(self, double invarJumpPrior) except *
+    # property invarJumpPrior
     cdef double getFreqJumpPrior(self)
     cdef void setFreqJumpPrior(self, double freqJumpPrior) except *
     # property freqJumpPrior
@@ -312,6 +330,9 @@ cdef class Mc3:
     cdef double getRateShapeInvProp(self)
     cdef void setRateShapeInvProp(self, double rateShapeInvProp) except *
     # property rateShapeInvProp
+    cdef double getInvarProp(self)
+    cdef void setInvarProp(self, double invarProp) except *
+    # property invarProp
     cdef double getBrlenProp(self)
     cdef void setBrlenProp(self, double brlenProp) except *
     # property brlenProp
@@ -328,6 +349,9 @@ cdef class Mc3:
     cdef void setRateShapeInvJumpProp(self, double rateShapeInvJumpProp) \
       except *
     # property rateShapeInvJumpProp
+    cdef double getInvarJumpProp(self)
+    cdef void setInvarJumpProp(self, double invarJumpProp) except *
+    # property invarJumpProp
     cdef double getFreqJumpProp(self)
     cdef void setFreqJumpProp(self, double freqJumpProp) except *
     # property freqJumpProp

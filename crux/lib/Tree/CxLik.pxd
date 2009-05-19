@@ -30,6 +30,7 @@ cdef extern from "CxLik.h":
         double *qEigVals
         double alpha
         bint catMedian
+        bint invar
         unsigned comp0
         unsigned clen
     ctypedef enum CxeLikStep:
