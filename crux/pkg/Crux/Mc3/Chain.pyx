@@ -109,25 +109,59 @@ cdef class Chain:
         return nUnique
 
     cdef double computeLnRisk(self) except *:
-        cdef double risk
-        cdef Bipart bipart
-        cdef uint64_t nsamples, i
-        cdef Sumt sumt
-        cdef list trprobs
-        cdef Trprob trprob
-        cdef Tree tree
+        cdef double risk, distSq, diff
+        cdef list edgesA, edgesB
+        cdef unsigned nsamples, i, lenA, lenB, iA, iB
+        cdef Vec vecA, vecB
+        cdef int rel
 
-        bipart = self.tree.getBipart()
         risk = 0.0
-        nsamples = self.master._prelim.nsamples * self.master._prelim.mc3.nruns
-        sumt = self.master._prelim.getSumt()
-        trprobs = sumt.getTrprobs()
-        for 0 <= i < len(trprobs):
-            trprob = <Trprob>trprobs[i]
+        edgesA = Bipart(self.tree, True).edgeVecs
+        lenA = len(edgesA)
+        nsamples = len(self.master._prelimBiparts)
+        for 0 <= i < nsamples:
+            edgesB = (<Bipart>self.master._prelimBiparts[i]).edgeVecs
+            lenB = len(edgesB)
 
-            tree = trprob.getTree()
-            risk += (<double>self.rfUnscaled(tree.getBipart(), bipart) * \
-              <double>trprob.getNobs()) / <double>nsamples
+            # Compute the Euclidean distance between trees.
+            distSq = 0.0
+            iA = iB = 0
+            while iA < lenA and iB < lenB:
+                vecA = <Vec>edgesA[iA]
+                vecB = <Vec>edgesB[iB]
+
+                rel = vecA.cmp(vecB)
+                if rel == 0:
+                    diff = vecA.edge.length - vecB.edge.length
+                    iA += 1
+                    iB += 1
+                elif rel == -1:
+                    # vecA has a unique bipartition.
+                    diff = vecA.edge.length
+                    iA += 1
+                else:
+                    assert rel == 1
+                    # vecB has a unique bipartition.
+                    diff = vecB.edge.length
+                    iB += 1
+                distSq += diff * diff
+
+            if iA < lenA:
+                while iA < lenA:
+                    # vecA has a unique bipartition.
+                    vecA = <Vec>edgesA[iA]
+                    diff = vecA.edge.length - vecB.edge.length
+                    iA += 1
+                    distSq += diff * diff
+            elif iB < lenB:
+                while iB < lenB:
+                    # vecB has a unique bipartition.
+                    vecB = <Vec>edgesA[iB]
+                    diff = vecB.edge.length - vecB.edge.length
+                    iB += 1
+                    distSq += diff * diff
+
+            risk += sqrt(distSq) / <double>nsamples
 
         return log(risk)
 
@@ -519,6 +553,16 @@ cdef class Chain:
         lnPrior = -self.master._brlenPrior * (v1-v0)
         lnProp = lnM
 
+        if self.master._prelim is not None:
+            # Incorporate risk.  Use the reciprocal of risk so that lower
+            # proposed risk increases the proposal ratio.
+            #
+            #   1/risk_1   risk_0
+            #   -------- = ------
+            #   1/risk_0   risk_1
+            lnRisk1 = self.computeLnRisk()
+            lnProp += (self.lnRisk - lnRisk1)
+
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
         # p = [(likelihood ratio) * (prior ratio)]^heat * (Hastings ratio)
@@ -526,6 +570,8 @@ cdef class Chain:
         if p >= u:
             # Accept.
             self.lnL = lnL1
+            if self.master._prelim is not None:
+                self.lnRisk = lnRisk1
             # Re-base to make the cache fully usable if the next lnL() call
             # does not specify a rooting.
             self.tree.setBase(edge.ring.node)
@@ -798,9 +844,14 @@ cdef class Chain:
                 lnProp += log(1.0 / (1.0 - self.master._etbrPExt))
 
         if self.master._prelim is not None:
-            # Incorporate risk.
+            # Incorporate risk.  Use the reciprocal of risk so that lower
+            # proposed risk increases the proposal ratio.
+            #
+            #   1/risk_1   risk_0
+            #   -------- = ------
+            #   1/risk_0   risk_1
             lnRisk1 = self.computeLnRisk()
-            lnProp += (lnRisk1 - self.lnRisk)
+            lnProp += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -1230,9 +1281,14 @@ cdef class Chain:
           <double>(nodeADeg+nodeBDeg-2) - 1.0) + lnJacob
 
         if self.master._prelim is not None:
-            # Incorporate risk.
+            # Incorporate risk.  Use the reciprocal of risk so that lower
+            # proposed risk increases the proposal ratio.
+            #
+            #   1/risk_1   risk_0
+            #   -------- = ------
+            #   1/risk_0   risk_1
             lnRisk1 = self.computeLnRisk()
-            lnProp += (lnRisk1 - self.lnRisk)
+            lnProp += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -1368,9 +1424,14 @@ cdef class Chain:
           - log(<double>(nedges-ntaxa+1))
 
         if self.master._prelim is not None:
-            # Incorporate risk.
+            # Incorporate risk.  Use the reciprocal of risk so that lower
+            # proposed risk increases the proposal ratio.
+            #
+            #   1/risk_1   risk_0
+            #   -------- = ------
+            #   1/risk_0   risk_1
             lnRisk1 = self.computeLnRisk()
-            lnProp += (lnRisk1 - self.lnRisk)
+            lnProp += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)

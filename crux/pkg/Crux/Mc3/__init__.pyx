@@ -77,6 +77,7 @@ from SFMT cimport *
 from Crux.Mc3.Chain cimport *
 from Crux.Mc3.Post cimport *
 from Crux.Tree cimport Tree, Edge
+from Crux.Tree.Bipart cimport Bipart
 from Crux.Tree.Lik cimport Lik
 from Crux.Character cimport Dna
 
@@ -797,6 +798,24 @@ cdef class Mc3:
         self.sFile.flush()
         if self.verbose:
             sys.stdout.write("s\tstep\t[ lnLs ] Rcov\n")
+
+    cdef void initPrelim(self) except *:
+        cdef unsigned i, j
+        cdef list run
+        cdef Samp samp
+        cdef Bipart bipart
+
+        # Create a list of Bipart's with leaf edges included, for use in
+        # Chain.computeLnRisk().
+        if self._prelim is not None:
+            self._prelimBiparts = []
+            self._prelim.parseT()
+            for 0 <= i < len(self._prelim.runs):
+                run = <list>self._prelim.runs[i]
+                for 0 <= j < len(run):
+                    samp = <Samp>run[j]
+                    bipart = Bipart(samp.tree, True)
+                    self._prelimBiparts.append(bipart)
 
     # Allocate swapInfo matrix.
     cdef void initSwapInfo(self) except *:
@@ -1579,6 +1598,7 @@ cdef class Mc3:
                 return
         try:
             self.initLogs()
+            self.initPrelim()
             self.initSwapInfo()
             self.initSwapStats()
             self.initPropStats()

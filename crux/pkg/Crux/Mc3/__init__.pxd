@@ -27,6 +27,7 @@ cdef class Mc3:
 
     # If set, used as the basis for computing topological risk.
     cdef Post _prelim
+    cdef list _prelimBiparts
 
     # Control parameters for diagnostic output.
     cdef double _graphDelay
@@ -168,6 +169,7 @@ cdef class Mc3:
         cdef list rank2interleave(self, unsigned nnodes)
         cdef bint initActive(self) except *
     cdef void initLogs(self) except *
+    cdef void initPrelim(self) except *
     cdef void initSwapInfo(self) except *
     cdef void initSwapStats(self) except *
     cdef void initPropStats(self) except *
