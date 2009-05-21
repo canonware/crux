@@ -1,5 +1,6 @@
 import random
 
+cimport cython
 from libc cimport *
 from libm cimport *
 from SFMT cimport *
@@ -108,60 +109,80 @@ cdef class Chain:
 
         return nUnique
 
+    @cython.boundscheck(False)
     cdef double computeLnRisk(self) except *:
         cdef double risk, distSq, diff
-        cdef list edgesA, edgesB
+        cdef list vecsA, vecsB
         cdef unsigned nsamples, i, lenA, lenB, iA, iB
         cdef Vec vecA, vecB
         cdef int rel
 
         risk = 0.0
-        edgesA = Bipart(self.tree, True).edgeVecs
-        lenA = len(edgesA)
+        vecsA = Bipart(self.tree, True).edgeVecs
+        lenA = len(vecsA)
+        assert lenA > 0
         nsamples = len(self.master._prelimBiparts)
         for 0 <= i < nsamples:
-            edgesB = (<Bipart>self.master._prelimBiparts[i]).edgeVecs
-            lenB = len(edgesB)
+            vecsB = (<Bipart>self.master._prelimBiparts[i]).edgeVecs
+            lenB = len(vecsB)
+            assert lenB > 0
 
-            # Compute the Euclidean distance between trees.
+            # Compute the squared Euclidean distance between trees.
             distSq = 0.0
             iA = iB = 0
-            while iA < lenA and iB < lenB:
-                vecA = <Vec>edgesA[iA]
-                vecB = <Vec>edgesB[iB]
-
+            vecA = <Vec>vecsA[iA]
+            vecB = <Vec>vecsB[iB]
+            while True:
                 rel = vecA.cmp(vecB)
                 if rel == 0:
                     diff = vecA.edge.length - vecB.edge.length
+                    distSq += diff * diff
                     iA += 1
                     iB += 1
+                    if not (iA < lenA):
+                        break
+                    if not (iB < lenB):
+                        break
+                    vecA = <Vec>vecsA[iA]
+                    vecB = <Vec>vecsB[iB]
                 elif rel == -1:
                     # vecA has a unique bipartition.
                     diff = vecA.edge.length
+                    distSq += diff * diff
                     iA += 1
+                    if not (iA < lenA):
+                        break
+                    vecA = <Vec>vecsA[iA]
                 else:
                     assert rel == 1
                     # vecB has a unique bipartition.
                     diff = vecB.edge.length
+                    distSq += diff * diff
                     iB += 1
-                distSq += diff * diff
+                    if not (iB < lenB):
+                        break
+                    vecB = <Vec>vecsB[iB]
 
             if iA < lenA:
-                while iA < lenA:
+                while True:
                     # vecA has a unique bipartition.
-                    vecA = <Vec>edgesA[iA]
-                    diff = vecA.edge.length - vecB.edge.length
+                    vecA = <Vec>vecsA[iA]
+                    diff = vecA.edge.length
+                    distSq += diff * diff
                     iA += 1
-                    distSq += diff * diff
+                    if not (iA < lenA):
+                        break
             elif iB < lenB:
-                while iB < lenB:
+                while True:
                     # vecB has a unique bipartition.
-                    vecB = <Vec>edgesA[iB]
-                    diff = vecB.edge.length - vecB.edge.length
-                    iB += 1
+                    vecB = <Vec>vecsB[iB]
+                    diff = vecB.edge.length
                     distSq += diff * diff
+                    iB += 1
+                    if not (iB < lenB):
+                        break
 
-            risk += sqrt(distSq) / <double>nsamples
+            risk += distSq / <double>nsamples
 
         return log(risk)
 
@@ -561,7 +582,7 @@ cdef class Chain:
             #   -------- = ------
             #   1/risk_0   risk_1
             lnRisk1 = self.computeLnRisk()
-            lnProp += (self.lnRisk - lnRisk1)
+            lnPrior += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -851,7 +872,7 @@ cdef class Chain:
             #   -------- = ------
             #   1/risk_0   risk_1
             lnRisk1 = self.computeLnRisk()
-            lnProp += (self.lnRisk - lnRisk1)
+            lnPrior += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -1288,7 +1309,7 @@ cdef class Chain:
             #   -------- = ------
             #   1/risk_0   risk_1
             lnRisk1 = self.computeLnRisk()
-            lnProp += (self.lnRisk - lnRisk1)
+            lnPrior += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
@@ -1431,7 +1452,7 @@ cdef class Chain:
             #   -------- = ------
             #   1/risk_0   risk_1
             lnRisk1 = self.computeLnRisk()
-            lnProp += (self.lnRisk - lnRisk1)
+            lnPrior += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
         u = genrand_res53(self.prng)
