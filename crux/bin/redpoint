@@ -425,6 +425,7 @@ def formatVecStr(s):
 
 def writePostStats(post, prefix, opts):
     if opts.sum:
+        post.parseP()
         fSum = open("%s.sum" % prefix, "w")
         files = [fSum]
         if opts.verbose:
