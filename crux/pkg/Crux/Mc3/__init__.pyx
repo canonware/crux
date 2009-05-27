@@ -781,7 +781,7 @@ cdef class Mc3:
         self.pFile = open("%s.p" % self.outPrefix, "w")
         self.pFile.write( \
           "run\tstep\tmodel\tweight\trmult\t( rclass )[ R ] wNorm alpha" \
-          " [ Pi ]\n")
+          " pinvar [ Pi ]\n")
         self.pFile.flush()
         if self.verbose:
             sys.stdout.write( \
