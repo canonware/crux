@@ -116,17 +116,18 @@ cdef class Part:
     def __init__(self, Vec vec, unsigned nruns):
         self.vec = vec
         self._nobs = [0] * nruns
-        self._edges = []
+        self.edges = []
         self._mse = -1.0
         self._mean = -1.0
+        self._v2mean = -1.0
         self._var = -1.0
 
     cdef void _observe(self, unsigned run, Edge edge) except *:
         self._nobs[run] += 1
-        self._edges.append(edge)
+        self.edges.append(edge)
 
     cdef uint64_t getNobs(self):
-        return len(self._edges)
+        return len(self.edges)
     property nobs:
         """
             Total number of observations across all runs.
@@ -141,7 +142,7 @@ cdef class Part:
 
         if self._mse == -1.0:
             self._mse = 0.0
-            nobs = len(self._edges)
+            nobs = len(self.edges)
             nruns = len(self._nobs)
             mean = <double>nobs / <double>nruns
             for 0 <= i < nruns:
@@ -161,9 +162,9 @@ cdef class Part:
 
         if self._mean == -1.0:
             self._mean = 0.0
-            nobs = len(self._edges)
+            nobs = len(self.edges)
             for 0 <= i < nobs:
-                edge = <Edge>self._edges[i]
+                edge = <Edge>self.edges[i]
                 self._mean += edge.length / <double>nobs
         return self._mean
     property mean:
@@ -173,6 +174,24 @@ cdef class Part:
         def __get__(self):
             return self.getMean()
 
+    cdef double getV2Mean(self):
+        cdef uint64_t i, nobs
+        cdef Edge edge
+
+        if self._v2mean == -1.0:
+            self._v2mean = 0.0
+            nobs = len(self.edges)
+            for 0 <= i < nobs:
+                edge = <Edge>self.edges[i]
+                self._v2mean += (edge.length * edge.length) / <double>nobs
+        return self._v2mean
+    property v2mean:
+        """
+            Mean of squared branch lengths.
+        """
+        def __get__(self):
+            return self.getV2Mean()
+
     cdef double getVar(self):
         cdef double mean, diff
         cdef uint64_t i, nobs
@@ -181,9 +200,9 @@ cdef class Part:
         if self._var == -1.0:
             self._var = 0.0
             mean = self.getMean()
-            nobs = len(self._edges)
+            nobs = len(self.edges)
             for 0 <= i < nobs:
-                edge = <Edge>self._edges[i]
+                edge = <Edge>self.edges[i]
                 diff = (edge.length - mean)
                 self._var += (diff * diff) / <double>nobs
 
@@ -336,6 +355,8 @@ cdef class Sumt:
             v.merge(vec)
         if v.cmp(incorp) != 0:
             return False
+#        if len(compat) == 0 or len(incompat) == 0:
+#            return False
         assert len(compat) > 0
         assert len(incompat) > 0
 
@@ -405,19 +426,25 @@ cdef class Sumt:
             self._summarizeParts()
         # Iteratively incorporate bipartitions.
         for 0 <= i < len(self._parts):
+            # Create lookup tables of edge-->vec and vec-->edge.
+            bipart = tree.getBipart()
+            e2v = {}
+            v2e = {}
+            for 0 <= j < len(bipart.edgeVecs):
+                vec = <Vec>bipart.edgeVecs[j]
+                e2v[vec.edge] = vec
+                v2e[vec] = vec.edge
+
             part = <Part>self._parts[i]
+            if part.vec in v2e:
+                # This is a leaf edge, which was incorporated when the star
+                # tree was initialized.
+                break
             support = <double>part.getNobs() / <double>N
             if support < minSupport:
                 # This and all subsequent bipartitions lack adequate support
                 # for incorporation.
                 break
-
-            # Create a lookup table of edge-->vec.
-            bipart = Bipart(tree, True)
-            e2v = {}
-            for 0 <= j < len(bipart.edgeVecs):
-                vec = <Vec>bipart.edgeVecs[j]
-                e2v[vec.edge] = vec
 
             # Iterate over incompletely resolved nodes and try to incorporate
             # bipartition.
@@ -434,9 +461,8 @@ cdef class Sumt:
                 # Tree is fully resolved.
                 break
 
-
         # Create a lookup tabel of vec-->edge for the final tree topology.
-        bipart = Bipart(tree, True)
+        bipart = tree.getBipart()
         v2e = {}
         for 0 <= i < len(bipart.edgeVecs):
             vec = <Vec>bipart.edgeVecs[i]
@@ -457,7 +483,7 @@ cdef class Sumt:
         for 0 <= i < nruns:
             trees = self._treeLists[i]
             for 0 <= k < len(trees):
-                bipart = Bipart(<Tree>trees[k], True)
+                bipart = (<Tree>trees[k]).getBipart()
                 for 0 <= j < len(bipart.edgeVecs):
                     vec = <Vec>bipart.edgeVecs[j]
                     if vec in v2e:

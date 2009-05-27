@@ -41,10 +41,13 @@ cdef class Chain:
     cdef Lik lik
     cdef double lnL
     cdef double lnRisk
+    cdef dict lnRiskCache
     cdef uint64_t step
 
     cdef unsigned rfUnscaled(self, Bipart a, Bipart b)
-    cdef double computeLnRisk(self) except *
+    cdef dict computeRiskUnchanged(self, Tree tree0, dict lnRiskCache0)
+    cdef double computeLnRisk(self, Tree tree0, dict lnRiskCache0, \
+      dict lnRiskCache1) except *
     cdef bint weightPropose(self) except *
     cdef bint freqsEqual(self, Lik lik, unsigned mInd)
     cdef unsigned nModelsFreqsEstim(self, Lik lik)

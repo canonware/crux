@@ -77,8 +77,9 @@ from SFMT cimport *
 from Crux.Mc3.Chain cimport *
 from Crux.Mc3.Post cimport *
 from Crux.Tree cimport Tree, Edge
-from Crux.Tree.Bipart cimport Bipart
+from Crux.Tree.Bipart cimport Vec, Bipart
 from Crux.Tree.Lik cimport Lik
+from Crux.Tree.Sumt cimport Part
 from Crux.Character cimport Dna
 
 IF @enable_mpi@:
@@ -800,22 +801,21 @@ cdef class Mc3:
             sys.stdout.write("s\tstep\t[ lnLs ] Rcov\n")
 
     cdef void initPrelim(self) except *:
-        cdef unsigned i, j
-        cdef list run
-        cdef Samp samp
-        cdef Bipart bipart
+        cdef list parts, decos
+        cdef Part part
+        cdef object deco
 
-        # Create a list of Bipart's with leaf edges included, for use in
-        # Chain.computeLnRisk().
         if self._prelim is not None:
-            self._prelimBiparts = []
             self._prelim.parseT()
-            for 0 <= i < len(self._prelim.runs):
-                run = <list>self._prelim.runs[i]
-                for 0 <= j < len(run):
-                    samp = <Samp>run[j]
-                    bipart = Bipart(samp.tree, True)
-                    self._prelimBiparts.append(bipart)
+            # Create a list of Part's that is sorted by vec, for later use by
+            # Chain.computeLnRisk().
+            parts = self._prelim.getSumt().getParts()
+            decos = []
+            for 0 <= i < len(parts):
+                part = <Part>parts[i]
+                decos.append((part.vec, part))
+            decos.sort()
+            self._prelimParts = [deco[1] for deco in decos]
 
     # Allocate swapInfo matrix.
     cdef void initSwapInfo(self) except *:

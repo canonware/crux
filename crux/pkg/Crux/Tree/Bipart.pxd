@@ -20,9 +20,7 @@ cdef class Vec:
 
 cdef class Bipart:
     cdef dict taxaX # taxon-->index translation
-    cdef readonly bint leaves # If True, edgeVecs includes leaf edges.
     cdef readonly list edgeVecs
-    cdef Vec leafVec # Temp vector.
 
     cpdef int cmp(Bipart self, Bipart other)
     cdef Vec _bipartitionsRecurse(self, Ring ring, bint calcVec)

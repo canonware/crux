@@ -27,7 +27,7 @@ cdef class Mc3:
 
     # If set, used as the basis for computing topological risk.
     cdef Post _prelim
-    cdef list _prelimBiparts
+    cdef list _prelimParts
 
     # Control parameters for diagnostic output.
     cdef double _graphDelay

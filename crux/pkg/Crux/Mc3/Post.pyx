@@ -396,7 +396,7 @@ cdef class Post:
                   <Samp>(<list>self.runs[run])[(step-self.stepFirst)/stride]
                 samp.tree = tree
 
-        self._pDone = True
+        self._tDone = True
 
     # This method is conceptually identical to Crux.Mc3.Mc3.computeRcov(), but
     # it does not have to deal with discarding burn-in, nor does speed matter

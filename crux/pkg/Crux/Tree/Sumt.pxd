@@ -4,8 +4,8 @@ from Crux.Tree.Bipart cimport Vec
 
 cdef class Trprob:
     cdef Tree _tree
-    cdef list _nobs       # Number of times observed in each run.
-    cdef list _trees      # List of trees, used to compute mean brlens.
+    cdef list _nobs          # Number of times observed in each run.
+    cdef list _trees         # List of trees, used to compute mean brlens.
 
     cdef void _observe(self, unsigned run, Tree tree) except *
 
@@ -20,11 +20,12 @@ cdef class Trprob:
 
 cdef class Part:
     cdef readonly Vec vec
-    cdef list _nobs       # Number of times observed in each run.
-    cdef list _edges      # List of edges, used to compute mean/variance.
+    cdef list _nobs          # Number of times observed in each run.
+    cdef readonly list edges # List of edges, used to compute mean/variance.
 
     cdef double _mse
     cdef double _mean
+    cdef double _v2mean
     cdef double _var
 
     cdef void _observe(self, unsigned run, Edge edge) except *
@@ -35,6 +36,8 @@ cdef class Part:
     # property mse
     cdef double getMean(self)
     # property mean
+    cdef double getV2Mean(self)
+    # property v2mean
     cdef double getVar(self)
     # property var
     cdef unsigned getNruns(self)

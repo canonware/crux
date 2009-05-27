@@ -8,7 +8,7 @@ from CxRi cimport *
 from Crux.Tree cimport Tree, Node, Edge, Ring
 from Crux.Tree.Lik cimport Lik
 from Crux.Tree.Bipart cimport Vec, Bipart
-from Crux.Tree.Sumt cimport Trprob, Sumt
+from Crux.Tree.Sumt cimport Part, Sumt
 from Crux.Mc3 cimport Mc3
 
 # Used to search for the appropriate proposal, based on k.
@@ -65,7 +65,8 @@ cdef class Chain:
         self.tree = self.lik.tree
         self.lnL = self.lik.lnL()
         if self.master._prelim is not None:
-            self.lnRisk = self.computeLnRisk()
+            self.lnRiskCache = {}
+            self.lnRisk = self.computeLnRisk(None, None, self.lnRiskCache)
 
         self.step = 0
         self.master.sendSample(self.run, self.step, self.heat, self.nswap, \
@@ -109,80 +110,182 @@ cdef class Chain:
 
         return nUnique
 
-    @cython.boundscheck(False)
-    cdef double computeLnRisk(self) except *:
-        cdef double risk, distSq, diff
+    cdef dict computeRiskUnchanged(self, Tree tree0, dict lnRiskCache0):
+        cdef dict unchanged
+        cdef double risk, cachedDist
         cdef list vecsA, vecsB
-        cdef unsigned nsamples, i, lenA, lenB, iA, iB
+        cdef unsigned lenA, lenB, iA, iB
         cdef Vec vecA, vecB
         cdef int rel
 
-        risk = 0.0
-        vecsA = Bipart(self.tree, True).edgeVecs
+        if tree0 is None or lnRiskCache0 is None:
+            return {}
+
+        # Make a lookup table of unchanged bipartitions between tree0 and tree1.
+        unchanged = {}
+        vecsA = tree0.getBipart().edgeVecs
         lenA = len(vecsA)
         assert lenA > 0
-        nsamples = len(self.master._prelimBiparts)
-        for 0 <= i < nsamples:
-            vecsB = (<Bipart>self.master._prelimBiparts[i]).edgeVecs
-            lenB = len(vecsB)
-            assert lenB > 0
+        vecsB = self.tree.getBipart().edgeVecs # tree1
+        lenB = len(vecsB)
+        assert lenB > 0
+        iA = iB = 0
+        vecA = <Vec>vecsA[iA]
+        vecB = <Vec>vecsB[iB]
+        while True:
+            rel = vecA.cmp(vecB)
+            if rel == 0:
+                if vecA.edge.length == vecB.edge.length:
+                    cachedDist = lnRiskCache0[vecA]
+                    unchanged[vecB] = cachedDist
+                iA += 1
+                iB += 1
+                if not (iA < lenA):
+                    break
+                if not (iB < lenB):
+                    break
+                vecA = <Vec>vecsA[iA]
+                vecB = <Vec>vecsB[iB]
+            elif rel == -1:
+                # tree0 has a unique bipartition.
+                iA += 1
+                if not (iA < lenA):
+                    break
+                vecA = <Vec>vecsA[iA]
+            else:
+                assert rel == 1
+                # tree1 has a unique bipartition.
+                iB += 1
+                if not (iB < lenB):
+                    break
+                vecB = <Vec>vecsB[iB]
 
-            # Compute the squared Euclidean distance between trees.
-            distSq = 0.0
-            iA = iB = 0
-            vecA = <Vec>vecsA[iA]
-            vecB = <Vec>vecsB[iB]
-            while True:
-                rel = vecA.cmp(vecB)
-                if rel == 0:
-                    diff = vecA.edge.length - vecB.edge.length
-                    distSq += diff * diff
-                    iA += 1
-                    iB += 1
-                    if not (iA < lenA):
-                        break
-                    if not (iB < lenB):
-                        break
-                    vecA = <Vec>vecsA[iA]
-                    vecB = <Vec>vecsB[iB]
-                elif rel == -1:
-                    # vecA has a unique bipartition.
-                    diff = vecA.edge.length
-                    distSq += diff * diff
-                    iA += 1
-                    if not (iA < lenA):
-                        break
-                    vecA = <Vec>vecsA[iA]
+        return unchanged
+
+    @cython.boundscheck(False)
+    cdef double computeLnRisk(self, Tree tree0, dict lnRiskCache0, \
+      dict lnRiskCache1) except *:
+        cdef double risk, distSq, diff, diff2, diff2sum, v
+        cdef dict unchanged
+        cdef list vecs, parts, edges
+        cdef unsigned nsamples, lenVecs, lenParts, iVecs, iParts, nobs
+        cdef Vec vecV, vecP
+        cdef Part part
+        cdef int rel
+
+        risk = 0.0
+        unchanged = self.computeRiskUnchanged(tree0, lnRiskCache0)
+        vecs = self.tree.getBipart().edgeVecs
+        lenVecs = len(vecs)
+        assert lenVecs > 0
+        nsamples = len(self.master._prelim.runs * self.master._prelim.nsamples)
+        parts = self.master._prelimParts
+        lenParts = len(parts)
+        assert lenParts > 0
+        iVecs = iParts = 0
+        distSq = 0.0
+        vecV = <Vec>vecs[iVecs]
+        part = <Part>parts[iParts]
+        vecP = part.vec
+        while True:
+            rel = vecV.cmp(vecP)
+            if rel == 0:
+                if vecV in unchanged:
+                    diff2sum = unchanged[vecV]
                 else:
-                    assert rel == 1
-                    # vecB has a unique bipartition.
-                    diff = vecB.edge.length
-                    distSq += diff * diff
-                    iB += 1
-                    if not (iB < lenB):
-                        break
-                    vecB = <Vec>vecsB[iB]
+                    edges = part.edges
+                    nobs = part.getNobs()
+                    diff2sum = 0.0
+                    v = vecV.edge.length
+                    # Compute the squared difference for the current
+                    # bipartition edge length, compared to prelim samples that
+                    # also contain the bipartition.
+                    for 0 <= j < nobs:
+                        edge = <Edge>edges[j]
+                        diff = v - edge.length
+                        diff2 = diff * diff
+                        diff2sum += diff2
+                    # Treat prelim samples that lack the bipartition as if they
+                    # contain a 0-length edge for the bipartition.
+                    diff2 = v * v
+                    diff2sum += diff2 * (nsamples - nobs)
+                distSq += diff2sum
+                assert vecV not in lnRiskCache1
+                lnRiskCache1[vecV] = diff2sum
+                iVecs += 1
+                iParts += 1
+                if not (iVecs < lenVecs):
+                    break
+                if not (iParts < lenParts):
+                    break
+                vecV = <Vec>vecs[iVecs]
+                part = <Part>parts[iParts]
+                vecP = part.vec
+            elif rel == -1:
+                # vecs has a unique bipartition.  Treat all prelim samples as
+                # if they contain a 0-length edge for the bipartition.
+                v = vecV.edge.length
+                diff2 = v * v
+                diff2sum = diff2 * nsamples
+                distSq += diff2sum
+                assert vecV not in lnRiskCache1
+                lnRiskCache1[vecV] = diff2sum
+                iVecs += 1
+                if not (iVecs < lenVecs):
+                    break
+                vecV = <Vec>vecs[iVecs]
+            else:
+                assert rel == 1
+                # parts has a unique bipartition.  Rescale v2mean to account
+                # for prelim samples that do not include the bipartition.
+                nobs = part.getNobs()
+                diff2sum = part.getV2Mean() * <double>nobs
+                distSq += diff2sum
+                iParts += 1
+                if not (iParts < lenParts):
+                    break
+                part = <Part>parts[iParts]
+                vecP = part.vec
 
-            if iA < lenA:
-                while True:
-                    # vecA has a unique bipartition.
-                    vecA = <Vec>vecsA[iA]
-                    diff = vecA.edge.length
-                    distSq += diff * diff
-                    iA += 1
-                    if not (iA < lenA):
-                        break
-            elif iB < lenB:
-                while True:
-                    # vecB has a unique bipartition.
-                    vecB = <Vec>vecsB[iB]
-                    diff = vecB.edge.length
-                    distSq += diff * diff
-                    iB += 1
-                    if not (iB < lenB):
-                        break
+        if iVecs < lenVecs:
+            while True:
+                # vecs has a unique bipartition.  Treat all prelim samples as
+                # if they contain a 0-length edge for the bipartition.
+                vecV = <Vec>vecs[iVecs]
+                v = vecV.edge.length
+                diff2 = v * v
+                diff2sum = diff2 * nsamples
+                distSq += diff2sum
+                assert vecV not in lnRiskCache1
+                lnRiskCache1[vecV] = diff2sum
+                iVecs += 1
+                if not (iVecs < lenVecs):
+                    break
+        elif iParts < lenParts:
+            while True:
+                # parts has a unique bipartition.  Rescale v2mean to account
+                # for prelim samples that do not include the bipartition.
+                part = <Part>parts[iParts]
+                vecP = part.vec
+                nobs = part.getNobs()
+                diff2sum = part.getV2Mean() * <double>nobs
+                distSq += diff2sum
+                iParts += 1
+                if not (iParts < lenParts):
+                    break
 
-            risk += distSq / <double>nsamples
+        # Scale risk by the number of samples.
+        risk = distSq / <double>nsamples
+
+        IF @enable_debug@:
+            cdef double riskSlow
+            if len(unchanged) > 0:
+                riskSlow = exp(self.computeLnRisk(None, None, {}))
+                if not (0.999999 < risk/riskSlow and \
+                  risk/riskSlow < 1.000001):
+                    raise AssertionError( \
+                      "Incorrect risk: %.7e (should be approximately %.7e)" % \
+                      (risk, riskSlow))
 
         return log(risk)
 
@@ -553,8 +656,13 @@ cdef class Chain:
         return False
 
     cdef bint brlenPropose(self) except *:
+        cdef Tree tree0
         cdef Edge edge
         cdef double v0, v1, u, lnM, m, lnL1, lnPrior, lnProp, p
+        cdef dict lnRiskCache1
+
+        if self.master._prelim is not None:
+            tree0 = self.tree.dup()
 
         # Uniformly choose a random edge.
         edge = <Edge>self.tree.getEdges()[gen_rand64_range(self.prng, \
@@ -581,7 +689,8 @@ cdef class Chain:
             #   1/risk_1   risk_0
             #   -------- = ------
             #   1/risk_0   risk_1
-            lnRisk1 = self.computeLnRisk()
+            lnRiskCache1 = {}
+            lnRisk1 = self.computeLnRisk(tree0, self.lnRiskCache, lnRiskCache1)
             lnPrior += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
@@ -593,6 +702,7 @@ cdef class Chain:
             self.lnL = lnL1
             if self.master._prelim is not None:
                 self.lnRisk = lnRisk1
+                self.lnRiskCache = lnRiskCache1
             # Re-base to make the cache fully usable if the next lnL() call
             # does not specify a rooting.
             self.tree.setBase(edge.ring.node)
@@ -605,6 +715,7 @@ cdef class Chain:
         return False
 
     cdef bint etbrPropose(self) except *:
+        cdef Tree tree0
         cdef Edge e, eA, eX, eR, eY, eS
         cdef Node n, nX0, nX1, nR0, nR1, nY0, nY1, nS0, nS1
         cdef Ring r, rnext, rFrom
@@ -615,6 +726,10 @@ cdef class Chain:
         cdef double vX0, vX1, lnMX, mX
         cdef double vY0, vY1, lnMY, mY
         cdef double u, lnL1, lnRisk1, lnPrior, lnProp, p
+        cdef dict lnRiskCache1
+
+        if self.master._prelim is not None:
+            tree0 = self.tree.dup()
 
         # eTBR degenerates to a single branch length change for less than 3
         # taxa.
@@ -871,7 +986,8 @@ cdef class Chain:
             #   1/risk_1   risk_0
             #   -------- = ------
             #   1/risk_0   risk_1
-            lnRisk1 = self.computeLnRisk()
+            lnRiskCache1 = {}
+            lnRisk1 = self.computeLnRisk(tree0, self.lnRiskCache, lnRiskCache1)
             lnPrior += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
@@ -883,6 +999,7 @@ cdef class Chain:
             self.lnL = lnL1
             if self.master._prelim is not None:
                 self.lnRisk = lnRisk1
+                self.lnRiskCache = lnRiskCache1
             # Re-base to make the cache fully usable if the next lnL() call
             # does not specify a rooting.
             self.tree.setBase(nX0)
@@ -1216,12 +1333,17 @@ cdef class Chain:
 
     cdef void polytomyMergePropose(self, Tree tree, unsigned nedges, \
       unsigned ntaxa) except *:
+        cdef Tree tree0
         cdef unsigned uI, i, j, nodeADeg, nodeBDeg, np1
         cdef list edges, sibsB, nodes
         cdef Edge edge
         cdef Node n, nodeA, nodeB, base
         cdef Ring r, rnext
         cdef double lnL1, lnRisk1, lnPrior, lnGam, lnJacob, lnProp, u, p
+        cdef dict lnRiskCache1
+
+        if self.master._prelim is not None:
+            tree0 = self.tree.dup()
 
         # Uniformly choose a random internal edge to remove.
         edges = tree.getEdges()
@@ -1308,7 +1430,8 @@ cdef class Chain:
             #   1/risk_1   risk_0
             #   -------- = ------
             #   1/risk_0   risk_1
-            lnRisk1 = self.computeLnRisk()
+            lnRiskCache1 = {}
+            lnRisk1 = self.computeLnRisk(tree0, self.lnRiskCache, lnRiskCache1)
             lnPrior += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
@@ -1320,6 +1443,7 @@ cdef class Chain:
             self.lnL = lnL1
             if self.master._prelim is not None:
                 self.lnRisk = lnRisk1
+                self.lnRiskCache = lnRiskCache1
             self.accepts[PropPolytomyJump] += 1
             # Dissociate edge's cached CL's in order to allow them to be
             # reclaimed by GC sooner.
@@ -1346,6 +1470,7 @@ cdef class Chain:
 
     cdef void polytomySplitPropose(self, Tree tree, unsigned nedges, \
       unsigned ntaxa) except *:
+        cdef Tree tree0
         cdef list nodes, polys
         cdef Node n, nodeA, nodeB
         cdef Ring r, rnext
@@ -1353,6 +1478,10 @@ cdef class Chain:
         cdef unsigned i, deg0, a0, aa0, b0, bb0, degA, degB
         cdef bint inA
         cdef double lnL1, lnRisk1, lnPrior, lnGam, lnJacob, lnProp, u, p
+        cdef dict lnRiskCache1
+
+        if self.master._prelim is not None:
+            tree0 = self.tree.dup()
 
         # Uniformly choose a random polytomy to split.
         nodes = tree.getNodes()
@@ -1451,7 +1580,8 @@ cdef class Chain:
             #   1/risk_1   risk_0
             #   -------- = ------
             #   1/risk_0   risk_1
-            lnRisk1 = self.computeLnRisk()
+            lnRiskCache1 = {}
+            lnRisk1 = self.computeLnRisk(tree0, self.lnRiskCache, lnRiskCache1)
             lnPrior += (self.lnRisk - lnRisk1)
 
         # Determine whether to accept proposal.
@@ -1463,6 +1593,7 @@ cdef class Chain:
             self.lnL = lnL1
             if self.master._prelim is not None:
                 self.lnRisk = lnRisk1
+                self.lnRiskCache = lnRiskCache1
             self.accepts[PropPolytomyJump] += 1
         else:
             # Reject.

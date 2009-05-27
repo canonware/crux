@@ -127,7 +127,7 @@ cdef class Vec:
             self.bits[i] |= other.bits[i]
 
 cdef class Bipart:
-    def __init__(self, Tree tree, bint leaves=False):
+    def __init__(self, Tree tree):
         cdef list taxa
 
         # Create a taxon-->index translation.
@@ -138,10 +138,7 @@ cdef class Bipart:
                 raise ValueError("Duplicate taxa")
             self.taxaX[taxa[i]] = i
 
-        self.leaves = leaves
         self.edgeVecs = []
-        if not leaves:
-            self.leafVec = Vec(None, len(taxa))
 
         self._bipartitions(tree)
 
@@ -189,13 +186,8 @@ cdef class Bipart:
         if node.getDegree() <= 1:
             # Leaf node.
 
-            if self.leaves:
-                ret = Vec(ring.edge, len(self.taxaX))
-                self.edgeVecs.append(ret)
-            else:
-                # Use the special temp vector for this edge.
-                ret = self.leafVec
-                ret.reset()
+            ret = Vec(ring.edge, len(self.taxaX))
+            self.edgeVecs.append(ret)
 
             # Mark this taxon as being in the set.
             assert node._taxon is not None
@@ -285,11 +277,13 @@ cdef class Bipart:
             nUniqueB += lenB - iB
 
         # Convert counts to the Robinson-Foulds distance.
+        lenA -= len(self.taxaX)
         if lenA > 0:
             falseNegativeRate = <double>nUniqueA / <double>lenA
         else:
             falseNegativeRate = 0.0
 
+        lenB -= len(other.taxaX)
         if lenB > 0:
             falsePositiveRate = <double>nUniqueB / <double>lenB
         else:
