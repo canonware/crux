@@ -439,7 +439,7 @@ cdef class Sumt:
             if part.vec in v2e:
                 # This is a leaf edge, which was incorporated when the star
                 # tree was initialized.
-                break
+                continue
             support = <double>part.getNobs() / <double>N
             if support < minSupport:
                 # This and all subsequent bipartitions lack adequate support
