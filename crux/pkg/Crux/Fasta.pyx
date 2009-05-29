@@ -141,6 +141,9 @@ cdef class Chars(Nonterm):
 cdef Parsing.Spec _spec
 
 cdef class Parser(Parsing.Lr):
+    """
+        FASTA parser.
+    """
     def __init__(self, CTMatrix matrix, Taxa.Map taxaMap=None,
       Parsing.Spec spec=None):
         global _spec
@@ -186,6 +189,10 @@ cdef class Parser(Parsing.Lr):
         self.matrix.dataSet(taxon, chars)
 
     cpdef parse(self, input, type charType=Dna, int line=1, bint verbose=False):
+        """
+            Parse FASTA input from a file or string and store the results in
+            the CTMatrix that was passed to the constructor.
+        """
         cdef object regex, m
         cdef int idx, start, end
         cdef str l

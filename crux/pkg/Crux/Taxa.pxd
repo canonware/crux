@@ -11,6 +11,6 @@ cdef class Map:
 
     cpdef Taxon taxonGet(self, int ind)
     cpdef int indGet(self, Taxon taxon)
-    cpdef list taxaGet(self)
-    cpdef bint equal(self, Map other) # XXX Use __eq__ or similar.
+    cdef list taxaGet(self)
+    # property taxa
     cpdef map(self, Taxon taxon, int ind, bint replace=*)

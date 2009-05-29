@@ -1,3 +1,6 @@
+"""
+    Pairwise distance matrices.
+"""
 import Crux.Exception
 
 class Exception(Crux.Exception.Exception):
@@ -279,6 +282,19 @@ cdef class Parser:
 #===============================================================================
 
 cdef class DistMatrix:
+    """
+        Distance matrix.
+
+        Construct a symmetric DistMatrix from one of the following inputs:
+
+          file/str : Parse the input file/string as a distance matrix.
+
+          Taxa.Map : Create an uninitialized distance matrix of the appropriate
+                     size, given the number of taxa in the Taxa.Map.
+
+          DistMatrix : Duplicate or sample from the input DistMatrix, depending
+                       on the value of the 'sampleSize' parameter.
+    """
     def __cinit__(self):
         self.dists = NULL
 
@@ -287,15 +303,6 @@ cdef class DistMatrix:
             free(self.dists)
             self.dists = NULL
 
-    # Construct a symmetric DistMatrix from one of the following inputs:
-    #
-    #   file/str : Parse the input file/string as a distance matrix.
-    #
-    #   Taxa.Map : Create an uninitialized distance matrix of the appropriate
-    #              size, given the number of taxa in the Taxa.Map.
-    #
-    #   DistMatrix : Duplicate or sample from the input DistMatrix, depending
-    #                on the value of the 'sampleSize' parameter.
     def __init__(self, input=None, int sampleSize=-1):
         if type(input) in (file, str):
             self._parse(input)
@@ -357,6 +364,9 @@ cdef class DistMatrix:
         parser.parse(input)
 
     cpdef float distanceGet(self, size_t x, size_t y):
+        """
+            Get distance at (x,y) in matrix.
+        """
         assert x < self.ntaxa
         assert y < self.ntaxa
 
@@ -366,6 +376,9 @@ cdef class DistMatrix:
         return self.dists[nxy2i(self.ntaxa, x, y)]
 
     cpdef distanceSet(self, size_t x, size_t y, float distance):
+        """
+            Set distance at (x,y) in matrix.
+        """
         assert x != y or distance == 0.0
         assert x < self.ntaxa
         assert y < self.ntaxa
@@ -376,11 +389,6 @@ cdef class DistMatrix:
         self.dists[nxy2i(self.ntaxa, x, y)] = distance
 
     cdef Tree _nj(self, bint random):
-        """
-            Construct a tree using the neighbor joining (NJ) algorithm.  This
-            operation discards the matrix contents, so maintain a duplicate
-            matrix if needed.
-        """
         cdef Nj.Nj nj
 
         nj = Nj.Nj()
@@ -392,11 +400,6 @@ cdef class DistMatrix:
         return nj.nj(random)
 
     cdef Tree _rnj(self, bint random, bint additive):
-        """
-            Construct a tree using the relaxed neighbor joining (RNJ)
-            algorithm.  This operation discards the matrix contents, so
-            maintain a duplicate matrix if needed.
-        """
         cdef Tree ret
         cdef Nj.Rnj rnj
 
@@ -452,9 +455,11 @@ cdef class DistMatrix:
               <size_t>rowTab[<size_t>curOrder[b]]
             rowTab[<size_t>curOrder[b]] = t
 
-    # Randomly shuffle the order of rows/columns in the distance matrix, and
-    # make corresponding changes to the Taxa.Map.
     cpdef shuffle(self):
+        """
+            Randomly shuffle the order of rows/columns in the distance matrix,
+            and make corresponding changes to the Taxa.Map.
+        """
         cdef list order, taxa
         cdef Taxa.Map taxaMap
         cdef int i
@@ -472,8 +477,12 @@ cdef class DistMatrix:
         for i in xrange(self.ntaxa):
             taxaMap.map(<Taxon>taxa[<int>order[i]], i, True)
 
-    # Construct a neighbor joining (NJ) tree from the distance matrix.
     cpdef Tree nj(self, bint joinRandom=False, bint destructive=False):
+        """
+            Construct a tree using the neighbor joining (NJ) algorithm.  If
+            destructive=True, the matrix contents will be discarded, thus
+            rendering the matrix useless for any further operations.
+        """
         cdef DistMatrix m
 
         if (destructive):
@@ -482,9 +491,14 @@ cdef class DistMatrix:
             m = DistMatrix(self)
             return m._nj(joinRandom)
 
-    # Construct a relaxed neighbor joining (RNJ) tree from the distance matrix.
     cpdef Tree rnj(self, bint joinRandom=False, bint tryAdditive=True,
       bint destructive=False):
+        """
+            Construct a tree using the relaxed neighbor joining (RNJ)
+            algorithm.  If destructive=True, the matrix contents will be
+            discarded, thus rendering the matrix useless for any further
+            operations.
+        """
         cdef DistMatrix m
 
         if (destructive):
@@ -493,9 +507,12 @@ cdef class DistMatrix:
             m = DistMatrix(self)
             return m._rnj(joinRandom, tryAdditive)
 
-    # Print the matrix to a string in 'full', 'upper', or 'lower' format.
     cpdef render(self, str format=None, str distFormat="%.7e",
       file outFile=None):
+        """
+            Print the matrix to a string in 'full', 'upper', or 'lower' format.
+            If outFile is unspecified, print to stdout.
+        """
         cdef size_t i, j
         cdef str s
 

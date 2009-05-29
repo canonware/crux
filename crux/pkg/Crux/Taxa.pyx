@@ -1,3 +1,5 @@
+from Cx cimport CxCmp2Richcmp
+
 import Crux.Exception
 
 class Exception(Crux.Exception.Exception):
@@ -32,6 +34,9 @@ cdef _taxa
 _taxa = weakref.WeakValueDictionary()
 
 cpdef Taxon get(str label):
+    """
+        Return a globally unique Taxon instance associated with a label string.
+    """
     global _taxa
     cdef Taxon ret
 
@@ -42,6 +47,10 @@ cpdef Taxon get(str label):
     return ret
 
 cdef class Map:
+    """
+        Map between Taxon instances and indices.  This class is useful when
+        taxa ordering matters, as for CTMatrix.Alignment and Tree.Bipart.Vec.
+    """
     def __init__(self, list taxa=None):
         cdef int i
         cdef Taxon taxon
@@ -58,20 +67,39 @@ cdef class Map:
 
         self.ntaxa = len(self._ind2taxon)
 
+    def __richcmp__(Map self, Map other, int op):
+        if other is self:
+            return CxCmp2Richcmp(0, op)
+        elif self.ntaxa != other.ntaxa:
+            return CxCmp2Richcmp(1, op)
+        else:
+            try:
+                for 0 <= i < self.ntaxa:
+                    if self.taxonGet(i) is not self.taxonGet(i):
+                        return CxCmp2Richcmp(1, op)
+                return CxCmp2Richcmp(0, op)
+            except:
+                raise ValueError("Map indices must be contiguous")
+
     cpdef Taxon taxonGet(self, int ind):
+        """
+            Get taxon associated with index.
+        """
         try:
             return <Taxon>self._ind2taxon[ind]
         except:
             return None
 
     cpdef int indGet(self, Taxon taxon):
+        """
+            Get index associated with taxon.
+        """
         try:
             return self._taxon2ind[taxon]
         except:
             return -1
 
-    # XXX Make a property.
-    cpdef list taxaGet(self):
+    cdef list taxaGet(self):
         cdef list ret
         cdef int i
 
@@ -83,25 +111,19 @@ cdef class Map:
             raise ValueError("Map indices must be contiguous")
 
         return ret
+    property taxa:
+        """
+            Ordered list of taxa in map.
+        """
+        def __get__(self):
+            return self.taxaGet()
 
-    cpdef bint equal(self, Map other):
-        if other is self:
-            return True
-        elif self.ntaxa != other.ntaxa:
-            return False
-        else:
-            try:
-                for 0 <= i < self.ntaxa:
-                    if self.taxonGet(i) is not self.taxonGet(i):
-                        return False
-                return True
-            except:
-                raise ValueError("Map indices must be contiguous")
-
-    # Map a taxon to an index.  Typical usage is something like:
-    #
-    #   m.map(taxon, m.ntaxa)
     cpdef map(self, Taxon taxon, int ind, bint replace=False):
+        """
+            Map a taxon to an index.  Typical usage is something like:
+
+              m.map(taxon, m.ntaxa)
+        """
         if replace == False:
             # Make sure that taxon hasn't already been mapped to an index.
             if self._taxon2ind.has_key(taxon):

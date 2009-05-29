@@ -1,3 +1,6 @@
+"""
+    Edge-induced bipartitions.
+"""
 from Crux.Tree cimport Tree, Node, Edge, Ring
 
 from Cx cimport CxCmp2Richcmp
@@ -7,6 +10,9 @@ cdef extern from "Python.h":
     cdef object PyString_FromStringAndSize(char *s, Py_ssize_t len)
 
 cdef class Vec:
+    """
+        Bit vector, used to represent an edge-induced bipartition of taxa.
+    """
     def __cinit__(self):
         self.bits = NULL
 
@@ -60,6 +66,9 @@ cdef class Vec:
         return CxCmp2Richcmp(rel, op)
 
     cpdef int cmp(self, Vec other) except *:
+        """
+            Perform ordered comparison of the bit vectors for self and other.
+        """
         cdef int rel
 
         assert self.nBits == other.nBits
@@ -69,9 +78,15 @@ cdef class Vec:
         return rel
 
     cpdef reset(self):
+        """
+            Clear all bits.
+        """
         memset(self.bits, 0, self.nBytes)
 
     cpdef bint get(self, unsigned bit) except *:
+        """
+            Get a bit.
+        """
         cdef bint ret
         cdef unsigned byteOffset, bitOffset
         cdef unsigned char byte
@@ -104,10 +119,16 @@ cdef class Vec:
         self.bits[byteOffset] = byte
 
     cpdef set(self, unsigned bit, bint val):
+        """
+            Set a bit.
+        """
         assert bit < self.nBits
         self._set(bit, val)
 
     cpdef invert(self):
+        """
+            Translate {0,1} to {1,0} for all bits.
+        """
         cdef unsigned i, nBytes
 
         for 0 <= i < self.nBytes:
@@ -119,6 +140,9 @@ cdef class Vec:
             self._set(i, False)
 
     cpdef merge(self, Vec other):
+        """
+            Perform bitwise union of self and other.
+        """
         cdef unsigned i, nBytes
 
         assert self.nBits == other.nBits
@@ -127,6 +151,9 @@ cdef class Vec:
             self.bits[i] |= other.bits[i]
 
 cdef class Bipart:
+    """
+        Collection of Vec instances.
+    """
     def __init__(self, Tree tree):
         cdef list taxa
 
@@ -172,6 +199,9 @@ cdef class Bipart:
         return CxCmp2Richcmp(rel, op)
 
     cpdef int cmp(Bipart self, Bipart other):
+        """
+            Perform ordered comparison of Vec's in self and other.
+        """
         cdef int rel
 
         rel = cmp(self.edgeVecs, other.edgeVecs)
@@ -241,6 +271,16 @@ cdef class Bipart:
         self.edgeVecs.sort()
 
     cpdef double rfDist(self, Bipart other) except -1.0:
+        """
+            Compute the Robinson-Foulds distance between self and other,
+            precisely as defined in:
+
+              Moret B.M.E., L. Nakhleh, T. Warnow, C.R. Linder, A. Tholse, A.
+              Padolina, J. Sun, and R. Timme.  2004.  Phylogenetic Networks:
+              Modeling, Reconstructibility, and Accuracy.  IEEE/ACM
+              Transactions on Computational Biology and Bioinformatics
+              1(1):13-23.
+        """
         cdef double falseNegativeRate, falsePositiveRate
         cdef unsigned nUniqueA, nUniqueB, iA, iB, lenA, lenB
         cdef int rel

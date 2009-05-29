@@ -1,14 +1,11 @@
-#===============================================================================
-#
-# The Character class encapsulates the functionality that is necessary to
-# map character codes to bit vectors (as well as the reverse mapping).  Under
-# normal circumstances, there are only a few Character instances, though
-# many characters may refer to them.
-#
-# The dna and protein instances are pre-configured to support the standard
-# codes.
-#
-#===============================================================================
+"""
+    The Character class encapsulates the functionality that is necessary to map
+    character codes to bit vectors (as well as the reverse mapping).  Under
+    normal circumstances, there are only a few Character instances, though many
+    characters may refer to them.
+
+    The Dna and protein classes provide singletons via the get() method.
+"""
 
 import Crux.Exception
 
@@ -46,6 +43,9 @@ cdef class Character:
             self._aliasCodeAdd(alias, aliases[alias])
 
     cpdef list pcodes(self):
+        """
+            Get a list of primary state codes.
+        """
         cdef list ret
         cdef unsigned i
 
@@ -116,15 +116,19 @@ cdef class Character:
         if not self._vals.has_key(val):
             self._vals[val] = code
 
-    # Given a state code, return the associated value.
     cpdef int code2val(self, str code) except -1:
+        """
+            Given a state code, return the associated value.
+        """
         if not self._aStates.has_key(code):
             raise ValueError("State not defined: %r" % code)
 
         return self._aStates[code]
 
-    # Given an index value, return the primary associated state key.
     cpdef str val2code(self, int val):
+        """
+            Given an index value, return the primary associated state key.
+        """
         if not self._vals.has_key(val):
             raise ValueError("Value not defined: %r" % val)
 
@@ -185,6 +189,9 @@ cdef class Dna(Character):
         )
 
     def get(cls):
+        """
+            Get a singleton.
+        """
         global dna
 
         if dna is None:
@@ -250,6 +257,9 @@ cdef class Protein(Character):
         )
 
     def get(cls):
+        """
+            Get a singleton.
+        """
         global protein
 
         if protein is None:

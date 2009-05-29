@@ -4,6 +4,8 @@ cimport Crux.Taxa as Taxa
 from libc cimport *
 from SFMT cimport sfmt_t
 
+DEF NjDebug = False # Note companion DEF in Nj.pyx.
+
 cdef class Nj:
     cdef sfmt_t *prng
     cdef float *dBase, *d # d is advanced as rows are removed.
@@ -13,7 +15,8 @@ cdef class Nj:
     cdef Tree tree
     cdef list nodes
 
-#    cdef void _njDump(self) except *
+    IF NjDebug:
+        cdef void _njDump(self) except *
     cdef void _rInit(self) except *
     cdef void _rScaledInit(self) except *
     cdef void _nodesInit(self, Taxa.Map taxaMap) except *

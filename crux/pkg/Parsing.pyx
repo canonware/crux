@@ -2738,7 +2738,11 @@ cdef class Spec:
 
     # Look for action ambiguities and resolve them if possible.
     cdef void _disambiguate(self):
-        # XXX Add cdefs.
+        cdef unsigned stateInd, vNConflicts, nConflicts, nActions, nImpure
+        cdef dict state
+        cdef str vRes, res
+        cdef list actStats, acts, newActs
+        cdef Action act, actI, actJ
 
         assert self._nActions == 0
         assert self._nConflicts == 0

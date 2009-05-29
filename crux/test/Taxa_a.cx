@@ -11,11 +11,11 @@ maps = [
 for map in maps:
     m = Crux.Taxa.Map(map)
     print
-    print "map:", m.taxaGet()
+    print "map:", m.taxa
     print "ntaxa: %d" % m.ntaxa
 
     i = 0
-    for taxon in m.taxaGet():
+    for taxon in m.taxa:
         print "taxon '%s' '%s' at index %d %d" \
               % (taxon, m.taxonGet(i), m.indGet(taxon), i)
 
@@ -23,17 +23,17 @@ for map in maps:
 
 m = Crux.Taxa.Map()
 print
-print "map:", m.taxaGet()
+print "map:", m.taxa
 print "ntaxa: %d" % m.ntaxa
 
 m.map(Crux.Taxa.get('B'), 1)
 m.map(Crux.Taxa.get('A'), 0)
-print "map:", m.taxaGet()
+print "map:", m.taxa
 print "ntaxa: %d" % m.ntaxa
 
 m.map(Crux.Taxa.get('D'), 3)
 try:
-    print "map:", m.taxaGet()
+    print "map:", m.taxa
 except:
     import sys
 
@@ -42,7 +42,7 @@ except:
 print "ntaxa: %d" % m.ntaxa
 
 m.map(Crux.Taxa.get('C'), 2)
-print "map:", m.taxaGet()
+print "map:", m.taxa
 print "ntaxa: %d" % m.ntaxa
 
 print "Test end"

@@ -1,8 +1,15 @@
+"""
+    Tree distribution summary statistics.
+"""
 from Crux.Taxa cimport Taxon
 from Crux.Tree cimport Tree, Node, Edge, Ring
 from Crux.Tree.Bipart cimport Vec, Bipart
 
 cdef class Trprob:
+    """
+        Summary statistics associated with a set of all trees within a Sumt
+        instance that all have the same topology.
+    """
     def __init__(self, unsigned nruns):
         self._tree = None
 
@@ -113,6 +120,10 @@ cdef class Trprob:
             return self.getNruns()
 
 cdef class Part:
+    """
+        Summary statistics for a bipartition present in one or more trees
+        within a Sumt instance.
+    """
     def __init__(self, Vec vec, unsigned nruns):
         self.vec = vec
         self._nobs = [0] * nruns
@@ -230,6 +241,9 @@ cdef class Part:
             return self.getNruns()
 
 cdef class Sumt:
+    """
+        Summary of a set of trees.
+    """
     def __init__(self, list treeLists):
         self._treeLists = treeLists
         self._trprobs = None
@@ -355,8 +369,6 @@ cdef class Sumt:
             v.merge(vec)
         if v.cmp(incorp) != 0:
             return False
-#        if len(compat) == 0 or len(incompat) == 0:
-#            return False
         assert len(compat) > 0
         assert len(incompat) > 0
 

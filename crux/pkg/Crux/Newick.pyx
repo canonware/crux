@@ -408,6 +408,9 @@ cdef class Label(Nonterm):
 cdef Parsing.Spec _spec
 
 cdef class Parser(Parsing.Lr):
+    """
+        Newick tree parser.
+    """
     def __init__(self, Tree tree, Taxa.Map taxaMap=None,
       Parsing.Spec spec=None):
         if spec is None:
@@ -465,6 +468,10 @@ cdef class Parser(Parsing.Lr):
         node.taxon = taxon
 
     cpdef parse(self, input, int line=1, bint verbose=False):
+        """
+            Parse Newick input from a file or string and store the results in
+            the Tree that was passed to the constructor.
+        """
         cdef yyscan_t scanner
         cdef CxtNewickLexerExtra extra
         cdef int status, tokType

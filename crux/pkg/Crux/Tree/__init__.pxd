@@ -56,20 +56,6 @@ cdef class Tree:
     cpdef deroot(self)
     cpdef canonize(self, Taxa.Map taxaMap)
     cpdef int collapse(self) except -1
-    cpdef tbr(self, Edge bisect, Edge reconnectA, Edge reconnectB)
-    cpdef int tbrNNeigbhorsGet(self)
-    cpdef tbrNeighborGet(self, int neighbor)
-    cpdef nni(self, Edge edge, Edge reconnectA, Edge reconnectB)
-    cpdef nniNNeigbhorsGet(self)
-    cpdef nniNeighborGet(self, int neighbor)
-    cpdef mpPrepare(self, CTMatrix cTMatrix, bint elimUninformative=*)
-    cpdef mpFinish(self)
-    cpdef mp(self)
-    cpdef tbrBestNeighbhorsMp(self, int maxHold=*)
-    cpdef tbrBetterNeighborsMp(self, int maxHold=*)
-    cpdef tbrAllNeighborsMp(self, int maxHold=*)
-    cpdef nHeldGet(self)
-    cpdef heldGet(self, int i)
     cdef void _renderAppend(self, str s) except *
     cpdef str render(self, bint lengths=*, lengthFormat=*, Taxa.Map taxaMap=*,
       file outFile=*)
@@ -87,8 +73,8 @@ cdef class Node:
     cpdef int _degreeGet(self, bint calculate=*) except -1
     cdef int getDegree(self)
     # property degree
-    cpdef rrender(self, Edge via, bint lengths, lengthFormat, Taxa.Map taxaMap,
-      bint zeroLength=*, bint noLength=*)
+    cdef rrender(self, Edge via, bint lengths, lengthFormat, Taxa.Map taxaMap,
+      bint zeroLength, bint noLength)
     cpdef int separation(self, Node other)
 
 cdef class Edge:

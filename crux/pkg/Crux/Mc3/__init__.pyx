@@ -286,6 +286,10 @@ cdef class Mc3:
             self.setPpn(1)
 
     cpdef Mc3 dup(self):
+        """
+            Create a duplicate instance that encapsulates parameters, but
+            excludes the posterior distribution.
+        """
         cdef Mc3 ret
         cdef unsigned i
 

@@ -13,7 +13,7 @@ cdef class CTMatrix:
     cdef readonly int sn
     cdef dict _taxonData
 
-    cpdef _fastaNew(self, input, type charType)
+    cdef void _fastaNew(self, input, type charType) except *
     cdef void _renderLine(self, str line, list lines, file outFile) except *
     cpdef str fastaPrint(self, file outFile=*)
     cpdef str dataGet(self, Taxon taxon)

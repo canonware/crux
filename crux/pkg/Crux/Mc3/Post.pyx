@@ -15,6 +15,9 @@ from Crux.CTMatrix cimport Alignment
 from Crux.Tree cimport Tree
 
 cdef class Msamp:
+    """
+        Model component sample, associated with a Samp.
+    """
     def __init__(self, double weight, double rmult, str rclass, list rates, \
       double alpha, double pinvar, list freqs):
         self.weight = weight
@@ -26,6 +29,9 @@ cdef class Msamp:
         self.freqs = freqs
 
 cdef class Samp:
+    """
+        Posterior sample.
+    """
     def __init__(self, double lnL):
         self.lnL = lnL
         self.msamps = []
@@ -243,8 +249,8 @@ cdef class Post:
 
             This method is called implicitly as necessary when computing
             various statistics, but it must be called manually prior to
-            directly accessing Samp.lnL (via Cython code), in order to assure
-            the field's validity.
+            directly accessing Samp.lnL, in order to assure the field's
+            validity.
         """
         cdef file sFile
         cdef int nruns
@@ -300,8 +306,8 @@ cdef class Post:
 
             This method is called implicitly as necessary when computing
             various statistics, but it must be called manually prior to
-            directly accessing Samp.msamps (via Cython code), in order to
-            assure the field's validity.
+            directly accessing Samp.msamps, in order to assure the field's
+            validity.
         """
         cdef file pFile
         cdef unsigned nfreqs, nrates, run, model
@@ -362,8 +368,8 @@ cdef class Post:
 
             This method is called implicitly as necessary when computing
             various statistics, but it must be called manually prior to
-            directly accessing Samp.tree (via Cython code), in order to assure
-            the field's validity.
+            directly accessing Samp.tree, in order to assure the field's
+            validity.
         """
         cdef file tFile
         cdef uint64_t stride, step

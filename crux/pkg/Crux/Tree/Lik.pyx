@@ -1,3 +1,6 @@
+"""
+    Models of molecular evolution and tree likelihoods.
+"""
 import cPickle
 
 import Crux.Config as Config
@@ -1308,6 +1311,10 @@ cdef class Lik:
         self.lik.invalidate = False
 
     cpdef prep(self):
+        """
+            Recompute all internal model parameters necessary for lnL
+            computation.
+        """
         cdef double wSum, wSumC, qMean, wNorm
         cdef unsigned i, j
         cdef CxtLikModel *modelP

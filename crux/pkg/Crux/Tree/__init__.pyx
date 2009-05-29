@@ -1,3 +1,11 @@
+"""
+    Classes related to phylogenetic trees.  Also see the documentation for the
+    sub-modules:
+
+    * Crux.Tree.Bipart : Edge-induced bipartitions.
+    * Crux.Tree.Lik    : Models of molecular evolution and tree likelihoods.
+    * Crux.Tree.Sumt   : Tree distribution summary statistics.
+"""
 import Crux.Exception
 
 class Exception(Crux.Exception.Exception):
@@ -37,6 +45,11 @@ cdef class Edge
 cdef class Ring
 
 cdef class Tree:
+    """
+        Phylogenetic tree, rooted or unrooted, composed of Node, Edge, and
+        Ring instances.  The constructor optionally supports Newick input
+        strings and random topology creation.
+    """
     def __init__(self, with_=None, Taxa.Map taxaMap=None, bint rooted=True):
         self.sn = 0
         self._cacheSn = -1
@@ -157,6 +170,10 @@ cdef class Tree:
         return newNode
 
     cpdef Tree dup(self):
+        """
+            Create an independent duplicate tree.  The aux fields in the new
+            tree are not set.
+        """
         cdef Tree newTree
         cdef Node newBase
 
@@ -372,6 +389,10 @@ cdef class Tree:
             self._clearAuxRecurse(r.other)
 
     cpdef clearAux(self):
+        """
+            Clear all aux properties for the tree and associated nodes, edges,
+            and rings.
+        """
         cdef Ring ring, r
         cdef Node node
 
@@ -388,6 +409,9 @@ cdef class Tree:
                     self._clearAuxRecurse(r.other)
 
     cpdef deroot(self):
+        """
+            Remove tree root if present.
+        """
         cdef Node node
         cdef Edge edge
         cdef Ring ring
@@ -427,6 +451,11 @@ cdef class Tree:
             self.base = None
 
     cpdef canonize(self, Taxa.Map taxaMap):
+        """
+            Given a taxa map, re-order internal node rings in a repeatable
+            fashion.  This is useful when rendering trees or when
+            simultaneously traversing trees with identical topology.
+        """
         cdef Node base, node
         cdef Ring ring
 
@@ -458,6 +487,10 @@ cdef class Tree:
         ring.other._canonize(taxaMap)
 
     cpdef int collapse(self) except -1:
+        """
+            Collapse internal 0-length edges and return the number of edges
+            that were removed.
+        """
         cdef list collapsable, clampable
         cdef Node minTaxon
         cdef Ring ring, r
@@ -477,7 +510,7 @@ cdef class Tree:
         # list, in order to be able to tell which end of the edge is closer to
         # the tree base).
         #
-        # Also generate a list of clampablel edge.  Leaf edges cannot be
+        # Also generate a list of clampable edges.  Leaf edges cannot be
         # removed, but their lengths can be clamped at 0.0.
         ring = self._base.ring
         if ring is None:
@@ -497,72 +530,6 @@ cdef class Tree:
 
         return len(collapsable)
 
-    cpdef tbr(self, Edge bisect, Edge reconnectA, Edge reconnectB):
-        pass # XXX
-        self.sn += 1
-
-    # XXX Make a property.
-    cpdef int tbrNNeigbhorsGet(self):
-        pass # XXX
-
-    # XXX Make a property.
-    cpdef tbrNeighborGet(self, int neighbor):
-        pass # XXX
-
-    cpdef nni(self, Edge edge, Edge reconnectA, Edge reconnectB):
-        pass # XXX
-        self.sn += 1
-
-    # XXX Make a property.
-    cpdef nniNNeigbhorsGet(self):
-        pass # XXX
-
-    # XXX Make a property.
-    cpdef nniNeighborGet(self, int neighbor):
-        pass # XXX
-
-    # XXX Rename mp* methods to reflect that these implement *Fitch* parsimony
-    # *scoring*.  *Maximum* parsimony is a different concept.
-    cpdef mpPrepare(self, CTMatrix cTMatrix, bint elimUninformative=True):
-        cdef Taxon taxon
-
-        # Make sure that cTMatrix.taxaMap is compatible.
-        if cTMatrix.taxaMap.ntaxa != len(self.getTaxa()):
-            raise Tree.ValueError(
-                "Taxa.Map for Tree and CTMatrix must be equal")
-        for taxon in self.getTaxa():
-            if cTMatrix.taxaMap.indGet(taxon) == -1:
-                raise Tree.ValueError(
-                  "Taxa.Map for CTMatrix does not contain taxon: %s" %
-                  taxon.label)
-
-        self._mpPrepare(cTMatrix, elimUninformative)
-
-    cpdef mpFinish(self):
-        pass # XXX
-
-    cpdef mp(self):
-        pass # XXX
-
-    # XXX Implement more sophisticated tree holding, such that TBR neighbors
-    # can be merged into a general pool of held trees.
-    cpdef tbrBestNeighbhorsMp(self, int maxHold=-1):
-        pass # XXX
-
-    cpdef tbrBetterNeighborsMp(self, int maxHold=-1):
-        pass # XXX
-
-    cpdef tbrAllNeighborsMp(self, int maxHold=-1):
-        pass # XXX
-
-    # XXX Make a property.
-    cpdef nHeldGet(self):
-        pass # XXX
-
-    # XXX Make a property.
-    cpdef heldGet(self, int i):
-        pass # XXX
-
     cdef void _renderAppend(self, str s) except *:
         if self._renderList is not None:
             self._renderList.append(s)
@@ -571,6 +538,11 @@ cdef class Tree:
 
     cpdef str render(self, bint lengths=False, lengthFormat="%.7e",
       Taxa.Map taxaMap=None, file outFile=None):
+        """
+            Render the tree in Newick format.  If the lengths parameter is
+            True, use lengthFormat to print branch lengths.  Return a string if
+            outFile is unspecified.
+        """
         cdef str ret
         cdef Node n, neighbor
         cdef Ring ring
@@ -599,13 +571,15 @@ cdef class Tree:
                     ring = n.ring
                     assert ring is not None
                     neighbor = ring.other.node
-                    neighbor.rrender(ring.edge, lengths, lengthFormat, taxaMap)
+                    neighbor.rrender(ring.edge, lengths, lengthFormat, \
+                      taxaMap, False, False)
             else: # Unrooted tree.
 #                self._renderAppend("[&u] ")
                 degree = n._degreeGet()
                 if degree == 0:
                     # There is only one node in the tree.
-                    n.rrender(None, lengths, lengthFormat, taxaMap)
+                    n.rrender(None, lengths, lengthFormat, taxaMap, False, \
+                      False)
                 elif degree == 1:
                     # Leaf node.  If this node's neighbor is an internal node,
                     # start rendering with it, in order to unroot the tree.
@@ -615,20 +589,20 @@ cdef class Tree:
                     if neighbor._degreeGet() > 1:
                         # Start with the internal node.
                         neighbor.rrender(None, lengths, lengthFormat, taxaMap,
-                          noLength=True)
+                          False, True)
                     else:
                         # This tree only has two taxa; start with the tree
                         # base.
                         self._renderAppend("(")
-                        n.rrender(ring.edge, lengths, lengthFormat, taxaMap)
+                        n.rrender(ring.edge, lengths, lengthFormat, taxaMap, \
+                          False, False)
                         self._renderAppend(",")
                         neighbor.rrender(ring.edge, lengths, lengthFormat, \
-                          taxaMap, zeroLength=True)
+                          taxaMap, True, False)
                         self._renderAppend(")")
                 else:
                     # Internal node.
-                    n.rrender(None, lengths, lengthFormat, taxaMap,
-                      noLength=True)
+                    n.rrender(None, lengths, lengthFormat, taxaMap, False, True)
 
         self._renderAppend(";")
 
@@ -654,6 +628,9 @@ cdef class Tree:
         self._renderTarget.write(string)
 
 cdef class Node:
+    """
+        Node associated with a Tree.
+    """
     def __init__(self, Tree tree=None):
         self.tree = tree
         self.ring = None
@@ -745,8 +722,8 @@ cdef class Node:
         def __get__(self):
             return self.getDegree()
 
-    cpdef rrender(self, Edge via, bint lengths, lengthFormat, Taxa.Map taxaMap,
-      bint zeroLength=False, bint noLength=False):
+    cdef rrender(self, Edge via, bint lengths, lengthFormat, Taxa.Map taxaMap,
+      bint zeroLength, bint noLength):
         cdef bint did_paren = False
         cdef str label
         cdef object m
@@ -768,7 +745,8 @@ cdef class Node:
                         self.tree._renderAppend("(")
                         did_paren = True
 
-                    neighbor.rrender(e, lengths, lengthFormat, taxaMap)
+                    neighbor.rrender(e, lengths, lengthFormat, taxaMap, False, \
+                      False)
 
             if did_paren:
                 self.tree._renderAppend(")")
@@ -821,6 +799,9 @@ cdef class Node:
         return -1
 
 cdef class Edge:
+    """
+        Edge associated with a Tree.
+    """
     def __init__(self, Tree tree=None):
         cdef Ring other
 
@@ -842,6 +823,9 @@ cdef class Edge:
         self.aux = None
 
     cpdef attach(self, Node nodeA, Node nodeB):
+        """
+            Attach edge to nodeA and nodeB.
+        """
         cdef Ring ring, nRing, pRing
 
         assert self.ring.node is None
@@ -877,6 +861,9 @@ cdef class Edge:
             assert nodeA.separation(nodeB) == 1
 
     cpdef detach(self):
+        """
+            Detach edge.
+        """
         cdef Ring ring, nRing, pRing
         cdef Node node
 
@@ -929,6 +916,9 @@ cdef class _RingIterHelper:
         return ret
 
 cdef class Ring:
+    """
+        Ring associated with an Edge.
+    """
     def __init__(self, Edge edge=None, Ring other=None):
         self.node = None
         self.edge = edge

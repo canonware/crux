@@ -1,3 +1,6 @@
+"""
+    Character-by-taxon matrix classes.
+"""
 import Crux.Exception
 
 class Exception(Crux.Exception.Exception):
@@ -31,6 +34,11 @@ import sys
 global __name__
 
 cdef class CTMatrix:
+    """
+        Character-by-taxon matrix.  The Alignment class is best used for most
+        purposes; CTMatrix allows mismatched sequence lengths though, which
+        makes it useful during construction of alignments.
+    """
     def __init__(self, input=None, type charType=Dna, taxaMap=None):
         assert issubclass(charType, Character)
 
@@ -53,7 +61,7 @@ cdef class CTMatrix:
         if input is not None:
             self._fastaNew(input, charType)
 
-    cpdef _fastaNew(self, input, type charType):
+    cdef void _fastaNew(self, input, type charType) except *:
         cdef Fasta.Parser parser
 
         parser = Fasta.Parser(self, self.taxaMap)
@@ -763,11 +771,17 @@ cdef class Alignment:
               self.ntaxa)
 
     cpdef unsigned getFreq(self, int col):
+        """
+            Get the frequency associated with a column.
+        """
         assert col < self.nchars
 
         return self.freqs[col]
 
     cpdef setFreq(self, int col, unsigned freq):
+        """
+            get the frequency associated with a column.
+        """
         assert col < self.nchars
 
         self.freqs[col] = freq

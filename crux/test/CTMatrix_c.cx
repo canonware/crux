@@ -5,7 +5,7 @@ map = Crux.Taxa.Map([Crux.Taxa.get(label) for label in
   ('Taxon_A', 'Taxon_B', 'Taxon_C')])
 matrix = Crux.CTMatrix.CTMatrix(taxaMap=map)
 
-print "Taxa map: %r" % ([taxon.label for taxon in matrix.taxaMap.taxaGet()])
+print "Taxa map: %r" % ([taxon.label for taxon in matrix.taxaMap.taxa])
 
 matrix.dataSet(Crux.Taxa.get("Taxon_B"), "CCCCC")
 print "Taxon_B data: %r" % matrix.dataGet(Crux.Taxa.get("Taxon_B"))

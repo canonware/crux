@@ -156,7 +156,9 @@ from CxRi cimport *
 from Crux.Tree cimport Tree, Node, Edge
 from Crux.DistMatrix cimport nxy2i
 
-#import sys # For _njDump().
+DEF NjDebug = False # Note companion DEF in Nj.pxd.
+IF NjDebug:
+    import sys
 
 cdef union fiUnion:
     float d
@@ -220,42 +222,43 @@ cdef class Nj:
         if self.prng == NULL:
             raise MemoryError("Error initializing prng")
 
-#    cdef void _njDump(self) except *:
-#        cdef size_t i, x, y
-#
-#        sys.stdout.write( \
-#          "----------------------------------------" \
-#          "----------------------------------------\n")
-#        i = 0
-#        for 0 <= x < self.n:
-#            # || node
-#            sys.stdout.write(" " * (x * 9))
-#            y -= self.n - (x + 1)
-#            for x + 1 <= y < self.n:
-#                sys.stdout.write(" " * 9)
-#            taxon = self.nodes[x].taxon
-#            if taxon is not None:
-#                sys.stdout.write(" || %s\n" % taxon.label)
-#            else:
-#                sys.stdout.write(" || %r\n" % self.nodes[x])
-#
-#            # dist || r
-#            sys.stdout.write(" " * (x * 9))
-#            y -= self.n - (x + 1)
-#            for y <= y < self.n:
-#                sys.stdout.write(" %8.4f" % self.d[i])
-#                i += 1
-#            sys.stdout.write(" || %8.4f\n" % self.r[x])
-#
-#            # tdist || rScaled
-#            sys.stdout.write(" " * (x * 9))
-#            y -= self.n - (x + 1)
-#            i -= self.n - (x + 1)
-#            for y <= y < self.n:
-#                sys.stdout.write(" %8.4f" % \
-#                  (self.d[i] - (self.rScaled[x] + self.rScaled[y])))
-#                i += 1
-#            sys.stdout.write(" || %8.4f\n" % self.rScaled[x])
+    IF NjDebug:
+        cdef void _njDump(self) except *:
+            cdef size_t i, x, y
+
+            sys.stdout.write( \
+              "----------------------------------------" \
+              "----------------------------------------\n")
+            i = 0
+            for 0 <= x < self.n:
+                # || node
+                sys.stdout.write(" " * (x * 9))
+                y -= self.n - (x + 1)
+                for x + 1 <= y < self.n:
+                    sys.stdout.write(" " * 9)
+                taxon = self.nodes[x].taxon
+                if taxon is not None:
+                    sys.stdout.write(" || %s\n" % taxon.label)
+                else:
+                    sys.stdout.write(" || %r\n" % self.nodes[x])
+
+                # dist || r
+                sys.stdout.write(" " * (x * 9))
+                y -= self.n - (x + 1)
+                for y <= y < self.n:
+                    sys.stdout.write(" %8.4f" % self.d[i])
+                    i += 1
+                sys.stdout.write(" || %8.4f\n" % self.r[x])
+
+                # tdist || rScaled
+                sys.stdout.write(" " * (x * 9))
+                y -= self.n - (x + 1)
+                i -= self.n - (x + 1)
+                for y <= y < self.n:
+                    sys.stdout.write(" %8.4f" % \
+                      (self.d[i] - (self.rScaled[x] + self.rScaled[y])))
+                    i += 1
+                sys.stdout.write(" || %8.4f\n" % self.rScaled[x])
 
     cdef void _rInit(self) except *:
         cdef float *d, *r, dist
@@ -585,7 +588,8 @@ cdef class Nj:
         while self.n > 2:
             # Standard neighbor joining.
             self._rScaledUpdate()
-#            self._njDump()
+            IF NjDebug:
+                self._njDump()
             if random:
                 self._njRandomMinFind(&xMin, &yMin)
             else:
@@ -597,7 +601,8 @@ cdef class Nj:
             self.n -= 1
 
         # Join last two nodes.
-#        self._njDump()
+        IF NjDebug:
+            self._njDump()
         self._njFinalJoin()
 
         return self.tree
@@ -882,7 +887,8 @@ cdef class Rnj(Nj):
                     if ((not additive) or self._rnjPairClusterAdditive(x, y)) \
                       and self._rnjRowAllMinOk(closestRow, dist):
                         clustered = True
-#                        self._njDump()
+                        IF NjDebug:
+                            self._njDump()
                         node = self._njNodesJoin(x, y, &distX, &distY)
                         self._njRSubtract(x, y)
                         self._njCompact(x, y, node, distX, distY)
@@ -904,7 +910,8 @@ cdef class Rnj(Nj):
                               self.n)
         finally:
             CxRiDelete(&ri)
-#        self._njDump()
+        IF NjDebug:
+            self._njDump()
         return additive
 
     # Iteratively try all clusterings of two rows in the matrix.  Do this in a
@@ -943,7 +950,8 @@ cdef class Rnj(Nj):
                 if ((not additive) or self._rnjPairClusterAdditive(x, y)) \
                   and self._rnjPairClusterOk(x, y):
                     clustered = True
-#                    self._njDump()
+                    IF NjDebug:
+                        self._njDump()
                     node = self._njNodesJoin(x, y, &distX, &distY)
                     self._njRSubtract(x, y)
                     self._njCompact(x, y, node, distX, distY)
@@ -969,7 +977,8 @@ cdef class Rnj(Nj):
                         x -= 1
                 else:
                     x += 1
-#        self._njDump()
+        IF NjDebug:
+            self._njDump()
         return additive
 
     cdef rnj(self, bint random, bint additive):
@@ -982,7 +991,8 @@ cdef class Rnj(Nj):
                 additive = self._rnjDeterministicCluster(additive)
 
         # Join last two nodes.
-#        self._njDump()
+        IF NjDebug:
+            self._njDump()
         self._njFinalJoin()
 
         return (self.tree, additive)
