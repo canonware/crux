@@ -101,7 +101,7 @@ typedef struct {
     return 1;
 }
 
-[A-Za-z_][A-Za-z0-9_\-.]*([ \t\r\f\v]+[A-Za-z_][A-Za-z0-9_\-.]*)* {
+[A-Za-z_][A-Za-z0-9_\-./]*([ \t\r\f\v]+[A-Za-z_][A-Za-z0-9_\-./]*)* {
     yyextra->tok.label = yytext;
     yyextra->tokType = CxeDistMatrixLexerTokTypeLabel;
     return 1;
