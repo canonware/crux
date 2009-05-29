@@ -49,7 +49,6 @@ CxInit()
 # Import pure Python modules.
 import Config
 import Copying
-import Exception
 
 # Import Cython modules.
 cimport Crux.Character as Character
@@ -83,7 +82,7 @@ cpdef threaded():
         alignments into slices and uses a pool of worker threads (one thread
         per CPU) to concurrently compute site log-likelihoods for the slices.
     """
-    import Config
+    import Config # Work around an apparent Cython bug.
     CxThreaded()
     Config.threaded = True
 
@@ -99,7 +98,7 @@ cpdef seed(unsigned s):
         if size != 1:
             mpi.MPI_Bcast(&s, 1, mpi.MPI_UNSIGNED, 0, mpi.MPI_COMM_WORLD)
 
-    import Config
+    import Config # Work around an apparent Cython bug.
     Config.seed = s
     import random
     random.seed(s)

@@ -26,12 +26,12 @@ d --> 8
 D <-- 8
 Codes: ['A', 'B', 'C', 'D', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd']
 nstates: 4
-Exception <class 'Crux.Character.ValueError'>: State already defined: 'A'
-Exception <class 'Crux.Character.ValueError'>: State already defined: 'A'
-Exception <class 'Crux.Character.ValueError'>: State already defined: 'A'
-Exception <class 'Crux.Character.ValueError'>: State not defined: 'J'
-Exception <class 'Crux.Character.ValueError'>: State not defined: 'a'
-Exception <class 'Crux.Character.ValueError'>: Value not defined: 42
+Exception <type 'exceptions.ValueError'>: State already defined: 'A'
+Exception <type 'exceptions.ValueError'>: State already defined: 'A'
+Exception <type 'exceptions.ValueError'>: State already defined: 'A'
+Exception <type 'exceptions.ValueError'>: State not defined: 'J'
+Exception <type 'exceptions.ValueError'>: State not defined: 'a'
+Exception <type 'exceptions.ValueError'>: Value not defined: 42
 === Dna ===
 Codes: ['-', '.', '?', 'A', 'B', 'C', 'D', 'G', 'H', 'K', 'M', 'N', 'R', 'S', 'T', 'U', 'V', 'W', 'Y', 'a', 'b', 'c', 'd', 'g', 'h', 'k', 'm', 'n', 'r', 's', 't', 'u', 'v', 'w', 'y']
 nstates: 4

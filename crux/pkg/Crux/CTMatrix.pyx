@@ -1,14 +1,10 @@
 """
     Character-by-taxon matrix classes.
 """
-import Crux.Exception
-
-class Exception(Crux.Exception.Exception):
-    pass
 
 import exceptions
 
-class ValueError(Exception, exceptions.ValueError):
+class ValueError(exceptions.ValueError):
     def __init__(self, str):
         self._str = str
 

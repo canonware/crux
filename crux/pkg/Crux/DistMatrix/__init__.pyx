@@ -1,34 +1,16 @@
 """
     Pairwise distance matrices.
 """
-import Crux.Exception
-
-class Exception(Crux.Exception.Exception):
-    pass
 
 import exceptions
 
-class SyntaxError(Exception, exceptions.SyntaxError):
+class SyntaxError(exceptions.SyntaxError):
     def __init__(self, line, str):
         self.line = line
         self.str = str
 
     def __str__(self):
         return "Line %d: %s" % (self.line, self.str)
-
-class ValueError(Exception, exceptions.ValueError):
-    def __init__(self, str):
-        self._str = str
-
-    def __str__(self):
-        return self._str
-
-class MemoryError(Exception, exceptions.MemoryError):
-    def __init__(self, str):
-        self._str = str
-
-    def __str__(self):
-        return self._str
 
 from Crux.Taxa cimport Taxon
 cimport Crux.Taxa as Taxa

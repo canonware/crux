@@ -7,20 +7,6 @@
     The Dna and protein classes provide singletons via the get() method.
 """
 
-import Crux.Exception
-
-class Exception(Crux.Exception.Exception):
-    pass
-
-import exceptions
-
-class ValueError(Exception, exceptions.ValueError):
-    def __init__(self, str):
-        self._str = str
-
-    def __str__(self):
-        return self._str
-
 cimport Crux.DistMatrix as DistMatrix
 
 cdef class Character:

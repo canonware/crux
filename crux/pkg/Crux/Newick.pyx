@@ -23,14 +23,9 @@
 # implementation allows "zero length strings of printing characters".
 #===============================================================================
 
-import Crux.Exception
-
-class Exception(Crux.Exception.Exception):
-    pass
-
 import exceptions
 
-class SyntaxError(Exception, exceptions.SyntaxError):
+class SyntaxError(exceptions.SyntaxError):
     def __init__(self, line, str):
         self.line = line
         self.str = str
@@ -38,15 +33,9 @@ class SyntaxError(Exception, exceptions.SyntaxError):
     def __str__(self):
         return "Line %d: %s" % (self.line, self.str)
 
-class Malformed(Exception, exceptions.SyntaxError):
-    def __init__(self, str):
-        self._str = str
-
-    def __str__(self):
-        return self._str
-
 import re
 import sys
+import Crux.Config
 
 cimport Parsing
 from CxNewickLexer cimport *
@@ -461,7 +450,8 @@ cdef class Parser(Parsing.Lr):
             try:
                 taxon = self._ind2taxon(int(label.label))
             except:
-                raise Malformed("No Taxa.Map index entry for %r" % label.label)
+                raise exceptions.SyntaxError("No Taxa.Map index entry for %r" \
+                  % label.label)
         else:
             taxon = Taxa.get(label.label)
 

@@ -6,19 +6,6 @@
     * Crux.Tree.Lik    : Models of molecular evolution and tree likelihoods.
     * Crux.Tree.Sumt   : Tree distribution summary statistics.
 """
-import Crux.Exception
-
-class Exception(Crux.Exception.Exception):
-    pass
-
-import exceptions
-
-class Malformed(Exception, exceptions.SyntaxError):
-    def __init__(self, str):
-        self._str = str
-
-    def __str__(self):
-        return self._str
 
 import random
 import re
@@ -196,7 +183,7 @@ cdef class Tree:
               1(1):13-23.
         """
         if self.getTaxa() != other.getTaxa():
-            raise Malformed("Trees must contain identical taxa")
+            raise ValueError("Trees must contain identical taxa")
 
         return self.getBipart().rfDist(other.getBipart())
 
@@ -213,7 +200,7 @@ cdef class Tree:
         bipartSelf = self.getBipart()
         for other in others:
             if taxaSelf != other.getTaxa():
-                raise Malformed("Trees must contain identical taxa")
+                raise ValueError("Trees must contain identical taxa")
                 ret.append(1.0)
             else:
                 ret.append(bipartSelf.rfDist(other.getBipart()))
@@ -561,11 +548,11 @@ cdef class Tree:
             if self.rooted:
 #                self._renderAppend("[&r] ")
                 if n._taxon is not None:
-                    raise Malformed("Root is labeled")
+                    raise SyntaxError("Root is labeled")
 
                 degree = n._degreeGet()
                 if degree > 1:
-                    raise Malformed("Root is an internal node")
+                    raise SyntaxError("Root is an internal node")
 
                 if degree == 1:
                     ring = n.ring
@@ -671,7 +658,7 @@ cdef class Node:
         """
         IF TreeDebugExpensive:
             if taxon is not self._taxon and taxon in self.tree.getTaxa():
-                raise Malformed("Taxon already in use: %r" % taxon.label)
+                raise SyntaxError("Taxon already in use: %r" % taxon.label)
 
         self._taxon = taxon
         self.tree.sn += 1

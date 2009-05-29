@@ -18,14 +18,9 @@
 #
 ################################################################################
 
-import Crux.Exception
-
-class Exception(Crux.Exception.Exception):
-    pass
-
 import exceptions
 
-class SyntaxError(Exception, exceptions.SyntaxError):
+class SyntaxError(exceptions.SyntaxError):
     def __init__(self, line, str):
         self.line = line
         self.str = str
@@ -35,6 +30,7 @@ class SyntaxError(Exception, exceptions.SyntaxError):
 
 import re
 import sys
+import Crux.Config
 
 cimport Parsing
 from Crux.Character cimport Character, Dna
