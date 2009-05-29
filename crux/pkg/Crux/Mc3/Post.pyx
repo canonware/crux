@@ -54,7 +54,7 @@ cdef class Post:
           If True, print diagnostic output.
     """
     def __init__(self, Alignment alignment, str outPrefix, \
-      uint64_t burnin=ULLONG_MAX, bint verbose=False):
+      uint64_t burnin=ULLONG_MAX, bint verbose=False, bint lazy=False):
         self.mc3 = Mc3(alignment, outPrefix)
         self.verbose = verbose
 
@@ -111,6 +111,10 @@ cdef class Post:
         self.runs = None
 
         self._parseL()
+        if not lazy:
+            self._parseS()
+            self._parseP()
+            self._parseT()
 
     cdef void _parseL(self) except *:
         cdef file lFile
@@ -247,9 +251,10 @@ cdef class Post:
         """
             Parse <self.outPrefix>.s in order to acquire lnL sample data.
 
-            This method is called implicitly as necessary when computing
-            various statistics, but it must be called manually prior to
-            directly accessing Samp.lnL, in order to assure the field's
+            If lazy=True is passed to the constructor, this method is called
+            implicitly as necessary when computing various statistics, but it
+            must be called manually prior to directly accessing nsamples,
+            stepFirst, stepLast, and Samp.lnL, in order to assure the field's
             validity.
         """
         cdef file sFile
@@ -304,10 +309,10 @@ cdef class Post:
             Parse <self.outPrefix>.p in order to acquire model parameter sample
             data.
 
-            This method is called implicitly as necessary when computing
-            various statistics, but it must be called manually prior to
-            directly accessing Samp.msamps, in order to assure the field's
-            validity.
+            If lazy=True is passed to the constructor, this method is called
+            implicitly as necessary when computing various statistics, but it
+            must be called manually prior to directly accessing Samp.msamps, in
+            order to assure the field's validity.
         """
         cdef file pFile
         cdef unsigned nfreqs, nrates, run, model
@@ -366,10 +371,10 @@ cdef class Post:
         """
             Parse <self.outPrefix>.t in order to acquire tree sample data.
 
-            This method is called implicitly as necessary when computing
-            various statistics, but it must be called manually prior to
-            directly accessing Samp.tree, in order to assure the field's
-            validity.
+            If lazy=True is passed to the constructor, this method is called
+            implicitly as necessary when computing various statistics, but it
+            must be called manually prior to directly accessing Samp.tree, in
+            order to assure the field's validity.
         """
         cdef file tFile
         cdef uint64_t stride, step

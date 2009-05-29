@@ -751,7 +751,7 @@ else:
 
 if (opts.stage_mc3post and rank == 0) or opts.stage_dt:
     mc3post = Crux.Mc3.Post.Post(alignment, opts.mc3Prefix, opts.burnin, \
-      opts.verbose)
+      opts.verbose, lazy=True)
     mc3post.parseS()
     if mc3post.nsamples == 0:
         print >> sys.stderr, "No samples"
@@ -765,7 +765,7 @@ if opts.stage_dt:
 
 if opts.stage_dtpost and rank == 0:
     dtpost = Crux.Mc3.Post.Post(alignment, opts.dtPrefix, opts.burnin, \
-      opts.verbose)
+      opts.verbose, lazy=True)
     dtpost.parseS()
     if dtpost.nsamples == 0:
         print >> sys.stderr, "No samples"
