@@ -661,11 +661,13 @@ cdef class Lik:
         self.prep()
         brks = []
         wSum = 0.0
-        for 0 <= i < self.lik.compsLen:
+        for 0 <= i < self.lik.compsLen-1:
             wSum += self.lik.comps[i].weightScaled
-            brks.append(<int>(wSum * \
+            if wSum > 1.0:
+                wSum = 1.0
+            brks.append(<int>ceil(wSum * \
               <double>(self.alignment.nchars - self.alignment.npad)))
-        assert wSum == 1.0
+        brks.append(self.alignment.nchars - self.alignment.npad)
 
         seq = self._simulateRoot(brks)
         base = self.tree.getBase()

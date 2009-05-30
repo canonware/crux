@@ -1144,7 +1144,7 @@ cdef class Alignment:
         else:
             return None
 
-    cpdef str fastaPrint(self, file outFile=None):
+    cpdef str fastaPrint(self, file outFile=None, bint pad=False):
         """
             Print the alignment in FASTA format.  If 'outFile' is not
             specified, return a string that contains the FASTA representation.
@@ -1169,6 +1169,8 @@ cdef class Alignment:
 
             # Break into lines of length 75.
             taxonData = self.getSeq(i)
+            if not pad and self.npad > 0:
+                taxonData = taxonData[:-self.npad]
             for 0 <= j < len(taxonData) by 75:
                 if j + 75 < len(taxonData):
                     s = "%s\n" % taxonData[j:j+75]
