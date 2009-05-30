@@ -1,0 +1,55 @@
+import sys
+
+# Re-seed the PRNG so that test results are repeatable.
+Crux.seed(42)
+
+print "Test begin"
+
+fastaStr = """\
+>A1
+ACGT
+>A2
+ACGT
+>B
+AAAA
+>C
+GGGG
+>D
+CCCC
+"""
+
+trees = [
+    "(((A1:0.0,A2:0.0):0.05,B:0.15):0.75,(C:0.05,D:0.05));"
+]
+
+alignment = Crux.CTMatrix.Alignment(Crux.CTMatrix.CTMatrix(fastaStr))
+distMatrix = alignment.jukesDists(scoreGaps=True)
+for newickStr in trees:
+    t = Crux.Tree.Tree(newickStr)
+    t.deroot()
+    t.canonize(distMatrix.taxaMap)
+    t.render(lengths=True, outFile=sys.stdout)
+    lik = Crux.Tree.Lik.Lik(t, alignment)
+    print lik.alignment.render()
+    print lik.lnL()
+
+    lik2 = lik.simulate()
+    lik2.alignment.render(outFile=sys.stdout)
+    print lik2.lnL()
+
+    lik3 = lik.simulate(7)
+    lik3.alignment.render(outFile=sys.stdout)
+    print lik3.lnL()
+
+    lik4 = lik3.simulate(49)
+    lik4.alignment.render(outFile=sys.stdout)
+    print lik4.lnL()
+
+    mc3 = Crux.Mc3.Mc3(lik4.alignment, "foo")
+    lik5 = mc3.randomLik(lik4.tree.dup())
+    lik6 = lik5.simulate(100)
+    lik6.alignment.render(outFile=sys.stdout)
+    print lik6.lnL()
+
+print "Test end"
+

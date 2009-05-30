@@ -52,6 +52,12 @@ cdef class Lik:
     cpdef Lik unpickle(self, str pickle)
     cdef void _dup(self, Lik lik) except *
     cpdef Lik dup(self)
+    cdef list _simulateRoot(self, list brks)
+    cdef list _simulateChild(self, list brks, list parSeq, double brlen)
+    cdef void _simulateRecurse(self, str i2c, list brks, list parSeq, \
+      Ring ring) except *
+    cdef void _simulate(self) except *
+    cpdef Lik simulate(self, unsigned nchars=*)
     cpdef Lik clone(self)
     cpdef double getWNorm(self) except -1.0
     cpdef unsigned nmodels(self)

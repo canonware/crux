@@ -1037,13 +1037,14 @@ cdef class Alignment:
         else:
             lines.append(line)
 
-    cpdef str render(self, unsigned interleave=50, file outFile=None):
+    cpdef str render(self, unsigned interleave=50, file outFile=None, \
+      bint pad=False):
         """
             Render the alignment in a human-readable format that includes
             site frequencies.  Interleave data, unless 'interleave' is 0.  If
             'outFile' is not specified, return a string rather than printing.
         """
-        cdef unsigned i, j, k, freq, lim
+        cdef unsigned nchars, i, j, k, freq, lim
         cdef int labelWidth
         cdef list taxa, line, lines
         cdef Taxon taxon
@@ -1054,24 +1055,28 @@ cdef class Alignment:
 
         taxa = self.taxaMap.taxaGet()
 
-        if self.nchars > 0:
+        nchars = self.nchars
+        if not pad:
+            nchars -= self.npad
+
+        if nchars > 0:
             labelWidth = 0
             for taxon in taxa:
                 if len(taxon.label) > labelWidth:
                     labelWidth = len(taxon.label)
 
             if interleave == 0:
-                interleave = self.nchars
+                interleave = nchars
             elif interleave % 5 != 0:
                 # interleave must be a multiple of 5, due to how spacing is
                 # implemented.
                 interleave += 5 - (interleave % 5)
 
-            for 0 <= i < self.nchars by interleave:
-                if i + interleave < self.nchars:
+            for 0 <= i < nchars by interleave:
+                if i + interleave < nchars:
                     lim = i + interleave
                 else:
-                    lim = self.nchars
+                    lim = nchars
 
                 # Place a gap between interleavings.
                 if i > 0:
@@ -1104,6 +1109,8 @@ cdef class Alignment:
                     line = []
                     line.append("%-*s" % (labelWidth, taxon.label))
                     taxonData = self.getSeq(k)
+                    if not pad and self.npad > 0:
+                        taxonData = taxonData[:-self.npad]
                     for i <= j < lim by 5:
                         line.append(" %s" % taxonData[j:j+5])
                     line.append("\n")

@@ -59,7 +59,7 @@ cdef class Alignment:
     cpdef int compact(self, bint fitch=*)
 
     cdef void _renderLine(self, str line, list lines, file outFile) except *
-    cpdef str render(self, unsigned interleave=*, file outFile=*)
+    cpdef str render(self, unsigned interleave=*, file outFile=*, bint pad=*)
     cpdef str fastaPrint(self, file outFile=*)
 
     cpdef DistMatrix dists(self, bint scoreGaps=*)

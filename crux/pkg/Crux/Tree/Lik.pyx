@@ -2,6 +2,7 @@
     Models of molecular evolution and tree likelihoods.
 """
 import cPickle
+import random
 
 import Crux.Config as Config
 from Crux.Character cimport Character
@@ -541,6 +542,177 @@ cdef class Lik:
         ret._init2(self.alignment, self.char_)
         self._dup(ret)
 
+        return ret
+
+    cdef list _simulateRoot(self, list brks):
+        cdef list seq, cdf
+        cdef unsigned c, i, comp, brk
+        cdef double pCum
+
+        seq = []
+        c = 0
+        assert len(brks) == self.lik.compsLen
+        for 0 <= comp < self.lik.compsLen:
+            brk = brks[comp]
+            # Create a CDF for state frequencies.
+            cdf = []
+            pCum = 0.0
+            for 0 <= i < self.lik.dim-1:
+                pCum += self.lik.comps[comp].model.piDiagNorm[i]
+                if pCum > 1.0:
+                    pCum = 1.0
+                cdf.append(pCum)
+            cdf.append(1.0)
+            # Generate random characters, proportional to the state frequencies
+            # for this model component.
+            while c < brk:
+                u = random.random()
+                for 0 <= i < self.lik.dim:
+                    if cdf[i] >= u:
+                        seq.append(i)
+                        break
+                assert i < self.lik.dim
+                c += 1
+                assert len(seq) == c
+
+        return seq
+
+    cdef list _simulateChild(self, list brks, list parSeq, double brlen):
+        cdef list seq, cdfs, cdf
+        cdef double *P
+        cdef unsigned c, i, j, comp, brk
+        cdef double pCum
+
+        P = <double *>malloc(self.lik.dim * self.lik.dim * sizeof(double))
+        if P == NULL:
+            raise MemoryError("Error allocating P")
+        try:
+            seq = []
+            c = 0
+            assert len(brks) == self.lik.compsLen
+            for 0 <= comp < self.lik.compsLen:
+                brk = brks[comp]
+                # Create a list of CDFs for state transition probabilities,
+                # one for each starting state.
+                cdfs = []
+                CxLikPt(self.lik.dim, P, \
+                  self.lik.comps[comp].model.qEigVecCube,
+                  self.lik.comps[comp].model.qEigVals, brlen)
+                for 0 <= i < self.lik.dim:
+                    cdf = []
+                    pCum = 0.0
+                    for 0 <= j < self.lik.dim-1:
+                        pCum += P[i*self.lik.dim + j]
+                        if pCum > 1.0:
+                            pCum = 1.0
+                        cdf.append(pCum)
+                    cdf.append(1.0)
+                    cdfs.append(cdf)
+                # Generate random characters, based on starting state and
+                # transition probabilities.
+                while c < brk:
+                    u = random.random()
+                    cdf = cdfs[parSeq[c]]
+                    for 0 <= i < self.lik.dim:
+                        if cdf[i] >= u:
+                            seq.append(i)
+                            break
+                    assert i < self.lik.dim
+                    c += 1
+                    assert len(seq) == c
+        finally:
+            free(P)
+
+        return seq
+
+    cdef void _simulateRecurse(self, str i2c, list brks, list parSeq, \
+      Ring ring) except *:
+        cdef list seq
+        cdef Taxon taxon
+        cdef Ring r
+
+        seq = self._simulateChild(brks, parSeq, ring.edge.length)
+        taxon = ring.node.getTaxon()
+        if taxon is not None:
+            self.alignment.setSeq(self.alignment.taxaMap.indGet(taxon), 0, \
+              "".join([i2c[seq[i]] for i in xrange(len(seq))]))
+        for r in ring.siblings():
+            self._simulateRecurse(i2c, brks, seq, r.other)
+
+    cdef void _simulate(self) except *:
+        cdef list brks, seq
+        cdef double wSum
+        cdef unsigned i
+        cdef Node base
+        cdef Taxon taxon
+        cdef Ring ring, r
+        cdef str i2c
+
+        # Create a lookup table from state index to character.  For DNA this is
+        # "ACGT".
+        i2c = "".join(self.char_.pcodes())
+
+        # Compute the breaks between characters simulated under each model
+        # component.  For example, given a 1000-character alignment and the
+        # following component weights, breaks will look like:
+        #
+        #   weightScaled:  0.25, 0.10, 0.00, 0.00, 0.60, 0.05
+        #   brks        : [   0,  250,  250,  250,  950, 1000]
+        self.prep()
+        brks = []
+        wSum = 0.0
+        for 0 <= i < self.lik.compsLen:
+            wSum += self.lik.comps[i].weightScaled
+            brks.append(<int>(wSum * \
+              <double>(self.alignment.nchars - self.alignment.npad)))
+        assert wSum == 1.0
+
+        seq = self._simulateRoot(brks)
+        base = self.tree.getBase()
+        taxon = base.getTaxon()
+        if taxon is not None:
+            self.alignment.setSeq(self.alignment.taxaMap.indGet(taxon), 0, \
+              "".join([i2c[seq[i]] for i in xrange(len(seq))]))
+        ring = base.ring
+        if ring is not None:
+            for r in ring:
+                self._simulateRecurse(i2c, brks, seq, r.other)
+
+        # Clean up.
+        self.alignment.deCol()
+
+    cpdef Lik simulate(self, unsigned nchars=0):
+        """
+            Create a derivative Lik instance that is a duplicate (see the dup()
+            method), except that its alignment is replaced with one that is
+            filled with simulated sequences, based on the current model
+            parameters (including tree topology and branch lengths).  If nchars
+            is unspecified, the simulated alignment has the same number of
+            characters as the original alignment.
+        """
+        cdef Lik ret
+        cdef Tree Tree
+        cdef unsigned npad
+        cdef Alignment alignment
+
+        ret = Lik()
+        tree = self.tree.dup()
+        if nchars == 0:
+            nchars = self.alignment.nchars - self.alignment.npad
+        alignment = Alignment(None, None, self.alignment.taxaMap, nchars, \
+          self.alignment.charType, True, True)
+        # Pad the alignment if its width isn't a multiple of the stripe
+        # width.
+        npad = self._computeNpad(nchars, self._computeStripeWidth(nchars))
+        if npad != 0:
+            alignment.pad(self.char_.val2code(self.char_.any), npad)
+            nchars += npad
+        ret._init0(tree)
+        ret._init1(tree, nchars, self.lik.dim, 0)
+        ret._init2(alignment, self.char_)
+        self._dup(ret)
+
+        ret._simulate()
         return ret
 
     cpdef Lik clone(self):
