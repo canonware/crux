@@ -21,7 +21,7 @@ Building Crux requires all of the following software.  Once installed, Crux only
 requires the Python runtime and any shared libraries that were linked against
 during compilation.
 
-* Python (2.6 or any newer 2.x release).
+* Python (2.5 or any newer 2.x release).
 
 * gcc and gfortran (http://gcc.gnu.org/).  gfortran is only used if BLAS and
   LAPACK routines need to be built (see ATLAS notes below).
@@ -61,6 +61,11 @@ be built in to Crux:
   distribution.  ATLAS has the potential to perform much better than the
   reference BLAS, but ATLAS's build system is extremely fragile, which makes it
   inappropriate for direct inclusion in the Crux distribution.
+
+  Note that OS X includes ATLAS as part of its vecLib framework, so be sure to
+  have vecLib installed before building Crux.  OS X does not include a Fortran
+  compiler, so building Crux without vecLib requires manual installation of a
+  compatible gfortran compiler.
 
 Crux releases include various third-party software and pre-generated files, in
 order to streamline the build process for the typical user.  However, if you
