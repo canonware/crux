@@ -14,6 +14,7 @@
 #include <assert.h>
 #include "SFMT.h"
 #include "SFMT-params.h"
+#include "../Cx_defs.h"
 
 #if defined(__BIG_ENDIAN__) && !defined(__amd64) && !defined(BIG_ENDIAN64)
 #define BIG_ENDIAN64 1
@@ -573,9 +574,15 @@ sfmt_t *init_gen_rand(uint32_t seed) {
     int i;
     uint32_t *psfmt32;
 
+#ifdef CxmHavePosixMemalign
     if (posix_memalign((void **)&ctx, sizeof(w128_t), sizeof(sfmt_t)) != 0) {
 	return NULL;
     }
+#else
+    if ((ctx = (sfmt_t *)malloc(sizeof(sfmt_t))) == NULL) {
+	return NULL;
+    }
+#endif
     psfmt32 = &ctx->sfmt[0].u[0];
 
     psfmt32[idxof(0)] = seed;
@@ -606,9 +613,15 @@ sfmt_t *init_by_array(uint32_t *init_key, int key_length) {
     int size = N * 4;
     uint32_t *psfmt32;
 
+#ifdef CxmHavePosixMemalign
     if (posix_memalign((void **)&ctx, sizeof(w128_t), sizeof(sfmt_t)) != 0) {
 	return NULL;
     }
+#else
+    if ((ctx = (sfmt_t *)malloc(sizeof(sfmt_t))) == NULL) {
+	return NULL;
+    }
+#endif
     psfmt32 = &ctx->sfmt[0].u[0];
 
     if (size >= 623) {

@@ -33,6 +33,11 @@ FCLIBS :=
 endif
 LIBS := @LIBS@ $(FCLIBS)
 RPATH_EXTRA := @RPATH_EXTRA@
+ifeq (macho, @abi@)
+SO := dylib
+else
+SO := so
+endif
 
 # File lists.
 CSRCS := @csrcs@
@@ -123,7 +128,7 @@ install: inst
 	install -m 755 @objroot@build/inst/bin/`basename $$b` $(BINDIR); \
 done
 	install -d $(DATADIR)/Crux/lib
-	install -m 755 @objroot@build/inst/share/Crux/lib/libCx.so $(DATADIR)/Crux/lib
+	install -m 755 @objroot@build/inst/share/Crux/lib/libCx.$(SO) $(DATADIR)/Crux/lib
 	install -d $(DATADIR)/Crux/parsers
 	@for f in `find @abs_objroot@build/run/share/Crux/parsers -type f`; do \
 	echo "install -m 644 $$f $(DATADIR)/Crux/parsers"; \
@@ -145,7 +150,7 @@ check: run
 		echo "========================================="; \
 		for t in $(TESTS); do \
 			total=`expr $$total + 1`; \
-			echo -n "$$t ... "; \
+			/bin/echo -n "$$t ... "; \
 			2>&1 @objroot@build/run/bin/crux @srcroot@$$t - \
 			  @abs_srcroot@ @abs_objroot@ \
 			  | @GREP@ -v "\[[1-9][0-9]* refs\]" \
@@ -201,48 +206,47 @@ relclean: distclean flclean
 @objroot@build/lib/SFMT/%.o : @srcroot@lib/SFMT/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(MTCFLAGS) $(CPPFLAGS) $(MTCPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -c $< -o$@
-	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $(MTCPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
+	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $(MTCPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
 
 @objroot@build/lib/%.o : @srcroot@lib/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -c $< -o$@
-	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
+	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
 
 #===============================================================================
 @objroot@build/lib/%.o : @srcroot@lib/%.f
 	@mkdir -p $(@D)
 	$(FC) $(FCFLAGS) -c $< -o $@
-	@$(SHELL) -ec "$(CC) -MM $(CPPFLAGS) $< | sed \"s/\($(subst /,\/,$(notdir $(basename $@)))\)\.o\([ :]*\)/$(subst /,\/,$(strip $(dir $@)))\1.o \2/g\" > $(@:%.o=%.d)"
 
 #===============================================================================
-@objroot@build/run/share/Crux/lib/libCx.so : \
+@objroot@build/run/share/Crux/lib/libCx.$(SO) : \
 		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
 		$(FSRCS:@srcroot@lib/%.f=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS_RUN) $(LIBS)
+	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) -Wl,-soname,libCx.$(SO) -o $@ $^ $(LDFLAGS_RUN) $(LIBS)
 else
-	$(CC) -shared -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS_RUN) $(LIBS)
+	$(CC) -shared -Wl,-soname,libCx.$(SO) -o $@ $^ $(LDFLAGS_RUN) $(LIBS)
 endif
 endif
 ifeq (macho, @abi@)
-	$(CC) -undefined dynamic_lookup -dynamiclib -install_name @abs_objroot@build/run/shard/Crux/lib/libCx.so -o $@ $^ $(LDFLAGS_RUN) $(LIBS)
+	$(CC) -dynamiclib -install_name @abs_objroot@build/run/share/Crux/lib/libCx.$(SO) -o $@ $^ $(LDFLAGS_RUN) $(LIBS)
 endif
 
-@objroot@build/inst/share/Crux/lib/libCx.so : \
+@objroot@build/inst/share/Crux/lib/libCx.$(SO) : \
 		$(CSRCS:@srcroot@lib/%.c=@objroot@build/lib/%.o) \
 		$(FSRCS:@srcroot@lib/%.f=@objroot@build/lib/%.o)
 	@mkdir -p $(@D)
 ifeq (elf, @abi@)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) -shared @RPATH@$(DATADIR)/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS_INST) $(LIBS)
+	$(CC) -shared @RPATH@$(DATADIR)/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) -Wl,-soname,libCx.$(SO) -o $@ $^ $(LDFLAGS_INST) $(LIBS)
 else
-	$(CC) -shared -Wl,-soname,libCx.so -o $@ $^ $(LDFLAGS_INST) $(LIBS)
+	$(CC) -shared -Wl,-soname,libCx.$(SO) -o $@ $^ $(LDFLAGS_INST) $(LIBS)
 endif
 endif
 ifeq (macho, @abi@)
-	$(CC) -undefined dynamic_lookup -dynamiclib -install_name $(DATADIR)/Crux/lib/libCx.so -o $@ $^ $(LDFLAGS_INST) $(LIBS)
+	$(CC) -dynamiclib -install_name $(DATADIR)/Crux/lib/libCx.$(SO) -o $@ $^ $(LDFLAGS_INST) $(LIBS)
 endif
 
 #===============================================================================
@@ -327,31 +331,51 @@ endif
 # Rules for building packages/modules that link against libCx.  These rules
 # must come before the more generic rules that follow.
 @objroot@build/run/site-packages/Crux/%.so : @objroot@build/run/pkg/Crux/%.o \
-				@objroot@build/run/share/Crux/lib/libCx.so
+				@objroot@build/run/share/Crux/lib/libCx.$(SO)
 	@mkdir -p $(@D)
+ifeq (elf, @abi@)
 ifneq ($(words "" @RPATH@), 1)
 	$(CC) -shared @RPATH@@abs_objroot@build/run/share/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) $(LDFLAGS_RUN) @python_config_ldflags@ -o $@ $^ $(LIBS)
 else
 	$(CC) -shared $(LDFLAGS_RUN) @python_config_ldflags@ -o $@ $^ $(LIBS)
 endif
+endif
+ifeq (macho, @abi@)
+	$(CC) -dynamiclib $(LDFLAGS_RUN) @python_config_ldflags@ -o $@ $^ $(LIBS)
+endif
 
 @objroot@build/inst/site-packages/Crux/%.so : @objroot@build/inst/pkg/Crux/%.o \
-				@objroot@build/inst/share/Crux/lib/libCx.so
+				@objroot@build/inst/share/Crux/lib/libCx.$(SO)
 	@mkdir -p $(@D)
+ifeq (elf, @abi@)
 ifneq ($(words "" @RPATH@), 1)
 	$(CC) -shared @RPATH@$(DATADIR)/Crux/lib $(RPATH_EXTRA:%=@RPATH@%) $(LDFLAGS_INST) @python_config_ldflags@ -o $@ $^ $(LIBS)
 else
 	$(CC) -shared $(LDFLAGS_INST) @python_config_ldflags@ -o $@ $^ $(LIBS)
 endif
+endif
+ifeq (macho, @abi@)
+	$(CC) -dynamiclib $(LDFLAGS_INST) @python_config_ldflags@ -o $@ $^ $(LIBS)
+endif
 
 #===============================================================================
 @objroot@build/run/site-packages/%.so : @objroot@build/run/pkg/%.o
 	@mkdir -p $(@D)
+ifeq (elf, @abi@)
 	$(CC) -shared $(LDFLAGS_RUN) @python_config_ldflags@ -o $@ $^ $(LIBS)
+endif
+ifeq (macho, @abi@)
+	$(CC) -dynamiclib $(LDFLAGS_RUN) @python_config_ldflags@ -o $@ $^ $(LIBS)
+endif
 
 @objroot@build/inst/site-packages/%.so : @objroot@build/inst/pkg/%.o
 	@mkdir -p $(@D)
+ifeq (elf, @abi@)
 	$(CC) -shared $(LDFLAGS_INST) @python_config_ldflags@ -o $@ $^ $(LIBS)
+endif
+ifeq (macho, @abi@)
+	$(CC) -dynamiclib $(LDFLAGS_INST) @python_config_ldflags@ -o $@ $^ $(LIBS)
+endif
 
 #===============================================================================
 @objroot@build/run/site-packages/%.py : @srcroot@pkg/%.py

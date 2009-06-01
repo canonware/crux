@@ -4,7 +4,7 @@ AC_INIT([Makefile.in])
 dnl 
 dnl Version requirements for external software we depend on.
 dnl 
-PYTHON_VERSION_MIN=2.6.0
+PYTHON_VERSION_MIN=2.5.0
 CYTHON_VERSION_MIN=0.11.0
 FLEX_VERSION_MIN=2.5.35
 MPI4PY_VERSION_MIN=1.0.0
@@ -60,9 +60,14 @@ dnl Append EXTRA_CFLAGS to CFLAGS, if defined.
 if test "x$EXTRA_CFLAGS" != "x" ; then
   CFLAGS="$CFLAGS $EXTRA_CFLAGS"
 fi
-if test "x$GCC" = "xyes" ; then
-  CFLAGS="${CFLAGS} -march=native"
-fi
+dnl Ideally we would tell gcc to generate code that is optimized for the CPU it
+dnl is compiled on, but -march=native is only available in the more recent
+dnl versions of gcc, and autoconf does not provide an easy way to test what C
+dnl compiler flags are compatible.
+dnl 
+dnl if test "x$GCC" = "xyes" ; then
+dnl   CFLAGS="${CFLAGS} -march=native"
+dnl fi
 AC_PROG_CPP
 
 dnl sizeof_ptr is needed by the build system.
@@ -608,6 +613,11 @@ AC_HEADER_STDBOOL
 
 AC_CHECK_LIB([m], [log], [], [AC_MSG_ERROR([Cannot build without libm])])
 
+AC_CHECK_FUNC([posix_memalign],
+  [have_posix_memalign=1; AC_DEFINE([CxmHavePosixMemalign])],
+  [have_posix_memalign=0])
+AC_SUBST([have_posix_memalign])
+
 AC_MSG_CHECKING([for mallopt])
 AC_RUN_IFELSE([AC_LANG_PROGRAM(
 [[#include <malloc.h>
@@ -637,33 +647,39 @@ fi
 if test "x$enable_sys_linalg" = "x1" ; then
   TLIBS="${LIBS}"
 
-  AC_CHECK_HEADERS([cblas.h], [], [enable_sys_linalg="0"])
+  LIBS="-framework vecLib $LIBS"
+  AC_CHECK_FUNC([dgetrf],
+    [have_vecLib="yes"],
+    [have_vecLib="no"; LIBS="$TLIBS"])
+  if test "x$have_vecLib" = "xno" ; then
+    AC_CHECK_HEADERS([cblas.h], [], [enable_sys_linalg="0"])
 
-  if test "x$enable_sys_linalg" = "x1" ; then
-    AC_CHECK_HEADERS([clapack.h], [], [enable_sys_linalg="0"])
-  fi
+    if test "x$enable_sys_linalg" = "x1" ; then
+      AC_CHECK_HEADERS([clapack.h], [], [enable_sys_linalg="0"])
+    fi
 
-  if test "x$enable_sys_linalg" = "x1" ; then
-    AC_CHECK_LIB([atlas], [ATL_dscal], [], [enable_sys_linalg="0"])
-  fi
+    if test "x$enable_sys_linalg" = "x1" ; then
+      AC_CHECK_LIB([atlas], [ATL_dscal], [], [])
+    fi
 
-  if test "x$enable_sys_linalg" = "x1" ; then
-    AC_CHECK_LIB([f77blas], [dscal_], [], [enable_sys_linalg="0"])
-  fi
+    if test "x$enable_sys_linalg" = "x1" ; then
+      AC_CHECK_LIB([f77blas], [dscal_], [], [])
+    fi
 
-  if test "x$enable_sys_linalg" = "x1" ; then
-    AC_CHECK_LIB([cblas], [cblas_dscal], [], [enable_sys_linalg="0"])
-  fi
+    if test "x$enable_sys_linalg" = "x1" ; then
+      AC_CHECK_LIB([cblas], [cblas_dscal], [], [enable_sys_linalg="0"])
+    fi
 
-  if test "x$enable_sys_linalg" = "x1" ; then
-    AC_CHECK_LIB([lapack], [clapack_dgetrf], [],
-      [AC_CHECK_LIB([lapack], [dgetrf_],
-        [AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
-          [LIBS="-llapack_atlas -llapack $LIBS"],
-          [enable_sys_linalg="0"])
-        ])
-      ]
-    )
+    if test "x$enable_sys_linalg" = "x1" ; then
+      AC_CHECK_LIB([lapack], [clapack_dgetrf], [],
+        [AC_CHECK_LIB([lapack], [dgetrf_],
+          [AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
+            [LIBS="-llapack_atlas -llapack $LIBS"],
+            [enable_sys_linalg="0"]
+          )]
+        )]
+      )
+    fi
   fi
 
   if test "x$enable_sys_linalg" = "x0" ; then

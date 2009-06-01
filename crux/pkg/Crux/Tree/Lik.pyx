@@ -58,14 +58,26 @@ cdef class CL:
         assert polarity < 2
 
         if self.cLs[polarity].cLMat == NULL:
-            if posix_memalign(<void **>&self.cLs[polarity].cLMat, cacheLine, \
-              nchars * dim * ncomp * sizeof(double)):
-                raise MemoryError("Error allocating cLMat")
+            IF @have_posix_memalign@:
+                if posix_memalign(<void **>&self.cLs[polarity].cLMat, \
+                  cacheLine, nchars * dim * ncomp * sizeof(double)):
+                    raise MemoryError("Error allocating cLMat")
+            ELSE:
+                self.cLs[polarity].cLMat = \
+                  <double *>malloc(nchars * dim * ncomp * sizeof(double))
+                if self.cLs[polarity].cLMat == NULL:
+                    raise MemoryError("Error allocating cLMat")
 
         if self.cLs[polarity].lnScale == NULL:
-            if posix_memalign(<void **>&self.cLs[polarity].lnScale, cacheLine, \
-              nchars * sizeof(double)):
-                raise MemoryError("Error allocating lnScale")
+            IF @have_posix_memalign@:
+                if posix_memalign(<void **>&self.cLs[polarity].lnScale, \
+                  cacheLine, nchars * sizeof(double)):
+                    raise MemoryError("Error allocating lnScale")
+            ELSE:
+                self.cLs[polarity].lnScale = \
+                  <double *>malloc(nchars * sizeof(double))
+                if self.cLs[polarity].lnScale == NULL:
+                    raise MemoryError("Error allocating lnScale")
 
     cdef void resize(self, unsigned polarity, unsigned nchars, unsigned dim, \
       unsigned ncomp) except *:

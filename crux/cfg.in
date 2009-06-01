@@ -128,6 +128,7 @@ dAtAt = {
     "enable_debug": "@enable_debug@",
     "enable_cc_silence": "@enable_cc_silence@",
     "enable_inlines": "@enable_inlines@",
+    "have_posix_memalign": "@have_posix_memalign@",
 
     "python_opts": "@python_opts@",
     "PYTHON": "@PYTHON@",

@@ -22,7 +22,7 @@ CxInit(void) {
 CxmpInline unsigned
 CxpNcpus(void)
 {
-	return sysconf(_SC_NPROCESSORS_ONLN);
+    return sysconf(_SC_NPROCESSORS_ONLN);
 }
 #elif (defined(CxmOsDarwin))
 #include <mach/mach_init.h>
@@ -31,25 +31,25 @@ CxpNcpus(void)
 CxmpInline unsigned
 CxpNcpus(void)
 {
-	kern_return_t error;
-	natural_t n;
-	processor_info_array_t pinfo;
-	mach_msg_type_number_t pinfocnt;
+    kern_return_t error;
+    natural_t n;
+    processor_info_array_t pinfo;
+    mach_msg_type_number_t pinfocnt;
 
-	error = host_processor_info(mach_host_self(), PROCESSOR_BASIC_INFO, &n,
-	  &pinfo, &pinfocnt);
-	if (error != KERN_SUCCESS)
-		return (1); /* Error. */
-	else
-		return (n);
+    error = host_processor_info(mach_host_self(), PROCESSOR_BASIC_INFO, &n,
+      &pinfo, &pinfocnt);
+    if (error != KERN_SUCCESS)
+	return (1); /* Error. */
+    else
+	return (n);
 }
 #else
 CxmpInline unsigned
 CxpNcpus(void)
 {
-	// We lack a way to determine the number of CPUs on this platform, so
-	// assume 1 CPU.
-	return (1);
+    // We lack a way to determine the number of CPUs on this platform, so
+    // assume 1 CPU.
+    return (1);
 }
 #endif
 
