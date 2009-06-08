@@ -47,7 +47,7 @@ FSRCS := @fsrcs@
 else
 FSRCS :=
 endif
-PXDS := @pxds@
+LIBCX_PXDS := @libCx_pxds@
 PYXS := @pyxs@
 PKGS := @pkgs@
 PYS := @pys@
@@ -67,6 +67,7 @@ CSRCS += $(FLCS)
 
 # Cython headers.
 INST_SITE_PXDS := \
+    $(LIBCX_PXDS:@srcroot@lib/%.pxd=@objroot@build/inst/site-packages/Crux/include/Crux/%.pxd) \
     $(PYXS:@srcroot@pkg/%.pyx=@objroot@build/inst/site-packages/Crux/include/%.pxd) \
     $(PKGS:@srcroot@pkg/%.pyx=@objroot@build/inst/site-packages/Crux/include/%.pxd)
 RUN_PXDS := $(PYXS:@srcroot@%.pyx=@objroot@build/run/%.pxd) \
@@ -258,6 +259,10 @@ ifeq (@enable_flex@, 1)
 endif
 
 #===============================================================================
+@objroot@build/inst/site-packages/Crux/include/Crux/%.pxd : @srcroot@lib/%.pxd
+	@mkdir -p $(@D)
+	@abs_objroot@cfg -i --infile=$< --outfile=$@
+
 @objroot@build/inst/site-packages/Crux/include/%.pxd : @srcroot@pkg/%.pxd
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -i --infile=$< --outfile=$@

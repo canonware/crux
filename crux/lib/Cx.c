@@ -10,7 +10,9 @@ static pthread_once_t CxpThreadedOnce = PTHREAD_ONCE_INIT;
 
 void
 CxInit(void) {
+#ifdef CxmCpuInit
     CxmCpuInit();
+#endif
 #ifdef CxmHaveMallopt
     // Disable ptmalloc's sliding mmap() threshold, which can cause unbounded
     // fragmentation.

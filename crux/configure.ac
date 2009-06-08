@@ -565,12 +565,12 @@ for s in `find ${srcroot}lib -type f |grep "/[[A-Za-z0-9]]*\.f$" |sort` ; do
 done
 AC_SUBST([fsrcs])
 
-dnl Cython headers.
-pxds=""
-for d in `find ${srcroot}pkg -type f |grep "/[[A-Za-z0-9_]]*\.pxd$" |sort` ; do
-  pxds="${pxds} ${d}"
+dnl Cython headers that aren't associated with .pyx files.
+libCx_pxds=""
+for d in `find ${srcroot}lib -type f |grep "/[[A-Za-z0-9_]]*\.pxd$" |sort` ; do
+  libCx_pxds="${libCx_pxds} ${d}"
 done
-AC_SUBST([pxds])
+AC_SUBST([libCx_pxds])
 
 dnl Cython module/package sources.
 pyxs=""

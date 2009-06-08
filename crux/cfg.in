@@ -142,7 +142,7 @@ dAtAt = {
     "lsrcs": "@lsrcs@",
     "csrcs": "@csrcs@",
     "fsrcs": "@fsrcs@",
-    "pxds": "@pxds@",
+    "libCx_pxds": "@libCx_pxds@",
     "pyxs": "@pyxs@",
     "pkgs": "@pkgs@",
     "pys": "@pys@",

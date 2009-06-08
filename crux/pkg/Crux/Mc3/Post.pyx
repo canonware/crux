@@ -112,9 +112,9 @@ cdef class Post:
 
         self._parseL()
         if not lazy:
-            self._parseS()
-            self._parseP()
-            self._parseT()
+            self.parseS()
+            self.parseP()
+            self.parseT()
 
     cdef void _parseL(self) except *:
         cdef file lFile
