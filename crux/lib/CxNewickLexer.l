@@ -26,11 +26,11 @@ typedef struct {
     int ioerror;
     CxtNewickLexerInputMode inputMode;
     union {
-        int fd;
-        struct {
-            char *s;
-            size_t len;
-        } s;
+	int fd;
+	struct {
+	    char *s;
+	    size_t len;
+	} s;
     } input;
 
     CxtNewickLexerTokType tokType;
@@ -135,29 +135,39 @@ typedef struct {
 [(] {
     errno = 0;
     yyextra->tokType = CxeNewickLexerTokTypeLparen;
+    yyextra->tok.s = yytext;
+    yyextra->tok.len = yyleng;
     return 1;
 }
 
 [)] {
     errno = 0;
+    yyextra->tok.s = yytext;
+    yyextra->tok.len = yyleng;
     yyextra->tokType = CxeNewickLexerTokTypeRparen;
     return 1;
 }
 
 [,] {
     errno = 0;
+    yyextra->tok.s = yytext;
+    yyextra->tok.len = yyleng;
     yyextra->tokType = CxeNewickLexerTokTypeComma;
     return 1;
 }
 
 [:] {
     errno = 0;
+    yyextra->tok.s = yytext;
+    yyextra->tok.len = yyleng;
     yyextra->tokType = CxeNewickLexerTokTypeColon;
     return 1;
 }
 
 [;] {
     errno = 0;
+    yyextra->tok.s = yytext;
+    yyextra->tok.len = yyleng;
     yyextra->tokType = CxeNewickLexerTokTypeSemicolon;
     return 1;
 }
@@ -171,6 +181,7 @@ typedef struct {
 }
 
 [^ \t\n\r\f\v()[\]':;,]+ {
+    errno = 0;
     yyextra->tok.s = yytext;
     yyextra->tok.len = yyleng;
     yyextra->tokType = CxeNewickLexerTokTypeUnquotedLabel;
@@ -178,6 +189,7 @@ typedef struct {
 }
 
 '(''|[^'])*' {
+    errno = 0;
     yyextra->tok.s = yytext;
     yyextra->tok.len = yyleng;
     yyextra->tokType = CxeNewickLexerTokTypeQuotedLabel;
@@ -185,12 +197,14 @@ typedef struct {
 }
 
 [ \t\r\f\v]+ {
+    errno = 0;
     yyextra->tok.s = yytext;
     yyextra->tok.len = yyleng;
     yyextra->tokType = CxeNewickLexerTokTypeWhitespace;
     return 1;
 }
 [\n]+ {
+    errno = 0;
     yyextra->line += yyleng;
     yyextra->tok.s = yytext;
     yyextra->tok.len = yyleng;

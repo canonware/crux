@@ -1178,11 +1178,11 @@ Unrooted:
 
 === '(A,B)); [error]' ===
 Rooted:
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: rparen (')')
+Exception <class 'Crux.Newick.SyntaxError'>: Line 1: Unexpected token: ')'
 
 === '((A,B); [error]' ===
 Rooted:
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: semicolon (';')
+Exception <class 'Crux.Newick.SyntaxError'>: Line 1: Unexpected token: ';'
 
 === '(A,B) [error]' ===
 Rooted:
@@ -1190,11 +1190,11 @@ Exception <class 'Crux.Newick.SyntaxError'>: Line 1: End of input reached
 
 === '(A,B:42.43.44); [error]' ===
 Rooted:
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: unquotedLabel ('42.43.44')
+Exception <class 'Crux.Newick.SyntaxError'>: Line 1: Unexpected token: '42.43.44'
 
 === '(A:42.); [error]' ===
 Rooted:
-Exception <class 'Parsing.SyntaxError'>: Unexpected token: unquotedLabel ('42.')
+Exception <class 'Crux.Newick.SyntaxError'>: Line 1: Unexpected token: '42.'
 
 === '(B,(A,C,E),D);' ===
 Rooted:
