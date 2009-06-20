@@ -644,6 +644,7 @@ fi
 ],
 [enable_sys_linalg="1"]
 )
+did_fc="0"
 if test "x$enable_sys_linalg" = "x1" ; then
   TLIBS="${LIBS}"
 
@@ -652,10 +653,10 @@ if test "x$enable_sys_linalg" = "x1" ; then
     [have_vecLib="yes"],
     [have_vecLib="no"; LIBS="$TLIBS"])
   if test "x$have_vecLib" = "xno" ; then
-    AC_CHECK_HEADERS([cblas.h], [], [enable_sys_linalg="0"])
-
-    if test "x$enable_sys_linalg" = "x1" ; then
-      AC_CHECK_HEADERS([clapack.h], [], [enable_sys_linalg="0"])
+    if test "x$did_fc" = "x0" ; then
+      did_fc="1"
+      AC_PROG_FC([gfortran])
+      AC_FC_LIBRARY_LDFLAGS
     fi
 
     if test "x$enable_sys_linalg" = "x1" ; then
@@ -663,22 +664,26 @@ if test "x$enable_sys_linalg" = "x1" ; then
     fi
 
     if test "x$enable_sys_linalg" = "x1" ; then
-      AC_CHECK_LIB([f77blas], [dscal_], [], [])
+      TLIBS="${LIBS}"
+      LIBS="${LIBS} ${FCLIBS}"
+      AC_F77_FUNC([dscal])
+      AC_CHECK_LIB([f77blas], $dscal, [],
+        [LIBS="${TLIBS}"; enable_sys_linalg="0"])
+      if test "x$enable_sys_linalg" = "x0" ; then
+        AC_CHECK_LIB([blas], $dscal, [enable_sys_linalg="1"])
+      fi
     fi
 
     if test "x$enable_sys_linalg" = "x1" ; then
-      AC_CHECK_LIB([cblas], [cblas_dscal], [], [enable_sys_linalg="0"])
-    fi
-
-    if test "x$enable_sys_linalg" = "x1" ; then
-      AC_CHECK_LIB([lapack], [clapack_dgetrf], [],
-        [AC_CHECK_LIB([lapack], [dgetrf_],
-          [AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
-            [LIBS="-llapack_atlas -llapack $LIBS"],
-            [enable_sys_linalg="0"]
-          )]
-        )]
-      )
+      TLIBS="${LIBS}"
+      LIBS="${LIBS} ${FCLIBS}"
+      AC_F77_FUNC([dgetrf])
+      AC_CHECK_LIB([lapack], $dgetrf, [],
+        [LIBS="${TLIBS}"; enable_sys_linalg="0"])
+      if test "x$enable_sys_linalg" = "x0" ; then
+        AC_CHECK_LIB([lapack_atlas], [clapack_dgetrf],
+          [enable_sys_linalg="1"; LIBS="-llapack_atlas -llapack $LIBS"])
+      fi
     fi
   fi
 
@@ -689,15 +694,19 @@ if test "x$enable_sys_linalg" = "x1" ; then
 fi
 
 if test "x$enable_sys_linalg" = "x0" ; then
+  if test "x$did_fc" = "x0" ; then
+    did_fc="1"
+    AC_PROG_FC([gfortran])
+    AC_FC_LIBRARY_LDFLAGS
+  fi
   dnl Check whether gfortran is available.
-  AC_PROG_FC([gfortran])
   if test "x$FC" = "x" ; then
     AC_MSG_ERROR([Fortran compiler required to build BLAS and LAPACK routines])
   fi
-  AC_FC_LIBRARY_LDFLAGS
   dnl Set gfortran-specific flags.
-  echo "${FC}" | grep "gfortran">/dev/null \
-    && FCFLAGS="${FCFLAGS} -march=native"
+dnl See notes re: -march=native for CFLAGS above.
+dnl   echo "${FC}" | grep "gfortran">/dev/null \
+dnl     && FCFLAGS="${FCFLAGS} -march=native"
   dnl Enable FPU-related [F]CFLAGS.  It is dangerous to do this if we are using
   dnl system libraries (ATLAS/LAPACK) that may have been compiled to use a
   dnl different FPU.
