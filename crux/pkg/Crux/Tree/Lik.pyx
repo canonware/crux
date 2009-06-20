@@ -1248,6 +1248,7 @@ cdef class Lik:
 
         assert model < self.lik.modelsLen
         modelP = self.lik.models[model]
+        assert wVar >= 0.0
 
         if modelP.alpha == INFINITY:
             self.lik.comps[modelP.comp0].cweight = wVar

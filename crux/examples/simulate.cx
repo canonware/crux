@@ -1,0 +1,69 @@
+# simulate.cx shows how to generate a random tree and simulate DNA characters
+# on it.  The resulting output file is useful as input to other example
+# scripts.  Various model parameters are arbitrarily fixed for brevity, but it
+# should be obvious how to adapt the code for more realistic uses.
+#
+# Usage: crux simulate.cx - <ntaxa> <nchars> <vMean> <outPrefix>
+#
+# For example: crux simulate.cx 5 250 0.1 sim
+
+import math
+import random
+
+# Convert command line arguments.
+(ntaxa, nchars, vMean, outPrefix) = Crux.Config.scriptargs
+ntaxa = int(ntaxa)
+nchars = int(nchars)
+vMean = float(vMean)
+
+# Generate a tree with random topology, and draw the branch lengths from an
+# exponential distribution with a mean branch length of vMean.
+brlenPrior = 1.0 / vMean
+tree = Crux.Tree.Tree(ntaxa, rooted=False)
+for edge in tree.edges:
+    edge.length = -math.log(1.0 - random.random()) / brlenPrior
+
+# Write the simulation tree to a file.
+tFile = open("%s.tre" % outPrefix, "w")
+tree.render(lengths=True, outFile=tFile)
+tFile.close()
+
+# Create a taxa map from the taxa in the simulation tree.  Note that the map
+# order determines the row order in the derived alignment.  In this case we get
+# an alphabetical ordering, but for more sophisticated simulations, it is
+# possible to fully control the alignment row ordering via the taxa map.
+taxaMap = Crux.Taxa.Map(tree.taxa)
+# The alignment used to create the Lik instance merely needs to have the
+# appropriate taxa associated with it, so only allocate space for a single
+# character.
+a = Crux.CTMatrix.Alignment(taxaMap=taxaMap, nchars=1)
+# Create a Lik instance and configure it to be TrN+I+4G.
+lik = Crux.Tree.Lik.Lik(tree=tree, alignment=a, nmodels=1, ncat=4, \
+  invar=True)
+# Set the rclass to TrN, and set the relative mutation rate parameters at the
+# same time.  Alternatively, the rates can be set individually via a series of
+# lik.setRate() calls.
+lik.setRclass(0, [0,1,0,0,2,0], [1.0, 0.25, 0.5])
+# By default, the +G shape parameter is inf (i.e. disabled); set it to
+# something else.
+lik.setAlpha(0, 0.25)
+# The +I proportion of invariable sites (pinvar) is equal to:
+#
+#   pinvar = wInvar/(wInvar+wVar)
+#
+# So, in order to achieve, say, pinvar=0.25, we can set wInvar to a constant and
+# scale wVar accordingly.
+pinvar = 0.25
+wInvar = 1.0
+wVar = (1.0 - pinvar) * wInvar / pinvar
+lik.setWVar(0, wVar)
+lik.setWInvar(0, wInvar)
+
+# Create a derivative Lik instance that contains an alignment with nchars
+# simulated characters.
+simLik = lik.simulate(nchars)
+
+# Write the alignment to a file.
+fFile = open("%s.fasta" % outPrefix, "w")
+simLik.alignment.fastaPrint(outFile=fFile)
+fFile.close()

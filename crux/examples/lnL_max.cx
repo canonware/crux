@@ -1,0 +1,138 @@
+# lnL_max.cx uses iterative bisection to numerically maximize the lnL for a
+# 2-taxon tree.  This example demonstrates an extremely simple maximum
+# likelihood estimation.  Crux exposes interfaces that make it possible to
+# implement arbitrarily complex maximum likelihood methods, though no such
+# methods are built in.
+#
+# Usage: crux lnL_max.cx - <fasta> <deltaV> <minV> <maxV>
+#
+# For example:
+#   crux simulate.cx - 2 1000 0.1 sim
+#   crux lnL_max.cx - sim.fasta 0.025 0.025 1.0
+#
+# If the computed maximum is equal to minV or maxV, then the script must be
+# re-run with a smaller/larger minV/maxV.
+#
+# For comparison with MCMC methods, try running the following:
+#
+#   redpoint -i sim.fasta -m sim.mc3 --ncat=4 --fixed-nmodels=1 -v
+
+import sys
+
+# Convert command line arguments.
+(fasta, deltaV, minV, maxV) = Crux.Config.scriptargs
+deltaV = float(deltaV)
+minV = float(minV)
+maxV = float(maxV)
+
+# Read in the alignment.
+cTMatrix = Crux.CTMatrix.CTMatrix(open(fasta, "r"))
+alignment = Crux.CTMatrix.Alignment(cTMatrix)
+if alignment.ntaxa != 2:
+    print >> sys.stderr, "Only 2-taxon data sets are supported"
+    sys.exit(1)
+# Compact the alignment so that each unique column appears only once, and a
+# frequency vector encodes the number of times the column originally appeared.
+# This speeds up likelihood computations.
+alignment.compact()
+# Print the alignment in a human-readable compact format.  Note that if we were
+# to print the alignment in FASTA format at this point, there would be no way
+# to represent the column frequency vector.
+alignment.render(outFile=sys.stdout)
+
+# Generate a 2-taxon unrooted tree.
+tree = Crux.Tree.Tree(alignment.ntaxa, alignment.taxaMap, rooted=False)
+edge = tree.edges[0]
+
+# Create a Lik instance that will be used to compute lnL's.  We use the same
+# model here as is used in simulate.cx (further details there).  If we didn't
+# know the simulation model and paramters, it would typically make sense to
+# choose a model and optimize the additional model parameters.
+lik = Crux.Tree.Lik.Lik(tree, alignment, nmodels=1, ncat=4, invar=True)
+lik.setRclass(0, [0,1,0,0,2,0], [1.0, 0.25, 0.5])
+lik.setAlpha(0, 0.25)
+pinvar = 0.25
+wInvar = 1.0
+wVar = (1.0 - pinvar) * wInvar / pinvar
+lik.setWVar(0, wVar)
+lik.setWInvar(0, wInvar)
+
+# Compute lnL's at intervals and store the results.  These data will be used for
+# finding the starting points, and for printing a histogram.  Storing the lnLs
+# could of course be avoided if the histogram code were omitted.
+lnLs = []
+tuples = []
+v = minV
+while v <= maxV:
+    edge.length = v
+    lnL = lik.lnL()
+    lnLs.append(lnL)
+    tuples.append((lnL, v))
+    v += deltaV
+
+# Print the range of lnLs represented by the histogram.
+lnLMin = min(lnLs)
+lnLMax = max(lnLs)
+print "[%f .. %f]" % (lnLMin, lnLMax)
+
+# Print the histogram, assuming an 80-column display.
+ncols = 80
+fmt = "%.3f |"
+lcols = len(fmt % 0.0)
+for (lnL, v) in tuples:
+    barLen = int((ncols-lcols) * ((lnL - lnLMin) / (lnLMax - lnLMin)))
+    print (fmt+"%s") % (v, "=" * barLen)
+
+# Use the two values for v that bracket the highest likelihood computed earlier.
+tuples.sort(reverse=True)
+(lnL, v) = tuples[0]
+vMin = v-deltaV
+if vMin < 0.0:
+    vMin = 0.0
+edge.length = vMin
+lnLvMin = lik.lnL()
+vMax = v+deltaV
+edge.length = vMax
+lnLvMax = lik.lnL()
+
+if vMin < minV:
+    print >> sys.stderr, "Decrease minV and/or decrease deltaV"
+    sys.exit(1)
+if vMax > maxV:
+    print >> sys.stderr, "Increase maxV"
+    sys.exit(1)
+
+def bisect(lik, edge, vMin, lnLvMin, vMax, lnLvMax, epsilon):
+    """
+        Use recursive bisection to find the v in [vMin..vMax] that maximizes
+        the log-likelihood.
+    """
+    if abs(lnLvMax-lnLvMin) < epsilon:
+        return (vMin, lnLvMin)
+    v = (vMin+vMax) / 2.0
+    edge.length = v
+    lnL = lik.lnL()
+
+    if lnL > lnLvMin and lnL > lnLvMax:
+        pass
+    elif lnL > lnLvMin:
+        return bisect(lik, edge, v, lnL, vMax, lnLvMax, epsilon)
+    elif lnL > lnLvMax:
+        return bisect(lik, edge, vMin, lnLvMin, v, lnL, epsilon)
+
+    # We don't know whether the maximum is above or below v, so recurse in both
+    # directions.
+    (vMinus, lnLvMinus) = bisect(lik, edge, vMin, lnLvMin, v, lnL, epsilon)
+    (vPlus, lnLvPlus) = bisect(lik, edge, v, lnL, vMax, lnLvMax, epsilon)
+    if lnLvMinus > lnLvPlus:
+        return (vMinus, lnLvMinus)
+    else:
+        return (vPlus, lnLvPlus)
+
+(v, lnL) = bisect(lik, edge, vMin, lnLvMin, vMax, lnLvMax, 0.000001)
+print "v: %f" % v
+print "lnL: %f" % lnL
+# The site log-likelihoods can be accessed as shown below.  This code is
+# disabled since it is very verbose for large alignments.
+#edge.length = v
+#print "Site lnL's: %r" % lik.siteLnLs()

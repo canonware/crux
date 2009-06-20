@@ -46,8 +46,8 @@ class RedpointHelpFormatter(optparse.IndentedHelpFormatter):
 redpoint is a script based on Crux (http://www.canonware.com/Crux/) that
 analyzes a DNA alignment using Metropolis-coupled Markov chain Monte Carlo
 (Mc3) to create a representative sample (assuming convergence) of the
-stationary posterior distribution, based on the GTR+G family of sequence
-evolution models.  For more information on methods and configuration
+stationary posterior distribution, based on mixtures of the GTR+I+G family of
+sequence evolution models.  For more information on methods and configuration
 parameters, see the relevant Crux documentation (crux --doc=Crux.Mc3.Mc3).
 
 redpoint usage:

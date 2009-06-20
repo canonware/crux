@@ -1,0 +1,70 @@
+# tree2dist.cx converts a tree to a pairwise distance matrix and prints the
+# result in extended PHYLIP distance matrix format.  This script uses tree
+# recursion to compute the pairwise distances, but it would also be possible to
+# implement this by using the Crux.Tree.Bipart machinery.
+#
+# Usage: crux tree2dist.cx - <file.tre>
+#
+# For example:
+#   crux simulate.cx - 10 1000 0.1 sim
+#   crux tree2dist.cx - sim.tre > sim.dist
+#
+# The original tree should be recoverable via the MrRogers script:
+#   MrRogers --in=sim.dist > sim2.tre
+
+import sys
+
+# Convert command line arguments.
+(tre,) = Crux.Config.scriptargs
+
+def DistsCalcCont(matrix, curDist, fromNode, prevNode, curNode):
+    """
+        Recursively compute pairwise distances.
+    """
+    if curNode.taxon is not None and curNode is not fromNode:
+        matrix.distanceSet(matrix.taxaMap.indGet(fromNode.taxon), \
+          matrix.taxaMap.indGet(curNode.taxon), curDist)
+
+    ring = curNode.ring
+    if ring is not None:
+        for i in xrange(curNode.degree):
+            # Get the node on the other end of the edge.  If it isn't prev,
+            # recurse.
+            neighbor = ring.other.node
+            if neighbor is not prevNode:
+                DistsCalcCont(matrix, curDist + ring.edge.length, fromNode, \
+                  curNode, neighbor)
+            ring = ring.next
+
+def DistsCalcStart(matrix, prevNode, curNode):
+    """
+        Initiate recursive computation of pairwise distances.
+    """
+    if curNode.taxon is not None:
+        DistsCalcCont(matrix, 0.0, curNode, None, curNode)
+
+    ring = curNode.ring
+    if ring is not None:
+        for i in xrange(curNode.degree):
+            # Get the node on the other end of the edge.  If it isn't prev,
+            # recurse.
+            neighbor = ring.other.node
+            if neighbor is not prevNode:
+                DistsCalcStart(matrix, curNode, neighbor)
+            ring = ring.next
+
+# Read in the Newick-format tree.
+tree = Crux.Tree.Tree("".join(open(Crux.Config.scriptargs[0]).readlines()))
+taxaMap = Crux.Taxa.Map(tree.taxa)
+
+# Create a distance matrix that has one row/column for each taxon in the tree.
+matrix = Crux.DistMatrix.DistMatrix(taxaMap)
+
+# Increase the recursion limit (for large trees).
+sys.setrecursionlimit(tree.ntaxa*4 + 100)
+
+# Recursively compute pairwise distances.
+DistsCalcStart(matrix, None, tree.base)
+
+# Print the distance matrix in extended PHYLIP format.
+matrix.render(distFormat="%.7e", format="lower", outFile=sys.stdout)

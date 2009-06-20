@@ -1,5 +1,28 @@
-The following files may be of direct interest to the user:
+The following files may be of interest to the user before/during installation:
 
 * COPYING - Copyright and redistribution information.
 
 * INSTALL - Installation information.
+
+Once Crux is installed, run any of the following commands to print command line
+usage for the included scripts:
+
+  $ crux --help
+  $ redpoint --help
+  $ MrRogers --help
+
+Browse the interactive help as shown:
+
+  $ crux
+  Crux, version: 1.0.1, threaded, PID: 2019, PRNG seed: 1359116404
+  For Crux documentation, type: help(Crux)
+  crux> help(Crux)
+  [Top-level Crux documentation will display.]
+
+Alternatively, access the help non-interactively:
+
+  $ crux --doc=Crux.Mc3
+
+There are some example scripts in the examples directory.  Note also that crux,
+redpoint, and MrRogers are scripts, all of which may be useful for ideas when
+writing custom Crux scripts.
