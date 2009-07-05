@@ -66,6 +66,8 @@ redpoint usage:
     -s <uint>, --seed=<uint>     Set pseudo-random number generator seed
                                    (*based on system time, microsecond
                                    resolution).
+    -G <float>, --gcmult=<float> Factor by which to modify Python's garbage
+                                   collection thresholds (*1.0).
 
   Input/output options:
     -g <stages>,
@@ -173,6 +175,8 @@ def parse_options():
     parser.add_option("--ppn", dest="ppn", type="uint", default=1)
     parser.add_option("-s", "--seed", dest="seed", type="uint",
       default=int(time.time() * 1000000) & 0xffffffff)
+    parser.add_option("-G", "--gcmult", dest="gcmult", type="float",
+      default=1.0)
 
     parser.add_option("-g", "--stages", dest="stages", default="mc3,mc3post")
     parser.add_option("-i", "--input-file", dest="inFilename", default=None)
@@ -725,6 +729,12 @@ def run(alignment, prefix, prelim, opts):
 
 # Parse command line options.
 opts = parse_options()
+
+if opts.gcmult != 1.0:
+    import gc
+    threshold = gc.get_threshold()
+    gc.set_threshold(int(threshold[0] * opts.gcmult),
+      int(threshold[1] * opts.gcmult), int(threshold[2] * opts.gcmult))
 
 Crux.Config.verbose = opts.verbose
 

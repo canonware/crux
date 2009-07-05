@@ -335,7 +335,6 @@ cdef class Tree:
             return self.getEdges()
 
     cdef Bipart getBipart(self):
-
         if self._cacheSn != self.sn:
             self._recache()
         if self._cachedBipart is None:

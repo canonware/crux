@@ -630,7 +630,6 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM(
               AC_DEFINE([CxmHaveMallopt]),
               AC_MSG_RESULT([no]))
 
-
 dnl ============================================================================
 dnl Use system ATLAS/LAPACK by default.
 AC_ARG_ENABLE([sys_linalg],

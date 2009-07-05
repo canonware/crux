@@ -1385,7 +1385,6 @@ cdef class Mc3:
         self.sWrite(step, rcov)
 
         self.resetLiks()
-        gc.collect()
 
         return converged
 

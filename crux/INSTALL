@@ -236,6 +236,7 @@ directory, issue configuration and build commands:
 
     autoconf
     mkdir obj
+    cd obj
     ../configure --enable-autogen --enable-flex
     make
 
