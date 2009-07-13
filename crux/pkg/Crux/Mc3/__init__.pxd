@@ -96,12 +96,18 @@ cdef class Mc3:
     cdef list runs
 
     IF @enable_mpi@:
-        cdef int mpiPpn
-        cdef int mpiSize
-        cdef int mpiRank
-        cdef bint mpiActive
-        cdef bint mpiActiveCommAlloced
-        cdef mpi.MPI_Comm mpiActiveComm
+        cdef int mpiWorldSize
+        cdef int mpiWorldRank
+        cdef bint mpiLeaderCommAlloced
+        # Communicator for nodes that are leaders for their chains.
+        cdef mpi.MPI_Comm mpiLeaderComm
+        cdef int mpiLeaderSize
+        cdef int mpiLeaderRank
+        # Communicators for all chains.  MPI requires all nodes to participate
+        # in communicator creation, even nodes that are not members, the
+        # communicators are stored here rather than in the Chain class, because
+        # not all nodes necessarily instantiate all chains.
+        cdef mpi.MPI_Comm *mpiChainComms
 
     # Matrix of heat swapInfo structures, two for each pair of
     # Metropolis-coupled chains (even/odd swaps).  The matrix is ordered as
@@ -166,8 +172,7 @@ cdef class Mc3:
     cdef void recvSwapInfo(self, unsigned runInd, unsigned dstChainInd, \
       unsigned srcChainInd, uint64_t step, double *heat, double *lnL) except *
     IF @enable_mpi@:
-        cdef list rank2interleave(self, unsigned nnodes)
-        cdef bint initActive(self) except *
+        cdef void initComms(self) except *
     cdef void initLogs(self) except *
     cdef void initPrelim(self) except *
     cdef void initSwapInfo(self) except *
@@ -208,11 +213,6 @@ cdef class Mc3:
     cdef Post getPrelim(self)
     cdef void setPrelim(self, Post prelim) except *
     # property prelim
-
-    IF @enable_mpi@:
-        cdef int getPpn(self)
-        cdef void setPpn(self, int ppn) except *
-        # property ppn
 
     cdef double getGraphDelay(self)
     cdef void setGraphDelay(self, double graphDelay)

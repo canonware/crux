@@ -122,6 +122,7 @@ dAtAt = {
     "RPATH": "@RPATH@",
     "enable_autogen": "@enable_autogen@",
     "enable_mpi": "@enable_mpi@",
+    "comment_mpi": "@comment_mpi@",
     "mpi4py_includes": "@mpi4py_includes@",
     "enable_sys_linalg": "@enable_sys_linalg@",
     "enable_flex": "@enable_flex@",

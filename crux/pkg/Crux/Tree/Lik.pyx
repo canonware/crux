@@ -16,6 +16,10 @@ from libm cimport *
 from CxLik cimport *
 from CxMath cimport *
 
+IF @enable_mpi@:
+    from mpi4py import MPI
+    cimport mpi4py.mpi_c as mpi
+
 DEF LikDebug = False
 
 # Conditional likelihoods are allocated such that they are aligned to cacheline
@@ -249,7 +253,7 @@ cdef class Lik:
             raise ValueError("Tree must be unrooted")
 
         # Make sure there's no left over cruft from some non-likelihood
-        # anaylyis.
+        # analyis.
         tree.clearAux()
 
     cdef void _init1(self, Tree tree, unsigned nchars, unsigned dim, \
@@ -264,10 +268,15 @@ cdef class Lik:
         self.lik.polarity = polarity
         self.lik.dim = dim
         self.lik.rlen = self.lik.dim * (self.lik.dim-1) / 2
+        self.lik.cbase = 0
         self.lik.nchars = nchars
+        self.lik.mschars = nchars
         self.lik.stripeWidth = self._computeStripeWidth(nchars)
-        self.lik.nstripes = self.lik.nchars / self.lik.stripeWidth
-        assert self.lik.nstripes * self.lik.stripeWidth == self.lik.nchars
+        self.lik.nstripes = self.lik.mschars / self.lik.stripeWidth
+        assert self.lik.nstripes * self.lik.stripeWidth == self.lik.mschars
+
+        IF @enable_mpi@:
+            self.lik.mpiComm = mpi.MPI_COMM_NULL
 
         self.lik.invalidate = False
         self.lik.resize = False
@@ -493,6 +502,64 @@ cdef class Lik:
         self.lik.compsLen -= modelP.clen
         free(modelP)
 
+    IF @enable_mpi@:
+        cdef void configMpi(self, mpi.MPI_Comm mpiComm) except *:
+            """
+                Stripe data across the MPI nodes in mpiComm.
+            """
+            cdef int mpiSize, mpiRank
+            cdef unsigned npad, nchars, mschars
+            cdef double *siteLnL
+
+            # Get communicator info.
+            mpi.MPI_Comm_size(mpiComm, &mpiSize)
+            mpi.MPI_Comm_rank(mpiComm, &mpiRank)
+            # If necessary, modify padding to make the alignment width a
+            # multiple of the MPI node count.  Note that multi-threaded
+            # striping is disabled whenever MPI striping is enabled, because
+            # there is no guarantee that each MPI node has the same number of
+            # CPUs, thus making it impossible to base striping (and padding) on
+            # the number of CPUs.
+            if (self.alignment.nchars-self.alignment.npad) % mpiSize != 0:
+                npad = mpiSize - \
+                  ((self.alignment.nchars-self.alignment.npad) % mpiSize)
+            else:
+                npad = 0
+            mschars = ((self.alignment.nchars-self.alignment.npad) + npad) / \
+              mpiSize
+            # Add padding to the alignment if necessary.
+            if npad > self.alignment.npad:
+                self.alignment.pad(self.char_.val2code(self.char_.any), \
+                  npad - self.lik.npad)
+                self.lik.charFreqs = self.alignment.freqs
+            else:
+                npad = self.lik.npad
+            nchars = self.alignment.nchars
+            # Resize siteLnL before storing computed results.
+            siteLnL = <double *>realloc(self.lik.siteLnL, nchars * \
+              sizeof(double))
+            if siteLnL == NULL:
+                raise MemoryError("Error allocating siteLnL")
+            self.lik.siteLnL = siteLnL
+            # Store results.
+            self.lik.mpiComm = mpiComm
+            self.lik.mpiSize = mpiSize
+            self.lik.mpiRank = mpiRank
+            self.lik.nchars = nchars
+            self.lik.npad = npad
+            self.lik.mschars = mschars
+            self.lik.cbase = mpiRank * self.lik.mschars
+            self.lik.stripeWidth = mschars
+            self.lik.nstripes = 1
+            # Discard all CL data, since it is probably incorrectly sized.
+            self.tree.clearAux()
+
+        def enableMpi(self):
+            """
+                Stripe data across all MPI nodes.
+            """
+            self.configMpi(mpi.MPI_COMM_WORLD)
+
     cpdef Lik unpickle(self, str pickle):
         """
             Unpickle the partial Lik encoded by 'pickle', and fill in the
@@ -535,6 +602,25 @@ cdef class Lik:
         for 0 <= i < self.lik.compsLen:
             lik.lik.comps[i].cweight = self.lik.comps[i].cweight
             lik.lik.comps[i].cmult = self.lik.comps[i].cmult
+
+        IF @enable_mpi@:
+            cdef double *siteLnL
+
+            if self.lik.mpiComm != mpi.MPI_COMM_NULL:
+                siteLnL = <double *>realloc(lik.lik.siteLnL, self.lik.nchars * \
+                  sizeof(double))
+                if siteLnL == NULL:
+                    raise MemoryError("Error allocating siteLnL")
+                lik.lik.siteLnL = siteLnL
+                lik.lik.mpiComm = self.lik.mpiComm
+                lik.lik.mpiSize = self.lik.mpiSize
+                lik.lik.mpiRank = self.lik.mpiRank
+                lik.lik.nchars = self.lik.nchars
+                lik.lik.npad = self.lik.npad
+                lik.lik.mschars = self.lik.mschars
+                lik.lik.cbase = self.lik.cbase
+                lik.lik.stripeWidth = self.lik.stripeWidth
+                lik.lik.nstripes = self.lik.nstripes
 
     cpdef Lik dup(self):
         """
@@ -1348,10 +1434,10 @@ cdef class Lik:
                 # Leaf nodes only need cLs[0], since character data can be
                 # shared by all model components.
                 cL = CL()
-                cL.prepare(0, self.lik.nchars, self.lik.dim, 1)
+                cL.prepare(0, self.lik.mschars, self.lik.dim, 1)
                 # Set lnScale entries to 0.0 for leaves.  This is the only
                 # place that explicit initialization of lnScale is necessary.
-                memset(cL.cLs[0].lnScale, 0, self.lik.nchars * sizeof(double))
+                memset(cL.cLs[0].lnScale, 0, self.lik.mschars * sizeof(double))
                 ring.aux = cL
 
                 ind = self.alignment.taxaMap.indGet(taxon)
@@ -1361,8 +1447,8 @@ cdef class Lik:
                       taxon.label)
                 chars = self.alignment.getRow(ind)
                 cLMat = cL.cLs[0].cLMat
-                for 0 <= i < self.lik.nchars:
-                    val = self.char_.code2val(chr(chars[i]))
+                for 0 <= i < self.lik.mschars:
+                    val = self.char_.code2val(chr(chars[self.lik.cbase + i]))
                     if val == 0:
                         val = self.char_.any
                     for 0 <= j < self.lik.dim:
@@ -1373,15 +1459,15 @@ cdef class Lik:
         else:
             if cL is None:
                 cL = CL()
-                cL.prepare(self.lik.polarity, self.lik.nchars, self.lik.dim, \
+                cL.prepare(self.lik.polarity, self.lik.mschars, self.lik.dim, \
                   self.lik.compsLen)
                 ring.aux = cL
             else:
                 if self.lik.resize:
-                    cL.resize(self.lik.polarity, self.lik.nchars, \
+                    cL.resize(self.lik.polarity, self.lik.mschars, \
                       self.lik.dim, self.lik.compsLen)
                 else:
-                    cL.prepare(self.lik.polarity, self.lik.nchars, \
+                    cL.prepare(self.lik.polarity, self.lik.mschars, \
                       self.lik.dim, self.lik.compsLen)
 
         # Recurse.
@@ -1435,10 +1521,10 @@ cdef class Lik:
         cdef CxeLikStep variant
 
         if self.lik.resize:
-            self.rootCL.resize(self.lik.polarity, self.lik.nchars, \
+            self.rootCL.resize(self.lik.polarity, self.lik.mschars, \
               self.lik.dim, self.lik.compsLen)
         else:
-            self.rootCL.prepare(self.lik.polarity, self.lik.nchars, \
+            self.rootCL.prepare(self.lik.polarity, self.lik.mschars, \
               self.lik.dim, self.lik.compsLen)
 
         if root is None:
@@ -1595,6 +1681,12 @@ cdef class Lik:
         # Execute the plan.
         CxLikExecute(self.lik)
 
+        IF @enable_mpi@:
+            if self.lik.mpiComm != mpi.MPI_COMM_NULL:
+                mpi.MPI_Allgather(mpi.MPI_IN_PLACE, 0, mpi.MPI_DATATYPE_NULL, \
+                  self.lik.siteLnL, self.lik.mschars, mpi.MPI_DOUBLE, \
+                  self.lik.mpiComm)
+
         # Sum site log-likelihoods.
         ret = 0.0
         for 0 <= i < self.lik.nchars - self.lik.npad:
@@ -1606,6 +1698,11 @@ cdef class Lik:
             cdef Lik lik = self.dup()
             lik._prep(root)
             CxLikExecute(lik.lik)
+            IF @enable_mpi@:
+                if lik.lik.mpiComm != mpi.MPI_COMM_NULL:
+                    mpi.MPI_Allgather(mpi.MPI_IN_PLACE, 0, \
+                      mpi.MPI_DATATYPE_NULL, lik.lik.siteLnL, lik.lik.mschars, \
+                      mpi.MPI_DOUBLE, lik.lik.mpiComm)
             cdef double lnL2 = 0.0
             for 0 <= i < lik.lik.nchars - lik.lik.npad:
                 lnL2 += lik.lik.siteLnL[i]
@@ -1630,6 +1727,12 @@ cdef class Lik:
 
         # Execute the plan.
         CxLikExecute(self.lik)
+
+        IF @enable_mpi@:
+            if self.lik.mpiComm != mpi.MPI_COMM_NULL:
+                mpi.MPI_Allgather(mpi.MPI_IN_PLACE, 0, mpi.MPI_DATATYPE_NULL, \
+                  self.lik.siteLnL, self.lik.mschars, mpi.MPI_DOUBLE, \
+                  self.lik.mpiComm)
 
         # Copy lnLs C array values into a Python list.
         ret = [self.lik.siteLnL[i] \

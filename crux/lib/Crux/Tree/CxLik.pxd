@@ -1,4 +1,6 @@
 from libc cimport uint64_t
+IF @enable_mpi@:
+    cimport mpi4py.mpi_c as mpi
 
 cdef extern from "CxLik.h":
     # Forward declarations.
@@ -48,11 +50,16 @@ cdef extern from "CxLik.h":
         unsigned polarity
         unsigned dim
         unsigned rlen
+        unsigned cbase
         unsigned nchars
+        unsigned mschars
         unsigned npad
         unsigned *charFreqs
         unsigned stripeWidth
         unsigned nstripes
+        @comment_mpi@mpi.MPI_Comm mpiComm
+        @comment_mpi@int mpiSize
+        @comment_mpi@int mpiRank
         bint invalidate
         bint resize
         bint reweight

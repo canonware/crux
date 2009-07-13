@@ -1,5 +1,5 @@
 #include "CxRi.h"
-#include "SFMT/SFMT.h"
+#include "../SFMT/SFMT.h"
 
 void
 CxRiNew(CxtRi *aRi, sfmt_t *aPrng) {

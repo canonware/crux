@@ -2,7 +2,7 @@
 #define CxRi_h
 
 #include "Cx.h"
-#include "SFMT/SFMT.h"
+#include "../SFMT/SFMT.h"
 
 typedef struct {
     // PRNG context.

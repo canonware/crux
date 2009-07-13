@@ -185,8 +185,16 @@ typedef struct {
     // length of rclass and rTri).
     unsigned rlen;
 
+    // Character offset of MPI data stripe within the full alignment.  This is
+    // 0 unless MPI striping is enabled.
+    unsigned cbase;
+
     // Number of characters.
     unsigned nchars;
+
+    // Number of characters in MPI data stripe, or equal to nchars if MPI data
+    // striping is disabled.
+    unsigned mschars;
 
     // Number of pad characters (used to make nchars a multiple of stripeWidth).
     unsigned npad;
@@ -197,6 +205,12 @@ typedef struct {
     // Stripe width and number of stripes (stripe*nstripes == nchars).
     unsigned stripeWidth;
     unsigned nstripes;
+
+#ifdef CxmMpi
+    MPI_Comm mpiComm;
+    int mpiSize;
+    int mpiRank;
+#endif
 
     // True if the cached CL's have been rendered invalid by some model change.
     // This flag is cleared during execution planning, which is when cache

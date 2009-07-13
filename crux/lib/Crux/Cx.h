@@ -25,6 +25,10 @@ typedef unsigned char bool;
 #include <sys/types.h>
 #include <pthread.h>
 
+#ifdef CxmMpi
+#  include <mpi.h>
+#endif
+
 // assert()-alike.  It's a bit prettier and cleaner, but the same idea.
 #define CxmError(a)							\
     do									\

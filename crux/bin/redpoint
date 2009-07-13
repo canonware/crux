@@ -62,7 +62,6 @@ redpoint usage:
     -q, --quiet                  Disable verbose output (*enabled).
     -t, --threaded               Enable thread parallelism (*enabled).
     -u, --unthreaded             Disable thread parallelism.
-    --ppn=<uint>                 Set number of processors per MPI node (*1).
     -s <uint>, --seed=<uint>     Set pseudo-random number generator seed
                                    (*based on system time, microsecond
                                    resolution).
@@ -172,7 +171,6 @@ def parse_options():
       default=True)
     parser.add_option("-u", "--unthreaded", dest="threaded",
       action="store_false")
-    parser.add_option("--ppn", dest="ppn", type="uint", default=1)
     parser.add_option("-s", "--seed", dest="seed", type="uint",
       default=int(time.time() * 1000000) & 0xffffffff)
     parser.add_option("-G", "--gcmult", dest="gcmult", type="float",
@@ -607,9 +605,6 @@ def run(alignment, prefix, prelim, opts):
 
     if prelim is not None:
         mc3.prelim = prelim
-
-    if @enable_mpi@:
-        mc3.ppn = opts.ppn
 
     # Set optional Mc3 configuration parameters.
     if opts.graphDelay is not None: mc3.graphDelay = opts.graphDelay

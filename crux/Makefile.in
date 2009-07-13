@@ -71,9 +71,11 @@ INST_SITE_PXDS := \
     $(PYXS:@srcroot@pkg/%.pyx=@objroot@build/inst/site-packages/Crux/include/%.pxd) \
     $(PKGS:@srcroot@pkg/%.pyx=@objroot@build/inst/site-packages/Crux/include/%.pxd)
 RUN_PXDS := $(PYXS:@srcroot@%.pyx=@objroot@build/run/%.pxd) \
-	$(PKGS:@srcroot@%.pyx=@objroot@build/run/%.pxd)
+	$(PKGS:@srcroot@%.pyx=@objroot@build/run/%.pxd) \
+	$(LIBCX_PXDS:@srcroot@%.pxd=@objroot@build/run/%.pxd)
 INST_PXDS := $(PYXS:@srcroot@%.pyx=@objroot@build/inst/%.pxd) \
-	$(PKGS:@srcroot@%.pyx=@objroot@build/inst/%.pxd)
+	$(PKGS:@srcroot@%.pyx=@objroot@build/inst/%.pxd) \
+	$(LIBCX_PXDS:@srcroot@%.pxd=@objroot@build/inst/%.pxd)
 
 # Cython sources.
 RUN_PYXS := $(PYXS:@srcroot@%.pyx=@objroot@build/run/%.pyx) \
@@ -267,11 +269,11 @@ endif
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -i --infile=$< --outfile=$@
 
-@objroot@build/run/pkg/%.pxd : @srcroot@pkg/%.pxd
+@objroot@build/run/%.pxd : @srcroot@%.pxd
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -r --infile=$< --outfile=$@
 
-@objroot@build/inst/pkg/%.pxd : @srcroot@pkg/%.pxd
+@objroot@build/inst/%.pxd : @srcroot@%.pxd
 	@mkdir -p $(@D)
 	@abs_objroot@cfg -i --infile=$< --outfile=$@
 
@@ -314,14 +316,14 @@ endif
 @objroot@build/run/pkg/%.c : @objroot@build/run/pkg/%.pyx \
 			@objroot@build/run/pkg/%.pxd \
 			| $(RUN_PXDS) $(RUN_PYS) @CYTHON@
-	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@objroot@build/run/pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(patsubst %,-I%,@mpi4py_includes@) @python_config_includes@ -o $@ $<
-	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@objroot@build/run/pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,-P%,@mpi4py_includes@) $(patsubst %,--infile=%,$^) --targetfile=$@ --depfile=$(@:%.c=%.d)
+	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@objroot@build/run/pkg $(sort $(patsubst %,-I%,$(dir $(LIBCX_PXDS:@srcroot@%.pxd=@objroot@build/run/%.pxd)))) $(patsubst %,-I%,@mpi4py_includes@) @python_config_includes@ -o $@ $<
+	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@objroot@build/run/pkg $(sort $(patsubst %,-P%,$(dir $(LIBCX_PXDS:@srcroot@%.pxd=@objroot@build/run/%.pxd)))) $(patsubst %,-P%,@mpi4py_includes@) $(patsubst %,--infile=%,$^) --targetfile=$@ --depfile=$(@:%.c=%.d)
 
 @objroot@build/inst/pkg/%.c : @objroot@build/inst/pkg/%.pyx \
 			@objroot@build/inst/pkg/%.pxd \
 			| $(INST_PXDS) $(INST_PYS) @CYTHON@
-	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@objroot@build/inst/pkg $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(patsubst %,-I%,@mpi4py_includes@) @python_config_includes@ -o $@ $<
-	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@objroot@build/inst/pkg $(sort $(patsubst %,-P%,$(dir $(CSRCS)))) $(patsubst %,-P%,@mpi4py_includes@) $(patsubst %,--infile=%,$^) --targetfile=$@ --depfile=$(@:%.c=%.d)
+	@PYTHON@ @CYTHON@ --directive embedsignature=True -I@objroot@build/inst/pkg $(sort $(patsubst %,-I%,$(dir $(LIBCX_PXDS:@srcroot@%.pxd=@objroot@build/inst/%.pxd)))) $(patsubst %,-I%,@mpi4py_includes@) @python_config_includes@ -o $@ $<
+	@@abs_objroot@cydep $(sort $(patsubst %,-I%,$(dir $(CSRCS)))) $(sort $(patsubst %,-I%,$(dir $(CSRCS:@srcroot@lib/%=@objroot@lib/%)))) -I/usr/include $(filter -I%,$(CPPFLAGS)) @python_config_includes@ -P@objroot@build/inst/pkg $(sort $(patsubst %,-P%,$(dir $(LIBCX_PXDS:@srcroot@%.pxd=@objroot@build/inst/%.pxd)))) $(patsubst %,-P%,@mpi4py_includes@) $(patsubst %,--infile=%,$^) --targetfile=$@ --depfile=$(@:%.c=%.d)
 
 #===============================================================================
 @objroot@build/run/pkg/%.o : @objroot@build/run/pkg/%.c

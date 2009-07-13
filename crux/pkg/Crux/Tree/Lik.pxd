@@ -48,6 +48,8 @@ cdef class Lik:
       bint catMedian, bint invar)
     cdef void _decompModel(self, CxtLikModel *modelP) except *
     cdef void _deallocModel(self, CxtLikModel *modelP, unsigned model)
+    IF @enable_mpi@:
+        cdef void configMpi(self, mpi.MPI_Comm mpiComm) except *
 
     cpdef Lik unpickle(self, str pickle)
     cdef void _dup(self, Lik lik) except *

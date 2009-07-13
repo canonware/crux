@@ -404,7 +404,6 @@ CxLikExecuteStripeDna(CxtLik *lik, unsigned stripe) {
 			}
 		    }
 		    parentLnScale[c] = childLnScale[c];
-		    //               ^
 		}
 		break;
 	    } case CxeLikStepComputeI: {
@@ -459,7 +458,6 @@ CxLikExecuteStripeDna(CxtLik *lik, unsigned stripe) {
 			}
 		    }
 		    parentLnScale[c] = childLnScale[c];
-		    //               ^
 		}
 		break;
 	    } case CxeLikStepMergeL: {
@@ -515,7 +513,6 @@ CxLikExecuteStripeDna(CxtLik *lik, unsigned stripe) {
 			}
 		    }
 		    parentLnScale[c] += childLnScale[c];
-		    //               ^^
 		}
 		break;
 	    } case CxeLikStepMergeI: {
@@ -570,7 +567,6 @@ CxLikExecuteStripeDna(CxtLik *lik, unsigned stripe) {
 			}
 		    }
 		    parentLnScale[c] += childLnScale[c];
-		    //               ^^
 		}
 		break;
 	    } default: {
@@ -625,11 +621,11 @@ CxLikExecuteStripeDna(CxtLik *lik, unsigned stripe) {
 	    }
 	}
 	double lnL = (log(L) + lik->rootCLC->lnScale[c])
-	  * (double)lik->charFreqs[c];
+	  * (double)lik->charFreqs[lik->cbase + c];
 	if (isnan(lnL)) {
 	    lnL = -INFINITY;
 	}
-	lik->siteLnL[c] = lnL;
+	lik->siteLnL[lik->cbase + c] = lnL;
     }
 }
 
@@ -835,11 +831,11 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 	    }
 	}
 	double lnL = (log(L) + lik->rootCLC->lnScale[c])
-	  * (double)lik->charFreqs[c];
+	  * (double)lik->charFreqs[lik->cbase + c];
 	if (isnan(lnL)) {
 	    lnL = -INFINITY;
 	}
-	lik->siteLnL[c] = lnL;
+	lik->siteLnL[lik->cbase + c] = lnL;
     }
 }
 
@@ -912,7 +908,7 @@ CxpLikThreaded(void) {
 void
 CxLikExecute(CxtLik *lik) {
     if (lik->stepsLen > 0) {
-	if (CxNcpus > 1) {
+	if (CxNcpus > 1 && lik->nstripes > 1) {
 	    pthread_once(&CxpLikOnce, CxpLikThreaded);
 	}
 

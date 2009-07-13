@@ -485,6 +485,13 @@ EOF
 fi
 AC_SUBST([enable_mpi])
 AC_SUBST([mpi4py_includes])
+if test "x$enable_mpi" = "x1" ; then
+  AC_DEFINE([CxmMpi])
+  comment_mpi=""
+else
+  comment_mpi="# "
+fi
+AC_SUBST([comment_mpi])
 
 dnl ============================================================================
 dnl Make sure the version of flex found is sufficient.
