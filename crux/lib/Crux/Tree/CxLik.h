@@ -250,6 +250,9 @@ typedef struct {
     // Array in which to place site likelihoods.
     double *siteLnL;
 
+    // Array in which to place sums of site likelihoods for each stripe.
+    double *stripeLnL;
+
     // Updating a tree's conditional likelihoods in order to compute the tree's
     // lnL is performed in two stages.  The first stage is a post-order tree
     // traversal that computes what steps must be taken in order to update the

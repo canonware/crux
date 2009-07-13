@@ -192,6 +192,7 @@ cdef class Lik:
             free(lik.models)
             free(lik.comps)
             free(lik.siteLnL)
+            free(lik.stripeLnL)
             free(lik.steps)
             free(lik)
             self.lik = NULL
@@ -297,6 +298,11 @@ cdef class Lik:
         self.lik.siteLnL = <double *>malloc(self.lik.nchars * sizeof(double))
         if self.lik.siteLnL == NULL:
             raise MemoryError("Error allocating siteLnL")
+
+        self.lik.stripeLnL = <double *>malloc(self.lik.nstripes * \
+          sizeof(double))
+        if self.lik.stripeLnL == NULL:
+            raise MemoryError("Error allocating stripeLnL")
 
     cdef void _init2(self, Alignment alignment, Character char_) except *:
         cdef unsigned stepsMax, i
@@ -509,7 +515,7 @@ cdef class Lik:
             """
             cdef int mpiSize, mpiRank
             cdef unsigned npad, nchars, mschars
-            cdef double *siteLnL
+            cdef double *stripeLnL, *siteLnL
 
             # Get communicator info.
             mpi.MPI_Comm_size(mpiComm, &mpiSize)
@@ -535,12 +541,17 @@ cdef class Lik:
             else:
                 npad = self.lik.npad
             nchars = self.alignment.nchars
-            # Resize siteLnL before storing computed results.
+            # Resize siteLnL and stripeLnL before storing computed results.
             siteLnL = <double *>realloc(self.lik.siteLnL, nchars * \
               sizeof(double))
             if siteLnL == NULL:
                 raise MemoryError("Error allocating siteLnL")
             self.lik.siteLnL = siteLnL
+            stripeLnL = <double *>realloc(self.lik.stripeLnL, mpiSize * \
+              sizeof(double))
+            if stripeLnL == NULL:
+                raise MemoryError("Error allocating stripeLnL")
+            self.lik.stripeLnL = stripeLnL
             # Store results.
             self.lik.mpiComm = mpiComm
             self.lik.mpiSize = mpiSize
@@ -604,7 +615,7 @@ cdef class Lik:
             lik.lik.comps[i].cmult = self.lik.comps[i].cmult
 
         IF @enable_mpi@:
-            cdef double *siteLnL
+            cdef double *siteLnL, *stripeLnL
 
             if self.lik.mpiComm != mpi.MPI_COMM_NULL:
                 siteLnL = <double *>realloc(lik.lik.siteLnL, self.lik.nchars * \
@@ -612,6 +623,13 @@ cdef class Lik:
                 if siteLnL == NULL:
                     raise MemoryError("Error allocating siteLnL")
                 lik.lik.siteLnL = siteLnL
+
+                stripeLnL = <double *>realloc(lik.lik.stripeLnL, \
+                  self.lik.mpiSize * sizeof(double))
+                if stripeLnL == NULL:
+                    raise MemoryError("Error allocating stripeLnL")
+                lik.lik.stripeLnL = stripeLnL
+
                 lik.lik.mpiComm = self.lik.mpiComm
                 lik.lik.mpiSize = self.lik.mpiSize
                 lik.lik.mpiRank = self.lik.mpiRank
@@ -1681,16 +1699,21 @@ cdef class Lik:
         # Execute the plan.
         CxLikExecute(self.lik)
 
+        # Sum stripe log-likelihoods.
+        ret = 0.0
         IF @enable_mpi@:
             if self.lik.mpiComm != mpi.MPI_COMM_NULL:
                 mpi.MPI_Allgather(mpi.MPI_IN_PLACE, 0, mpi.MPI_DATATYPE_NULL, \
-                  self.lik.siteLnL, self.lik.mschars, mpi.MPI_DOUBLE, \
-                  self.lik.mpiComm)
+                  self.lik.stripeLnL, 1, mpi.MPI_DOUBLE, self.lik.mpiComm)
 
-        # Sum site log-likelihoods.
-        ret = 0.0
-        for 0 <= i < self.lik.nchars - self.lik.npad:
-            ret += self.lik.siteLnL[i]
+                for 0 <= i < self.lik.mpiSize:
+                    ret += self.lik.stripeLnL[i]
+            else:
+                for 0 <= i < self.lik.nstripes:
+                    ret += self.lik.stripeLnL[i]
+        ELSE:
+            for 0 <= i < self.lik.nstripes:
+                ret += self.lik.stripeLnL[i]
 
         IF LikDebug:
             # Validate with a fresh Lik, in order to detect cache-related
@@ -1698,14 +1721,21 @@ cdef class Lik:
             cdef Lik lik = self.dup()
             lik._prep(root)
             CxLikExecute(lik.lik)
+            cdef double lnL2 = 0.0
             IF @enable_mpi@:
                 if lik.lik.mpiComm != mpi.MPI_COMM_NULL:
                     mpi.MPI_Allgather(mpi.MPI_IN_PLACE, 0, \
-                      mpi.MPI_DATATYPE_NULL, lik.lik.siteLnL, lik.lik.mschars, \
+                      mpi.MPI_DATATYPE_NULL, lik.lik.stripeLnL, 1, \
                       mpi.MPI_DOUBLE, lik.lik.mpiComm)
-            cdef double lnL2 = 0.0
-            for 0 <= i < lik.lik.nchars - lik.lik.npad:
-                lnL2 += lik.lik.siteLnL[i]
+
+                    for 0 <= i < lik.lik.mpiSize:
+                        lnL2 += lik.lik.stripeLnL[i]
+                else:
+                    for 0 <= i < lik.lik.nstripes:
+                        lnL2 += lik.lik.stripeLnL[i]
+            ELSE:
+                for 0 <= i < lik.lik.nstripes:
+                    lnL2 += lik.lik.stripeLnL[i]
             if not (0.99 < lnL2/ret and lnL2/ret < 1.01) and \
               not (isinf(lnL2) == -1 and isinf(ret) == -1):
                 raise AssertionError( \

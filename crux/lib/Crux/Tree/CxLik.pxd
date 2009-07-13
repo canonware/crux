@@ -72,6 +72,7 @@ cdef extern from "CxLik.h":
         unsigned compsMax
         CxtLikCL *rootCLC
         double *siteLnL
+        double *stripeLnL
         CxtLikStep *steps
         unsigned stepsLen
         unsigned stepsMax

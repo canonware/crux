@@ -611,6 +611,7 @@ CxLikExecuteStripeDna(CxtLik *lik, unsigned stripe) {
 	}
     }
 
+    double stripeLnL = 0.0;
     for (unsigned c = cMin; c < cLim; c++) {
 	double L = 0.0;
 	for (unsigned mc = 0; mc < ncomp; mc++) {
@@ -626,7 +627,19 @@ CxLikExecuteStripeDna(CxtLik *lik, unsigned stripe) {
 	    lnL = -INFINITY;
 	}
 	lik->siteLnL[lik->cbase + c] = lnL;
+	stripeLnL += lnL;
     }
+#ifdef CxmMpi
+    if (lik->mschars == lik->nchars) {
+#endif
+	// Thread striping.
+	lik->stripeLnL[stripe] = stripeLnL;
+#ifdef CxmMpi
+    } else {
+	// MPI striping.
+	lik->stripeLnL[lik->cbase / lik->mschars] = stripeLnL;
+    }
+#endif
 }
 
 static void
@@ -821,6 +834,7 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 	}
     }
 
+    double stripeLnL = 0.0;
     for (unsigned c = cMin; c < cLim; c++) {
 	double L = 0.0;
 	for (unsigned mc = 0; mc < ncomp; mc++) {
@@ -836,7 +850,19 @@ CxLikExecuteStripe(CxtLik *lik, unsigned stripe) {
 	    lnL = -INFINITY;
 	}
 	lik->siteLnL[lik->cbase + c] = lnL;
+	stripeLnL += lnL;
     }
+#ifdef CxmMpi
+    if (lik->mschars == lik->nchars) {
+#endif
+	// Thread striping.
+	lik->stripeLnL[stripe] = stripeLnL;
+#ifdef CxmMpi
+    } else {
+	// MPI striping.
+	lik->stripeLnL[lik->cbase / lik->mschars] = stripeLnL;
+    }
+#endif
 }
 
 // Worker thread entry function.
