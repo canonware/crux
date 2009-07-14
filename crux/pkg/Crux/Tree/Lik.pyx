@@ -547,8 +547,7 @@ cdef class Lik:
             if siteLnL == NULL:
                 raise MemoryError("Error allocating siteLnL")
             self.lik.siteLnL = siteLnL
-            stripeLnL = <double *>realloc(self.lik.stripeLnL, mpiSize * \
-              sizeof(double))
+            stripeLnL = <double *>realloc(self.lik.stripeLnL, sizeof(double))
             if stripeLnL == NULL:
                 raise MemoryError("Error allocating stripeLnL")
             self.lik.stripeLnL = stripeLnL
@@ -1703,8 +1702,8 @@ cdef class Lik:
         ret = 0.0
         IF @enable_mpi@:
             if self.lik.mpiComm != mpi.MPI_COMM_NULL:
-                mpi.MPI_Allreduce(&self.lik.stripeLnL[self.lik.mpiRank], &ret, \
-                  1, mpi.MPI_DOUBLE, mpi.MPI_SUM, self.lik.mpiComm)
+                mpi.MPI_Allreduce(&self.lik.stripeLnL[0], &ret, 1, \
+                  mpi.MPI_DOUBLE, mpi.MPI_SUM, self.lik.mpiComm)
             else:
                 for 0 <= i < self.lik.nstripes:
                     ret += self.lik.stripeLnL[i]
@@ -1721,8 +1720,8 @@ cdef class Lik:
             cdef double lnL2 = 0.0
             IF @enable_mpi@:
                 if lik.lik.mpiComm != mpi.MPI_COMM_NULL:
-                    mpi.MPI_Allreduce(&lik.lik.stripeLnL[lik.lik.mpiRank], \
-                      &lnL2, 1, mpi.MPI_DOUBLE, mpi.MPI_SUM, lik.lik.mpiComm)
+                    mpi.MPI_Allreduce(&lik.lik.stripeLnL[0], &lnL2, 1, \
+                      mpi.MPI_DOUBLE, mpi.MPI_SUM, lik.lik.mpiComm)
                 else:
                     for 0 <= i < lik.lik.nstripes:
                         lnL2 += lik.lik.stripeLnL[i]
