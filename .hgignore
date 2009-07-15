@@ -13,9 +13,9 @@ syntax: regexp
 ^crux/cydep$
 ^crux/cython$
 ^crux/Makefile$
-^crux/lib/Cx_defs\.h$
-^crux/lib/CxNewickLexer.[ch]$
-^crux/lib/DistMatrix/CxDistMatrixLexer.[ch]$
+^crux/lib/Crux/Cx_defs\.h$
+^crux/lib/Crux/CxNewickLexer.[ch]$
+^crux/lib/Crux/DistMatrix/CxDistMatrixLexer.[ch]$
 ^crux/pkg/(Parsing)\.c$
 ^crux/pkg/Crux/(__init__|Character|CTMatrix|Fasta|Newick|Taxa|Tree)\.c$
 ^crux/pkg/Crux/DistMatrix/(__init__|Nj)\.c$
