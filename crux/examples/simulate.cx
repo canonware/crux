@@ -5,7 +5,7 @@
 #
 # Usage: crux simulate.cx - <ntaxa> <nchars> <vMean> <outPrefix>
 #
-# For example: crux simulate.cx 5 250 0.1 sim
+# For example: crux simulate.cx - 5 250 0.1 sim
 
 import math
 import random
