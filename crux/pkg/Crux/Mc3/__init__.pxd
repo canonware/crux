@@ -25,10 +25,6 @@ cdef class Mc3:
     cdef readonly Alignment alignment
     cdef public str outPrefix
 
-    # If set, used as the basis for computing topological risk.
-    cdef Post _prelim
-    cdef list _prelimParts
-
     # Control parameters for diagnostic output.
     cdef double _graphDelay
     cdef double _emaAlpha
@@ -174,7 +170,6 @@ cdef class Mc3:
     IF @enable_mpi@:
         cdef void initComms(self) except *
     cdef void initLogs(self) except *
-    cdef void initPrelim(self) except *
     cdef void initSwapInfo(self) except *
     cdef void initSwapStats(self) except *
     cdef void initPropStats(self) except *
@@ -209,10 +204,6 @@ cdef class Mc3:
     cdef void randomDnaQ(self, Lik lik, unsigned model, sfmt_t *prng) except *
     cpdef Lik randomLik(self, Tree tree=*)
     cpdef run(self, bint verbose=*, list liks=*)
-
-    cdef Post getPrelim(self)
-    cdef void setPrelim(self, Post prelim) except *
-    # property prelim
 
     cdef double getGraphDelay(self)
     cdef void setGraphDelay(self, double graphDelay)

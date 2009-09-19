@@ -72,24 +72,13 @@ redpoint usage:
     -g <stages>,
        --stages=<stages>         Comma-separated list composed of:
                                    mc3: Run Mc3 analysis (*enabled).
-                                   mc3post: Compute statistics on 'mc3'
-                                            posterior distribution (*enabled).
-                                   dt: Run Mc3 analysis that incorporates
-                                       decision-theoretic topological risk,
-                                       using 'mc3post' results as the
-                                       preliminary distribution.
-                                   dtpost: Compute statistics on 'dt' posterior
-                                           distribution.
+                                   post: Compute statistics on posterior
+                                         distribution (*enabled).
     -i <file>,                   Input DNA alignment, in FASTA format.
        --input-file=<file>
-    -m <prefix>,
-       --mc3-prefix=<prefix>     Input/output path prefix, used as the base
-                                   name for files assocated with the 'mc3' and
-                                   'mc3post' execution stages.
-    -d <prefix>,
-       --dt-prefix=<prefix>      Output path prefix, used as the base name for
-                                   files associated with the 'dt' and 'dtpost'
-                                   execution stages.
+    -p <prefix>,
+       --prefix=<prefix>     Input/output path prefix, used as the base name
+                               for Mc3 output files.
 
   Mc3 options (see Crux.Mc3.Mc3.optName for documentation):
 
@@ -176,10 +165,9 @@ def parse_options():
     parser.add_option("-G", "--gcmult", dest="gcmult", type="float",
       default=1.0)
 
-    parser.add_option("-g", "--stages", dest="stages", default="mc3,mc3post")
+    parser.add_option("-g", "--stages", dest="stages", default="mc3,post")
     parser.add_option("-i", "--input-file", dest="inFilename", default=None)
-    parser.add_option("-m", "--mc3-prefix", dest="mc3Prefix", default=None)
-    parser.add_option("-d", "--dt-prefix", dest="dtPrefix", default=None)
+    parser.add_option("-p", "--prefix", dest="prefix", default=None)
 
     parser.add_option("--graphDelay", dest="graphDelay", type="float",
       default=None)
@@ -301,19 +289,13 @@ def parse_options():
         sys.exit(0)
 
     opts.stage_mc3 = False
-    opts.stage_mc3post = False
-    opts.stage_dt = False
-    opts.stage_dtpost = False
+    opts.stage_post = False
     stages = opts.stages.split(",")
     for stage in stages:
         if stage == "mc3":
             opts.stage_mc3 = True
-        elif stage == "mc3post":
-            opts.stage_mc3post = True
-        elif stage == "dt":
-            opts.stage_dt = True
-        elif stage == "dtpost":
-            opts.stage_dtpost = True
+        elif stage == "post":
+            opts.stage_post = True
         else:
             print >> sys.stderr, "Invalid stage: %s" % stage
             print >> sys.stderr, helpformatter.format_usage("")
@@ -324,13 +306,8 @@ def parse_options():
         print >> sys.stderr, helpformatter.format_usage("")
         sys.exit(1)
 
-    if opts.mc3Prefix is None:
-        print >> sys.stderr, "Mc3 input/output prefix must be specified"
-        print >> sys.stderr, helpformatter.format_usage("")
-        sys.exit(1)
-
-    if (opts.stage_dt or opts.stage_dtpost) and opts.dtPrefix is None:
-        print >> sys.stderr, "DT output prefix must be specified"
+    if opts.prefix is None:
+        print >> sys.stderr, "Input/output prefix must be specified"
         print >> sys.stderr, helpformatter.format_usage("")
         sys.exit(1)
 
@@ -600,11 +577,8 @@ def writePostStats(post, prefix, opts):
         conTree.render(lengths=True, lengthFormat="%.6f", outFile=f)
         f.close()
 
-def run(alignment, prefix, prelim, opts):
+def run(alignment, prefix, opts):
     mc3 = Crux.Mc3.Mc3(alignment, prefix)
-
-    if prelim is not None:
-        mc3.prelim = prelim
 
     # Set optional Mc3 configuration parameters.
     if opts.graphDelay is not None: mc3.graphDelay = opts.graphDelay
@@ -745,7 +719,7 @@ alignment = Crux.CTMatrix.Alignment(matrix=cTMatrix)
 alignment.compact()
 
 if opts.stage_mc3:
-    run(alignment, opts.mc3Prefix, None, opts)
+    run(alignment, opts.prefix, opts)
 
 if @enable_mpi@:
     # Only one node needs to do post-processing.
@@ -754,25 +728,11 @@ if @enable_mpi@:
 else:
     rank = 0
 
-if (opts.stage_mc3post and rank == 0) or opts.stage_dt:
-    mc3post = Crux.Mc3.Post.Post(alignment, opts.mc3Prefix, opts.burnin, \
+if opts.stage_post and rank == 0:
+    post = Crux.Mc3.Post.Post(alignment, opts.prefix, opts.burnin, \
       opts.verbose, lazy=True)
-    mc3post.parseS()
-    if mc3post.nsamples == 0:
+    post.parseS()
+    if post.nsamples == 0:
         print >> sys.stderr, "No samples"
         sys.exit(1)
-
-if opts.stage_mc3post and rank == 0:
-    writePostStats(mc3post, opts.mc3Prefix, opts)
-
-if opts.stage_dt:
-    run(alignment, opts.dtPrefix, mc3post, opts)
-
-if opts.stage_dtpost and rank == 0:
-    dtpost = Crux.Mc3.Post.Post(alignment, opts.dtPrefix, opts.burnin, \
-      opts.verbose, lazy=True)
-    dtpost.parseS()
-    if dtpost.nsamples == 0:
-        print >> sys.stderr, "No samples"
-        sys.exit(1)
-    writePostStats(dtpost, opts.dtPrefix, opts)
+    writePostStats(post, opts.prefix, opts)

@@ -760,8 +760,6 @@ cdef class Mc3:
             f.write("Taxa: %d\n" % self.alignment.ntaxa)
             f.write("Characters: %d\n" % nchars)
             f.write("Unique site patterns: %d\n" % self.alignment.nchars)
-            f.write("Prelim: %s\n" % \
-              ("specified" if self._prelim is not None else "unspecified"))
 
             f.write("Configuration parameters:\n")
             f.write("  outPrefix: %r\n" % self.outPrefix)
@@ -843,23 +841,6 @@ cdef class Mc3:
         self.sFile.flush()
         if self.verbose:
             sys.stdout.write("s\tstep\t[ lnLs ] Rcov\n")
-
-    cdef void initPrelim(self) except *:
-        cdef list parts, decos
-        cdef Part part
-        cdef object deco
-
-        if self._prelim is not None:
-            self._prelim.parseT()
-            # Create a list of Part's that is sorted by vec, for later use by
-            # Chain.computeLnRisk().
-            parts = self._prelim.getSumt().getParts()
-            decos = []
-            for 0 <= i < len(parts):
-                part = <Part>parts[i]
-                decos.append((part.vec, part))
-            decos.sort()
-            self._prelimParts = [deco[1] for deco in decos]
 
     # Allocate swapInfo matrix.
     cdef void initSwapInfo(self) except *:
@@ -1685,7 +1666,6 @@ cdef class Mc3:
             self.initComms()
         try:
             self.initLogs()
-            self.initPrelim()
             self.initSwapInfo()
             self.initSwapStats()
             self.initPropStats()
@@ -1750,21 +1730,6 @@ cdef class Mc3:
             self.lWrite("Finish run: %s\n" % \
               time.strftime("%Y/%m/%d %H:%M:%S (%Z)", \
               time.localtime(time.time())))
-
-    cdef Post getPrelim(self):
-        return self._prelim
-    cdef void setPrelim(self, Post prelim) except *:
-        self._prelim = prelim
-    property prelim:
-        """
-            Preliminary posterior distribution, used to compute topological
-            risk.  If set, relative risk is incorporated into the proposal
-            ratio for proposals that change the tree.
-        """
-        def __get__(self):
-            return self.getPrelim()
-        def __set__(self, Post prelim):
-            self.setPrelim(prelim)
 
     cdef double getGraphDelay(self):
         return self._graphDelay
